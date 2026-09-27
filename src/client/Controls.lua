@@ -1,0 +1,94 @@
+--!strict
+-- Controls (ModuleScript) -> StarterPlayerScripts.Controls
+-- Reads keyboard, gamepad, and touch into one frame of car input. Axes run
+-- -1..1 with positive meaning right, gas, or nose down.
+--
+--   Keyboard  W/S or Up/Down gas and brake, A/D or Left/Right steer,
+--             Space or Left Shift jets, Q/E roll, R reset
+--   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
+--             pitch in the air), A jets, LB/RB roll, Y reset
+--   Touch     see TouchControls
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local InputAxes = require(ReplicatedStorage.InputAxes)
+local Tuning = require(ReplicatedStorage.Tuning)
+local TouchControls = require(script.Parent.TouchControls)
+
+local K = Enum.KeyCode
+local PAD = Enum.UserInputType.Gamepad1
+
+local Controls = {}
+
+export type Frame = {
+	steer: number,
+	throttle: number,
+	pitch: number, -- gamepad stick only; the controller adds throttle in the air
+	roll: number,
+	jet: boolean,
+	reset: boolean,
+}
+
+local function anyKey(codes: { Enum.KeyCode }): boolean
+	for _, code in codes do
+		if UserInputService:IsKeyDown(code) then
+			return true
+		end
+	end
+	return false
+end
+
+function Controls.read(): Frame
+	-- Typing in chat must not drive the car.
+	local typing = UserInputService:GetFocusedTextBox() ~= nil
+	local function key(codes: { Enum.KeyCode }): boolean
+		return not typing and anyKey(codes)
+	end
+
+	local stickX, stickY, gas, brake = 0, 0, 0, 0
+	local padJet, padRollLeft, padRollRight, padReset = false, false, false, false
+	if UserInputService.GamepadEnabled then
+		local stickZone = Tuning.Input.StickDeadzone
+		local triggerZone = Tuning.Input.TriggerDeadzone
+		for _, input in UserInputService:GetGamepadState(PAD) do
+			if input.KeyCode == K.Thumbstick1 then
+				stickX = InputAxes.deadzone(input.Position.X, stickZone)
+				stickY = InputAxes.deadzone(input.Position.Y, stickZone)
+			elseif input.KeyCode == K.ButtonR2 then
+				gas = InputAxes.deadzone(input.Position.Z, triggerZone)
+			elseif input.KeyCode == K.ButtonL2 then
+				brake = InputAxes.deadzone(input.Position.Z, triggerZone)
+			end
+		end
+		padJet = UserInputService:IsGamepadButtonDown(PAD, K.ButtonA)
+		padRollLeft = UserInputService:IsGamepadButtonDown(PAD, K.ButtonL1)
+		padRollRight = UserInputService:IsGamepadButtonDown(PAD, K.ButtonR1)
+		padReset = UserInputService:IsGamepadButtonDown(PAD, K.ButtonY)
+	end
+
+	local touch = TouchControls.read()
+
+	return {
+		steer = InputAxes.combine({
+			InputAxes.fromKeys(key({ K.A, K.Left }), key({ K.D, K.Right })),
+			stickX,
+			touch.steer,
+		}),
+		throttle = InputAxes.combine({
+			InputAxes.fromKeys(key({ K.S, K.Down }), key({ K.W, K.Up })),
+			gas - brake,
+			touch.throttle,
+		}),
+		pitch = stickY,
+		roll = InputAxes.combine({
+			InputAxes.fromKeys(key({ K.Q }), key({ K.E })),
+			InputAxes.fromKeys(padRollLeft, padRollRight),
+			touch.roll,
+		}),
+		jet = key({ K.Space, K.LeftShift }) or padJet or touch.jet,
+		reset = key({ K.R }) or padReset or touch.reset,
+	}
+end
+
+return Controls

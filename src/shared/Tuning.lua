@@ -1,0 +1,128 @@
+--!strict
+-- Tuning (ModuleScript) -> ReplicatedStorage.Tuning
+-- Every M0 feel number in one place. Distances are studs, times are seconds,
+-- angles are degrees unless a name says otherwise.
+
+local Tuning = {}
+
+Tuning.World = {
+	-- Roblox default is 196.2. Lower means more hang time per launch.
+	Gravity = 130,
+	-- The client resets its car below this height.
+	FallResetY = -100,
+}
+
+-- The one M0 car. The server writes these onto the car as attributes and the
+-- client reads them from there, never from here, so later milestones can swap
+-- in saved stats without touching the client.
+Tuning.StarterCar = {
+	TopSpeed = 110, -- ground speed the wheels drive toward
+	JetPower = 150, -- push along the nose, as acceleration
+	JetFuel = 3, -- seconds of burn in a full tank
+	FuelRecharge = 1.5, -- seconds of burn regained per second on the ground
+	TurnRate = 4, -- air spin rate at full input, radians per second
+	Grip = 1.3, -- wheel friction
+	RollUnlocked = true,
+}
+
+Tuning.Chassis = {
+	HullSize = Vector3.new(6, 1.6, 11),
+	HullDensity = 1,
+	HullFriction = 0.3, -- low, so a car on its roof slides instead of sticking
+	WheelRadius = 1.4,
+	WheelWidth = 1.1,
+	WheelDensity = 0.8,
+	HubSize = 0.8,
+	HubDensity = 2,
+	TrackHalf = 3.6, -- wheel center distance from the middle, sideways
+	WheelbaseHalf = 3.8, -- wheel center distance from the middle, lengthways
+	MountY = -0.2, -- suspension mount height on the hull
+	-- Suspension travel along the mount, relative to the mount point.
+	SlideLow = -1,
+	SlideHigh = 0.3,
+	SpringTop = 2.5, -- spring anchor height above the mount
+	-- Stiffness is derived from car mass and gravity so the car rests this far
+	-- above full droop. Damping is this fraction of critical damping.
+	SuspensionSag = 0.7,
+	DampingRatio = 0.35,
+	SeatOffset = Vector3.new(0, 0.9, 0.8),
+}
+
+Tuning.Drive = {
+	DriveTorque = 2000,
+	BrakeTorque = 5000,
+	CoastTorque = 150,
+	ReverseFraction = 0.4, -- reverse top speed as a fraction of TopSpeed
+	BrakeSpeed = 2, -- below this speed, brake turns into reverse
+	MaxSteerAngle = 32,
+	HighSpeedSteerFactor = 0.35, -- fraction of full lock left at top speed
+	-- Flips wheel spin direction if the car drives backward on gas.
+	SpinSign = -1,
+}
+
+Tuning.Air = {
+	AngularAccel = 18, -- radians per second squared toward the target spin
+	IdleDamping = 0.6, -- how fast spin bleeds off with no input
+	TorquePerMass = 400, -- AirSpin max torque is this times car mass
+	PitchScale = 1,
+	YawScale = 1,
+	RollScale = 1.2,
+	InvertPitch = false,
+}
+
+Tuning.Jets = {
+	RelightFuel = 0.25, -- fuel needed to start a new burn
+}
+
+Tuning.Contact = {
+	ProbeMargin = 0.6, -- extra ray length past the wheel radius
+	AirDelay = 0.1,
+	LandWheels = 2,
+}
+
+Tuning.Reset = {
+	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
+	StuckSpeed = 4,
+	StuckTime = 2.5,
+}
+
+Tuning.Input = {
+	StickDeadzone = 0.15,
+	TriggerDeadzone = 0.05,
+}
+
+Tuning.Camera = {
+	Distance = 22,
+	Height = 6,
+	FocusHeight = 2,
+	TurnSharpness = 6, -- higher follows the car's heading faster
+	FollowVelocityAbove = 20, -- in the air, look along travel above this speed
+	MaxPitch = 0.6, -- limits how far above or below the car the camera swings
+	Fov = 70,
+	FovBoost = 20,
+	FovFullSpeed = 300, -- speed where the FOV boost is fully applied
+}
+
+Tuning.TestPark = {
+	GroundSize = 2048,
+	GroundCenterZ = -150,
+	RunwayWidth = 60,
+	SpawnZ = 700,
+	SpawnHeight = 2.6,
+	SpawnLanes = 5,
+	SpawnLaneSpacing = 12,
+	RampStartZ = 200,
+	RampWidth = 40,
+	RampThickness = 2,
+	RampPlanks = 12,
+	RampPlankLength = 10,
+	RampStartAngle = 3,
+	RampEndAngle = 35,
+	PadPlanks = 4, -- the last planks of the ramp push the car to LaunchSpeed
+	LaunchSpeed = 300,
+	BoardSpacing = 100,
+	BoardCount = 10,
+	BoardX = 70,
+}
+
+return Tuning
