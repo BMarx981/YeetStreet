@@ -154,6 +154,12 @@ Tuning.TestPark = {
 	GroundFrontZ = -6000, -- far edge past the ramp
 	GroundHalfWidth = 3000,
 	GroundTile = 2048,
+	-- Quarter pipe around the ground's edge, curving from flat to vertical at
+	-- the edge, with a straight wall on top.
+	WallRadius = 60,
+	WallSteps = 10,
+	WallThickness = 2,
+	WallTopHeight = 40,
 	RunwayWidth = 60,
 	SpawnZ = 700,
 	SpawnHeight = 2.6,

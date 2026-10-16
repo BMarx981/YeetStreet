@@ -143,11 +143,76 @@ local function buildGround(parent: Instance)
 	end
 end
 
+-- One straight stretch of the edge wall, centered on `center` at the ground's
+-- edge: a quarter pipe from flat up to vertical, with a straight wall on top.
+-- `out` points off the ground; each part's X axis runs along the edge.
+local function buildWallStretch(parent: Instance, center: Vector3, out: Vector3, length: number)
+	local R = P.WallRadius
+	local arcCenter = center - out * R + Vector3.yAxis * R
+	local function arcPoint(angle: number): Vector3
+		return arcCenter + out * (R * math.sin(angle)) - Vector3.yAxis * (R * math.cos(angle))
+	end
+
+	-- Planks overlap a little so the seams between steps stay closed.
+	for i = 1, P.WallSteps do
+		local a = arcPoint(math.rad(90) * (i - 1) / P.WallSteps)
+		local b = arcPoint(math.rad(90) * i / P.WallSteps)
+		local mid = (a + b) / 2
+		local face = CFrame.lookAt(mid, b, (arcCenter - mid).Unit)
+		block(
+			parent,
+			"Pipe",
+			Vector3.new(length, P.WallThickness, (b - a).Magnitude + 0.4),
+			face * CFrame.new(0, -P.WallThickness / 2, 0),
+			Color3.fromRGB(150, 154, 162),
+			Enum.Material.Concrete
+		)
+	end
+
+	local top = center + Vector3.yAxis * (R + P.WallTopHeight / 2) + out * (P.WallThickness / 2)
+	block(
+		parent,
+		"Wall",
+		Vector3.new(length, P.WallTopHeight, P.WallThickness),
+		CFrame.lookAt(top, top + out),
+		Color3.fromRGB(120, 124, 132),
+		Enum.Material.Concrete
+	)
+end
+
+-- Runs the wall from `from` to `to` along one edge, in stretches of at most
+-- GroundTile studs.
+local function buildWallEdge(parent: Instance, from: Vector3, to: Vector3, out: Vector3)
+	local total = (to - from).Magnitude
+	local along = (to - from).Unit
+	local done = 0
+	while done < total do
+		local length = math.min(P.GroundTile, total - done)
+		buildWallStretch(parent, from + along * (done + length / 2), out, length)
+		done += length
+	end
+end
+
+-- Quarter pipes all around the ground, so a car heading off the edge rides up
+-- the wall and drops back inside. At the corners the two pipes cross.
+local function buildEdgeWall(parent: Instance)
+	local wall = Instance.new("Folder")
+	wall.Name = "EdgeWall"
+	wall.Parent = parent
+
+	local hw, back, front = P.GroundHalfWidth, P.GroundBackZ, P.GroundFrontZ
+	buildWallEdge(wall, Vector3.new(-hw, 0, front), Vector3.new(hw, 0, front), -Vector3.zAxis)
+	buildWallEdge(wall, Vector3.new(-hw, 0, back), Vector3.new(hw, 0, back), Vector3.zAxis)
+	buildWallEdge(wall, Vector3.new(-hw, 0, back), Vector3.new(-hw, 0, front), -Vector3.xAxis)
+	buildWallEdge(wall, Vector3.new(hw, 0, back), Vector3.new(hw, 0, front), Vector3.xAxis)
+end
+
 function TestPark.build(): Folder
 	local folder = Instance.new("Folder")
 	folder.Name = "TestPark"
 
 	buildGround(folder)
+	buildEdgeWall(folder)
 
 	local runwayStart = P.SpawnZ + 30
 	local runwayLength = runwayStart - P.RampStartZ
