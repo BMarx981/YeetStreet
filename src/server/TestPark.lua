@@ -116,18 +116,38 @@ local function buildBoard(parent: Instance, x: number, z: number, distance: numb
 	label.Parent = gui
 end
 
+-- Covers the ground rectangle with tiles of at most GroundTile studs; the last
+-- tile in each row and column is cut to fit.
+local function buildGround(parent: Instance)
+	local ground = Instance.new("Folder")
+	ground.Name = "Ground"
+	ground.Parent = parent
+
+	local z = P.GroundBackZ
+	while z > P.GroundFrontZ do
+		local depth = math.min(P.GroundTile, z - P.GroundFrontZ)
+		local x = -P.GroundHalfWidth
+		while x < P.GroundHalfWidth do
+			local width = math.min(P.GroundTile, P.GroundHalfWidth - x)
+			block(
+				ground,
+				"Tile",
+				Vector3.new(width, 4, depth),
+				CFrame.new(x + width / 2, -2, z - depth / 2),
+				Color3.fromRGB(96, 150, 72),
+				Enum.Material.Grass
+			)
+			x += width
+		end
+		z -= depth
+	end
+end
+
 function TestPark.build(): Folder
 	local folder = Instance.new("Folder")
 	folder.Name = "TestPark"
 
-	block(
-		folder,
-		"Ground",
-		Vector3.new(P.GroundSize, 4, P.GroundSize),
-		CFrame.new(0, -2, P.GroundCenterZ),
-		Color3.fromRGB(96, 150, 72),
-		Enum.Material.Grass
-	)
+	buildGround(folder)
 
 	local runwayStart = P.SpawnZ + 30
 	local runwayLength = runwayStart - P.RampStartZ

@@ -132,8 +132,12 @@ Tuning.Camera = {
 }
 
 Tuning.TestPark = {
-	GroundSize = 2048,
-	GroundCenterZ = -150,
+	-- Ground rectangle, tiled because a part is at most 2048 studs on a side.
+	-- Jets can carry a run well past 4000 studs from the lip.
+	GroundBackZ = 900, -- edge behind the spawn
+	GroundFrontZ = -6000, -- far edge past the ramp
+	GroundHalfWidth = 3000,
+	GroundTile = 2048,
 	RunwayWidth = 60,
 	SpawnZ = 700,
 	SpawnHeight = 2.6,
@@ -149,7 +153,7 @@ Tuning.TestPark = {
 	PadPlanks = 4, -- the last planks of the ramp push the car to LaunchSpeed
 	LaunchSpeed = 300,
 	BoardSpacing = 100,
-	BoardCount = 10,
+	BoardCount = 50,
 	BoardX = 70,
 }
 
