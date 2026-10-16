@@ -2,7 +2,8 @@
 -- Hud (ModuleScript) -> StarterPlayerScripts.Hud
 -- Jet fuel bar, a speed and airtime readout for tuning feel, and the run
 -- score: live while flying, a popup per trick, and a breakdown card when the
--- run ends.
+-- run ends. The card first shows the client's own score, then the server's
+-- when it arrives, since that is the one that counts.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +27,7 @@ type Parts = {
 local parts: Parts? = nil
 local popupUntil = 0
 local cardUntil = 0
+local officialAt = -math.huge
 
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
@@ -220,9 +222,17 @@ function Hud.trick(name: string, points: number)
 end
 
 -- The breakdown card for a finished run. Repeats of a trick share one line.
-function Hud.result(run: Scoring.Run, score: Scoring.Score)
+-- `official` is the server's score for the run; it replaces the client's card,
+-- and a client card arriving just after it is dropped.
+function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	local p = parts
 	if not p then
+		return
+	end
+	local now = os.clock()
+	if official then
+		officialAt = now
+	elseif now - officialAt < H.OfficialHold then
 		return
 	end
 	for _, child in p.card:GetChildren() do
@@ -266,7 +276,7 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score)
 		add("Clean landing", multiplier(score.clean), 18)
 	end
 	add("Total", withCommas(score.total), 26)
-	cardUntil = os.clock() + H.ResultTime
+	cardUntil = now + H.ResultTime
 end
 
 return Hud

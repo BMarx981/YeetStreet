@@ -8,7 +8,8 @@
 --   armed   touched a launch pad; lifting off within ArmTime starts a run
 --   flying  in the air; ends on landing, on touching down on its roof or side
 --           (crash), on stopping while still off its wheels, or on abort
---           (reset)
+--           (reset). Jumping farther than TeleportDistance in one step is
+--           also a reset: that is all the server sees of one.
 --
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
@@ -63,6 +64,7 @@ export type Tuning = {
 	StopSpeed: number,
 	StopTime: number,
 	CleanUpY: number,
+	TeleportDistance: number,
 }
 
 export type State = {
@@ -72,6 +74,7 @@ export type State = {
 	launchY: number,
 	launchZ: number,
 	lastX: number,
+	lastY: number,
 	lastZ: number,
 	peakY: number,
 	airtime: number,
@@ -90,6 +93,7 @@ function RunTracker.new(): State
 		launchY = 0,
 		launchZ = 0,
 		lastX = 0,
+		lastY = 0,
 		lastZ = 0,
 		peakY = 0,
 		airtime = 0,
@@ -136,8 +140,16 @@ local function turn(state: State, kind: TrickKind, total: number, delta: number)
 	return total
 end
 
+local function moveTo(state: State, sample: Sample)
+	state.lastX, state.lastY, state.lastZ = sample.x, sample.y, sample.z
+end
+
 local function fly(state: State, sample: Sample, tuning: Tuning): Result?
-	state.lastX, state.lastZ = sample.x, sample.z
+	local jump = math.sqrt((sample.x - state.lastX) ^ 2 + (sample.y - state.lastY) ^ 2 + (sample.z - state.lastZ) ^ 2)
+	if jump > tuning.TeleportDistance then
+		return finish(state, "aborted", false)
+	end
+	moveTo(state, sample)
 	if not sample.airborne then
 		return finish(state, "landed", sample.upY >= tuning.CleanUpY)
 	end
@@ -172,6 +184,7 @@ function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 		state.phase = "armed"
 		state.armTimer = tuning.ArmTime
 		state.launchX, state.launchY, state.launchZ = sample.x, sample.y, sample.z
+		moveTo(state, sample)
 		return nil
 	end
 
@@ -181,6 +194,7 @@ function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 			state.peakY = state.launchY
 			return fly(state, sample, tuning)
 		end
+		moveTo(state, sample)
 		state.armTimer -= sample.dt
 		if state.armTimer <= 0 then
 			reset(state)

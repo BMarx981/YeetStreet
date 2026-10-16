@@ -7,6 +7,7 @@ local TUNING: RunTracker.Tuning = {
 	StopSpeed = 4,
 	StopTime = 1,
 	CleanUpY = 0.7,
+	TeleportDistance = 80,
 }
 
 local DT = 0.1
@@ -223,6 +224,26 @@ Check.test("touching down on the roof or side ends the run as a crash", function
 	Check.eq(result.clean, false)
 	Check.near(result.distance, 60)
 	Check.eq(state.phase, "idle", "righting onto the wheels afterward is not a landing")
+end)
+
+Check.test("jumping too far in one step ends the run as a reset where the car last was", function()
+	local state = launched()
+	step(state, { airborne = true, z = -70, y = 30 })
+	local result = step(state, { x = 20, y = 2, z = 700 }) :: RunTracker.Result
+	Check.eq(result.ending, "aborted", "a teleport back to spawn is not a landing")
+	Check.near(result.distance, 70)
+	Check.near(result.height, 30)
+	Check.eq(result.clean, false)
+	Check.eq(state.phase, "idle")
+end)
+
+Check.test("fast flight and lift off after rolling past the pad are not teleports", function()
+	local state = RunTracker.new()
+	step(state, { onPad = true, z = -500 })
+	step(state, { z = -560 })
+	step(state, { airborne = true, z = -620 })
+	step(state, { airborne = true, z = -699 })
+	Check.eq(state.phase, "flying")
 end)
 
 Check.finish("RunTracker")

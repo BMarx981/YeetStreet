@@ -89,6 +89,9 @@ Tuning.Run = {
 	StopSpeed = 4, -- a run off its wheels and slower than this for StopTime ends
 	StopTime = 1,
 	CleanUpY = 0.7, -- up vector Y at touchdown needed for a clean landing
+	-- A flying car that moves farther than this in one step was reset, and its
+	-- run ends there. Well above what jets and a network hitch can cover.
+	TeleportDistance = 250,
 }
 
 -- Starting values, tuned by playtesting. A plain jump off the test ramp scores
@@ -110,6 +113,9 @@ Tuning.Score = {
 Tuning.Hud = {
 	TrickPopupTime = 1.2, -- seconds a trick name stays on screen
 	ResultTime = 4, -- seconds the run card stays up after a run ends
+	-- The server's card replaces the client's. If the server's comes first, a
+	-- client card this many seconds later is dropped instead of covering it.
+	OfficialHold = 1,
 }
 
 Tuning.Righting = {

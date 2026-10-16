@@ -4,7 +4,8 @@
 -- and gives this client network ownership; everything about feel happens here.
 --
 -- Each physics step:
---   1. Raycast under each wheel to count wheels on the ground (Contact).
+--   1. Read the car: wheels on the ground, flying, lying, any launch pad
+--      under it (CarSensor, which the server uses too).
 --   2. Jets: burn, drain, and recharge fuel, push along the nose (Jets).
 --   3. On the ground: wheel motors and front wheel steering (Drive).
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
@@ -26,6 +27,7 @@ local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 
 local AirControl = require(ReplicatedStorage.AirControl)
+local CarSensor = require(ReplicatedStorage.CarSensor)
 local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
@@ -69,7 +71,7 @@ type Rig = {
 	flames: { ParticleEmitter },
 	-- Every unanchored part that is its own assembly: hull, hubs, wheels.
 	roots: { BasePart },
-	rayParams: RaycastParams,
+	sensor: CarSensor.Sensor,
 	mass: number,
 	spawn: CFrame,
 	topSpeed: number,
@@ -86,14 +88,12 @@ local rig: Rig? = nil
 -- Roblox's default movement controls, switched off while driving. Found in the
 -- background so driving never waits on them; nil until found, or if missing.
 local defaultControls: any = nil
-local contact = Contact.new()
 local fuel = 0
 local burning = false
 local stuckTime = 0
 local resetHeld = false
 local righting = false
 local run = RunTracker.new()
-local lastCFrame: CFrame? = nil
 local tricksShown = 0
 
 local function numberAttribute(model: Model, key: string): number?
@@ -153,6 +153,10 @@ local function rigFor(model: Model, character: Model): Rig?
 	if typeof(spawn) ~= "CFrame" then
 		return nil
 	end
+	local sensor = CarSensor.new(model, { character })
+	if not sensor then
+		return nil
+	end
 
 	local flames: { ParticleEmitter } = {}
 	local mass = 0
@@ -164,10 +168,6 @@ local function rigFor(model: Model, character: Model): Rig?
 		end
 	end
 
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-	rayParams.FilterDescendantsInstances = { model, character }
-
 	return {
 		model = model,
 		hull = hull,
@@ -176,7 +176,7 @@ local function rigFor(model: Model, character: Model): Rig?
 		jet = jet,
 		flames = flames,
 		roots = roots,
-		rayParams = rayParams,
+		sensor = sensor,
 		mass = mass,
 		spawn = spawn,
 		topSpeed = topSpeed,
@@ -197,37 +197,15 @@ local function setVelocity(r: Rig, velocity: Vector3)
 end
 
 local function endRun(result: RunTracker.Result)
-	Hud.result(result, Scoring.score(result, Tuning.Score))
+	Hud.result(result, Scoring.score(result, Tuning.Score), false)
 	Hud.live(nil)
 	tricksShown = 0
 end
 
--- Feeds this step to RunTracker. The turn is the hull's rotation since the
--- last step, in its own axes, the same motion the server can see.
-local function trackRun(cf: CFrame, velocity: Vector3, airborne: boolean, onPad: boolean, lying: boolean, dt: number)
-	local turn = Vector3.zero
-	if lastCFrame then
-		local axis, angle = lastCFrame:ToObjectSpace(cf):ToAxisAngle()
-		if angle > 1e-6 then
-			turn = axis * angle
-		end
-	end
-	lastCFrame = cf
-
-	local result = RunTracker.step(run, {
-		dt = dt,
-		airborne = airborne,
-		onPad = onPad,
-		x = cf.Position.X,
-		y = cf.Position.Y,
-		z = cf.Position.Z,
-		turnX = turn.X,
-		turnY = turn.Y,
-		turnZ = turn.Z,
-		speed = velocity.Magnitude,
-		upY = cf.UpVector.Y,
-		lying = lying,
-	}, Tuning.Run)
+-- Feeds this step to RunTracker, from the same CarSensor sample the server
+-- builds from the motion it sees.
+local function trackRun(sample: RunTracker.Sample)
+	local result = RunTracker.step(run, sample, Tuning.Run)
 	if result then
 		endRun(result)
 		return
@@ -251,35 +229,16 @@ local function resetCar(r: Rig)
 	if result then
 		endRun(result)
 	end
-	lastCFrame = nil
+	CarSensor.reset(r.sensor)
 	r.model:PivotTo(r.spawn)
 	for _, part in r.roots do
 		part.AssemblyLinearVelocity = Vector3.zero
 		part.AssemblyAngularVelocity = Vector3.zero
 	end
-	contact = Contact.new()
 	fuel = r.jetFuel
 	burning = false
 	stuckTime = 0
 	righting = false
-end
-
--- Counts wheels touching the ground and returns any launch pad under them.
-local function probe(r: Rig): (number, BasePart?)
-	local down = -r.hull.CFrame.UpVector * (r.wheelRadius + Tuning.Contact.ProbeMargin)
-	local count = 0
-	local pad: BasePart? = nil
-	for _, wheel in r.wheels do
-		local hit = workspace:Raycast(wheel.part.Position, down, r.rayParams)
-		if hit then
-			count += 1
-			local part = hit.Instance
-			if part:IsA("BasePart") and part:GetAttribute("LaunchSpeed") then
-				pad = part
-			end
-		end
-	end
-	return count, pad
 end
 
 local function launch(r: Rig, pad: BasePart)
@@ -301,14 +260,11 @@ local function step(r: Rig, dt: number)
 	local velocity = r.hull.AssemblyLinearVelocity
 	local forwardSpeed = velocity:Dot(cf.LookVector)
 
-	local wheelsDown, pad = probe(r)
-	contact = Contact.step(contact, wheelsDown, dt, Tuning.Contact.AirDelay, Tuning.Contact.LandWheels)
-	local airborne = contact.airborne
+	local reading = CarSensor.read(r.sensor, dt)
+	local airborne = reading.airborne
 
 	local RT = Tuning.Righting
-	local groundClose = workspace:Raycast(cf.Position, Vector3.new(0, -RT.GroundProbe, 0), r.rayParams) ~= nil
-	local lying = Righting.lying(wheelsDown, cf.UpVector.Y, groundClose, RT)
-	righting = Righting.step(righting, lying, wheelsDown, cf.UpVector.Y, RT)
+	righting = Righting.step(righting, reading.lying, reading.wheelsDown, cf.UpVector.Y, RT)
 
 	-- Jets
 	burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
@@ -370,11 +326,11 @@ local function step(r: Rig, dt: number)
 		r.spin.Enabled = false
 	end
 
-	if pad then
-		launch(r, pad)
+	if reading.pad then
+		launch(r, reading.pad)
 	end
 
-	trackRun(cf, velocity, airborne, pad ~= nil, lying, dt)
+	trackRun(reading.sample)
 
 	-- Resets
 	local R = Tuning.Reset
@@ -388,14 +344,12 @@ end
 
 local function enter(r: Rig)
 	rig = r
-	contact = Contact.new()
 	fuel = r.jetFuel
 	burning = false
 	stuckTime = 0
 	resetHeld = false
 	righting = false
 	run = RunTracker.new()
-	lastCFrame = nil
 	tricksShown = 0
 	if defaultControls then
 		defaultControls:Disable()
@@ -452,6 +406,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	if not current then
 		return
 	end
+	local contact = current.sensor.contact
 	ChaseCamera.update(current.hull, contact.airborne, dt)
 	Hud.update(
 		fuel / current.jetFuel,
@@ -482,6 +437,18 @@ task.spawn(function()
 	if rig then
 		defaultControls:Disable()
 	end
+end)
+
+-- The server's score for each run, which replaces the card from endRun.
+task.spawn(function()
+	local runResult = ReplicatedStorage:WaitForChild("RunResult")
+	if not runResult:IsA("RemoteEvent") then
+		warn("CarController: ReplicatedStorage.RunResult is not a RemoteEvent; run cards stay unofficial")
+		return
+	end
+	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score)
+		Hud.result(result, score, true)
+	end)
 end)
 
 task.spawn(function()
