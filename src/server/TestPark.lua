@@ -2,12 +2,15 @@
 -- TestPark (ModuleScript) -> ServerScriptService.TestPark
 -- The M0 test site: flat ground, a runway, one curved launch ramp, and distance
 -- boards past the lip. Cars drive toward -Z. Built once by WorldBootstrap.
+-- The boards are tagged Knockable, so PropService knocks them over when a car
+-- passes through.
 --
 -- The ramp is a chain of planks whose pitch steps from RampStartAngle to
 -- RampEndAngle. The last PadPlanks carry a LaunchSpeed attribute; the driving
 -- client reads it from its wheel raycasts and tops its speed up to that value
 -- while on them.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -104,6 +107,7 @@ local function buildBoard(parent: Instance, x: number, z: number, distance: numb
 		Color3.fromRGB(245, 245, 240),
 		Enum.Material.SmoothPlastic
 	)
+	CollectionService:AddTag(board, "Knockable")
 	-- The +Z face is the one a car flying toward -Z sees.
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Back

@@ -130,6 +130,15 @@ Tuning.Righting = {
 	TorquePerMass = 1200,
 }
 
+-- Knockable props, like the distance boards. They never touch cars.
+Tuning.Props = {
+	HitRadius = 4, -- a car's hull center passing this close to a prop knocks it
+	CarSpeedShare = 0.5, -- a knocked prop flies off at this fraction of the car's velocity
+	Pop = 25, -- plus this much straight up, studs per second
+	Spin = 6, -- tumble rate tipping it away from the car, radians per second
+	ResetTime = 2.5, -- seconds until a knocked prop is back in place
+}
+
 Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,

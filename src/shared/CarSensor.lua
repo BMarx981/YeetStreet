@@ -58,6 +58,8 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 	local exclude = table.clone(ignore)
 	table.insert(exclude, model)
 	rayParams.FilterDescendantsInstances = exclude
+	-- Only what a car can collide with, so knocked props are never ground.
+	rayParams.CollisionGroup = "Cars"
 
 	return {
 		hull = hull,

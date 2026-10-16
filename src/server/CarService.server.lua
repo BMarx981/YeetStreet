@@ -8,22 +8,16 @@
 -- collides with nothing, so it can neither change how the car handles nor hold
 -- a flipped car up.
 
-local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarBuilder = require(ServerScriptService.CarBuilder)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local TestPark = require(ServerScriptService.TestPark)
 
 local RESEAT_DELAY = 0.2
-
-PhysicsService:RegisterCollisionGroup("Cars")
-PhysicsService:RegisterCollisionGroup("Drivers")
-PhysicsService:CollisionGroupSetCollidable("Drivers", "Default", false)
-PhysicsService:CollisionGroupSetCollidable("Drivers", "Cars", false)
-PhysicsService:CollisionGroupSetCollidable("Drivers", "Drivers", false)
 
 local carsFolder = Instance.new("Folder")
 carsFolder.Name = "Cars"
@@ -42,7 +36,7 @@ end
 
 local function ghostPart(instance: Instance)
 	if instance:IsA("BasePart") then
-		instance.CollisionGroup = "Drivers"
+		instance.CollisionGroup = CollisionGroups.Drivers
 		instance.Massless = true
 	end
 end
