@@ -69,6 +69,18 @@ local function trickBase(kind: TrickKind, tuning: Tuning): number
 	return tuning.RollPoints
 end
 
+-- Directions follow AirControl's axes: a positive flip lifts the nose, a
+-- positive spin swings it left, a positive roll lifts the right side.
+local TRICK_NAMES: { [TrickKind]: { [number]: string } } = {
+	flip = { [1] = "Backflip", [-1] = "Frontflip" },
+	spin = { [1] = "Spin left", [-1] = "Spin right" },
+	roll = { [1] = "Barrel roll left", [-1] = "Barrel roll right" },
+}
+
+function Scoring.trickName(trick: Trick): string
+	return TRICK_NAMES[trick.kind][trick.direction]
+end
+
 function Scoring.score(run: Run, tuning: Tuning): Score
 	local airtime = round(run.airtime * tuning.AirtimePerSecond)
 	local distance = round(run.distance * tuning.DistancePerStud)

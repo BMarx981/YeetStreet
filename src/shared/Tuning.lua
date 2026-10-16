@@ -103,6 +103,11 @@ Tuning.Score = {
 	CleanMultiplier = 1.5,
 }
 
+Tuning.Hud = {
+	TrickPopupTime = 1.2, -- seconds a trick name stays on screen
+	ResultTime = 4, -- seconds the run card stays up after a run ends
+}
+
 Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,

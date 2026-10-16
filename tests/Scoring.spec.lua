@@ -128,4 +128,13 @@ Check.test("points round to whole numbers", function()
 	Check.eq(score.total, 546)
 end)
 
+Check.test("tricks are named by kind and direction", function()
+	Check.eq(Scoring.trickName(trick("flip", 1)), "Backflip", "nose up")
+	Check.eq(Scoring.trickName(trick("flip", -1)), "Frontflip")
+	Check.eq(Scoring.trickName(trick("spin", 1)), "Spin left", "nose left")
+	Check.eq(Scoring.trickName(trick("spin", -1)), "Spin right")
+	Check.eq(Scoring.trickName(trick("roll", 1)), "Barrel roll left", "right side up")
+	Check.eq(Scoring.trickName(trick("roll", -1)), "Barrel roll right")
+end)
+
 Check.finish("Scoring")

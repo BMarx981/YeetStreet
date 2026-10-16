@@ -104,15 +104,19 @@ local function reset(state: State)
 	end
 end
 
-local function finish(state: State, ending: Ending, clean: boolean): Result
-	local result: Result = {
+local function measure(state: State, ending: Ending, clean: boolean): Result
+	return {
 		ending = ending,
 		airtime = state.airtime,
 		distance = math.sqrt((state.lastX - state.launchX) ^ 2 + (state.lastZ - state.launchZ) ^ 2),
 		height = math.max(state.peakY - state.launchY, 0),
-		tricks = state.tricks,
+		tricks = table.clone(state.tricks),
 		clean = clean,
 	}
+end
+
+local function finish(state: State, ending: Ending, clean: boolean): Result
+	local result = measure(state, ending, clean)
 	reset(state)
 	return result
 end
@@ -177,6 +181,15 @@ function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 		end
 	end
 	return nil
+end
+
+-- The flying run so far, as if it landed (not clean) where the car is now, for
+-- a live score. Nil without a flying run.
+function RunTracker.snapshot(state: State): Result?
+	if state.phase ~= "flying" then
+		return nil
+	end
+	return measure(state, "landed", false)
 end
 
 -- Ends any run in progress where the car last was, for resets. Returns nil and

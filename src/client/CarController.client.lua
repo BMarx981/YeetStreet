@@ -9,7 +9,9 @@
 --   3. On the ground: wheel motors and front wheel steering (Drive).
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
 --   4. Launch pads top speed up along the ramp.
---   5. Reset on request, when stuck on the roof, or after falling off the map.
+--   5. Run tracking: feed the car's motion to RunTracker, score the run live,
+--      and show the result when it ends. The server scores it again for real.
+--   6. Reset on request, when stuck on the roof, or after falling off the map.
 -- Camera and HUD update each render frame.
 --
 -- Stats (top speed, jet power, fuel, recharge, turn rate) come from attributes
@@ -25,6 +27,8 @@ local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
+local RunTracker = require(ReplicatedStorage.RunTracker)
+local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
@@ -82,6 +86,9 @@ local fuel = 0
 local burning = false
 local stuckTime = 0
 local resetHeld = false
+local run = RunTracker.new()
+local lastCFrame: CFrame? = nil
+local tricksShown = 0
 
 local function numberAttribute(model: Model, key: string): number?
 	local value = model:GetAttribute(key)
@@ -181,7 +188,61 @@ local function setVelocity(r: Rig, velocity: Vector3)
 	end
 end
 
+local function endRun(result: RunTracker.Result)
+	Hud.result(result, Scoring.score(result, Tuning.Score))
+	Hud.live(nil)
+	tricksShown = 0
+end
+
+-- Feeds this step to RunTracker. The turn is the hull's rotation since the
+-- last step, in its own axes, the same motion the server can see.
+local function trackRun(cf: CFrame, velocity: Vector3, airborne: boolean, onPad: boolean, dt: number)
+	local turn = Vector3.zero
+	if lastCFrame then
+		local axis, angle = lastCFrame:ToObjectSpace(cf):ToAxisAngle()
+		if angle > 1e-6 then
+			turn = axis * angle
+		end
+	end
+	lastCFrame = cf
+
+	local result = RunTracker.step(run, {
+		dt = dt,
+		airborne = airborne,
+		onPad = onPad,
+		x = cf.Position.X,
+		y = cf.Position.Y,
+		z = cf.Position.Z,
+		turnX = turn.X,
+		turnY = turn.Y,
+		turnZ = turn.Z,
+		speed = velocity.Magnitude,
+		upY = cf.UpVector.Y,
+	}, Tuning.Run)
+	if result then
+		endRun(result)
+		return
+	end
+
+	local snapshot = RunTracker.snapshot(run)
+	if not snapshot then
+		Hud.live(nil)
+		return
+	end
+	local score = Scoring.score(snapshot, Tuning.Score)
+	Hud.live(score)
+	for i = tricksShown + 1, #snapshot.tricks do
+		Hud.trick(Scoring.trickName(snapshot.tricks[i]), score.trickPoints[i])
+	end
+	tricksShown = #snapshot.tricks
+end
+
 local function resetCar(r: Rig)
+	local result = RunTracker.abort(run)
+	if result then
+		endRun(result)
+	end
+	lastCFrame = nil
 	r.model:PivotTo(r.spawn)
 	for _, part in r.roots do
 		part.AssemblyLinearVelocity = Vector3.zero
@@ -284,6 +345,8 @@ local function step(r: Rig, dt: number)
 		launch(r, pad)
 	end
 
+	trackRun(cf, velocity, airborne, pad ~= nil, dt)
+
 	-- Resets
 	local R = Tuning.Reset
 	stuckTime = Contact.stepStuck(stuckTime, cf.UpVector.Y, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
@@ -301,6 +364,9 @@ local function enter(r: Rig)
 	burning = false
 	stuckTime = 0
 	resetHeld = false
+	run = RunTracker.new()
+	lastCFrame = nil
+	tricksShown = 0
 	if defaultControls then
 		defaultControls:Disable()
 	end

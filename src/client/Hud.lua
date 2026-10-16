@@ -1,18 +1,116 @@
 --!strict
 -- Hud (ModuleScript) -> StarterPlayerScripts.Hud
--- Jet fuel bar and a speed and airtime readout. The readout is for tuning
--- M0 feel; scoring arrives in M1.
+-- Jet fuel bar, a speed and airtime readout for tuning feel, and the run
+-- score: live while flying, a popup per trick, and a breakdown card when the
+-- run ends.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Scoring = require(ReplicatedStorage.Scoring)
+local Tuning = require(ReplicatedStorage.Tuning)
+
+local H = Tuning.Hud
 
 local Hud = {}
 
-type Parts = { gui: ScreenGui, fill: Frame, readout: TextLabel }
+type Parts = {
+	gui: ScreenGui,
+	fill: Frame,
+	readout: TextLabel,
+	live: TextLabel,
+	popup: TextLabel,
+	card: Frame,
+}
 
 local parts: Parts? = nil
+local popupUntil = 0
+local cardUntil = 0
 
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
+local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
+
+local function round(x: number): number
+	return math.floor(x + 0.5)
+end
+
+local function withCommas(n: number): string
+	local digits = tostring(round(n)):reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (digits:gsub("^,", ""))
+end
+
+local function multiplier(x: number): string
+	return `x{string.format("%g", x)}`
+end
+
+local function label(name: string, parent: Instance, textSize: number): TextLabel
+	local text = Instance.new("TextLabel")
+	text.Name = name
+	text.BackgroundTransparency = 1
+	text.Font = Enum.Font.GothamBlack
+	text.TextSize = textSize
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.TextStrokeTransparency = 0.4
+	text.Parent = parent
+	return text
+end
+
+local function buildCard(gui: ScreenGui): Frame
+	local card = Instance.new("Frame")
+	card.Name = "RunCard"
+	card.AnchorPoint = Vector2.new(0.5, 0)
+	card.Position = UDim2.new(0.5, 0, 0, 116)
+	card.Size = UDim2.fromOffset(300, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = PANEL_COLOR
+	card.BackgroundTransparency = 0.3
+	card.Visible = false
+	card.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = card
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 10)
+	padding.PaddingBottom = UDim.new(0, 10)
+	padding.PaddingLeft = UDim.new(0, 14)
+	padding.PaddingRight = UDim.new(0, 14)
+	padding.Parent = card
+	local layout = Instance.new("UIListLayout")
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 2)
+	layout.Parent = card
+	return card
+end
+
+-- One line of the run card: a name on the left, points on the right.
+local function cardRow(card: Frame, order: number, left: string, right: string, textSize: number)
+	local row = Instance.new("Frame")
+	row.Name = `Row{order}`
+	row.LayoutOrder = order
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(1, 0, 0, textSize + 6)
+	row.Parent = card
+	local name = label("Name", row, textSize)
+	name.Size = UDim2.fromScale(0.7, 1)
+	name.TextXAlignment = Enum.TextXAlignment.Left
+	name.Text = left
+	local points = label("Points", row, textSize)
+	points.AnchorPoint = Vector2.new(1, 0)
+	points.Position = UDim2.fromScale(1, 0)
+	points.Size = UDim2.fromScale(0.3, 1)
+	points.TextXAlignment = Enum.TextXAlignment.Right
+	points.Text = right
+end
+
+local function cardTitle(run: Scoring.Run, score: Scoring.Score): string
+	if run.ending == "stopped" then
+		return "CRASHED"
+	elseif run.ending == "aborted" then
+		return "RESET"
+	end
+	return if score.clean > 1 then "CLEAN LANDING" else "LANDED"
+end
 
 local function build(): Parts
 	local gui = Instance.new("ScreenGui")
@@ -52,8 +150,23 @@ local function build(): Parts
 	readout.TextStrokeTransparency = 0.5
 	readout.Parent = gui
 
+	local live = label("LiveScore", gui, 34)
+	live.AnchorPoint = Vector2.new(0.5, 0)
+	live.Position = UDim2.new(0.5, 0, 0, 68)
+	live.Size = UDim2.fromOffset(300, 40)
+	live.Visible = false
+
+	local popup = label("TrickPopup", gui, 32)
+	popup.AnchorPoint = Vector2.new(0.5, 0.5)
+	popup.Position = UDim2.fromScale(0.5, 0.4)
+	popup.Size = UDim2.fromOffset(400, 44)
+	popup.TextColor3 = FUEL_COLOR
+	popup.Visible = false
+
+	local card = buildCard(gui)
+
 	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
-	return { gui = gui, fill = fill, readout = readout }
+	return { gui = gui, fill = fill, readout = readout, live = live, popup = popup, card = card }
 end
 
 function Hud.setVisible(visible: boolean)
@@ -78,6 +191,82 @@ function Hud.update(fuelFraction: number, speed: number, airtime: number?, burni
 		text ..= string.format("   air %.1fs", airtime)
 	end
 	p.readout.Text = text
+
+	local now = os.clock()
+	p.popup.Visible = now < popupUntil
+	p.card.Visible = now < cardUntil
+end
+
+-- The score so far while flying; nil hides it.
+function Hud.live(score: Scoring.Score?)
+	local p = parts
+	if not p then
+		return
+	end
+	if score then
+		local total = withCommas(score.total)
+		p.live.Text = if score.combo > 1 then `{total}  {multiplier(score.combo)}` else total
+	end
+	p.live.Visible = score ~= nil
+end
+
+function Hud.trick(name: string, points: number)
+	local p = parts
+	if not p then
+		return
+	end
+	p.popup.Text = `{name}  +{withCommas(points)}`
+	popupUntil = os.clock() + H.TrickPopupTime
+end
+
+-- The breakdown card for a finished run. Repeats of a trick share one line.
+function Hud.result(run: Scoring.Run, score: Scoring.Score)
+	local p = parts
+	if not p then
+		return
+	end
+	for _, child in p.card:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+
+	local order = 0
+	local function add(left: string, right: string, textSize: number)
+		order += 1
+		cardRow(p.card, order, left, right, textSize)
+	end
+
+	add(cardTitle(run, score), "", 22)
+	add(string.format("Airtime %.1fs", run.airtime), withCommas(score.airtime), 18)
+	add(`Distance {withCommas(run.distance)}`, withCommas(score.distance), 18)
+	add(`Height {withCommas(run.height)}`, withCommas(score.height), 18)
+
+	local names: { string } = {}
+	local counts: { [string]: number } = {}
+	local points: { [string]: number } = {}
+	for i, trick in run.tricks do
+		local name = Scoring.trickName(trick)
+		if not counts[name] then
+			table.insert(names, name)
+			counts[name] = 0
+			points[name] = 0
+		end
+		counts[name] += 1
+		points[name] += score.trickPoints[i]
+	end
+	for _, name in names do
+		add(if counts[name] > 1 then `{name} x{counts[name]}` else name, withCommas(points[name]), 18)
+	end
+
+	if score.combo > 1 then
+		add("Combo", multiplier(score.combo), 18)
+	end
+	if score.clean > 1 then
+		add("Clean landing", multiplier(score.clean), 18)
+	end
+	add("Total", withCommas(score.total), 26)
+	cardUntil = os.clock() + H.ResultTime
 end
 
 return Hud
