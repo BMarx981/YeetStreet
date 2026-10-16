@@ -144,8 +144,10 @@ local function buildGround(parent: Instance)
 end
 
 -- One straight stretch of the edge wall, centered on `center` at the ground's
--- edge: a quarter pipe from flat up to vertical, with a straight wall on top.
--- `out` points off the ground; each part's X axis runs along the edge.
+-- edge: a curve from flat, up through vertical at the edge, and on to
+-- WallEndAngle, so the top leans back over the ground and sends a car off the
+-- lip back inside. `out` points off the ground; each plank's X axis runs along
+-- the edge.
 local function buildWallStretch(parent: Instance, center: Vector3, out: Vector3, length: number)
 	local R = P.WallRadius
 	local arcCenter = center - out * R + Vector3.yAxis * R
@@ -154,9 +156,10 @@ local function buildWallStretch(parent: Instance, center: Vector3, out: Vector3,
 	end
 
 	-- Planks overlap a little so the seams between steps stay closed.
+	local endAngle = math.rad(P.WallEndAngle)
 	for i = 1, P.WallSteps do
-		local a = arcPoint(math.rad(90) * (i - 1) / P.WallSteps)
-		local b = arcPoint(math.rad(90) * i / P.WallSteps)
+		local a = arcPoint(endAngle * (i - 1) / P.WallSteps)
+		local b = arcPoint(endAngle * i / P.WallSteps)
 		local mid = (a + b) / 2
 		local face = CFrame.lookAt(mid, b, (arcCenter - mid).Unit)
 		block(
@@ -168,16 +171,6 @@ local function buildWallStretch(parent: Instance, center: Vector3, out: Vector3,
 			Enum.Material.Concrete
 		)
 	end
-
-	local top = center + Vector3.yAxis * (R + P.WallTopHeight / 2) + out * (P.WallThickness / 2)
-	block(
-		parent,
-		"Wall",
-		Vector3.new(length, P.WallTopHeight, P.WallThickness),
-		CFrame.lookAt(top, top + out),
-		Color3.fromRGB(120, 124, 132),
-		Enum.Material.Concrete
-	)
 end
 
 -- Runs the wall from `from` to `to` along one edge, in stretches of at most
@@ -193,8 +186,8 @@ local function buildWallEdge(parent: Instance, from: Vector3, to: Vector3, out: 
 	end
 end
 
--- Quarter pipes all around the ground, so a car heading off the edge rides up
--- the wall and drops back inside. At the corners the two pipes cross.
+-- Curved walls all around the ground, so a car heading off the edge rides up
+-- the wall and drops back inside. At the corners the two walls cross.
 local function buildEdgeWall(parent: Instance)
 	local wall = Instance.new("Folder")
 	wall.Name = "EdgeWall"

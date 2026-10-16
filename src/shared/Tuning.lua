@@ -154,12 +154,13 @@ Tuning.TestPark = {
 	GroundFrontZ = -6000, -- far edge past the ramp
 	GroundHalfWidth = 3000,
 	GroundTile = 2048,
-	-- Quarter pipe around the ground's edge, curving from flat to vertical at
-	-- the edge, with a straight wall on top.
+	-- Curved wall around the ground's edge: flat, vertical at the edge, then on
+	-- to WallEndAngle degrees so the top leans back over the ground. Past 90 a
+	-- car leaving the lip heads back inside instead of straight up.
 	WallRadius = 60,
-	WallSteps = 10,
+	WallEndAngle = 120,
+	WallSteps = 13,
 	WallThickness = 2,
-	WallTopHeight = 40,
 	RunwayWidth = 60,
 	SpawnZ = 700,
 	SpawnHeight = 2.6,
