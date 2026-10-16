@@ -32,8 +32,8 @@ local Hud = require(script.Parent.Hud)
 local TouchControls = require(script.Parent.TouchControls)
 
 local player = Players.LocalPlayer :: Player
-local playerModule = require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: ModuleScript) :: any
-local defaultControls = playerModule:GetControls()
+
+local PLAYER_MODULE_WAIT = 10
 
 local WHEEL_NAMES = { "FL", "FR", "RL", "RR" }
 
@@ -74,6 +74,9 @@ type Rig = {
 }
 
 local rig: Rig? = nil
+-- Roblox's default movement controls, switched off while driving. Found in the
+-- background so driving never waits on them; nil until found, or if missing.
+local defaultControls: any = nil
 local contact = Contact.new()
 local fuel = 0
 local burning = false
@@ -298,14 +301,18 @@ local function enter(r: Rig)
 	burning = false
 	stuckTime = 0
 	resetHeld = false
-	defaultControls:Disable()
+	if defaultControls then
+		defaultControls:Disable()
+	end
 	TouchControls.setVisible(true)
 	Hud.setVisible(true)
 end
 
 local function leave()
 	rig = nil
-	defaultControls:Enable()
+	if defaultControls then
+		defaultControls:Enable()
+	end
 	TouchControls.setVisible(false)
 	Hud.setVisible(false)
 	ChaseCamera.release()
@@ -367,6 +374,19 @@ player.CharacterAdded:Connect(onCharacterAdded)
 if player.Character then
 	task.spawn(onCharacterAdded, player.Character)
 end
+
+task.spawn(function()
+	local playerScripts = player:WaitForChild("PlayerScripts")
+	local module = playerScripts:WaitForChild("PlayerModule", PLAYER_MODULE_WAIT)
+	if not (module and module:IsA("ModuleScript")) then
+		warn("CarController: no PlayerModule in PlayerScripts; default controls stay on")
+		return
+	end
+	defaultControls = (require(module) :: any):GetControls()
+	if rig then
+		defaultControls:Disable()
+	end
+end)
 
 task.spawn(function()
 	-- SetCore fails until the core scripts have registered the callback.

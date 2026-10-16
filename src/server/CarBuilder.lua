@@ -200,7 +200,7 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 		hub.CustomPhysicalProperties = PhysicalProperties.new(C.HubDensity, 0.3, 0, 1, 1)
 		local hubSlide = attach("Slide", slideFrame, hub)
 		-- Hinge axis (the attachment's X) along the car's right.
-		local hubAxle = attach("Axle", CFrame.identity, hub)
+		local hubAxle = attach("AxlePoint", CFrame.identity, hub)
 		table.insert(hubs, hub)
 
 		local slide = Instance.new("PrismaticConstraint")
@@ -233,7 +233,7 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 		-- High weights so the wheel's own friction and zero bounce win against
 		-- whatever surface it touches.
 		wheel.CustomPhysicalProperties = PhysicalProperties.new(C.WheelDensity, stats.Grip, 0, 100, 100)
-		local wheelAxle = attach("Axle", CFrame.identity, wheel)
+		local wheelAxle = attach("AxlePoint", CFrame.identity, wheel)
 
 		local axle = Instance.new("HingeConstraint")
 		axle.Name = "Axle"
