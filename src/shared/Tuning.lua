@@ -116,6 +116,7 @@ Tuning.Hud = {
 	-- The server's card replaces the client's. If the server's comes first, a
 	-- client card this many seconds later is dropped instead of covering it.
 	OfficialHold = 1,
+	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
 }
 
 Tuning.Righting = {
@@ -128,6 +129,12 @@ Tuning.Righting = {
 	-- Needs to beat the car's weight lifting it off its side (about gravity
 	-- times half the hull width per unit mass), so well above air control.
 	TorquePerMass = 1200,
+}
+
+-- Hits measured as a sudden change in the car's velocity (Impact). For now
+-- only measured and shown, to pick toughness thresholds from.
+Tuning.Toughness = {
+	ShowImpact = 20, -- hits at least this hard, in studs per second, show on the HUD
 }
 
 -- Knockable props, like the distance boards. They never touch cars.

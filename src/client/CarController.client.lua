@@ -451,6 +451,18 @@ task.spawn(function()
 	end)
 end)
 
+-- Hits the server measured on this car, shown while picking toughness numbers.
+task.spawn(function()
+	local carImpact = ReplicatedStorage:WaitForChild("CarImpact")
+	if not carImpact:IsA("RemoteEvent") then
+		warn("CarController: ReplicatedStorage.CarImpact is not a RemoteEvent; hits stay hidden")
+		return
+	end
+	carImpact.OnClientEvent:Connect(function(strength: number, slot: string, inRun: boolean)
+		Hud.impact(strength, slot, inRun)
+	end)
+end)
+
 task.spawn(function()
 	-- SetCore fails until the core scripts have registered the callback.
 	for _ = 1, 20 do

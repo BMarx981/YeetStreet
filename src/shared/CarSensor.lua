@@ -1,12 +1,13 @@
 --!strict
 -- CarSensor (ModuleScript) -> ReplicatedStorage.CarSensor
 -- Reads a car's state each physics step: wheels on the ground, any launch pad
--- under them, flying, lying on its roof or side, and the RunTracker sample.
+-- under them, flying, lying on its roof or side, any hit it took, and the
+-- RunTracker sample.
 -- The driving client and the server both read cars through this, so the
 -- server scores a run from the same inputs the client's HUD uses.
 --
--- Not pure: it raycasts, and keeps the contact state and last hull CFrame
--- between steps.
+-- Not pure: it raycasts, and keeps the contact state and last hull CFrame and
+-- velocity between steps.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -26,6 +27,7 @@ export type Sensor = {
 	rayParams: RaycastParams,
 	contact: Contact.State,
 	lastCFrame: CFrame?,
+	lastVelocity: Vector3?,
 }
 
 export type Reading = {
@@ -33,6 +35,9 @@ export type Reading = {
 	pad: BasePart?,
 	airborne: boolean,
 	lying: boolean,
+	-- The change in velocity since the last step that gravity does not
+	-- explain, in the car's own space (see Impact). Zero after a reset.
+	impact: Vector3,
 	sample: RunTracker.Sample,
 }
 
@@ -68,6 +73,7 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 		rayParams = rayParams,
 		contact = Contact.new(),
 		lastCFrame = nil,
+		lastVelocity = nil,
 	}
 end
 
@@ -75,6 +81,7 @@ end
 function CarSensor.reset(sensor: Sensor)
 	sensor.contact = Contact.new()
 	sensor.lastCFrame = nil
+	sensor.lastVelocity = nil
 end
 
 -- Counts wheels touching the ground and returns any launch pad under them.
@@ -96,9 +103,7 @@ local function probe(sensor: Sensor, cf: CFrame): (number, BasePart?)
 end
 
 -- The hull's rotation since the last step, in its own axes.
-local function turn(sensor: Sensor, cf: CFrame): Vector3
-	local last = sensor.lastCFrame
-	sensor.lastCFrame = cf
+local function turn(last: CFrame?, cf: CFrame): Vector3
 	if not last then
 		return Vector3.zero
 	end
@@ -106,8 +111,24 @@ local function turn(sensor: Sensor, cf: CFrame): Vector3
 	return if angle > 1e-6 then axis * angle else Vector3.zero
 end
 
+-- Gravity takes Gravity * dt off the vertical speed each step, so add that
+-- back; what is left came from hitting something (or the jets, which are far
+-- weaker than any hit worth counting). A step that moved the car farther than
+-- TeleportDistance was a reset, not a hit.
+local function impact(last: CFrame?, lastVelocity: Vector3?, cf: CFrame, velocity: Vector3, dt: number): Vector3
+	if not (last and lastVelocity) then
+		return Vector3.zero
+	end
+	if (cf.Position - last.Position).Magnitude > Tuning.Run.TeleportDistance then
+		return Vector3.zero
+	end
+	local change = velocity - lastVelocity + Vector3.new(0, workspace.Gravity * dt, 0)
+	return cf:VectorToObjectSpace(change)
+end
+
 function CarSensor.read(sensor: Sensor, dt: number): Reading
 	local cf = sensor.hull.CFrame
+	local velocity = sensor.hull.AssemblyLinearVelocity
 	local wheelsDown, pad = probe(sensor, cf)
 	local C = Tuning.Contact
 	sensor.contact = Contact.step(sensor.contact, wheelsDown, dt, C.AirDelay, C.LandWheels)
@@ -116,12 +137,16 @@ function CarSensor.read(sensor: Sensor, dt: number): Reading
 	local groundClose = workspace:Raycast(cf.Position, Vector3.new(0, -RT.GroundProbe, 0), sensor.rayParams) ~= nil
 	local lying = Righting.lying(wheelsDown, cf.UpVector.Y, groundClose, RT)
 
-	local rotation = turn(sensor, cf)
+	local rotation = turn(sensor.lastCFrame, cf)
+	local hit = impact(sensor.lastCFrame, sensor.lastVelocity, cf, velocity, dt)
+	sensor.lastCFrame = cf
+	sensor.lastVelocity = velocity
 	return {
 		wheelsDown = wheelsDown,
 		pad = pad,
 		airborne = sensor.contact.airborne,
 		lying = lying,
+		impact = hit,
 		sample = {
 			dt = dt,
 			airborne = sensor.contact.airborne,
@@ -132,7 +157,7 @@ function CarSensor.read(sensor: Sensor, dt: number): Reading
 			turnX = rotation.X,
 			turnY = rotation.Y,
 			turnZ = rotation.Z,
-			speed = sensor.hull.AssemblyLinearVelocity.Magnitude,
+			speed = velocity.Magnitude,
 			upY = cf.UpVector.Y,
 			lying = lying,
 		},

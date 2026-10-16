@@ -8,12 +8,18 @@
 -- When a run ends, the driver's client gets the server's result on
 -- ReplicatedStorage.RunResult, and a better total becomes their Best in
 -- leaderstats. Nothing saves until M2.
+--
+-- It also measures every hit a car takes (CarSensor, Impact) and sends hits
+-- of at least Tuning.Toughness.ShowImpact to the driver on
+-- ReplicatedStorage.CarImpact, so toughness thresholds can be picked from
+-- real numbers.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
+local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -27,6 +33,10 @@ type Watch = {
 local runResult = Instance.new("RemoteEvent")
 runResult.Name = "RunResult"
 runResult.Parent = ReplicatedStorage
+
+local carImpact = Instance.new("RemoteEvent")
+carImpact.Name = "CarImpact"
+carImpact.Parent = ReplicatedStorage
 
 local watches: { [Model]: Watch } = {}
 
@@ -93,6 +103,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 			local watch = watchFor(car)
 			if watch then
 				local reading = CarSensor.read(watch.sensor, dt)
+				local hit = reading.impact
+				if hit.Magnitude >= Tuning.Toughness.ShowImpact then
+					local inRun = watch.run.phase == "flying"
+					carImpact:FireClient(watch.player, hit.Magnitude, Impact.slot(hit.X, hit.Y, hit.Z), inRun)
+				end
 				local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
 				if result then
 					finish(watch, result)

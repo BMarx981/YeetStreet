@@ -1,6 +1,7 @@
 --!strict
 -- Hud (ModuleScript) -> StarterPlayerScripts.Hud
--- Jet fuel bar, a speed and airtime readout for tuning feel, and the run
+-- Jet fuel bar, a speed and airtime readout for tuning feel, the hardest
+-- recent hit the server measured (for picking toughness thresholds), and the run
 -- score: live while flying, a popup per trick, and a breakdown card when the
 -- run ends. The card first shows the client's own score, then the server's
 -- when it arrives, since that is the one that counts.
@@ -19,6 +20,7 @@ type Parts = {
 	gui: ScreenGui,
 	fill: Frame,
 	readout: TextLabel,
+	impact: TextLabel,
 	live: TextLabel,
 	popup: TextLabel,
 	card: Frame,
@@ -28,6 +30,8 @@ local parts: Parts? = nil
 local popupUntil = 0
 local cardUntil = 0
 local officialAt = -math.huge
+local impactUntil = 0
+local impactShown = 0
 
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
@@ -152,6 +156,19 @@ local function build(): Parts
 	readout.TextStrokeTransparency = 0.5
 	readout.Parent = gui
 
+	local impact = Instance.new("TextLabel")
+	impact.Name = "Impact"
+	impact.Position = UDim2.fromOffset(16, 16)
+	impact.Size = UDim2.fromOffset(320, 28)
+	impact.BackgroundTransparency = 1
+	impact.Font = Enum.Font.GothamBold
+	impact.TextSize = 20
+	impact.TextXAlignment = Enum.TextXAlignment.Left
+	impact.TextColor3 = Color3.new(1, 1, 1)
+	impact.TextStrokeTransparency = 0.5
+	impact.Visible = false
+	impact.Parent = gui
+
 	local live = label("LiveScore", gui, 34)
 	live.AnchorPoint = Vector2.new(0.5, 0)
 	live.Position = UDim2.new(0.5, 0, 0, 68)
@@ -168,7 +185,7 @@ local function build(): Parts
 	local card = buildCard(gui)
 
 	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
-	return { gui = gui, fill = fill, readout = readout, live = live, popup = popup, card = card }
+	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card }
 end
 
 function Hud.setVisible(visible: boolean)
@@ -197,6 +214,23 @@ function Hud.update(fuelFraction: number, speed: number, airtime: number?, burni
 	local now = os.clock()
 	p.popup.Visible = now < popupUntil
 	p.card.Visible = now < cardUntil
+	p.impact.Visible = now < impactUntil
+end
+
+-- A hit the server measured, in studs per second. Keeps showing the hardest
+-- one until ImpactTime passes without a harder one.
+function Hud.impact(strength: number, slot: string, inRun: boolean)
+	local p = parts
+	if not p then
+		return
+	end
+	local now = os.clock()
+	if now < impactUntil and strength < impactShown then
+		return
+	end
+	impactShown = strength
+	impactUntil = now + H.ImpactTime
+	p.impact.Text = `Hit {round(strength)} {slot}{if inRun then "" else " (no run)"}`
 end
 
 -- The score so far while flying; nil hides it.
