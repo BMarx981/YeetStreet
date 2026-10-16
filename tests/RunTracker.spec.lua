@@ -25,6 +25,7 @@ local function sample(fields: { [string]: any }?): RunTracker.Sample
 		turnZ = 0,
 		speed = 100,
 		upY = 1,
+		lying = false,
 	}
 	for key, value in fields or {} do
 		s[key] = value
@@ -212,6 +213,16 @@ Check.test("snapshot is nil without a flying run", function()
 	Check.eq(RunTracker.snapshot(state), nil)
 	step(state, { onPad = true })
 	Check.eq(RunTracker.snapshot(state), nil)
+end)
+
+Check.test("touching down on the roof or side ends the run as a crash", function()
+	local state = launched()
+	step(state, { airborne = true, z = -50, y = 20 })
+	local result = step(state, { airborne = true, lying = true, z = -60, upY = -1 }) :: RunTracker.Result
+	Check.eq(result.ending, "crashed")
+	Check.eq(result.clean, false)
+	Check.near(result.distance, 60)
+	Check.eq(state.phase, "idle", "righting onto the wheels afterward is not a landing")
 end)
 
 Check.finish("RunTracker")

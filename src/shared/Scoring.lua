@@ -7,8 +7,8 @@
 -- Each repeat of the same trick (kind and direction) pays RepeatFalloff times
 -- the last, down to RepeatFloor of full points. The combo grows by ComboStep
 -- for each different trick after the first. A clean landing multiplies on top.
--- A run that ends off its wheels or by reset keeps its base points and loses
--- the combo and clean bonus, which is all a crash ever costs.
+-- A run that crashes, ends off its wheels, or ends by reset keeps its base
+-- points and loses the combo and clean bonus, which is all a crash ever costs.
 
 local Scoring = {}
 
@@ -23,7 +23,7 @@ export type Trick = {
 }
 
 export type Run = {
-	ending: "landed" | "stopped" | "aborted",
+	ending: "landed" | "crashed" | "stopped" | "aborted",
 	airtime: number,
 	distance: number,
 	height: number,

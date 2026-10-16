@@ -112,6 +112,18 @@ Tuning.Hud = {
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 }
 
+Tuning.Righting = {
+	StartUpY = 0.5, -- lying with no wheels down and tipped past this starts righting
+	EndUpY = 0.95, -- righting stops here, or when LandWheels wheels touch
+	LandWheels = 2,
+	GroundProbe = 3.5, -- ground within this far below the hull counts as lying
+	Rate = 4, -- radians per second
+	SlowAngle = math.rad(30), -- eases off inside this angle of upright
+	-- Needs to beat the car's weight lifting it off its side (about gravity
+	-- times half the hull width per unit mass), so well above air control.
+	TorquePerMass = 1200,
+}
+
 Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,

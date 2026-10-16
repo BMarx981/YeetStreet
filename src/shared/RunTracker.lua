@@ -6,8 +6,9 @@
 --
 --   idle    no run
 --   armed   touched a launch pad; lifting off within ArmTime starts a run
---   flying  in the air; ends on landing, on stopping while still off its
---           wheels (on its roof), or on abort (reset)
+--   flying  in the air; ends on landing, on touching down on its roof or side
+--           (crash), on stopping while still off its wheels, or on abort
+--           (reset)
 --
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
@@ -28,7 +29,7 @@ export type Trick = {
 	airtime: number, -- seconds into the flight when the turn completed
 }
 
-export type Ending = "landed" | "stopped" | "aborted"
+export type Ending = "landed" | "crashed" | "stopped" | "aborted"
 
 export type Result = {
 	ending: Ending,
@@ -40,7 +41,8 @@ export type Result = {
 }
 
 -- One physics step. Position is the hull's; turn is how far the car rotated
--- this step in radians about its own axes; upY is its up vector's Y.
+-- this step in radians about its own axes; upY is its up vector's Y; lying is
+-- Righting.lying, the car down on its roof or side.
 export type Sample = {
 	dt: number,
 	airborne: boolean,
@@ -53,6 +55,7 @@ export type Sample = {
 	turnZ: number,
 	speed: number,
 	upY: number,
+	lying: boolean,
 }
 
 export type Tuning = {
@@ -137,6 +140,9 @@ local function fly(state: State, sample: Sample, tuning: Tuning): Result?
 	state.lastX, state.lastZ = sample.x, sample.z
 	if not sample.airborne then
 		return finish(state, "landed", sample.upY >= tuning.CleanUpY)
+	end
+	if sample.lying then
+		return finish(state, "crashed", false)
 	end
 
 	state.airtime += sample.dt

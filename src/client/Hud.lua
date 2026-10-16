@@ -104,7 +104,7 @@ local function cardRow(card: Frame, order: number, left: string, right: string, 
 end
 
 local function cardTitle(run: Scoring.Run, score: Scoring.Score): string
-	if run.ending == "stopped" then
+	if run.ending == "crashed" or run.ending == "stopped" then
 		return "CRASHED"
 	elseif run.ending == "aborted" then
 		return "RESET"

@@ -107,7 +107,7 @@ Check.test("a clean landing multiplies on top of the combo", function()
 end)
 
 Check.test("a crash keeps the base points but loses the combo", function()
-	for _, ending in { "stopped", "aborted" } do
+	for _, ending in { "stopped", "aborted", "crashed" } do
 		local score = Scoring.score(
 			run({ ending = ending, airtime = 2, tricks = { trick("flip", 1), trick("spin", 1) }, clean = true }),
 			TUNING

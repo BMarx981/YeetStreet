@@ -8,10 +8,13 @@
 --   2. Jets: burn, drain, and recharge fuel, push along the nose (Jets).
 --   3. On the ground: wheel motors and front wheel steering (Drive).
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
+--      Lying on its roof or side: AirSpin rolls it back onto its wheels
+--      (Righting), and the player's spin input waits until it is upright.
 --   4. Launch pads top speed up along the ramp.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
---   6. Reset on request, when stuck on the roof, or after falling off the map.
+--   6. Reset on request, when still stuck on the roof after righting had its
+--      chance, or after falling off the map.
 -- Camera and HUD update each render frame.
 --
 -- Stats (top speed, jet power, fuel, recharge, turn rate) come from attributes
@@ -27,6 +30,7 @@ local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
+local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -87,6 +91,7 @@ local fuel = 0
 local burning = false
 local stuckTime = 0
 local resetHeld = false
+local righting = false
 local run = RunTracker.new()
 local lastCFrame: CFrame? = nil
 local tricksShown = 0
@@ -199,7 +204,7 @@ end
 
 -- Feeds this step to RunTracker. The turn is the hull's rotation since the
 -- last step, in its own axes, the same motion the server can see.
-local function trackRun(cf: CFrame, velocity: Vector3, airborne: boolean, onPad: boolean, dt: number)
+local function trackRun(cf: CFrame, velocity: Vector3, airborne: boolean, onPad: boolean, lying: boolean, dt: number)
 	local turn = Vector3.zero
 	if lastCFrame then
 		local axis, angle = lastCFrame:ToObjectSpace(cf):ToAxisAngle()
@@ -221,6 +226,7 @@ local function trackRun(cf: CFrame, velocity: Vector3, airborne: boolean, onPad:
 		turnZ = turn.Z,
 		speed = velocity.Magnitude,
 		upY = cf.UpVector.Y,
+		lying = lying,
 	}, Tuning.Run)
 	if result then
 		endRun(result)
@@ -255,6 +261,7 @@ local function resetCar(r: Rig)
 	fuel = r.jetFuel
 	burning = false
 	stuckTime = 0
+	righting = false
 end
 
 -- Counts wheels touching the ground and returns any launch pad under them.
@@ -298,6 +305,11 @@ local function step(r: Rig, dt: number)
 	contact = Contact.step(contact, wheelsDown, dt, Tuning.Contact.AirDelay, Tuning.Contact.LandWheels)
 	local airborne = contact.airborne
 
+	local RT = Tuning.Righting
+	local groundClose = workspace:Raycast(cf.Position, Vector3.new(0, -RT.GroundProbe, 0), r.rayParams) ~= nil
+	local lying = Righting.lying(wheelsDown, cf.UpVector.Y, groundClose, RT)
+	righting = Righting.step(righting, lying, wheelsDown, cf.UpVector.Y, RT)
+
 	-- Jets
 	burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
 	fuel = Jets.stepFuel(fuel, r.jetFuel, burning, not airborne, r.fuelRecharge, dt)
@@ -334,8 +346,14 @@ local function step(r: Rig, dt: number)
 		end
 	end
 
-	-- Air control
-	if airborne then
+	-- Righting, else air control
+	if righting then
+		local up, look = cf.UpVector, cf.LookVector
+		local wx, wy, wz = Righting.rate(up.X, up.Y, up.Z, look.X, look.Y, look.Z, RT)
+		r.spin.AngularVelocity = cf:VectorToObjectSpace(Vector3.new(wx, wy, wz))
+		r.spin.MaxTorque = r.mass * RT.TorquePerMass
+		r.spin.Enabled = true
+	elseif airborne then
 		local A = Tuning.Air
 		local pitchInput = InputAxes.combine({ input.throttle, input.pitch })
 		local rollInput = if r.rollUnlocked then input.roll else 0
@@ -356,7 +374,7 @@ local function step(r: Rig, dt: number)
 		launch(r, pad)
 	end
 
-	trackRun(cf, velocity, airborne, pad ~= nil, dt)
+	trackRun(cf, velocity, airborne, pad ~= nil, lying, dt)
 
 	-- Resets
 	local R = Tuning.Reset
@@ -375,6 +393,7 @@ local function enter(r: Rig)
 	burning = false
 	stuckTime = 0
 	resetHeld = false
+	righting = false
 	run = RunTracker.new()
 	lastCFrame = nil
 	tricksShown = 0
