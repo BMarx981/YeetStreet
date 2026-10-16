@@ -45,21 +45,35 @@ Check.test("brake when nearly stopped reverses at the reverse cap", function()
 	Check.eq(torque, 100)
 end)
 
+-- No grip limit, for tests of the speed curve alone.
+local ANY_GRIP = math.huge
+local WHEELBASE = 10
+
 Check.test("steering is full lock when slow", function()
-	Check.near(Drive.steerAngle(1, 0, 100, 30, 0.3), 30)
-	Check.near(Drive.steerAngle(-1, 0, 100, 30, 0.3), -30)
+	Check.near(Drive.steerAngle(1, 0, 100, 30, 0.3, ANY_GRIP, WHEELBASE), 30)
+	Check.near(Drive.steerAngle(-1, 0, 100, 30, 0.3, ANY_GRIP, WHEELBASE), -30)
 end)
 
 Check.test("steering narrows with speed", function()
-	Check.near(Drive.steerAngle(1, 100, 100, 30, 0.3), 9)
-	Check.near(Drive.steerAngle(1, 50, 100, 30, 0.3), 19.5)
-	Check.near(Drive.steerAngle(1, -100, 100, 30, 0.3), 9, "same in reverse")
+	Check.near(Drive.steerAngle(1, 100, 100, 30, 0.3, ANY_GRIP, WHEELBASE), 9)
+	Check.near(Drive.steerAngle(1, 50, 100, 30, 0.3, ANY_GRIP, WHEELBASE), 19.5)
+	Check.near(Drive.steerAngle(1, 500, 100, 30, 0.3, ANY_GRIP, WHEELBASE), 9, "the curve stops at top speed")
+	Check.near(Drive.steerAngle(1, -100, 100, 30, 0.3, ANY_GRIP, WHEELBASE), 9, "same in reverse")
 end)
 
-Check.test("past top speed, steering shrinks with the square of speed", function()
-	Check.near(Drive.steerAngle(1, 200, 100, 30, 0.3), 2.25)
-	Check.near(Drive.steerAngle(1, 500, 100, 30, 0.3), 0.36)
-	Check.near(Drive.steerAngle(-1, -200, 100, 30, 0.3), -2.25, "same in reverse")
+Check.test("steering never asks for more cornering than the grip allows", function()
+	-- tan(angle) = maxLateral * wheelbase / speed^2 = 100 * 10 / 100^2 = 0.1
+	local limit = math.deg(math.atan(0.1))
+	Check.near(Drive.steerAngle(1, 100, 100, 30, 0.3, 100, WHEELBASE), limit)
+	Check.near(Drive.steerAngle(-1, 100, 100, 30, 0.3, 100, WHEELBASE), -limit, "both ways")
+	Check.near(Drive.steerAngle(1, -100, 100, 30, 0.3, 100, WHEELBASE), limit, "in reverse")
+	-- At 300, tan(angle) = 1000 / 90000.
+	Check.near(Drive.steerAngle(1, 300, 100, 30, 0.3, 100, WHEELBASE), math.deg(math.atan(1000 / 90000)), "jet speed")
+end)
+
+Check.test("the grip limit leaves slow and gentle steering alone", function()
+	Check.near(Drive.steerAngle(1, 20, 100, 30, 0.3, 100, WHEELBASE), 25.8, "slow")
+	Check.near(Drive.steerAngle(0.5, 100, 100, 30, 0.3, 100, WHEELBASE), 4.5, "half steer is under the limit")
 end)
 
 Check.test("gas lets the wheels roll when the car is already faster", function()

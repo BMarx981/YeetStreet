@@ -46,6 +46,7 @@ Tuning.Chassis = {
 	SuspensionSag = 0.7,
 	DampingRatio = 0.35,
 	SeatOffset = Vector3.new(0, 0.9, 0.8),
+	RearGripFactor = 1.2, -- rear wheel friction as a multiple of Grip; 1 for even grip
 }
 
 Tuning.Drive = {
@@ -56,6 +57,9 @@ Tuning.Drive = {
 	BrakeSpeed = 2, -- below this speed, brake turns into reverse
 	MaxSteerAngle = 32,
 	HighSpeedSteerFactor = 0.35, -- fraction of full lock left at top speed
+	-- Steering is capped so a turn uses at most this fraction of the front
+	-- tires' grip (Grip times gravity, as sideways acceleration).
+	SteerGrip = 0.9,
 	-- Flips wheel spin direction if the car drives backward on gas.
 	SpinSign = -1,
 }

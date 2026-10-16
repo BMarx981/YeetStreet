@@ -231,8 +231,10 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 		wheel.Material = Enum.Material.SmoothPlastic
 		wheel.CollisionGroup = "Cars"
 		-- High weights so the wheel's own friction and zero bounce win against
-		-- whatever surface it touches.
-		wheel.CustomPhysicalProperties = PhysicalProperties.new(C.WheelDensity, stats.Grip, 0, 100, 100)
+		-- whatever surface it touches. Rear wheels grip a little more, so at the
+		-- limit the nose runs wide instead of the tail stepping out.
+		local grip = if spec.steers then stats.Grip else stats.Grip * C.RearGripFactor
+		wheel.CustomPhysicalProperties = PhysicalProperties.new(C.WheelDensity, grip, 0, 100, 100)
 		local wheelAxle = attach("AxlePoint", CFrame.identity, wheel)
 
 		local axle = Instance.new("HingeConstraint")

@@ -45,23 +45,23 @@ function Drive.freeRoll(forwardSpeed: number, wheelRadius: number): number
 end
 
 -- Front wheel angle in degrees. Full lock when slow, narrowing linearly to
--- `highSpeedFactor` of full lock at top speed. Past top speed (jets only) it
--- shrinks with the square of speed, which keeps cornering force where it is at
--- top speed instead of asking the tires for more grip than they have.
+-- `highSpeedFactor` of full lock at top speed. It is also capped so the turn
+-- never asks for more sideways acceleration than `maxLateral` (studs/s^2),
+-- using a = speed^2 * tan(angle) / wheelbase. Past that the tires slide, and
+-- the tail steps out.
 function Drive.steerAngle(
 	steer: number,
 	speed: number,
 	topSpeed: number,
 	maxAngle: number,
-	highSpeedFactor: number
+	highSpeedFactor: number,
+	maxLateral: number,
+	wheelbase: number
 ): number
-	local s = math.abs(speed)
-	local t = math.clamp(s / topSpeed, 0, 1)
+	local t = math.clamp(math.abs(speed) / topSpeed, 0, 1)
 	local angle = steer * maxAngle * (1 + (highSpeedFactor - 1) * t)
-	if s > topSpeed then
-		angle *= (topSpeed / s) ^ 2
-	end
-	return angle
+	local limit = math.deg(math.atan(maxLateral * wheelbase / (speed * speed)))
+	return math.clamp(angle, -limit, limit)
 end
 
 return Drive

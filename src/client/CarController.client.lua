@@ -73,6 +73,7 @@ type Rig = {
 	jetFuel: number,
 	fuelRecharge: number,
 	turnRate: number,
+	grip: number,
 	rollUnlocked: boolean,
 	wheelRadius: number,
 }
@@ -138,9 +139,10 @@ local function rigFor(model: Model, character: Model): Rig?
 	local jetFuel = numberAttribute(model, "JetFuel")
 	local fuelRecharge = numberAttribute(model, "FuelRecharge")
 	local turnRate = numberAttribute(model, "TurnRate")
+	local grip = numberAttribute(model, "Grip")
 	local wheelRadius = numberAttribute(model, "WheelRadius")
 	local spawn = model:GetAttribute("SpawnCFrame")
-	if not (topSpeed and jetPower and jetFuel and fuelRecharge and turnRate and wheelRadius) then
+	if not (topSpeed and jetPower and jetFuel and fuelRecharge and turnRate and grip and wheelRadius) then
 		return nil
 	end
 	if typeof(spawn) ~= "CFrame" then
@@ -177,6 +179,7 @@ local function rigFor(model: Model, character: Model): Rig?
 		jetFuel = jetFuel,
 		fuelRecharge = fuelRecharge,
 		turnRate = turnRate,
+		grip = grip,
 		rollUnlocked = model:GetAttribute("RollUnlocked") == true,
 		wheelRadius = wheelRadius,
 	}
@@ -312,7 +315,15 @@ local function step(r: Rig, dt: number)
 	else
 		wheelSpin, torque = Drive.motor(input.throttle, forwardSpeed, r.topSpeed, r.wheelRadius, D)
 	end
-	local steerAngle = Drive.steerAngle(input.steer, forwardSpeed, r.topSpeed, D.MaxSteerAngle, D.HighSpeedSteerFactor)
+	local steerAngle = Drive.steerAngle(
+		input.steer,
+		forwardSpeed,
+		r.topSpeed,
+		D.MaxSteerAngle,
+		D.HighSpeedSteerFactor,
+		D.SteerGrip * r.grip * workspace.Gravity,
+		2 * Tuning.Chassis.WheelbaseHalf
+	)
 	for _, wheel in r.wheels do
 		wheel.axle.AngularVelocity = wheelSpin * D.SpinSign
 		wheel.axle.MotorMaxTorque = torque
