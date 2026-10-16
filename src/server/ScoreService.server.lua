@@ -11,8 +11,8 @@
 --
 -- It also measures every hit a car takes (CarSensor, Impact) and sends hits
 -- of at least Tuning.Toughness.ShowImpact to the driver on
--- ReplicatedStorage.CarImpact, so toughness thresholds can be picked from
--- real numbers.
+-- ReplicatedStorage.CarImpact, and prints them to Output, so toughness
+-- thresholds can be picked from real numbers.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -106,7 +106,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 				local hit = reading.impact
 				if hit.Magnitude >= Tuning.Toughness.ShowImpact then
 					local inRun = watch.run.phase == "flying"
-					carImpact:FireClient(watch.player, hit.Magnitude, Impact.slot(hit.X, hit.Y, hit.Z), inRun)
+					local slot = Impact.slot(hit.X, hit.Y, hit.Z)
+					print(
+						`Hit {math.floor(hit.Magnitude + 0.5)} {slot}{if inRun then "" else " (no run)"} {watch.player.Name}`
+					)
+					carImpact:FireClient(watch.player, hit.Magnitude, slot, inRun)
 				end
 				local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
 				if result then

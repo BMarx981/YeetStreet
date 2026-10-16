@@ -158,12 +158,13 @@ local function build(): Parts
 
 	local impact = Instance.new("TextLabel")
 	impact.Name = "Impact"
-	impact.Position = UDim2.fromOffset(16, 16)
+	-- Low and centered, clear of the chat window in the top left.
+	impact.AnchorPoint = Vector2.new(0.5, 0.5)
+	impact.Position = UDim2.fromScale(0.5, 0.7)
 	impact.Size = UDim2.fromOffset(320, 28)
 	impact.BackgroundTransparency = 1
 	impact.Font = Enum.Font.GothamBold
 	impact.TextSize = 20
-	impact.TextXAlignment = Enum.TextXAlignment.Left
 	impact.TextColor3 = Color3.new(1, 1, 1)
 	impact.TextStrokeTransparency = 0.5
 	impact.Visible = false
