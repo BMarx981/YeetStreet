@@ -87,6 +87,22 @@ Tuning.Run = {
 	CleanUpY = 0.7, -- up vector Y at touchdown needed for a clean landing
 }
 
+-- Starting values, tuned by playtesting. A plain jump off the test ramp scores
+-- about 440; two different tricks and a clean landing about 2100.
+Tuning.Score = {
+	AirtimePerSecond = 50,
+	DistancePerStud = 0.25,
+	HeightPerStud = 1,
+	FlipPoints = 250,
+	SpinPoints = 200, -- spins are the easiest trick to land
+	RollPoints = 250,
+	RepeatFalloff = 0.5, -- each repeat of a trick pays this times the last
+	RepeatFloor = 0.1, -- repeats never drop below this fraction of full points
+	ComboStep = 0.5, -- combo gained per different trick after the first
+	ComboMax = 4,
+	CleanMultiplier = 1.5,
+}
+
 Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,
