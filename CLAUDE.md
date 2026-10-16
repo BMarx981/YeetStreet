@@ -40,7 +40,7 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 - The client owns feel: driving, air control, jet force, camera. The driver's client gets network ownership of their car.
 - The server owns truth: cash, stats, upgrades, cars owned, rebirths, scores, and leaderboards.
-- Never trust a value the client sends about money, stats, or score. The server validates reported runs against the car's replicated position and velocity before paying out.
+- Never trust a value the client sends about money, stats, or score. The server scores each run itself from the car's replicated motion, using the same shared RunTracker the client runs for its HUD. The server's score is the one that counts.
 - Jet power, fuel, turn rate, and toughness are read from server data and replicated. The client never decides its own stats.
 - Tuning numbers (point values, costs, stat caps, thresholds) live in config modules in `src/shared`, not scattered in scripts.
 - Player data saves through one data module with session locking. No other code calls DataStoreService directly.
@@ -73,4 +73,4 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 ## Current milestone
 
-M0 Feel: one car, one ramp, air control, jets, and touch controls. Nothing past M0 starts until flying is fun on its own.
+M1 Score: scoring, combos, toughness, wreck and respawn. Done when a run ends with a score and nobody ever oofs. Runs start only from launch pads. Sky rings and smash props wait for the first real park.

@@ -204,7 +204,7 @@ The client drives and flies the car for smooth feel; the server owns stats, cash
 - Toolchain: same as MazeCity. Code in VS Code, with Rojo syncing files into Studio so all code lives in git and changes review as diffs. Luau with strict type checking. StyLua for formatting and Selene for linting are proposed.
 - Car physics: constraint based chassis. The server gives the driver's client network ownership of the car while they drive.
 - Air control: the client detects airborne state with raycasts under the wheels, then applies torque and jet force with constraint movers. Jet power and fuel values come from server data, not the client.
-- Anti cheat: the client reports tricks, the server sanity checks them against the car's replicated position and velocity (max speed, max height, plausible airtime) before paying out.
+- Anti cheat: the server scores every run itself from the car's replicated motion, using the same shared run tracker the client uses for its live HUD. The client never reports a score.
 - Toughness: impact strength measured from the drop in velocity between physics steps, since Touched events alone do not report impact force. Cosmetic parts detach by breaking their welds.
 - Saves: DataStoreService for player data with session locking. OrderedDataStore for global leaderboards.
 - Replays: record the car's CFrame at a fixed rate during a run, then play it back on a local clone.

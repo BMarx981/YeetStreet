@@ -80,6 +80,13 @@ Tuning.Contact = {
 	LandWheels = 2,
 }
 
+Tuning.Run = {
+	ArmTime = 1, -- seconds after leaving a launch pad that lift off still starts a run
+	StopSpeed = 4, -- a run off its wheels and slower than this for StopTime ends
+	StopTime = 1,
+	CleanUpY = 0.7, -- up vector Y at touchdown needed for a clean landing
+}
+
 Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,
