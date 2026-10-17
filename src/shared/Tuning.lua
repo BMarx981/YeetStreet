@@ -12,9 +12,9 @@ Tuning.World = {
 	FallResetY = -100,
 }
 
--- The one M0 car. The server writes these onto the car as attributes and the
--- client reads them from there, never from here, so later milestones can swap
--- in saved stats without touching the client.
+-- Every car's stats at upgrade level 0; Tuning.Upgrades adds to them. The
+-- server writes the result onto the car as attributes and the client reads
+-- them from there, never from here.
 Tuning.StarterCar = {
 	TopSpeed = 110, -- ground speed the wheels drive toward
 	JetPower = 150, -- push along the nose, as acceleration
@@ -49,6 +49,10 @@ Tuning.Upgrades = {
 		Toughness = 15,
 		Grip = 0.03,
 	},
+}
+
+Tuning.Garage = {
+	RequestGap = 0.25, -- the server ignores purchases closer together than this
 }
 
 -- Saving player data (PlayerData, SaveRecord).
@@ -180,6 +184,7 @@ Tuning.Hud = {
 	-- client card this many seconds later is dropped instead of covering it.
 	OfficialHold = 1,
 	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
+	CashEarnedTime = 3, -- seconds the "+N" under the cash stays on screen
 }
 
 Tuning.Righting = {

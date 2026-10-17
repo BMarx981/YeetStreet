@@ -1,7 +1,9 @@
 --!strict
 -- CarService (Script) -> ServerScriptService.CarService
 -- Gives every character a car in a spawn lane, seats them in it, and hands the
--- player network ownership so their client drives it.
+-- player network ownership so their client drives it. The car is their
+-- equipped one, with stats from their upgrade levels (Garage), so the first
+-- car waits for their data to load.
 --
 -- Respawns go through ServerStorage.RespawnCar (a BindableEvent fired with a
 -- player and a CFrame, by ScoreService on a reset or wreck): the old car is
@@ -13,13 +15,12 @@
 -- a flipped car up.
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
-local Tuning = require(ReplicatedStorage.Tuning)
 local CarBuilder = require(ServerScriptService.CarBuilder)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
+local Garage = require(ServerScriptService.Garage)
 local TestPark = require(ServerScriptService.TestPark)
 
 local RESEAT_DELAY = 0.2
@@ -76,10 +77,15 @@ end
 
 -- Replaces the player's car with a fresh one at `cframe` and seats them in it.
 local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
+	local carId, stats = Garage.car(player)
+	if not (carId and stats) or humanoid.Parent ~= player.Character then
+		return
+	end
 	removeCar(player)
-	local car = CarBuilder.build(Tuning.StarterCar, cframe)
+	local car = CarBuilder.build(stats, cframe)
 	car.Name = `Car_{player.Name}`
 	car:SetAttribute("OwnerUserId", player.UserId)
+	car:SetAttribute("CarId", carId)
 	car.Parent = carsFolder
 	cars[player] = car
 	seatDriver(car, humanoid)

@@ -6,8 +6,8 @@
 -- sends a score; this one is the one that counts.
 --
 -- When a run ends, the driver's client gets the server's result on
--- ReplicatedStorage.RunResult, and a better total becomes their Best in
--- leaderstats and saves through PlayerData.
+-- ReplicatedStorage.RunResult, the total pays out as cash (Garage), and a
+-- better total becomes their Best in leaderstats and saves through PlayerData.
 --
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
 -- placed on a slot (Impact). Body hits during a run drain the car's
@@ -20,7 +20,8 @@
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
 -- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
--- A reset (the client asks on ReplicatedStorage.ResetCar) respawns at once.
+-- A reset (the client asks on ReplicatedStorage.ResetCar, or Garage fires
+-- ServerStorage.ResetPlayerCar after a purchase) respawns at once.
 -- Both build a fresh car at the last launcher the player used, through
 -- CarService's ServerStorage.RespawnCar.
 
@@ -31,12 +32,15 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
+local Economy = require(ReplicatedStorage.Economy)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarDamage = require(ServerScriptService.CarDamage)
+local Garage = require(ServerScriptService.Garage)
+local Leaderstats = require(ServerScriptService.Leaderstats)
 local PlayerData = require(ServerScriptService.PlayerData)
 
 local T = Tuning.Toughness
@@ -78,12 +82,7 @@ local lastResetAt: { [Player]: number } = {}
 local respawns = 0
 
 local function onPlayerAdded(player: Player)
-	local leaderstats = Instance.new("Folder")
-	leaderstats.Name = "leaderstats"
-	local best = Instance.new("IntValue")
-	best.Name = "Best"
-	best.Parent = leaderstats
-	leaderstats.Parent = player
+	local best = Leaderstats.value(player, "Best")
 	-- A run can finish before the saved data arrives, so keep the better one.
 	local data = PlayerData.waitFor(player)
 	if data then
@@ -174,14 +173,14 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	watch.smashes = 0
 	watch.toughness = watch.maxToughness
 	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
-	local leaderstats = watch.player:FindFirstChild("leaderstats")
-	local best = leaderstats and leaderstats:FindFirstChild("Best")
-	if best and best:IsA("IntValue") and score.total > best.Value then
+	local best = Leaderstats.value(watch.player, "Best")
+	if score.total > best.Value then
 		best.Value = score.total
 	end
 	PlayerData.update(watch.player, function(data)
 		data.Best = math.max(data.Best, score.total)
 	end)
+	Garage.pay(watch.player, Economy.payout(score.total, Tuning.Cash.PerPoint))
 	runResult:FireClient(watch.player, result, score)
 end
 
@@ -226,14 +225,8 @@ local function wreck(watch: Watch)
 	task.delay(T.WreckBeat, respawn, watch)
 end
 
--- A reset only ends the player's own run and moves their car back to the
--- launcher, so it is safe to take from the client, with a gap against spam.
-resetCar.OnServerEvent:Connect(function(player: Player)
-	local now = os.clock()
-	if now - (lastResetAt[player] or -math.huge) < Tuning.Reset.RequestGap then
-		return
-	end
-	lastResetAt[player] = now
+-- Ends the player's run, if any, and respawns their car.
+local function reset(player: Player)
 	for _, watch in watches do
 		if watch.player == player then
 			local result = RunTracker.abort(watch.run)
@@ -243,7 +236,23 @@ resetCar.OnServerEvent:Connect(function(player: Player)
 			respawn(watch)
 		end
 	end
+end
+
+-- A reset only ends the player's own run and moves their car back to the
+-- launcher, so it is safe to take from the client, with a gap against spam.
+resetCar.OnServerEvent:Connect(function(player: Player)
+	local now = os.clock()
+	if now - (lastResetAt[player] or -math.huge) < Tuning.Reset.RequestGap then
+		return
+	end
+	lastResetAt[player] = now
+	reset(player)
 end)
+
+local resetPlayerCar = Instance.new("BindableEvent")
+resetPlayerCar.Name = "ResetPlayerCar"
+resetPlayerCar.Event:Connect(reset)
+resetPlayerCar.Parent = ServerStorage
 
 RunService.Heartbeat:Connect(function(dt: number)
 	for car in watches do

@@ -1,6 +1,8 @@
 --!strict
 -- Hud (ModuleScript) -> StarterPlayerScripts.Hud
--- Jet fuel bar, a speed and airtime readout for tuning feel, the hardest
+-- Jet fuel bar, the player's cash (from the Cash attribute Garage sets on the
+-- player, with a short "+N" when it rises), a speed and airtime readout for
+-- tuning feel, the hardest
 -- recent hit the server measured (for picking toughness thresholds), and the run
 -- score: live while flying, a popup per trick, and a breakdown card when the
 -- run ends. The card first shows the client's own score, then the server's
@@ -36,6 +38,7 @@ local impactShown = 0
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
 local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
+local CASH_COLOR = Color3.fromRGB(120, 230, 120)
 
 local function round(x: number): number
 	return math.floor(x + 0.5)
@@ -186,6 +189,49 @@ local function build(): Parts
 	popup.Visible = false
 
 	local card = buildCard(gui)
+
+	-- Beside the fuel bar, clear of the chat, the player list, and the touch
+	-- buttons in the corners.
+	local cash = label("Cash", gui, 24)
+	cash.AnchorPoint = Vector2.new(0, 0)
+	cash.Position = UDim2.new(0.5, 146, 0, 8)
+	cash.Size = UDim2.fromOffset(200, 30)
+	cash.TextXAlignment = Enum.TextXAlignment.Left
+	cash.TextColor3 = CASH_COLOR
+
+	local earned = label("CashEarned", gui, 20)
+	earned.AnchorPoint = Vector2.new(0, 0)
+	earned.Position = UDim2.new(0.5, 146, 0, 36)
+	earned.Size = UDim2.fromOffset(200, 24)
+	earned.TextXAlignment = Enum.TextXAlignment.Left
+	earned.TextColor3 = CASH_COLOR
+	earned.Visible = false
+
+	local player = Players.LocalPlayer :: Player
+	local shown: number? = nil
+	local earnedShows = 0
+	local function showCash()
+		local value = player:GetAttribute("Cash")
+		if typeof(value) ~= "number" then
+			cash.Text = "$ ..."
+			return
+		end
+		cash.Text = `$ {withCommas(value)}`
+		if shown and value > shown then
+			earned.Text = `+{withCommas(value - shown)}`
+			earned.Visible = true
+			earnedShows += 1
+			local show = earnedShows
+			task.delay(H.CashEarnedTime, function()
+				if earnedShows == show then
+					earned.Visible = false
+				end
+			end)
+		end
+		shown = value
+	end
+	player:GetAttributeChangedSignal("Cash"):Connect(showCash)
+	showCash()
 
 	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
 	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card }
