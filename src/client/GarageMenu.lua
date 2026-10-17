@@ -179,14 +179,14 @@ local function build()
 	close.Size = UDim2.fromOffset(32, 32)
 	close.BackgroundColor3 = OFF_COLOR
 
-	local tabButtons: { [Tab]: TextButton } = {
-		Upgrades = button("UpgradesTab", panel, "UPGRADES"),
-		Cars = button("CarsTab", panel, "CARS"),
-	}
-	tabButtons.Upgrades.Position = UDim2.fromOffset(0, 40)
-	tabButtons.Upgrades.Size = UDim2.fromOffset(130, 30)
-	tabButtons.Cars.Position = UDim2.fromOffset(138, 40)
-	tabButtons.Cars.Size = UDim2.fromOffset(130, 30)
+	local function tabButton(name: Tab, x: number): TextButton
+		local b = button(`{name}Tab`, panel, string.upper(name))
+		b.Position = UDim2.fromOffset(x, 40)
+		b.Size = UDim2.fromOffset(130, 30)
+		return b
+	end
+	local upgradesTab = tabButton("Upgrades", 0)
+	local carsTab = tabButton("Cars", 138)
 
 	local status = text("Status", panel, 16, Enum.Font.GothamBold)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -195,8 +195,7 @@ local function build()
 	status.TextColor3 = Color3.fromRGB(255, 200, 120)
 	status.Text = ""
 
-	local lists: { [Tab]: ScrollingFrame } = {}
-	for _, name in { "Upgrades", "Cars" } :: { Tab } do
+	local function tabList(name: Tab): ScrollingFrame
 		local list = Instance.new("ScrollingFrame")
 		list.Name = `{name}List`
 		list.Position = UDim2.fromOffset(0, 78)
@@ -211,8 +210,10 @@ local function build()
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Padding = UDim.new(0, 6)
 		layout.Parent = list
-		lists[name] = list
+		return list
 	end
+	local upgradesList = tabList("Upgrades")
+	local carsList = tabList("Cars")
 
 	local function row(list: ScrollingFrame, order: number, name: string): Row
 		local frame = Instance.new("Frame")
@@ -239,11 +240,11 @@ local function build()
 
 	local statRows: { [Economy.StatName]: Row } = {}
 	for i, info in STATS do
-		statRows[info.stat] = row(lists.Upgrades, i, info.stat)
+		statRows[info.stat] = row(upgradesList, i, info.stat)
 	end
 	local carRows: { [string]: Row } = {}
 	for i, car in Tuning.Ladder do
-		carRows[car.Id] = row(lists.Cars, i, car.Name)
+		carRows[car.Id] = row(carsList, i, car.Name)
 	end
 
 	local function refresh()
@@ -283,10 +284,10 @@ local function build()
 			end
 		end
 
-		for name, list in lists do
-			list.Visible = name == tab
-			tabButtons[name].BackgroundColor3 = if name == tab then BUY_COLOR else OFF_COLOR
-		end
+		upgradesList.Visible = tab == "Upgrades"
+		carsList.Visible = tab == "Cars"
+		upgradesTab.BackgroundColor3 = if tab == "Upgrades" then BUY_COLOR else OFF_COLOR
+		carsTab.BackgroundColor3 = if tab == "Cars" then BUY_COLOR else OFF_COLOR
 	end
 
 	-- Sends one request to the server and reports how it went.
@@ -343,19 +344,23 @@ local function build()
 			refresh()
 		end
 		if value and byGamepad then
-			GuiService.SelectedObject = tabButtons[tab]
+			GuiService.SelectedObject = if tab == "Upgrades" then upgradesTab else carsTab
 		elseif not value and GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(gui) then
 			GuiService.SelectedObject = nil
 		end
 	end
 
-	for name, b in tabButtons do
-		b.Activated:Connect(function()
-			tab = name
-			status.Text = ""
-			refresh()
-		end)
+	local function showTab(name: Tab)
+		tab = name
+		status.Text = ""
+		refresh()
 	end
+	upgradesTab.Activated:Connect(function()
+		showTab("Upgrades")
+	end)
+	carsTab.Activated:Connect(function()
+		showTab("Cars")
+	end)
 	openButton.Activated:Connect(function()
 		setOpen(not open, false)
 	end)

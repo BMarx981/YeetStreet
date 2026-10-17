@@ -21,6 +21,7 @@ export type Levels = {
 
 export type Car = {
 	Id: string,
+	Name: string, -- shown to players
 	Price: number,
 	Caps: Levels,
 }

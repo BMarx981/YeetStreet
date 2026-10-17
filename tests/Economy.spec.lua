@@ -3,9 +3,9 @@ local Check = require("./Check")
 local Economy = require("../src/shared/Economy")
 
 local LADDER: { Economy.Car } = {
-	{ Id = "Junker", Price = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
-	{ Id = "Hatchback", Price = 5000, Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 } },
-	{ Id = "Muscle", Price = 25000, Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 } },
+	{ Id = "Junker", Name = "Junker", Price = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
+	{ Id = "Hatchback", Name = "Hatchback", Price = 5000, Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 } },
+	{ Id = "Muscle", Name = "Muscle Car", Price = 25000, Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 } },
 }
 
 local COSTS: Economy.CostTuning = {
