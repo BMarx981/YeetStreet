@@ -15,15 +15,17 @@ Tuning.World = {
 -- Every car's stats at upgrade level 0; Tuning.Upgrades adds to them. The
 -- server writes the result onto the car as attributes and the client reads
 -- them from there, never from here.
+-- Deliberately weak: the M0 car (TopSpeed 110, JetPower 150, JetFuel 3,
+-- FuelRecharge 1.5, TurnRate 4, Grip 1.3, Toughness 100) is about level 15.
 Tuning.StarterCar = {
-	TopSpeed = 110, -- ground speed the wheels drive toward
-	JetPower = 150, -- push along the nose, as acceleration
-	JetFuel = 3, -- seconds of burn in a full tank
-	FuelRecharge = 1.5, -- seconds of burn regained per second on the ground
-	TurnRate = 4, -- air spin rate at full input, radians per second
-	Grip = 1.3, -- wheel friction
+	TopSpeed = 80, -- ground speed the wheels drive toward
+	JetPower = 80, -- push along the nose, as acceleration
+	JetFuel = 1.5, -- seconds of burn in a full tank
+	FuelRecharge = 0.8, -- seconds of burn regained per second on the ground
+	TurnRate = 2.5, -- air spin rate at full input, radians per second
+	Grip = 1.0, -- wheel friction
 	RollUnlocked = true,
-	Toughness = 100, -- damage a car takes in one run before it wrecks
+	Toughness = 60, -- damage a car takes in one run before it wrecks
 }
 
 -- Economy: a run's server score pays out as cash.
@@ -36,18 +38,20 @@ Tuning.Cash = {
 -- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive
 -- their own. Friction is capped at 2 (rear wheels get Grip times
 -- Chassis.RearGripFactor), so Grip steps stay small.
+-- Prices: level 1 is 300, level 10 about 1,060, level 20 about 4,270, level
+-- 30 about 17,270. All four stats to 10 cost about 24,000.
 Tuning.Upgrades = {
-	CostBase = 250, -- price of level 1
-	CostGrowth = 1.25, -- each level costs this times the last
+	CostBase = 300, -- price of level 1
+	CostGrowth = 1.15, -- each level costs this times the last
 	CostRound = 10, -- prices round to the nearest multiple of this
 	Steps = {
-		TopSpeed = 6,
-		JetPower = 8,
-		JetFuel = 0.3,
-		FuelRecharge = 0.1,
+		TopSpeed = 2,
+		JetPower = 5,
+		JetFuel = 0.1,
+		FuelRecharge = 0.05,
 		TurnRate = 0.1,
-		Toughness = 15,
-		Grip = 0.03,
+		Toughness = 4,
+		Grip = 0.02,
 	},
 }
 
@@ -74,19 +78,19 @@ Tuning.Ladder = {
 		Id = "Junker",
 		Name = "Junker",
 		Price = 0,
-		Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 },
+		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
 	},
 	{
 		Id = "Hatchback",
 		Name = "Hatchback",
-		Price = 5000,
-		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+		Price = 20000,
+		Caps = { Speed = 20, Jets = 20, Toughness = 20, Grip = 20 },
 	},
 	{
 		Id = "Muscle",
 		Name = "Muscle Car",
-		Price = 25000,
-		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 },
+		Price = 120000,
+		Caps = { Speed = 30, Jets = 24, Toughness = 30, Grip = 24 },
 	},
 }
 
