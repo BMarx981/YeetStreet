@@ -98,6 +98,43 @@ function Economy.newState(ladder: { Car }): State
 	}
 end
 
+local function count(value: any): number
+	if typeof(value) == "number" and value == value and value >= 0 and value < math.huge then
+		return value
+	end
+	return 0
+end
+
+-- A valid state from whatever was saved. Missing or bad fields start fresh,
+-- the first car is always owned, and cars no longer on the ladder are kept
+-- but never equipped.
+function Economy.reconcile(saved: any, ladder: { Car }): State
+	local state = Economy.newState(ladder)
+	if typeof(saved) ~= "table" then
+		return state
+	end
+	state.Cash = count(saved.Cash)
+	local levels = if typeof(saved.Levels) == "table" then saved.Levels else {}
+	state.Levels = {
+		Speed = math.floor(count(levels.Speed)),
+		Jets = math.floor(count(levels.Jets)),
+		Toughness = math.floor(count(levels.Toughness)),
+		Grip = math.floor(count(levels.Grip)),
+	}
+	if typeof(saved.Cars) == "table" then
+		for _, id in saved.Cars do
+			if typeof(id) == "string" and not table.find(state.Cars, id) then
+				table.insert(state.Cars, id)
+			end
+		end
+	end
+	local equipped = saved.Equipped
+	if typeof(equipped) == "string" and table.find(state.Cars, equipped) and Economy.findCar(ladder, equipped) then
+		state.Equipped = equipped
+	end
+	return state
+end
+
 function Economy.findCar(ladder: { Car }, id: string): Car?
 	for _, car in ladder do
 		if car.Id == id then

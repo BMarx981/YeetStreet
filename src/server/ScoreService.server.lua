@@ -7,7 +7,7 @@
 --
 -- When a run ends, the driver's client gets the server's result on
 -- ReplicatedStorage.RunResult, and a better total becomes their Best in
--- leaderstats. Nothing saves until M2.
+-- leaderstats and saves through PlayerData.
 --
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
 -- placed on a slot (Impact). Body hits during a run drain the car's
@@ -37,6 +37,7 @@ local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarDamage = require(ServerScriptService.CarDamage)
+local PlayerData = require(ServerScriptService.PlayerData)
 
 local T = Tuning.Toughness
 
@@ -83,11 +84,17 @@ local function onPlayerAdded(player: Player)
 	best.Name = "Best"
 	best.Parent = leaderstats
 	leaderstats.Parent = player
+	-- A run can finish before the saved data arrives, so keep the better one.
+	local data = PlayerData.waitFor(player)
+	if data then
+		best.Value = math.max(best.Value, data.Best)
+		data.Best = best.Value
+	end
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 for _, player in Players:GetPlayers() do
-	onPlayerAdded(player)
+	task.spawn(onPlayerAdded, player)
 end
 Players.PlayerRemoving:Connect(function(player: Player)
 	lastLaunch[player] = nil
@@ -172,6 +179,9 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	if best and best:IsA("IntValue") and score.total > best.Value then
 		best.Value = score.total
 	end
+	PlayerData.update(watch.player, function(data)
+		data.Best = math.max(data.Best, score.total)
+	end)
 	runResult:FireClient(watch.player, result, score)
 end
 

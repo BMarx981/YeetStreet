@@ -51,6 +51,18 @@ Tuning.Upgrades = {
 	},
 }
 
+-- Saving player data (PlayerData, SaveRecord).
+Tuning.Save = {
+	AutosaveInterval = 60,
+	-- A lock with no write for this long belongs to a server that is gone.
+	-- Several autosaves, so a slow DataStore never makes a live lock look stale.
+	LockTimeout = 300,
+	-- Joining while another server still holds the lock (the player just left
+	-- it) retries this many times, this far apart, then takes the lock anyway.
+	LoadAttempts = 5,
+	LoadRetryGap = 6,
+}
+
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
 -- highest level of each upgrade the car can use.
 Tuning.Ladder = {
