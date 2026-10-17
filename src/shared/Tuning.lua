@@ -146,6 +146,7 @@ Tuning.Toughness = {
 	BreakPop = 20, -- broken parts fly off the car this fast, studs per second
 	PartLifetime = 5, -- seconds a broken part lies around before it is removed
 	WreckSparks = 120, -- sparks in the burst when a car wrecks
+	WreckBeat = 1, -- seconds a wreck stays on screen before the fresh car appears
 }
 
 -- Knockable props, like the distance boards. They never touch cars.
@@ -210,6 +211,9 @@ Tuning.TestPark = {
 	SpawnHeight = 2.6,
 	SpawnLanes = 5,
 	SpawnLaneSpacing = 12,
+	-- Resets and wrecks put the car here, at the back end of the runway, just
+	-- ahead of the spawn lanes so a respawn never lands on a parked car.
+	RespawnZ = 680,
 	RampStartZ = 200,
 	RampWidth = 40,
 	RampThickness = 2,
@@ -218,7 +222,6 @@ Tuning.TestPark = {
 	RampStartAngle = 3,
 	RampEndAngle = 35,
 	PadPlanks = 4, -- the last planks of the ramp push the car to LaunchSpeed
-	RespawnBack = 150, -- a reset or wreck puts the car this far before the ramp, facing it
 	LaunchSpeed = 300,
 	BoardSpacing = 100,
 	BoardCount = 50,

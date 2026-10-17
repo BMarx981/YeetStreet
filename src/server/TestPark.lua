@@ -8,8 +8,8 @@
 -- The ramp is a chain of planks whose pitch steps from RampStartAngle to
 -- RampEndAngle. The last PadPlanks carry a LaunchSpeed attribute; the driving
 -- client reads it from its wheel raycasts and tops its speed up to that value
--- while on them. They also carry a RespawnCFrame on the runway before the
--- ramp, where a reset or wreck puts a car that last launched here.
+-- while on them. They also carry a RespawnCFrame at the back end of the
+-- runway, where a reset or wreck puts a car that last launched here.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -76,7 +76,7 @@ local function buildRamp(parent: Instance): number
 		)
 		if isPad then
 			plank:SetAttribute("LaunchSpeed", P.LaunchSpeed)
-			plank:SetAttribute("RespawnCFrame", CFrame.new(0, P.SpawnHeight, P.RampStartZ + P.RespawnBack))
+			plank:SetAttribute("RespawnCFrame", CFrame.new(0, P.SpawnHeight, P.RespawnZ))
 		end
 
 		-- Support block under the low end of the plank, kept below the plank's

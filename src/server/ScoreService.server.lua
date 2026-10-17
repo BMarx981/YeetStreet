@@ -17,10 +17,12 @@
 -- Tuning.Toughness.ShowImpact go to the driver on ReplicatedStorage.CarImpact
 -- and print to Output, for tuning.
 --
--- At zero toughness the car wrecks: every part left flies off, sparks burst,
--- and the run ends as "wrecked". A wreck and a reset (the client asks on
--- ReplicatedStorage.ResetCar) both respawn the car fresh at the last launcher
--- the player used, through CarService's ServerStorage.RespawnCar.
+-- At zero toughness the car wrecks: every part left flies off, every client
+-- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
+-- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
+-- A reset (the client asks on ReplicatedStorage.ResetCar) respawns at once.
+-- Both build a fresh car at the last launcher the player used, through
+-- CarService's ServerStorage.RespawnCar.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -48,6 +50,7 @@ type Watch = {
 	-- Running damage per slot since the car was built, for breaking parts.
 	slotDamage: { [string]: number },
 	smashes: number, -- parts broken this run
+	wrecked: boolean,
 	respawning: boolean, -- a respawn was asked for; the car is about to go
 }
 
@@ -62,6 +65,10 @@ carImpact.Parent = ReplicatedStorage
 local resetCar = Instance.new("RemoteEvent")
 resetCar.Name = "ResetCar"
 resetCar.Parent = ReplicatedStorage
+
+local carWrecked = Instance.new("RemoteEvent")
+carWrecked.Name = "CarWrecked"
+carWrecked.Parent = ReplicatedStorage
 
 local watches: { [Model]: Watch } = {}
 -- The RespawnCFrame of the last launch pad each player touched.
@@ -121,6 +128,7 @@ local function watchFor(car: Model): Watch?
 		toughness = maxToughness,
 		slotDamage = {},
 		smashes = 0,
+		wrecked = false,
 		respawning = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
@@ -196,14 +204,16 @@ local function respawn(watch: Watch)
 end
 
 -- Every part left flies off and pays Smash points, sparks burst, the run ends
--- as a wreck, and the car respawns fresh.
+-- as a wreck, and the car respawns fresh after WreckBeat.
 local function wreck(watch: Watch)
-	watch.smashes += CarDamage.wreck(watch.car)
+	watch.wrecked = true
+	watch.smashes += CarDamage.breakParts(watch.car, nil, math.huge)
+	carWrecked:FireAllClients(watch.sensor.hull.Position)
 	local result = RunTracker.abort(watch.run, "wrecked")
 	if result then
 		finish(watch, result)
 	end
-	respawn(watch)
+	task.delay(T.WreckBeat, respawn, watch)
 end
 
 -- A reset only ends the player's own run and moves their car back to the
@@ -241,7 +251,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 					lastLaunch[watch.player] = respawnAt
 				end
 				hurt(watch, reading.impact)
-				if watch.toughness <= 0 and not watch.respawning then
+				if watch.toughness <= 0 and not watch.wrecked then
 					wreck(watch)
 				else
 					local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
