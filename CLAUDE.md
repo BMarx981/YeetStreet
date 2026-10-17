@@ -73,4 +73,4 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 ## Current milestone
 
-M1 Score: scoring, combos, toughness, wreck and respawn. Done when a run ends with a score and nobody ever oofs. Runs start only from launch pads. Sky rings and smash props wait for the first real park.
+M2 Economy: cash, four upgrade stats (Speed, Jets, Toughness, Grip), car generator v1, the first three ladder cars, and saves. Done when progress survives rejoining. Upgrade levels belong to the player; the equipped car's caps limit them. Upgrades and cars are bought from a garage panel opened by a HUD button. Launch pads keep their fixed launch speed for now.

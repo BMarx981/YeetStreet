@@ -1,0 +1,176 @@
+--!strict
+local Check = require("./Check")
+local Economy = require("../src/shared/Economy")
+
+local LADDER: { Economy.Car } = {
+	{ Id = "Junker", Price = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
+	{ Id = "Hatchback", Price = 5000, Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 } },
+	{ Id = "Muscle", Price = 25000, Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 } },
+}
+
+local COSTS: Economy.CostTuning = {
+	CostBase = 250,
+	CostGrowth = 1.25,
+	CostRound = 10,
+}
+
+local BASE: Economy.CarStats = {
+	TopSpeed = 110,
+	JetPower = 150,
+	JetFuel = 3,
+	FuelRecharge = 1.5,
+	TurnRate = 4,
+	Grip = 1.3,
+	RollUnlocked = true,
+	Toughness = 100,
+}
+
+local STEPS: Economy.Steps = {
+	TopSpeed = 6,
+	JetPower = 8,
+	JetFuel = 0.3,
+	FuelRecharge = 0.1,
+	TurnRate = 0.1,
+	Toughness = 15,
+	Grip = 0.03,
+}
+
+local function levels(speed: number, jets: number, toughness: number, grip: number): Economy.Levels
+	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip }
+end
+
+local function state(cash: number, lv: Economy.Levels, cars: { string }, equipped: string): Economy.State
+	return { Cash = cash, Levels = lv, Cars = cars, Equipped = equipped }
+end
+
+Check.test("a new player has no cash, no levels, and the first ladder car", function()
+	local s = Economy.newState(LADDER)
+	Check.eq(s.Cash, 0)
+	Check.eq(s.Levels.Speed + s.Levels.Jets + s.Levels.Toughness + s.Levels.Grip, 0, "levels")
+	Check.eq(#s.Cars, 1, "cars owned")
+	Check.eq(s.Cars[1], "Junker")
+	Check.eq(s.Equipped, "Junker")
+end)
+
+Check.test("a run's score pays out as whole cash", function()
+	Check.eq(Economy.payout(440, 1), 440)
+	Check.eq(Economy.payout(2100.7, 1), 2100)
+	Check.eq(Economy.payout(1000, 0.5), 500)
+	Check.eq(Economy.payout(-10, 1), 0, "never negative")
+end)
+
+Check.test("each level costs CostGrowth times the last, rounded", function()
+	Check.eq(Economy.upgradeCost(0, COSTS), 250, "level 1")
+	Check.eq(Economy.upgradeCost(1, COSTS), 310, "level 2 (312.5)")
+	Check.eq(Economy.upgradeCost(4, COSTS), 610, "level 5 (610.4)")
+	Check.eq(Economy.upgradeCost(9, COSTS), 1860, "level 10 (1862.6)")
+end)
+
+Check.test("level 0 stats are the base car", function()
+	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[1].Caps, STEPS)
+	Check.eq(stats.TopSpeed, 110)
+	Check.eq(stats.JetPower, 150)
+	Check.eq(stats.JetFuel, 3)
+	Check.eq(stats.FuelRecharge, 1.5)
+	Check.eq(stats.TurnRate, 4)
+	Check.eq(stats.Toughness, 100)
+	Check.eq(stats.Grip, 1.3)
+	Check.eq(stats.RollUnlocked, true)
+end)
+
+Check.test("each stat's levels raise only its own real stats", function()
+	local stats = Economy.stats(BASE, levels(2, 3, 4, 5), LADDER[1].Caps, STEPS)
+	Check.near(stats.TopSpeed, 122, "Speed")
+	Check.near(stats.JetPower, 174, "Jets: power")
+	Check.near(stats.JetFuel, 3.9, "Jets: fuel")
+	Check.near(stats.FuelRecharge, 1.8, "Jets: recharge")
+	Check.near(stats.TurnRate, 4.3, "Jets: turn rate")
+	Check.near(stats.Toughness, 160, "Toughness")
+	Check.near(stats.Grip, 1.45, "Grip")
+end)
+
+Check.test("levels above the car's cap count only up to the cap", function()
+	local stats = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[1].Caps, STEPS)
+	Check.near(stats.TopSpeed, 140, "Speed capped at 5")
+	Check.near(stats.Toughness, 175, "Toughness capped at 5")
+	local muscle = Economy.stats(BASE, levels(15, 15, 15, 15), LADDER[3].Caps, STEPS)
+	Check.near(muscle.TopSpeed, 200, "Speed cap 15")
+	Check.near(muscle.JetPower, 246, "Jets cap 12")
+end)
+
+Check.test("buying a level spends its cost and raises that stat", function()
+	local before = state(1000, levels(0, 0, 0, 0), { "Junker" }, "Junker")
+	local after, reason = Economy.upgrade(before, "Jets", LADDER, COSTS)
+	assert(after, reason)
+	Check.eq(after.Cash, 750)
+	Check.eq(after.Levels.Jets, 1)
+	Check.eq(after.Levels.Speed, 0, "other stats unchanged")
+	Check.eq(before.Cash, 1000, "the old state is not changed")
+	Check.eq(before.Levels.Jets, 0, "the old levels are not changed")
+end)
+
+Check.test("a level costs what the next level up is priced at", function()
+	local after = Economy.upgrade(state(1000, levels(4, 0, 0, 0), { "Junker" }, "Junker"), "Speed", LADDER, COSTS)
+	assert(after)
+	Check.eq(after.Cash, 390)
+	Check.eq(after.Levels.Speed, 5)
+end)
+
+Check.test("a level needs enough cash", function()
+	local after, reason = Economy.upgrade(state(249, levels(0, 0, 0, 0), { "Junker" }, "Junker"), "Grip", LADDER, COSTS)
+	Check.eq(after, nil)
+	Check.eq(reason, "NotEnoughCash")
+end)
+
+Check.test("a level stops at the equipped car's cap", function()
+	local s = state(99999, levels(5, 0, 0, 0), { "Junker", "Hatchback" }, "Junker")
+	local after, reason = Economy.upgrade(s, "Speed", LADDER, COSTS)
+	Check.eq(after, nil)
+	Check.eq(reason, "AtCap")
+	s.Equipped = "Hatchback"
+	local raised = Economy.upgrade(s, "Speed", LADDER, COSTS)
+	assert(raised)
+	Check.eq(raised.Levels.Speed, 6, "a better car raises the ceiling")
+end)
+
+Check.test("buying a car spends its price and adds it without equipping it", function()
+	local before = state(6000, levels(0, 0, 0, 0), { "Junker" }, "Junker")
+	local after, reason = Economy.buyCar(before, "Hatchback", LADDER)
+	assert(after, reason)
+	Check.eq(after.Cash, 1000)
+	Check.eq(#after.Cars, 2)
+	Check.eq(after.Cars[2], "Hatchback")
+	Check.eq(after.Equipped, "Junker")
+	Check.eq(#before.Cars, 1, "the old state is not changed")
+end)
+
+Check.test("a car can't be bought twice, without the cash, or if it isn't on the ladder", function()
+	local s = state(100000, levels(0, 0, 0, 0), { "Junker" }, "Junker")
+	local _, owned = Economy.buyCar(s, "Junker", LADDER)
+	Check.eq(owned, "Owned")
+	local _, unknown = Economy.buyCar(s, "Spaceship", LADDER)
+	Check.eq(unknown, "UnknownCar")
+	s.Cash = 4999
+	local _, broke = Economy.buyCar(s, "Hatchback", LADDER)
+	Check.eq(broke, "NotEnoughCash")
+end)
+
+Check.test("only an owned car can be equipped", function()
+	local s = state(0, levels(0, 0, 0, 0), { "Junker", "Hatchback" }, "Junker")
+	local after = Economy.equip(s, "Hatchback")
+	assert(after)
+	Check.eq(after.Equipped, "Hatchback")
+	Check.eq(s.Equipped, "Junker", "the old state is not changed")
+	local none, reason = Economy.equip(s, "Muscle")
+	Check.eq(none, nil)
+	Check.eq(reason, "NotOwned")
+end)
+
+Check.test("findCar looks a car up by id", function()
+	local car = Economy.findCar(LADDER, "Muscle")
+	assert(car)
+	Check.eq(car.Price, 25000)
+	Check.eq(Economy.findCar(LADDER, "Spaceship"), nil)
+end)
+
+Check.finish("Economy")

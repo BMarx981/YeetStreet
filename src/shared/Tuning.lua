@@ -26,6 +26,54 @@ Tuning.StarterCar = {
 	Toughness = 100, -- damage a car takes in one run before it wrecks
 }
 
+-- Economy: a run's server score pays out as cash.
+Tuning.Cash = {
+	PerPoint = 1,
+}
+
+-- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
+-- to the real stats its upgrade drives: Speed drives TopSpeed; Jets drives
+-- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive
+-- their own. Friction is capped at 2 (rear wheels get Grip times
+-- Chassis.RearGripFactor), so Grip steps stay small.
+Tuning.Upgrades = {
+	CostBase = 250, -- price of level 1
+	CostGrowth = 1.25, -- each level costs this times the last
+	CostRound = 10, -- prices round to the nearest multiple of this
+	Steps = {
+		TopSpeed = 6,
+		JetPower = 8,
+		JetFuel = 0.3,
+		FuelRecharge = 0.1,
+		TurnRate = 0.1,
+		Toughness = 15,
+		Grip = 0.03,
+	},
+}
+
+-- The car ladder, cheapest first. A new player owns the first car. Caps are the
+-- highest level of each upgrade the car can use.
+Tuning.Ladder = {
+	{
+		Id = "Junker",
+		Name = "Junker",
+		Price = 0,
+		Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 },
+	},
+	{
+		Id = "Hatchback",
+		Name = "Hatchback",
+		Price = 5000,
+		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+	},
+	{
+		Id = "Muscle",
+		Name = "Muscle Car",
+		Price = 25000,
+		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 },
+	},
+}
+
 Tuning.Chassis = {
 	HullSize = Vector3.new(6, 1.6, 11),
 	HullDensity = 1,
