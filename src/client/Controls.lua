@@ -8,12 +8,14 @@
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
 --             pitch in the air), A jets, LB/RB roll, Y reset
 --   Touch     see TouchControls
+-- No input reaches the car while the garage panel is open (GarageMenu).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Tuning = require(ReplicatedStorage.Tuning)
+local GarageMenu = require(script.Parent.GarageMenu)
 local TouchControls = require(script.Parent.TouchControls)
 
 local K = Enum.KeyCode
@@ -40,6 +42,10 @@ local function anyKey(codes: { Enum.KeyCode }): boolean
 end
 
 function Controls.read(): Frame
+	-- Buttons in the garage panel must not drive the car either.
+	if GarageMenu.isOpen() then
+		return { steer = 0, throttle = 0, pitch = 0, roll = 0, jet = false, reset = false }
+	end
 	-- Typing in chat must not drive the car.
 	local typing = UserInputService:GetFocusedTextBox() ~= nil
 	local function key(codes: { Enum.KeyCode }): boolean

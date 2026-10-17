@@ -39,6 +39,7 @@ local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
+local GarageMenu = require(script.Parent.GarageMenu)
 local Hud = require(script.Parent.Hud)
 local TouchControls = require(script.Parent.TouchControls)
 
@@ -484,6 +485,8 @@ task.spawn(function()
 		end
 	)
 end)
+
+GarageMenu.start()
 
 task.spawn(function()
 	-- SetCore fails until the core scripts have registered the callback.

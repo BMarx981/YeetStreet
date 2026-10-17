@@ -62,7 +62,8 @@ export type Steps = {
 	Grip: number,
 }
 
-local function level(levels: Levels, stat: StatName): number
+-- The level of one stat, by name.
+function Economy.level(levels: Levels, stat: StatName): number
 	if stat == "Speed" then
 		return levels.Speed
 	elseif stat == "Jets" then
@@ -179,8 +180,8 @@ function Economy.upgrade(state: State, stat: StatName, ladder: { Car }, tuning: 
 	if not car then
 		return nil, "UnknownCar"
 	end
-	local current = level(state.Levels, stat)
-	if current >= level(car.Caps, stat) then
+	local current = Economy.level(state.Levels, stat)
+	if current >= Economy.level(car.Caps, stat) then
 		return nil, "AtCap"
 	end
 	local cost = Economy.upgradeCost(current, tuning)
