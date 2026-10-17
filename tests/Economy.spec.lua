@@ -3,9 +3,21 @@ local Check = require("./Check")
 local Economy = require("../src/shared/Economy")
 
 local LADDER: { Economy.Car } = {
-	{ Id = "Junker", Name = "Junker", Price = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
-	{ Id = "Hatchback", Name = "Hatchback", Price = 5000, Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 } },
-	{ Id = "Muscle", Name = "Muscle Car", Price = 25000, Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 } },
+	{ Id = "Junker", Name = "Junker", Price = 0, Bonus = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
+	{
+		Id = "Hatchback",
+		Name = "Hatchback",
+		Price = 5000,
+		Bonus = 4,
+		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+	},
+	{
+		Id = "Muscle",
+		Name = "Muscle Car",
+		Price = 25000,
+		Bonus = 8,
+		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 },
+	},
 }
 
 local COSTS: Economy.CostTuning = {
@@ -67,7 +79,7 @@ Check.test("each level costs CostGrowth times the last, rounded", function()
 end)
 
 Check.test("level 0 stats are the base car", function()
-	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[1].Caps, STEPS)
+	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[1], STEPS)
 	Check.eq(stats.TopSpeed, 110)
 	Check.eq(stats.JetPower, 150)
 	Check.eq(stats.JetFuel, 3)
@@ -79,7 +91,7 @@ Check.test("level 0 stats are the base car", function()
 end)
 
 Check.test("each stat's levels raise only its own real stats", function()
-	local stats = Economy.stats(BASE, levels(2, 3, 4, 5), LADDER[1].Caps, STEPS)
+	local stats = Economy.stats(BASE, levels(2, 3, 4, 5), LADDER[1], STEPS)
 	Check.near(stats.TopSpeed, 122, "Speed")
 	Check.near(stats.JetPower, 174, "Jets: power")
 	Check.near(stats.JetFuel, 3.9, "Jets: fuel")
@@ -90,12 +102,29 @@ Check.test("each stat's levels raise only its own real stats", function()
 end)
 
 Check.test("levels above the car's cap count only up to the cap", function()
-	local stats = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[1].Caps, STEPS)
+	local stats = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[1], STEPS)
 	Check.near(stats.TopSpeed, 140, "Speed capped at 5")
 	Check.near(stats.Toughness, 175, "Toughness capped at 5")
-	local muscle = Economy.stats(BASE, levels(15, 15, 15, 15), LADDER[3].Caps, STEPS)
-	Check.near(muscle.TopSpeed, 200, "Speed cap 15")
-	Check.near(muscle.JetPower, 246, "Jets cap 12")
+	local muscle = Economy.stats(BASE, levels(20, 20, 20, 20), LADDER[3], STEPS)
+	Check.near(muscle.TopSpeed, 248, "Speed cap 15, plus 8 free")
+	Check.near(muscle.JetPower, 310, "Jets cap 12, plus 8 free")
+end)
+
+Check.test("a car's free levels add to every stat on top of the levels bought", function()
+	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[2], STEPS)
+	Check.near(stats.TopSpeed, 134, "Speed 0 + 4")
+	Check.near(stats.JetPower, 182, "Jets 0 + 4")
+	Check.near(stats.TurnRate, 4.4, "Jets 0 + 4")
+	Check.near(stats.Toughness, 160, "Toughness 0 + 4")
+	Check.near(stats.Grip, 1.42, "Grip 0 + 4")
+	local maxed = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[2], STEPS)
+	Check.near(maxed.TopSpeed, 194, "the cap limits levels bought, not free ones: 10 + 4")
+end)
+
+Check.test("free levels beat the last car's max right away", function()
+	local junker = Economy.stats(BASE, levels(5, 5, 5, 5), LADDER[1], STEPS)
+	local hatchback = Economy.stats(BASE, levels(5, 5, 5, 5), LADDER[2], STEPS)
+	Check.eq(hatchback.JetPower > junker.JetPower, true)
 end)
 
 Check.test("buying a level spends its cost and raises that stat", function()

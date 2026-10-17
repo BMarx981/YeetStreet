@@ -49,7 +49,7 @@ function Garage.car(player: Player): (string?, Economy.CarStats?)
 	end
 	local state = data.Economy
 	local car = Economy.findCar(Tuning.Ladder, state.Equipped) or Tuning.Ladder[1]
-	return car.Id, Economy.stats(Tuning.StarterCar, state.Levels, car.Caps, Tuning.Upgrades.Steps)
+	return car.Id, Economy.stats(Tuning.StarterCar, state.Levels, car, Tuning.Upgrades.Steps)
 end
 
 -- Adds `amount` cash, if the player's data is loaded.

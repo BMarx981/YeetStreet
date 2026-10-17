@@ -6,6 +6,8 @@
 -- Upgrade levels belong to the player, not to a car. The equipped car's caps
 -- set how far each stat can be bought, and how many levels count toward its
 -- real stats, so a better car raises the ceiling without losing progress.
+-- Each car also adds free levels to every stat, so a new car drives better
+-- from its first run.
 -- Purchases return a new state and never change the one passed in.
 
 local Economy = {}
@@ -24,6 +26,7 @@ export type Car = {
 	Name: string, -- shown to players
 	Price: number,
 	Caps: Levels,
+	Bonus: number, -- free levels on every stat, on top of the levels bought
 }
 
 -- What a player owns. This is the saved part of their data.
@@ -157,12 +160,13 @@ function Economy.upgradeCost(from: number, tuning: CostTuning): number
 	return math.floor(raw / tuning.CostRound + 0.5) * tuning.CostRound
 end
 
--- The car's real stats for these levels, each counted only up to the car's cap.
-function Economy.stats(base: CarStats, levels: Levels, caps: Levels, steps: Steps): CarStats
-	local speed = math.min(levels.Speed, caps.Speed)
-	local jets = math.min(levels.Jets, caps.Jets)
-	local toughness = math.min(levels.Toughness, caps.Toughness)
-	local grip = math.min(levels.Grip, caps.Grip)
+-- The car's real stats for these levels: each counted only up to the car's
+-- cap, plus the car's free levels.
+function Economy.stats(base: CarStats, levels: Levels, car: Car, steps: Steps): CarStats
+	local speed = math.min(levels.Speed, car.Caps.Speed) + car.Bonus
+	local jets = math.min(levels.Jets, car.Caps.Jets) + car.Bonus
+	local toughness = math.min(levels.Toughness, car.Caps.Toughness) + car.Bonus
+	local grip = math.min(levels.Grip, car.Caps.Grip) + car.Bonus
 	return {
 		TopSpeed = base.TopSpeed + steps.TopSpeed * speed,
 		JetPower = base.JetPower + steps.JetPower * jets,

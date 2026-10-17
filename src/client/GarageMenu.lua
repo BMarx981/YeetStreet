@@ -121,11 +121,13 @@ local function owned(): { string }
 	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
 end
 
-local function capsText(caps: Economy.Levels): string
+local function carText(car: Economy.Car): string
+	local caps = car.Caps
+	local free = if car.Bonus > 0 then `+{car.Bonus} free levels. ` else ""
 	if caps.Speed == caps.Jets and caps.Jets == caps.Toughness and caps.Toughness == caps.Grip then
-		return `Max level {caps.Speed} on every stat`
+		return `{free}Max level {caps.Speed} on every stat`
 	end
-	return `Max levels: Speed {caps.Speed}, Jets {caps.Jets}, Toughness {caps.Toughness}, Grip {caps.Grip}`
+	return `{free}Max: Speed {caps.Speed}, Jets {caps.Jets}, Tough {caps.Toughness}, Grip {caps.Grip}`
 end
 
 local function build()
@@ -262,7 +264,8 @@ local function build()
 			local level = Economy.level(lv, info.stat)
 			local cap = Economy.level(car.Caps, info.stat)
 			local counts = if level > cap then ` (this car uses {cap})` else ""
-			r.detail.Text = `Level {level} / {cap}{counts}. {info.about}`
+			local free = if car.Bonus > 0 then ` +{car.Bonus} free` else ""
+			r.detail.Text = `Level {level} / {cap}{counts}{free}. {info.about}`
 			if level >= cap then
 				setButton(r.button, "MAX", false)
 			else
@@ -274,7 +277,7 @@ local function build()
 		local cars = owned()
 		for _, ladderCar in Tuning.Ladder do
 			local r = carRows[ladderCar.Id]
-			r.detail.Text = capsText(ladderCar.Caps)
+			r.detail.Text = carText(ladderCar)
 			if ladderCar.Id == equipped then
 				setButton(r.button, "DRIVING", false)
 			elseif table.find(cars, ladderCar.Id) then

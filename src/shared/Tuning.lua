@@ -38,11 +38,11 @@ Tuning.Cash = {
 -- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive
 -- their own. Friction is capped at 2 (rear wheels get Grip times
 -- Chassis.RearGripFactor), so Grip steps stay small.
--- Prices: level 1 is 300, level 10 about 1,060, level 20 about 4,270, level
--- 30 about 17,270. All four stats to 10 cost about 24,000.
+-- Prices: level 1 is 300, level 10 about 1,140, level 20 about 5,030, level
+-- 30 about 22,200. All four stats to 10 cost about 25,600.
 Tuning.Upgrades = {
 	CostBase = 300, -- price of level 1
-	CostGrowth = 1.15, -- each level costs this times the last
+	CostGrowth = 1.16, -- each level costs this times the last
 	CostRound = 10, -- prices round to the nearest multiple of this
 	Steps = {
 		TopSpeed = 2,
@@ -72,24 +72,29 @@ Tuning.Save = {
 }
 
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
--- highest level of each upgrade the car can use.
+-- highest level of each upgrade the car can use, and Bonus is free levels on
+-- every stat on top of those. Each car costs less than the last levels of the
+-- car before it, so players save for it while still upgrading.
 Tuning.Ladder = {
 	{
 		Id = "Junker",
 		Name = "Junker",
 		Price = 0,
+		Bonus = 0,
 		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
 	},
 	{
 		Id = "Hatchback",
 		Name = "Hatchback",
-		Price = 20000,
+		Price = 15000,
+		Bonus = 4,
 		Caps = { Speed = 20, Jets = 20, Toughness = 20, Grip = 20 },
 	},
 	{
 		Id = "Muscle",
 		Name = "Muscle Car",
-		Price = 120000,
+		Price = 75000,
+		Bonus = 8,
 		Caps = { Speed = 30, Jets = 24, Toughness = 30, Grip = 24 },
 	},
 }
