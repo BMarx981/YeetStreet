@@ -77,13 +77,6 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 	}
 end
 
--- Forgets the last step, for when the car is moved instead of driven.
-function CarSensor.reset(sensor: Sensor)
-	sensor.contact = Contact.new()
-	sensor.lastCFrame = nil
-	sensor.lastVelocity = nil
-end
-
 -- Counts wheels touching the ground and returns any launch pad under them.
 local function probe(sensor: Sensor, cf: CFrame): (number, BasePart?)
 	local down = -cf.UpVector * (sensor.wheelRadius + Tuning.Contact.ProbeMargin)

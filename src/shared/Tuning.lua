@@ -90,8 +90,9 @@ Tuning.Run = {
 	StopSpeed = 4, -- a run off its wheels and slower than this for StopTime ends
 	StopTime = 1,
 	CleanUpY = 0.7, -- up vector Y at touchdown needed for a clean landing
-	-- A flying car that moves farther than this in one step was reset, and its
-	-- run ends there. Well above what jets and a network hitch can cover.
+	-- A flying car that moves farther than this in one step was moved, not
+	-- flown, and its run ends there as a reset. Well above what jets and a
+	-- network hitch can cover.
 	TeleportDistance = 250,
 }
 
@@ -144,6 +145,7 @@ Tuning.Toughness = {
 	BreakDamage = 20, -- every this much damage to one slot breaks a part there
 	BreakPop = 20, -- broken parts fly off the car this fast, studs per second
 	PartLifetime = 5, -- seconds a broken part lies around before it is removed
+	WreckSparks = 120, -- sparks in the burst when a car wrecks
 }
 
 -- Knockable props, like the distance boards. They never touch cars.
@@ -156,6 +158,15 @@ Tuning.Props = {
 }
 
 Tuning.Reset = {
+	-- Where a reset or wreck puts the car: RespawnCFrame on the last launch
+	-- pad it touched, in lanes this far apart so cars do not land on each other.
+	RespawnLanes = 4,
+	RespawnLaneSpacing = 12,
+	RequestGap = 1, -- the server ignores reset requests closer together than this
+	RetryTime = 2, -- the client asks again if no new car arrived after this
+	-- While a respawn swaps cars, the client holds the camera and HUD this long
+	-- waiting for the new one before giving up on driving.
+	RespawnWait = 1,
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,
 	StuckTime = 2.5,
@@ -207,6 +218,7 @@ Tuning.TestPark = {
 	RampStartAngle = 3,
 	RampEndAngle = 35,
 	PadPlanks = 4, -- the last planks of the ramp push the car to LaunchSpeed
+	RespawnBack = 150, -- a reset or wreck puts the car this far before the ramp, facing it
 	LaunchSpeed = 300,
 	BoardSpacing = 100,
 	BoardCount = 50,

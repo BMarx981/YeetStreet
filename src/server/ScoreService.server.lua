@@ -16,11 +16,17 @@
 -- refills to the car's Toughness stat when the run ends. Hits of at least
 -- Tuning.Toughness.ShowImpact go to the driver on ReplicatedStorage.CarImpact
 -- and print to Output, for tuning.
+--
+-- At zero toughness the car wrecks: every part left flies off, sparks burst,
+-- and the run ends as "wrecked". A wreck and a reset (the client asks on
+-- ReplicatedStorage.ResetCar) both respawn the car fresh at the last launcher
+-- the player used, through CarService's ServerStorage.RespawnCar.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local Impact = require(ReplicatedStorage.Impact)
@@ -42,6 +48,7 @@ type Watch = {
 	-- Running damage per slot since the car was built, for breaking parts.
 	slotDamage: { [string]: number },
 	smashes: number, -- parts broken this run
+	respawning: boolean, -- a respawn was asked for; the car is about to go
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -52,7 +59,15 @@ local carImpact = Instance.new("RemoteEvent")
 carImpact.Name = "CarImpact"
 carImpact.Parent = ReplicatedStorage
 
+local resetCar = Instance.new("RemoteEvent")
+resetCar.Name = "ResetCar"
+resetCar.Parent = ReplicatedStorage
+
 local watches: { [Model]: Watch } = {}
+-- The RespawnCFrame of the last launch pad each player touched.
+local lastLaunch: { [Player]: CFrame } = {}
+local lastResetAt: { [Player]: number } = {}
+local respawns = 0
 
 local function onPlayerAdded(player: Player)
 	local leaderstats = Instance.new("Folder")
@@ -67,6 +82,10 @@ Players.PlayerAdded:Connect(onPlayerAdded)
 for _, player in Players:GetPlayers() do
 	onPlayerAdded(player)
 end
+Players.PlayerRemoving:Connect(function(player: Player)
+	lastLaunch[player] = nil
+	lastResetAt[player] = nil
+end)
 
 -- The watch for a car, started the first time its owner, driver, and parts
 -- are all there. CarService builds a new car for each character, so the
@@ -102,6 +121,7 @@ local function watchFor(car: Model): Watch?
 		toughness = maxToughness,
 		slotDamage = {},
 		smashes = 0,
+		respawning = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -148,6 +168,62 @@ local function finish(watch: Watch, result: RunTracker.Result)
 end
 
 local carsFolder = workspace:WaitForChild("Cars")
+local respawnCar = ServerStorage:WaitForChild("RespawnCar") :: BindableEvent
+
+-- Where a reset or wreck puts the car: the last launcher's respawn point, in
+-- the next lane over, or the car's own spawn lane before it has launched.
+local function respawnPoint(watch: Watch): CFrame?
+	local base = lastLaunch[watch.player]
+	if not base then
+		local spawn = watch.car:GetAttribute("SpawnCFrame")
+		return if typeof(spawn) == "CFrame" then spawn else nil
+	end
+	local R = Tuning.Reset
+	respawns += 1
+	local lane = respawns % R.RespawnLanes
+	return base * CFrame.new((lane - (R.RespawnLanes - 1) / 2) * R.RespawnLaneSpacing, 0, 0)
+end
+
+local function respawn(watch: Watch)
+	if watch.respawning then
+		return
+	end
+	local point = respawnPoint(watch)
+	if point then
+		watch.respawning = true
+		respawnCar:Fire(watch.player, point)
+	end
+end
+
+-- Every part left flies off and pays Smash points, sparks burst, the run ends
+-- as a wreck, and the car respawns fresh.
+local function wreck(watch: Watch)
+	watch.smashes += CarDamage.wreck(watch.car)
+	local result = RunTracker.abort(watch.run, "wrecked")
+	if result then
+		finish(watch, result)
+	end
+	respawn(watch)
+end
+
+-- A reset only ends the player's own run and moves their car back to the
+-- launcher, so it is safe to take from the client, with a gap against spam.
+resetCar.OnServerEvent:Connect(function(player: Player)
+	local now = os.clock()
+	if now - (lastResetAt[player] or -math.huge) < Tuning.Reset.RequestGap then
+		return
+	end
+	lastResetAt[player] = now
+	for _, watch in watches do
+		if watch.player == player then
+			local result = RunTracker.abort(watch.run)
+			if result then
+				finish(watch, result)
+			end
+			respawn(watch)
+		end
+	end
+end)
 
 RunService.Heartbeat:Connect(function(dt: number)
 	for car in watches do
@@ -160,10 +236,18 @@ RunService.Heartbeat:Connect(function(dt: number)
 			local watch = watchFor(car)
 			if watch then
 				local reading = CarSensor.read(watch.sensor, dt)
+				local respawnAt = reading.pad and reading.pad:GetAttribute("RespawnCFrame")
+				if typeof(respawnAt) == "CFrame" then
+					lastLaunch[watch.player] = respawnAt
+				end
 				hurt(watch, reading.impact)
-				local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
-				if result then
-					finish(watch, result)
+				if watch.toughness <= 0 and not watch.respawning then
+					wreck(watch)
+				else
+					local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
+					if result then
+						finish(watch, result)
+					end
 				end
 			end
 		end

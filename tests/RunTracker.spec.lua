@@ -186,6 +186,16 @@ Check.test("abort ends a run where the car last was", function()
 	Check.eq(state.phase, "idle")
 end)
 
+Check.test("abort can end the run as a wreck", function()
+	local state = launched()
+	step(state, { airborne = true, z = -70, y = 30 })
+	local result = RunTracker.abort(state, "wrecked") :: RunTracker.Result
+	Check.eq(result.ending, "wrecked")
+	Check.near(result.distance, 70)
+	Check.eq(result.clean, false)
+	Check.eq(state.phase, "idle")
+end)
+
 Check.test("abort without a run returns nothing and disarms", function()
 	local state = RunTracker.new()
 	Check.eq(RunTracker.abort(state), nil)

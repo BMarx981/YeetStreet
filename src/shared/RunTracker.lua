@@ -8,8 +8,9 @@
 --   armed   touched a launch pad; lifting off within ArmTime starts a run
 --   flying  in the air; ends on landing, on touching down on its roof or side
 --           (crash), on stopping while still off its wheels, or on abort
---           (reset). Jumping farther than TeleportDistance in one step is
---           also a reset: that is all the server sees of one.
+--           (reset, or a wreck at zero toughness). Jumping farther than
+--           TeleportDistance in one step also ends it as a reset, since the
+--           car did not fly there.
 --
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
@@ -30,7 +31,7 @@ export type Trick = {
 	airtime: number, -- seconds into the flight when the turn completed
 }
 
-export type Ending = "landed" | "crashed" | "stopped" | "aborted"
+export type Ending = "landed" | "crashed" | "stopped" | "aborted" | "wrecked"
 
 export type Result = {
 	ending: Ending,
@@ -212,14 +213,14 @@ function RunTracker.snapshot(state: State): Result?
 	return measure(state, "landed", false)
 end
 
--- Ends any run in progress where the car last was, for resets. Returns nil and
--- disarms if no run was flying.
-function RunTracker.abort(state: State): Result?
+-- Ends any run in progress where the car last was, for resets, or with
+-- `ending` "wrecked" for wrecks. Returns nil and disarms if no run was flying.
+function RunTracker.abort(state: State, ending: Ending?): Result?
 	if state.phase ~= "flying" then
 		reset(state)
 		return nil
 	end
-	return finish(state, "aborted", false)
+	return finish(state, ending or "aborted", false)
 end
 
 return RunTracker

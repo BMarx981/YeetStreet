@@ -15,7 +15,8 @@
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
 --   6. Reset on request, when still stuck on the roof after righting had its
---      chance, or after falling off the map.
+--      chance, or after falling off the map. Resets ask the server, which
+--      builds a fresh car at the last launcher, the same as after a wreck.
 -- Camera and HUD update each render frame.
 --
 -- Stats (top speed, jet power, fuel, recharge, turn rate) come from attributes
@@ -73,7 +74,6 @@ type Rig = {
 	roots: { BasePart },
 	sensor: CarSensor.Sensor,
 	mass: number,
-	spawn: CFrame,
 	topSpeed: number,
 	jetPower: number,
 	jetFuel: number,
@@ -95,6 +95,11 @@ local resetHeld = false
 local righting = false
 local run = RunTracker.new()
 local tricksShown = 0
+local resetAskedAt = -math.huge
+-- When the car was removed out from under the driver, for respawns.
+local carGoneAt: number? = nil
+-- Found in the background; nil until the server has made it.
+local resetRemote: RemoteEvent? = nil
 
 local function numberAttribute(model: Model, key: string): number?
 	local value = model:GetAttribute(key)
@@ -146,11 +151,7 @@ local function rigFor(model: Model, character: Model): Rig?
 	local turnRate = numberAttribute(model, "TurnRate")
 	local grip = numberAttribute(model, "Grip")
 	local wheelRadius = numberAttribute(model, "WheelRadius")
-	local spawn = model:GetAttribute("SpawnCFrame")
 	if not (topSpeed and jetPower and jetFuel and fuelRecharge and turnRate and grip and wheelRadius) then
-		return nil
-	end
-	if typeof(spawn) ~= "CFrame" then
 		return nil
 	end
 	local sensor = CarSensor.new(model, { character })
@@ -178,7 +179,6 @@ local function rigFor(model: Model, character: Model): Rig?
 		roots = roots,
 		sensor = sensor,
 		mass = mass,
-		spawn = spawn,
 		topSpeed = topSpeed,
 		jetPower = jetPower,
 		jetFuel = jetFuel,
@@ -224,21 +224,21 @@ local function trackRun(sample: RunTracker.Sample)
 	tricksShown = #snapshot.tricks
 end
 
-local function resetCar(r: Rig)
+-- Ends the run here so its card shows at once, and asks the server for a
+-- fresh car at the last launcher. Asks again if none came after RetryTime.
+local function resetCar()
+	local now = os.clock()
+	if now - resetAskedAt < Tuning.Reset.RetryTime then
+		return
+	end
+	resetAskedAt = now
 	local result = RunTracker.abort(run)
 	if result then
 		endRun(result)
 	end
-	CarSensor.reset(r.sensor)
-	r.model:PivotTo(r.spawn)
-	for _, part in r.roots do
-		part.AssemblyLinearVelocity = Vector3.zero
-		part.AssemblyAngularVelocity = Vector3.zero
+	if resetRemote then
+		resetRemote:FireServer()
 	end
-	fuel = r.jetFuel
-	burning = false
-	stuckTime = 0
-	righting = false
 end
 
 local function launch(r: Rig, pad: BasePart)
@@ -338,7 +338,7 @@ local function step(r: Rig, dt: number)
 	local resetPressed = input.reset and not resetHeld
 	resetHeld = input.reset
 	if resetPressed or stuckTime >= R.StuckTime or cf.Position.Y < Tuning.World.FallResetY then
-		resetCar(r)
+		resetCar()
 	end
 end
 
@@ -351,6 +351,8 @@ local function enter(r: Rig)
 	righting = false
 	run = RunTracker.new()
 	tricksShown = 0
+	resetAskedAt = -math.huge
+	carGoneAt = nil
 	if defaultControls then
 		defaultControls:Disable()
 	end
@@ -386,6 +388,15 @@ RunService.PreSimulation:Connect(function(dt: number)
 	local model = seatedCar(character)
 	local current = rig
 	if current and current.model ~= model then
+		-- A respawn removes the old car a moment before the new one seats the
+		-- driver. Hold the camera and HUD meanwhile instead of flickering.
+		if not model and not current.model.Parent then
+			local goneAt = carGoneAt or os.clock()
+			carGoneAt = goneAt
+			if os.clock() - goneAt < Tuning.Reset.RespawnWait then
+				return
+			end
+		end
 		leave()
 		current = nil
 	end
@@ -449,6 +460,15 @@ task.spawn(function()
 	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score)
 		Hud.result(result, score, true)
 	end)
+end)
+
+task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("ResetCar")
+	if remote:IsA("RemoteEvent") then
+		resetRemote = remote
+	else
+		warn("CarController: ReplicatedStorage.ResetCar is not a RemoteEvent; resets do nothing")
+	end
 end)
 
 -- Hits the server measured on this car, shown while picking toughness numbers.

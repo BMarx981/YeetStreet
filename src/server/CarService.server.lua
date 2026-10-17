@@ -3,6 +3,10 @@
 -- Gives every character a car in a spawn lane, seats them in it, and hands the
 -- player network ownership so their client drives it.
 --
+-- Respawns go through ServerStorage.RespawnCar (a BindableEvent fired with a
+-- player and a CFrame, by ScoreService on a reset or wreck): the old car is
+-- removed and a fresh one is built there, with the same driver seated.
+--
 -- No oof rules live here: the driver's health never drops, they are put back
 -- in the seat if they ever leave it, and their character is massless and
 -- collides with nothing, so it can neither change how the car handles nor hold
@@ -11,6 +15,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarBuilder = require(ServerScriptService.CarBuilder)
@@ -69,21 +74,28 @@ local function seatDriver(car: Model, humanoid: Humanoid)
 	end
 end
 
+-- Replaces the player's car with a fresh one at `cframe` and seats them in it.
+local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
+	removeCar(player)
+	local car = CarBuilder.build(Tuning.StarterCar, cframe)
+	car.Name = `Car_{player.Name}`
+	car:SetAttribute("OwnerUserId", player.UserId)
+	car.Parent = carsFolder
+	cars[player] = car
+	seatDriver(car, humanoid)
+	giveOwnership(car, player)
+end
+
 local function onCharacterAdded(player: Player, character: Model)
 	removeCar(player)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	character:WaitForChild("HumanoidRootPart")
 	lockDriver(character, humanoid)
 
-	lanesUsed += 1
-	local car = CarBuilder.build(Tuning.StarterCar, TestPark.spawnCFrame(lanesUsed))
-	car.Name = `Car_{player.Name}`
-	car:SetAttribute("OwnerUserId", player.UserId)
-	car.Parent = carsFolder
-	cars[player] = car
-
+	-- Looks up the player's current car each time, since a respawn swaps it.
 	humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
-		if cars[player] ~= car then
+		local car = cars[player]
+		if not car or player.Character ~= character then
 			return
 		end
 		if humanoid.SeatPart then
@@ -92,15 +104,27 @@ local function onCharacterAdded(player: Player, character: Model)
 			return
 		end
 		task.delay(RESEAT_DELAY, function()
-			if cars[player] == car and humanoid.SeatPart == nil then
-				seatDriver(car, humanoid)
+			local now = cars[player]
+			if now and player.Character == character and humanoid.SeatPart == nil then
+				seatDriver(now, humanoid)
 			end
 		end)
 	end)
 
-	seatDriver(car, humanoid)
-	giveOwnership(car, player)
+	lanesUsed += 1
+	placeCar(player, humanoid, TestPark.spawnCFrame(lanesUsed))
 end
+
+local respawnCar = Instance.new("BindableEvent")
+respawnCar.Name = "RespawnCar"
+respawnCar.Event:Connect(function(player: Player, cframe: CFrame)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and cars[player] then
+		placeCar(player, humanoid, cframe)
+	end
+end)
+respawnCar.Parent = ServerStorage
 
 local function onPlayerAdded(player: Player)
 	player.CharacterAdded:Connect(function(character)

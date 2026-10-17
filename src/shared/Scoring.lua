@@ -25,7 +25,7 @@ export type Trick = {
 }
 
 export type Run = {
-	ending: "landed" | "crashed" | "stopped" | "aborted",
+	ending: "landed" | "crashed" | "stopped" | "aborted" | "wrecked",
 	airtime: number,
 	distance: number,
 	height: number,
