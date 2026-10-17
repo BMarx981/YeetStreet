@@ -23,6 +23,7 @@ Tuning.StarterCar = {
 	TurnRate = 4, -- air spin rate at full input, radians per second
 	Grip = 1.3, -- wheel friction
 	RollUnlocked = true,
+	Toughness = 100, -- damage a car takes in one run before it wrecks
 }
 
 Tuning.Chassis = {
@@ -108,6 +109,7 @@ Tuning.Score = {
 	ComboStep = 0.5, -- combo gained per different trick after the first
 	ComboMax = 4,
 	CleanMultiplier = 1.5,
+	SmashPoints = 100, -- per part knocked off the car
 }
 
 Tuning.Hud = {
@@ -131,10 +133,17 @@ Tuning.Righting = {
 	TorquePerMass = 1200,
 }
 
--- Hits measured as a sudden change in the car's velocity (Impact). For now
--- only measured and shown, to pick toughness thresholds from.
+-- Hits are measured as a sudden change in the car's velocity, in studs per
+-- second (Impact). Measured in playtests: wheel landings 31 to 79, roof 64,
+-- nose 74, a hard side hit 93, gentle bumps under 20. Only body hits during a
+-- run do damage (Toughness).
 Tuning.Toughness = {
-	ShowImpact = 20, -- hits at least this hard, in studs per second, show on the HUD
+	ShowImpact = 20, -- hits at least this hard show on the HUD and in Output
+	HitThreshold = 30, -- body hits up to this do nothing
+	DamagePerSpeed = 1, -- toughness lost per stud per second over HitThreshold
+	BreakDamage = 20, -- every this much damage to one slot breaks a part there
+	BreakPop = 20, -- broken parts fly off the car this fast, studs per second
+	PartLifetime = 5, -- seconds a broken part lies around before it is removed
 }
 
 -- Knockable props, like the distance boards. They never touch cars.

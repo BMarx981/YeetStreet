@@ -458,9 +458,11 @@ task.spawn(function()
 		warn("CarController: ReplicatedStorage.CarImpact is not a RemoteEvent; hits stay hidden")
 		return
 	end
-	carImpact.OnClientEvent:Connect(function(strength: number, slot: string, inRun: boolean)
-		Hud.impact(strength, slot, inRun)
-	end)
+	carImpact.OnClientEvent:Connect(
+		function(strength: number, slot: string, inRun: boolean, damage: number, toughnessLeft: number)
+			Hud.impact(strength, slot, inRun, damage, toughnessLeft)
+		end
+	)
 end)
 
 task.spawn(function()

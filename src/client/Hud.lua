@@ -218,9 +218,10 @@ function Hud.update(fuelFraction: number, speed: number, airtime: number?, burni
 	p.impact.Visible = now < impactUntil
 end
 
--- A hit the server measured, in studs per second. Keeps showing the hardest
--- one until ImpactTime passes without a harder one.
-function Hud.impact(strength: number, slot: string, inRun: boolean)
+-- A hit the server measured, in studs per second, the toughness it cost, and
+-- what is left. Keeps showing the hardest one until ImpactTime passes without
+-- a harder one.
+function Hud.impact(strength: number, slot: string, inRun: boolean, damage: number, toughnessLeft: number)
 	local p = parts
 	if not p then
 		return
@@ -231,7 +232,8 @@ function Hud.impact(strength: number, slot: string, inRun: boolean)
 	end
 	impactShown = strength
 	impactUntil = now + H.ImpactTime
-	p.impact.Text = `Hit {round(strength)} {slot}{if inRun then "" else " (no run)"}`
+	local cost = if damage > 0 then `  -{round(damage)}, {round(toughnessLeft)} left` else ""
+	p.impact.Text = `Hit {round(strength)} {slot}{if inRun then "" else " (no run)"}{cost}`
 end
 
 -- The score so far while flying; nil hides it.
@@ -304,6 +306,9 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 		add(if counts[name] > 1 then `{name} x{counts[name]}` else name, withCommas(points[name]), 18)
 	end
 
+	if score.smash > 0 then
+		add("Smash", withCommas(score.smash), 18)
+	end
 	if score.combo > 1 then
 		add("Combo", multiplier(score.combo), 18)
 	end

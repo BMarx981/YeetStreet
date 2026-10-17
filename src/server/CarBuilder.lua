@@ -5,7 +5,9 @@
 --   Hull      invisible collision box, carries all the chassis mass
 --   Hub<W>    per wheel, slides on a PrismaticConstraint held up by a spring
 --   Wheel<W>  cylinder on a motor HingeConstraint from its hub
---   Body      placeholder visuals welded to the hull, massless and non-colliding
+--   Body      placeholder visuals welded to the hull, massless and non-colliding.
+--             Breakable ones carry a Slot attribute (nose, tail, roof, sides);
+--             hits there break them off (CarDamage).
 --
 -- Steering turns the front Mount attachments about the hull's up axis. The
 -- prismatic aligns the hub to its mount, so the hub, axle, and wheel turn with
@@ -68,6 +70,10 @@ local function visual(body: Instance, hull: BasePart, name: string, size: Vector
 	return part
 end
 
+local function slot(part: BasePart, name: string)
+	part:SetAttribute("Slot", name)
+end
+
 local function buildBody(model: Model, hull: BasePart)
 	local body = Instance.new("Folder")
 	body.Name = "Body"
@@ -78,12 +84,27 @@ local function buildBody(model: Model, hull: BasePart)
 	local hs = C.HullSize
 
 	visual(body, hull, "Tub", Vector3.new(hs.X + 0.2, 1.3, hs.Z + 0.2), CFrame.new(0, 0.2, 0), paint)
-	visual(body, hull, "Hood", Vector3.new(hs.X - 0.4, 0.5, 3.4), CFrame.new(0, 1.05, -hs.Z / 2 + 1.9), paint)
+	slot(
+		visual(body, hull, "Hood", Vector3.new(hs.X - 0.4, 0.5, 3.4), CFrame.new(0, 1.05, -hs.Z / 2 + 1.9), paint),
+		"nose"
+	)
 	visual(body, hull, "Dash", Vector3.new(hs.X - 0.6, 0.9, 0.4), CFrame.new(0, 1.3, -1.4), trim)
-	visual(body, hull, "RollBar", Vector3.new(hs.X - 0.8, 0.4, 0.4), CFrame.new(0, 3.2, 2.2), trim)
-	visual(body, hull, "BarL", Vector3.new(0.4, 2.4, 0.4), CFrame.new(-(hs.X / 2 - 0.6), 2.1, 2.2), trim)
-	visual(body, hull, "BarR", Vector3.new(0.4, 2.4, 0.4), CFrame.new(hs.X / 2 - 0.6, 2.1, 2.2), trim)
-	visual(body, hull, "Spoiler", Vector3.new(hs.X, 0.25, 1.2), CFrame.new(0, 2, hs.Z / 2 - 0.4), trim)
+	slot(visual(body, hull, "RollBar", Vector3.new(hs.X - 0.8, 0.4, 0.4), CFrame.new(0, 3.2, 2.2), trim), "roof")
+	slot(visual(body, hull, "BarL", Vector3.new(0.4, 2.4, 0.4), CFrame.new(-(hs.X / 2 - 0.6), 2.1, 2.2), trim), "roof")
+	slot(visual(body, hull, "BarR", Vector3.new(0.4, 2.4, 0.4), CFrame.new(hs.X / 2 - 0.6, 2.1, 2.2), trim), "roof")
+	slot(visual(body, hull, "Spoiler", Vector3.new(hs.X, 0.25, 1.2), CFrame.new(0, 2, hs.Z / 2 - 0.4), trim), "tail")
+	-- Side panels between the wheel arches.
+	for _, side in { -1, 1 } do
+		local panel = visual(
+			body,
+			hull,
+			if side < 0 then "SideL" else "SideR",
+			Vector3.new(0.2, 0.9, 4.4),
+			CFrame.new(side * (hs.X / 2 + 0.2), 0.2, 0),
+			trim
+		)
+		slot(panel, "sides")
+	end
 	local lights = visual(
 		body,
 		hull,
@@ -93,6 +114,7 @@ local function buildBody(model: Model, hull: BasePart)
 		Color3.new(1, 1, 0.85)
 	)
 	lights.Material = Enum.Material.Neon
+	slot(lights, "nose")
 
 	-- Twin jet nozzles at the back. A cylinder's axis is its X, so turn it to
 	-- point lengthways.

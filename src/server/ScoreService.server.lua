@@ -9,25 +9,39 @@
 -- ReplicatedStorage.RunResult, and a better total becomes their Best in
 -- leaderstats. Nothing saves until M2.
 --
--- It also measures every hit a car takes (CarSensor, Impact) and sends hits
--- of at least Tuning.Toughness.ShowImpact to the driver on
--- ReplicatedStorage.CarImpact, and prints them to Output, so toughness
--- thresholds can be picked from real numbers.
+-- It also owns toughness. Every hit a car takes is measured (CarSensor) and
+-- placed on a slot (Impact). Body hits during a run drain the car's
+-- ToughnessLeft attribute and break parts off that slot (Toughness,
+-- CarDamage), and each part broken pays Smash points on the run. Toughness
+-- refills to the car's Toughness stat when the run ends. Hits of at least
+-- Tuning.Toughness.ShowImpact go to the driver on ReplicatedStorage.CarImpact
+-- and print to Output, for tuning.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
+local Toughness = require(ReplicatedStorage.Toughness)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CarDamage = require(ServerScriptService.CarDamage)
+
+local T = Tuning.Toughness
 
 type Watch = {
 	player: Player,
+	car: Model,
 	sensor: CarSensor.Sensor,
 	run: RunTracker.State,
+	maxToughness: number,
+	toughness: number,
+	-- Running damage per slot since the car was built, for breaking parts.
+	slotDamage: { [string]: number },
+	smashes: number, -- parts broken this run
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -71,17 +85,60 @@ local function watchFor(car: Model): Watch?
 	if not (player and character) then
 		return nil
 	end
+	local maxToughness = car:GetAttribute("Toughness")
+	if typeof(maxToughness) ~= "number" then
+		return nil
+	end
 	local sensor = CarSensor.new(car, { character })
 	if not sensor then
 		return nil
 	end
-	local watch = { player = player, sensor = sensor, run = RunTracker.new() }
+	local watch: Watch = {
+		player = player,
+		car = car,
+		sensor = sensor,
+		run = RunTracker.new(),
+		maxToughness = maxToughness,
+		toughness = maxToughness,
+		slotDamage = {},
+		smashes = 0,
+	}
+	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
 	return watch
 end
 
+-- Measures a hit. Only body hits during a run (including the touchdown that
+-- ends it) do damage and break parts.
+local function hurt(watch: Watch, hit: Vector3)
+	local strength = hit.Magnitude
+	if strength < T.ShowImpact then
+		return
+	end
+	local inRun = watch.run.phase == "flying"
+	local slot = Impact.slot(hit.X, hit.Y, hit.Z)
+	local damage = if inRun then Toughness.damage(strength, slot, T) else 0
+	if damage > 0 then
+		watch.toughness = math.max(watch.toughness - damage, 0)
+		watch.car:SetAttribute("ToughnessLeft", watch.toughness)
+		local before = watch.slotDamage[slot] or 0
+		local after = before + damage
+		watch.slotDamage[slot] = after
+		watch.smashes += CarDamage.breakParts(watch.car, slot, Toughness.breaks(before, after, T))
+	end
+	print(
+		`Hit {math.floor(strength + 0.5)} {slot}{if inRun then "" else " (no run)"}, damage {math.floor(damage + 0.5)}, toughness {math.floor(
+			watch.toughness + 0.5
+		)} left, {watch.player.Name}`
+	)
+	carImpact:FireClient(watch.player, strength, slot, inRun, damage, watch.toughness)
+end
+
 local function finish(watch: Watch, result: RunTracker.Result)
-	local score = Scoring.score(result, Tuning.Score)
+	local score = Scoring.score(result, Tuning.Score, watch.smashes)
+	watch.smashes = 0
+	watch.toughness = watch.maxToughness
+	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
 	local leaderstats = watch.player:FindFirstChild("leaderstats")
 	local best = leaderstats and leaderstats:FindFirstChild("Best")
 	if best and best:IsA("IntValue") and score.total > best.Value then
@@ -103,15 +160,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 			local watch = watchFor(car)
 			if watch then
 				local reading = CarSensor.read(watch.sensor, dt)
-				local hit = reading.impact
-				if hit.Magnitude >= Tuning.Toughness.ShowImpact then
-					local inRun = watch.run.phase == "flying"
-					local slot = Impact.slot(hit.X, hit.Y, hit.Z)
-					print(
-						`Hit {math.floor(hit.Magnitude + 0.5)} {slot}{if inRun then "" else " (no run)"} {watch.player.Name}`
-					)
-					carImpact:FireClient(watch.player, hit.Magnitude, slot, inRun)
-				end
+				hurt(watch, reading.impact)
 				local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
 				if result then
 					finish(watch, result)

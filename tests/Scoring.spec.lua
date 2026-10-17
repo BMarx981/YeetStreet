@@ -14,6 +14,7 @@ local TUNING: Scoring.Tuning = {
 	ComboStep = 0.5,
 	ComboMax = 2.5,
 	CleanMultiplier = 1.5,
+	SmashPoints = 100,
 }
 
 local function trick(kind: Scoring.TrickKind, direction: number): Scoring.Trick
@@ -126,6 +127,22 @@ Check.test("points round to whole numbers", function()
 	Check.eq(score.distance, 2)
 	Check.eq(score.base, 364)
 	Check.eq(score.total, 546)
+end)
+
+Check.test("each part smashed off the car pays Smash points", function()
+	local score = Scoring.score(run({ airtime = 2 }), TUNING, 3)
+	Check.eq(score.smash, 300)
+	Check.eq(score.base, 400)
+	Check.eq(score.total, 400)
+end)
+
+Check.test("a crash keeps its Smash points", function()
+	local score = Scoring.score(run({ ending = "crashed" }), TUNING, 2)
+	Check.eq(score.total, 200)
+end)
+
+Check.test("no smashes given means none", function()
+	Check.eq(Scoring.score(run({ airtime = 2 }), TUNING).smash, 0)
 end)
 
 Check.test("tricks are named by kind and direction", function()

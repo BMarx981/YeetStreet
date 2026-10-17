@@ -2,13 +2,15 @@
 -- Scoring (ModuleScript) -> ReplicatedStorage.Scoring
 -- Turns a finished run from RunTracker into points. Pure, see InputAxes.
 --
---   total = (airtime + distance + height + tricks) * combo * clean
+--   total = (airtime + distance + height + tricks + smash) * combo * clean
 --
 -- Each repeat of the same trick (kind and direction) pays RepeatFalloff times
 -- the last, down to RepeatFloor of full points. The combo grows by ComboStep
 -- for each different trick after the first. A clean landing multiplies on top.
--- A run that crashes, ends off its wheels, or ends by reset keeps its base
--- points and loses the combo and clean bonus, which is all a crash ever costs.
+-- Smash points pay for each part knocked off the car during the run; only the
+-- server knows those, so the client's own score leaves them out. A run that
+-- crashes, ends off its wheels, or ends by reset keeps its base points and
+-- loses the combo and clean bonus, which is all a crash ever costs.
 
 local Scoring = {}
 
@@ -43,6 +45,7 @@ export type Tuning = {
 	ComboStep: number,
 	ComboMax: number,
 	CleanMultiplier: number,
+	SmashPoints: number,
 }
 
 export type Score = {
@@ -50,6 +53,7 @@ export type Score = {
 	distance: number,
 	height: number,
 	trickPoints: { number }, -- one per trick, in the order they were done
+	smash: number,
 	base: number,
 	combo: number,
 	clean: number, -- multiplier, 1 when not clean
@@ -81,7 +85,8 @@ function Scoring.trickName(trick: Trick): string
 	return TRICK_NAMES[trick.kind][trick.direction]
 end
 
-function Scoring.score(run: Run, tuning: Tuning): Score
+-- `smashes` is how many parts broke off the car during the run.
+function Scoring.score(run: Run, tuning: Tuning, smashes: number?): Score
 	local airtime = round(run.airtime * tuning.AirtimePerSecond)
 	local distance = round(run.distance * tuning.DistancePerStud)
 	local height = round(run.height * tuning.HeightPerStud)
@@ -103,7 +108,8 @@ function Scoring.score(run: Run, tuning: Tuning): Score
 		trickTotal += points
 	end
 
-	local base = airtime + distance + height + trickTotal
+	local smash = (smashes or 0) * tuning.SmashPoints
+	local base = airtime + distance + height + trickTotal + smash
 	local landed = run.ending == "landed"
 	local combo = if landed then math.min(1 + tuning.ComboStep * math.max(different - 1, 0), tuning.ComboMax) else 1
 	local clean = if landed and run.clean then tuning.CleanMultiplier else 1
@@ -113,6 +119,7 @@ function Scoring.score(run: Run, tuning: Tuning): Score
 		distance = distance,
 		height = height,
 		trickPoints = trickPoints,
+		smash = smash,
 		base = base,
 		combo = combo,
 		clean = clean,
