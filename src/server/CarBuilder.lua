@@ -5,17 +5,14 @@
 --   Hull      invisible collision box, carries all the chassis mass
 --   Hub<W>    per wheel, slides on a PrismaticConstraint held up by a spring
 --   Wheel<W>  cylinder on a motor HingeConstraint from its hub
---   Body      placeholder visuals welded to the hull, massless and non-colliding.
---             Breakable ones carry a Slot attribute (nose, tail, roof, sides);
---             hits there break them off (CarDamage).
 --
 -- Steering turns the front Mount attachments about the hull's up axis. The
 -- prismatic aligns the hub to its mount, so the hub, axle, and wheel turn with
 -- it. The client owns the car and drives every constraint; the server only
 -- builds it and writes the stats as attributes.
 --
--- Placeholder: the looks here are a stand-in until the car generator (M2), which
--- builds visuals on each client from a seed instead.
+-- The looks aren't built here: each client builds them from the car's look
+-- attributes (CarVisuals).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -56,96 +53,6 @@ local function weld(a: BasePart, b: BasePart)
 	w.Part0 = a
 	w.Part1 = b
 	w.Parent = b
-end
-
--- A visual part: welded to the hull, and invisible to physics.
-local function visual(body: Instance, hull: BasePart, name: string, size: Vector3, offset: CFrame, color: Color3): Part
-	local part = newPart(name, size, hull.CFrame * offset, body)
-	part.Color = color
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Massless = true
-	weld(hull, part)
-	return part
-end
-
-local function slot(part: BasePart, name: string)
-	part:SetAttribute("Slot", name)
-end
-
-local function buildBody(model: Model, hull: BasePart)
-	local body = Instance.new("Folder")
-	body.Name = "Body"
-	body.Parent = model
-
-	local paint = Color3.fromRGB(200, 60, 45)
-	local trim = Color3.fromRGB(40, 40, 46)
-	local hs = C.HullSize
-
-	visual(body, hull, "Tub", Vector3.new(hs.X + 0.2, 1.3, hs.Z + 0.2), CFrame.new(0, 0.2, 0), paint)
-	slot(
-		visual(body, hull, "Hood", Vector3.new(hs.X - 0.4, 0.5, 3.4), CFrame.new(0, 1.05, -hs.Z / 2 + 1.9), paint),
-		"nose"
-	)
-	visual(body, hull, "Dash", Vector3.new(hs.X - 0.6, 0.9, 0.4), CFrame.new(0, 1.3, -1.4), trim)
-	slot(visual(body, hull, "RollBar", Vector3.new(hs.X - 0.8, 0.4, 0.4), CFrame.new(0, 3.2, 2.2), trim), "roof")
-	slot(visual(body, hull, "BarL", Vector3.new(0.4, 2.4, 0.4), CFrame.new(-(hs.X / 2 - 0.6), 2.1, 2.2), trim), "roof")
-	slot(visual(body, hull, "BarR", Vector3.new(0.4, 2.4, 0.4), CFrame.new(hs.X / 2 - 0.6, 2.1, 2.2), trim), "roof")
-	slot(visual(body, hull, "Spoiler", Vector3.new(hs.X, 0.25, 1.2), CFrame.new(0, 2, hs.Z / 2 - 0.4), trim), "tail")
-	-- Side panels between the wheel arches.
-	for _, side in { -1, 1 } do
-		local panel = visual(
-			body,
-			hull,
-			if side < 0 then "SideL" else "SideR",
-			Vector3.new(0.2, 0.9, 4.4),
-			CFrame.new(side * (hs.X / 2 + 0.2), 0.2, 0),
-			trim
-		)
-		slot(panel, "sides")
-	end
-	local lights = visual(
-		body,
-		hull,
-		"Lights",
-		Vector3.new(hs.X - 1, 0.35, 0.2),
-		CFrame.new(0, 0.6, -hs.Z / 2 - 0.05),
-		Color3.new(1, 1, 0.85)
-	)
-	lights.Material = Enum.Material.Neon
-	slot(lights, "nose")
-
-	-- Twin jet nozzles at the back. A cylinder's axis is its X, so turn it to
-	-- point lengthways.
-	for _, x in { -1.5, 1.5 } do
-		local nozzle = visual(
-			body,
-			hull,
-			if x < 0 then "NozzleL" else "NozzleR",
-			Vector3.new(1.2, 1, 1),
-			CFrame.new(x, 0.9, hs.Z / 2 + 0.5) * CFrame.Angles(0, math.rad(90), 0),
-			trim
-		)
-		nozzle.Shape = Enum.PartType.Cylinder
-		nozzle.Material = Enum.Material.Metal
-
-		-- Flame attachment faces the car's forward direction, so the emitter's
-		-- Back direction points out of the tail.
-		local flameAttachment = attach("Flame", CFrame.new(0.6, 0, 0) * CFrame.Angles(0, math.rad(-90), 0), nozzle)
-		local flame = Instance.new("ParticleEmitter")
-		flame.Name = "JetFlame"
-		flame.Enabled = false
-		flame.EmissionDirection = Enum.NormalId.Back
-		flame.Rate = 120
-		flame.Lifetime = NumberRange.new(0.15, 0.3)
-		flame.Speed = NumberRange.new(30, 40)
-		flame.SpreadAngle = Vector2.new(6, 6)
-		flame.LightEmission = 1
-		flame.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120), Color3.fromRGB(255, 90, 30))
-		flame.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
-		flame.Parent = flameAttachment
-	end
 end
 
 local function totalMass(model: Model): number
@@ -274,8 +181,6 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 		noHull.Part1 = wheel
 		noHull.Parent = wheel
 	end
-
-	buildBody(model, hull)
 
 	-- Spring rate from the car's weight, so the rest height holds when mass or
 	-- gravity is retuned.

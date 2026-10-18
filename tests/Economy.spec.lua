@@ -3,13 +3,25 @@ local Check = require("./Check")
 local Economy = require("../src/shared/Economy")
 
 local LADDER: { Economy.Car } = {
-	{ Id = "Junker", Name = "Junker", Price = 0, Bonus = 0, Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 } },
+	{
+		Id = "Junker",
+		Name = "Junker",
+		Price = 0,
+		Bonus = 0,
+		Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 },
+		Seed = 1,
+		Archetype = "pickup",
+		Tier = "Junker",
+	},
 	{
 		Id = "Hatchback",
 		Name = "Hatchback",
 		Price = 5000,
 		Bonus = 4,
 		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+		Seed = 2,
+		Archetype = "hatch",
+		Tier = "Street",
 	},
 	{
 		Id = "Muscle",
@@ -17,6 +29,9 @@ local LADDER: { Economy.Car } = {
 		Price = 25000,
 		Bonus = 8,
 		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 },
+		Seed = 3,
+		Archetype = "muscle",
+		Tier = "Sports",
 	},
 }
 
@@ -125,6 +140,19 @@ Check.test("free levels beat the last car's max right away", function()
 	local junker = Economy.stats(BASE, levels(5, 5, 5, 5), LADDER[1], STEPS)
 	local hatchback = Economy.stats(BASE, levels(5, 5, 5, 5), LADDER[2], STEPS)
 	Check.eq(hatchback.JetPower > junker.JetPower, true)
+end)
+
+Check.test("look levels are the levels the stats count: capped, plus free levels", function()
+	local junker = Economy.lookLevels(levels(2, 9, 0, 5), LADDER[1])
+	Check.eq(junker.Speed, 2, "Speed under the cap")
+	Check.eq(junker.Jets, 5, "Jets capped at 5")
+	Check.eq(junker.Toughness, 0, "Toughness 0")
+	Check.eq(junker.Grip, 5, "Grip at the cap")
+	local muscle = Economy.lookLevels(levels(20, 20, 3, 0), LADDER[3])
+	Check.eq(muscle.Speed, 23, "Speed cap 15, plus 8 free")
+	Check.eq(muscle.Jets, 20, "Jets cap 12, plus 8 free")
+	Check.eq(muscle.Toughness, 11, "Toughness 3, plus 8 free")
+	Check.eq(muscle.Grip, 8, "Grip 0, plus 8 free")
 end)
 
 Check.test("buying a level spends its cost and raises that stat", function()

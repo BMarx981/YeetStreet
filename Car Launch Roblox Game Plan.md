@@ -113,7 +113,20 @@ The generator is a design tool used in Studio. Brian rolls seeds, keeps the ones
 
 ### Earned cosmetics
 
-Paint jobs, decals, trail colors, and alternate part styles, unlocked by obby stages, launcher records, and rebirths. Cosmetics never change stats. Cosmetic only variants could be added later if a collecting hook is ever wanted, without touching the ladder.
+Paint jobs, decals, trail colors, and alternate part styles, unlocked by obby stages, launcher records, and rebirths. Cosmetics never change stats. Body styles (below) are the collecting hook, added without touching the ladder.
+
+### Body collection
+
+Decision (2026-10-17): generated seeds become collectible body styles. Brian liked nearly every seed in the gallery and wants them in the game for players to earn or buy.
+
+- A body is a seed. It changes only the look. The ladder car still sets stats, caps, and price.
+- A ladder car can wear any body from its own tier, of any type. The Muscle Car can wear any Sports body: muscle, wedge, hover, and so on. A hover body hides the wheels on screen only; the physics wheels stay.
+- Each ladder car comes with its locked seed as its default body.
+- Players get bodies three ways: earned by playing (launcher records, big crashes, obby stages, rebirths), bought with cash in the garage, and some sold for Robux.
+- The catalog is a fixed list of chosen seeds per tier and type, which can grow over time.
+- The equipped body replicates as the seed, like any other equipped cosmetic.
+- Once players own bodies, changes to the generator reshape cars they own. Finish tuning the looks before release; after release, generator changes must keep existing bodies looking the same.
+- Timing: after M2. M2 still ends with three ladder cars.
 
 ### Rules
 
@@ -233,8 +246,9 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 - Same toolchain as MazeCity: VS Code plus Rojo.
 - The car obby is its own separate zone.
 - Cars follow a fixed ladder with stat driven visuals and earned cosmetics.
+- Generated seeds are collectible body styles for ladder cars of the same tier, earned, bought with cash, or bought with Robux. Bodies never change stats.
 
 ## Open questions
 
 - [ ] Which stunt parks ship at launch, and in what order the rest arrive
-- [ ] Monetization: game passes (2x cash, extra jet fuel), cosmetic car skins, or none at launch
+- [ ] Monetization: game passes (2x cash, extra jet fuel), or none at launch. Some body styles will sell for Robux (decided 2026-10-17).

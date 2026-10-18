@@ -70,7 +70,6 @@ type Rig = {
 	wheels: { Wheel },
 	spin: AngularVelocity,
 	jet: VectorForce,
-	flames: { ParticleEmitter },
 	-- Every unanchored part that is its own assembly: hull, hubs, wheels.
 	roots: { BasePart },
 	sensor: CarSensor.Sensor,
@@ -160,12 +159,9 @@ local function rigFor(model: Model, character: Model): Rig?
 		return nil
 	end
 
-	local flames: { ParticleEmitter } = {}
 	local mass = 0
 	for _, descendant in model:GetDescendants() do
-		if descendant:IsA("ParticleEmitter") and descendant.Name == "JetFlame" then
-			table.insert(flames, descendant)
-		elseif descendant:IsA("BasePart") and not descendant.Massless then
+		if descendant:IsA("BasePart") and not descendant.Massless then
 			mass += descendant:GetMass()
 		end
 	end
@@ -176,7 +172,6 @@ local function rigFor(model: Model, character: Model): Rig?
 		wheels = wheels,
 		spin = spin,
 		jet = jet,
-		flames = flames,
 		roots = roots,
 		sensor = sensor,
 		mass = mass,
@@ -271,8 +266,9 @@ local function step(r: Rig, dt: number)
 	burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
 	fuel = Jets.stepFuel(fuel, r.jetFuel, burning, not airborne, r.fuelRecharge, dt)
 	r.jet.Force = Vector3.new(0, 0, if burning then -r.jetPower * r.mass else 0)
-	for _, flame in r.flames do
-		flame.Enabled = burning
+	-- Set only on this client; CarVisuals lights the thruster flames from it.
+	if r.model:GetAttribute("JetsBurning") ~= burning then
+		r.model:SetAttribute("JetsBurning", burning)
 	end
 
 	-- In the air, gas and brake only pitch the car, and the wheels free roll so

@@ -212,11 +212,12 @@ local function respawn(watch: Watch)
 	end
 end
 
--- Every part left flies off and pays Smash points, sparks burst, the run ends
--- as a wreck, and the car respawns fresh after WreckBeat.
+-- Every part left flies off and pays Smash points, for up to WreckSmashes of
+-- them, sparks burst, the run ends as a wreck, and the car respawns fresh
+-- after WreckBeat.
 local function wreck(watch: Watch)
 	watch.wrecked = true
-	watch.smashes += CarDamage.breakParts(watch.car, nil, math.huge)
+	watch.smashes += math.min(CarDamage.breakParts(watch.car, nil, math.huge), T.WreckSmashes)
 	carWrecked:FireAllClients(watch.sensor.hull.Position)
 	local result = RunTracker.abort(watch.run, "wrecked")
 	if result then

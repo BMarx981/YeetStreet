@@ -27,6 +27,10 @@ export type Car = {
 	Price: number,
 	Caps: Levels,
 	Bonus: number, -- free levels on every stat, on top of the levels bought
+	-- Its looks, from the car generator (CarDesign, CarKit).
+	Seed: number,
+	Archetype: string,
+	Tier: string,
 }
 
 -- What a player owns. This is the saved part of their data.
@@ -160,13 +164,24 @@ function Economy.upgradeCost(from: number, tuning: CostTuning): number
 	return math.floor(raw / tuning.CostRound + 0.5) * tuning.CostRound
 end
 
--- The car's real stats for these levels: each counted only up to the car's
--- cap, plus the car's free levels.
+-- The levels that count on this car: each only up to the car's cap, plus the
+-- car's free levels. They set its stats and which stat parts it shows.
+function Economy.lookLevels(levels: Levels, car: Car): Levels
+	return {
+		Speed = math.min(levels.Speed, car.Caps.Speed) + car.Bonus,
+		Jets = math.min(levels.Jets, car.Caps.Jets) + car.Bonus,
+		Toughness = math.min(levels.Toughness, car.Caps.Toughness) + car.Bonus,
+		Grip = math.min(levels.Grip, car.Caps.Grip) + car.Bonus,
+	}
+end
+
+-- The car's real stats for these levels (see lookLevels).
 function Economy.stats(base: CarStats, levels: Levels, car: Car, steps: Steps): CarStats
-	local speed = math.min(levels.Speed, car.Caps.Speed) + car.Bonus
-	local jets = math.min(levels.Jets, car.Caps.Jets) + car.Bonus
-	local toughness = math.min(levels.Toughness, car.Caps.Toughness) + car.Bonus
-	local grip = math.min(levels.Grip, car.Caps.Grip) + car.Bonus
+	local counted = Economy.lookLevels(levels, car)
+	local speed = counted.Speed
+	local jets = counted.Jets
+	local toughness = counted.Toughness
+	local grip = counted.Grip
 	return {
 		TopSpeed = base.TopSpeed + steps.TopSpeed * speed,
 		JetPower = base.JetPower + steps.JetPower * jets,

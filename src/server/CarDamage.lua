@@ -1,56 +1,58 @@
 --!strict
 -- CarDamage (ModuleScript) -> ServerScriptService.CarDamage
--- Knocks breakable parts off a car. Breakable parts are the Body parts with a
--- Slot attribute (CarBuilder). Breaking one removes its weld to the hull and
--- moves it out of the car into the Props collision group, so it tumbles to the
--- ground without ever touching a car, then is removed after PartLifetime. A
--- respawned car is built fresh, with every part back.
+-- Counts the parts knocked off a car. The parts exist only on clients
+-- (CarVisuals), built from the car's look attributes, so the server works out
+-- the same breakable parts from CarDesign and writes how many are broken in
+-- each slot as Broken<Slot> attributes (CarParts). Every client knocks off the
+-- same parts, in CarDesign.breakable order. A respawned car is a new model,
+-- with none broken.
 
-local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
 
-local Tuning = require(ReplicatedStorage.Tuning)
-local CollisionGroups = require(ServerScriptService.CollisionGroups)
-
-local T = Tuning.Toughness
+local CarDesign = require(ReplicatedStorage.CarDesign)
+local CarParts = require(ReplicatedStorage.CarParts)
 
 local CarDamage = {}
 
-local function breakOff(part: BasePart, hull: BasePart)
-	for _, child in part:GetChildren() do
-		if child:IsA("WeldConstraint") then
-			child:Destroy()
-		end
+-- Breakable parts in each slot, worked out once per car.
+local totals: { [Model]: { [string]: number } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function totalsFor(car: Model): { [string]: number }?
+	local cached = totals[car]
+	if cached then
+		return cached
 	end
-	part.Massless = false
-	part.CanCollide = true
-	part.CollisionGroup = CollisionGroups.Props
-	part.Parent = workspace
-	local away = part.Position - hull.Position
-	local pop = if away.Magnitude > 1e-3 then away.Unit * T.BreakPop else Vector3.zero
-	part.AssemblyLinearVelocity = hull.AssemblyLinearVelocity + pop
-	Debris:AddItem(part, T.PartLifetime)
+	local design = CarParts.designFor(car)
+	if not design then
+		warn(`CarDamage: {car.Name} has no look attributes`)
+		return nil
+	end
+	local counts = {}
+	for _, slot in CarParts.Slots do
+		counts[slot] = #CarDesign.breakable(design, slot)
+	end
+	totals[car] = counts
+	return counts
 end
 
 -- Breaks up to `count` parts in `slot`, or in any slot when `slot` is nil.
 -- Returns how many broke, which is fewer once there are none left to break.
 function CarDamage.breakParts(car: Model, slot: string?, count: number): number
-	local body = car:FindFirstChild("Body")
-	local hull = car:FindFirstChild("Hull")
-	if not (body and hull and hull:IsA("BasePart")) then
+	local counts = totalsFor(car)
+	if not counts then
 		return 0
 	end
-
 	local broken = 0
-	for _, part in body:GetChildren() do
-		if broken >= count then
-			break
-		end
-		local partSlot = part:GetAttribute("Slot")
-		if part:IsA("BasePart") and partSlot ~= nil and (slot == nil or partSlot == slot) then
-			breakOff(part, hull)
-			broken += 1
+	for _, s in CarParts.Slots do
+		if slot == nil or s == slot then
+			local attribute = CarParts.brokenAttribute(s)
+			local value = car:GetAttribute(attribute)
+			local already = if typeof(value) == "number" then value else 0
+			local more = math.clamp(count - broken, 0, counts[s] - already)
+			if more > 0 then
+				car:SetAttribute(attribute, already + more)
+				broken += more
+			end
 		end
 	end
 	return broken

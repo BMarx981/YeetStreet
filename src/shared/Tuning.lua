@@ -74,7 +74,9 @@ Tuning.Save = {
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
 -- highest level of each upgrade the car can use, and Bonus is free levels on
 -- every stat on top of those. Each car costs less than the last levels of the
--- car before it, so players save for it while still upgrading.
+-- car before it, so players save for it while still upgrading. Seed,
+-- Archetype, and Tier pick its looks from the car generator (CarKit, and
+-- ServerStorage.Dev.CarGallery to browse seeds).
 Tuning.Ladder = {
 	{
 		Id = "Junker",
@@ -82,6 +84,9 @@ Tuning.Ladder = {
 		Price = 0,
 		Bonus = 0,
 		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+		Seed = 1,
+		Archetype = "pickup",
+		Tier = "Junker",
 	},
 	{
 		Id = "Hatchback",
@@ -89,6 +94,9 @@ Tuning.Ladder = {
 		Price = 15000,
 		Bonus = 4,
 		Caps = { Speed = 20, Jets = 20, Toughness = 20, Grip = 20 },
+		Seed = 1,
+		Archetype = "hatch",
+		Tier = "Street",
 	},
 	{
 		Id = "Muscle",
@@ -96,6 +104,9 @@ Tuning.Ladder = {
 		Price = 75000,
 		Bonus = 8,
 		Caps = { Speed = 30, Jets = 24, Toughness = 30, Grip = 24 },
+		Seed = 1,
+		Archetype = "muscle",
+		Tier = "Sports",
 	},
 }
 
@@ -227,6 +238,7 @@ Tuning.Toughness = {
 	HitThreshold = 30, -- body hits up to this do nothing
 	DamagePerSpeed = 1, -- toughness lost per stud per second over HitThreshold
 	BreakDamage = 20, -- every this much damage to one slot breaks a part there
+	WreckSmashes = 8, -- a wreck knocks off every part but pays Smash points for at most this many
 	BreakPop = 20, -- broken parts fly off the car this fast, studs per second
 	PartLifetime = 5, -- seconds a broken part lies around before it is removed
 	WreckSparks = 120, -- sparks in the burst when a car wrecks

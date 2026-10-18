@@ -40,16 +40,17 @@ local function publish(player: Player, state: Economy.State)
 	Leaderstats.value(player, "Cash").Value = state.Cash
 end
 
--- The equipped car's id and its stats from the player's levels. Waits for
--- their data; nil if they leave first.
-function Garage.car(player: Player): (string?, Economy.CarStats?)
+-- The equipped ladder car, its stats from the player's levels, and the levels
+-- it shows. Waits for their data; nil if they leave first.
+function Garage.car(player: Player): (Economy.Car?, Economy.CarStats?, Economy.Levels?)
 	local data = PlayerData.waitFor(player)
 	if not data then
-		return nil, nil
+		return nil, nil, nil
 	end
 	local state = data.Economy
 	local car = Economy.findCar(Tuning.Ladder, state.Equipped) or Tuning.Ladder[1]
-	return car.Id, Economy.stats(Tuning.StarterCar, state.Levels, car, Tuning.Upgrades.Steps)
+	local stats = Economy.stats(Tuning.StarterCar, state.Levels, car, Tuning.Upgrades.Steps)
+	return car, stats, Economy.lookLevels(state.Levels, car)
 end
 
 -- Adds `amount` cash, if the player's data is loaded.
