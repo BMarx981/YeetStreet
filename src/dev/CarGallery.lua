@@ -92,6 +92,7 @@ local function reset(columns: number, rows: number): Folder
 	CarGallery.clear()
 	local folder = Instance.new("Folder")
 	folder.Name = FOLDER_NAME
+	folder.Archivable = false -- never saved with the place or copied into Play
 	local size = Vector3.new(columns * SPACING + 10, 1, rows * ROW_SPACING + 10)
 	local center = CFrame.new((columns - 1) * SPACING / 2, -0.5, (rows - 1) * ROW_SPACING / 2)
 	local floor = anchored("Floor", size, ORIGIN * center, folder)
