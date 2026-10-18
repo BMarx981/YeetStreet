@@ -26,6 +26,7 @@ type Parts = {
 	live: TextLabel,
 	popup: TextLabel,
 	card: Frame,
+	cashGui: ScreenGui,
 }
 
 local parts: Parts? = nil
@@ -124,6 +125,7 @@ local function cardTitle(run: Scoring.Run, score: Scoring.Score): string
 end
 
 local function build(): Parts
+	local player = Players.LocalPlayer :: Player
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Hud"
 	gui.ResetOnSpawn = false
@@ -190,16 +192,23 @@ local function build(): Parts
 
 	local card = buildCard(gui)
 
+	-- Cash counter lives on its own always-on ScreenGui so it stays visible
+	-- even when the rest of the HUD is hidden (e.g. outside a car).
+	local cashGui = Instance.new("ScreenGui")
+	cashGui.Name = "CashHud"
+	cashGui.ResetOnSpawn = false
+	cashGui.Parent = player:WaitForChild("PlayerGui")
+
 	-- Beside the fuel bar, clear of the chat, the player list, and the touch
 	-- buttons in the corners.
-	local cash = label("Cash", gui, 24)
+	local cash = label("Cash", cashGui, 24)
 	cash.AnchorPoint = Vector2.new(0, 0)
 	cash.Position = UDim2.new(0.5, 146, 0, 8)
 	cash.Size = UDim2.fromOffset(200, 30)
 	cash.TextXAlignment = Enum.TextXAlignment.Left
 	cash.TextColor3 = CASH_COLOR
 
-	local earned = label("CashEarned", gui, 20)
+	local earned = label("CashEarned", cashGui, 20)
 	earned.AnchorPoint = Vector2.new(0, 0)
 	earned.Position = UDim2.new(0.5, 146, 0, 36)
 	earned.Size = UDim2.fromOffset(200, 24)
@@ -207,7 +216,6 @@ local function build(): Parts
 	earned.TextColor3 = CASH_COLOR
 	earned.Visible = false
 
-	local player = Players.LocalPlayer :: Player
 	local shown: number? = nil
 	local earnedShows = 0
 	local function showCash()
@@ -233,8 +241,8 @@ local function build(): Parts
 	player:GetAttributeChangedSignal("Cash"):Connect(showCash)
 	showCash()
 
-	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
-	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card }
+	gui.Parent = player:WaitForChild("PlayerGui")
+	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card, cashGui = cashGui }
 end
 
 function Hud.setVisible(visible: boolean)
@@ -243,6 +251,8 @@ function Hud.setVisible(visible: boolean)
 	end
 	if parts then
 		parts.gui.Enabled = visible
+		-- Cash counter always stays visible regardless of HUD visibility
+		parts.cashGui.Enabled = true
 	end
 end
 
@@ -366,5 +376,11 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	add("Total", withCommas(score.total), 26)
 	cardUntil = now + H.ResultTime
 end
+
+-- Build the HUD immediately so the cash counter is always on screen,
+-- even before the player enters a car. The main HUD gui starts disabled.
+parts = build()
+parts.gui.Enabled = false
+parts.cashGui.Enabled = true
 
 return Hud

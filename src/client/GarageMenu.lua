@@ -142,6 +142,9 @@ local function build()
 	openButton.Size = UDim2.fromOffset(110, 32)
 	openButton.BackgroundColor3 = PANEL_COLOR
 	openButton.BackgroundTransparency = 0.3
+	openButton.Visible = false
+	openButton.Active = false
+	openButton.Selectable = false
 
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
@@ -364,8 +367,20 @@ local function build()
 	carsTab.Activated:Connect(function()
 		showTab("Cars")
 	end)
+	local function nearShopkeeper(): boolean
+		local shopkeeper = workspace:FindFirstChild("Shopkeeper")
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if shopkeeper and hrp and hrp:IsA("BasePart") then
+			return (shopkeeper:GetPivot().Position - hrp.Position).Magnitude <= 20
+		end
+		return false
+	end
+
 	openButton.Activated:Connect(function()
-		setOpen(not open, false)
+		if open or nearShopkeeper() then
+			setOpen(not open, false)
+		end
 	end)
 	close.Activated:Connect(function()
 		setOpen(false, false)
@@ -373,9 +388,18 @@ local function build()
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 		if input.KeyCode == Enum.KeyCode.G and not processed then
-			setOpen(not open, false)
+			if open or nearShopkeeper() then
+				setOpen(not open, false)
+			end
+		elseif input.KeyCode == Enum.KeyCode.E and not processed then
+			if open or nearShopkeeper() then
+				showTab("Cars")
+				setOpen(not open, false)
+			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonX then
-			setOpen(not open, true)
+			if open or nearShopkeeper() then
+				setOpen(not open, true)
+			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then
 			setOpen(false, true)
 		end

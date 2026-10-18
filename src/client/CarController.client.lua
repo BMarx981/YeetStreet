@@ -26,6 +26,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
@@ -92,6 +93,7 @@ local fuel = 0
 local burning = false
 local stuckTime = 0
 local resetHeld = false
+local exitHeld = false
 local righting = false
 local run = RunTracker.new()
 local tricksShown = 0
@@ -100,6 +102,8 @@ local resetAskedAt = -math.huge
 local carGoneAt: number? = nil
 -- Found in the background; nil until the server has made it.
 local resetRemote: RemoteEvent? = nil
+local exitRemote: RemoteEvent? = nil
+local spawnRemote: RemoteEvent? = nil
 
 local function numberAttribute(model: Model, key: string): number?
 	local value = model:GetAttribute(key)
@@ -204,6 +208,10 @@ local function trackRun(sample: RunTracker.Sample)
 	local result = RunTracker.step(run, sample, Tuning.Run)
 	if result then
 		endRun(result)
+		-- Auto-teleport back to spawn shortly after the run ends.
+		task.delay(2, function()
+			resetCar()
+		end)
 		return
 	end
 
@@ -249,6 +257,8 @@ local function launch(r: Rig, pad: BasePart)
 		setVelocity(r, velocity + dir * (speed - along))
 	end
 end
+
+local requestExit: () -> () -- forward declaration so step() can call it
 
 local function step(r: Rig, dt: number)
 	local input = Controls.read()
@@ -329,6 +339,13 @@ local function step(r: Rig, dt: number)
 
 	trackRun(reading.sample)
 
+	-- Exit (edge-triggered so holding Space doesn't spam the server)
+	local exitPressed = input.exit and not exitHeld
+	exitHeld = input.exit
+	if exitPressed then
+		requestExit()
+	end
+
 	-- Resets
 	local R = Tuning.Reset
 	stuckTime = Contact.stepStuck(stuckTime, cf.UpVector.Y, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
@@ -350,8 +367,15 @@ local function enter(r: Rig)
 	tricksShown = 0
 	resetAskedAt = -math.huge
 	carGoneAt = nil
+	exitHeld = false
 	if defaultControls then
 		defaultControls:Disable()
+	end
+	-- Disable jumping while driving so Space is free for exit.
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 	end
 	TouchControls.setVisible(true)
 	Hud.setVisible(true)
@@ -365,6 +389,29 @@ local function leave()
 	TouchControls.setVisible(false)
 	Hud.setVisible(false)
 	ChaseCamera.release()
+	-- Re-enable jumping now that the player is on foot.
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+	end
+end
+
+-- Requests the server to eject the player from the car seat.
+function requestExit()
+	-- Zero the car's velocity before exiting so it stops in place.
+	-- The client owns the car physics, so this change sticks.
+	if rig then
+		rig.hull.AssemblyLinearVelocity = Vector3.zero
+		rig.hull.AssemblyAngularVelocity = Vector3.zero
+		for _, wheel in rig.wheels do
+			wheel.axle.AngularVelocity = 0
+			wheel.axle.MotorMaxTorque = 0
+		end
+	end
+	if exitRemote then
+		exitRemote:FireServer()
+	end
 end
 
 -- The car this character is seated in, if any.
@@ -424,7 +471,8 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	)
 end)
 
--- Nobody oofs: no jumping out of the seat, and no reset button in the menu.
+-- Jumping is disabled while driving so the Space key is free for jets.
+-- It is re-enabled in leave() when the player exits the car.
 local function onCharacterAdded(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
@@ -465,6 +513,35 @@ task.spawn(function()
 		resetRemote = remote
 	else
 		warn("CarController: ReplicatedStorage.ResetCar is not a RemoteEvent; resets do nothing")
+	end
+end)
+
+-- Standalone R-key handler so the player can respawn even when on foot.
+UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	if input.KeyCode == Enum.KeyCode.R and not processed then
+		resetCar()
+	elseif input.KeyCode == Enum.KeyCode.Z and not processed then
+		if spawnRemote then
+			spawnRemote:FireServer()
+		end
+	end
+end)
+
+task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("ExitCar")
+	if remote:IsA("RemoteEvent") then
+		exitRemote = remote
+	else
+		warn("CarController: ReplicatedStorage.ExitCar is not a RemoteEvent; exit does nothing")
+	end
+end)
+
+task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("SpawnCar")
+	if remote:IsA("RemoteEvent") then
+		spawnRemote = remote
+	else
+		warn("CarController: ReplicatedStorage.SpawnCar is not a RemoteEvent; spawn does nothing")
 	end
 end)
 

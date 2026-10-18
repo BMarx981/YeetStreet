@@ -111,6 +111,16 @@ Tuning.Ladder = {
 		Archetype = "muscle",
 		Tier = "Sports",
 	},
+	{
+		Id = "Speed",
+		Name = "Speed Car",
+		Price = 100000,
+		Bonus = 12,
+		Caps = { Speed = 40, Jets = 30, Toughness = 36, Grip = 30 },
+		Seed = 1,
+		Archetype = "wedge",
+		Tier = "Supercar",
+	},
 }
 
 Tuning.Chassis = {

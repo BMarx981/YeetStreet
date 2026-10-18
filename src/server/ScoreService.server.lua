@@ -247,7 +247,24 @@ resetCar.OnServerEvent:Connect(function(player: Player)
 		return
 	end
 	lastResetAt[player] = now
-	reset(player)
+	-- If the player has a car, reset it. If they are on foot, respawn
+	-- their character so R always does something.
+	local hasCar = false
+	for _, watch in watches do
+		if watch.player == player then
+			hasCar = true
+			break
+		end
+	end
+	if hasCar then
+		reset(player)
+	else
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			humanoid.Health = 0
+		end
+	end
 end)
 
 local resetPlayerCar = Instance.new("BindableEvent")

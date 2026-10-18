@@ -28,14 +28,30 @@ local TestPark = require(ServerScriptService.TestPark)
 
 local RESEAT_DELAY = 0.2
 
+-- Players who have intentionally exited; the reseat logic skips them.
+local exited: { [Player]: boolean } = {}
+
 local carsFolder = Instance.new("Folder")
 carsFolder.Name = "Cars"
 carsFolder.Parent = workspace
 
 local cars: { [Player]: Model } = {}
 local lanesUsed = 0
+-- Touch connections for re-entering a car after exiting.
+local enterConnections: { [Player]: { RBXScriptConnection } } = {}
+
+local function clearEnterConnections(player: Player)
+	local conns = enterConnections[player]
+	if conns then
+		for _, conn in conns do
+			conn:Disconnect()
+		end
+		enterConnections[player] = nil
+	end
+end
 
 local function removeCar(player: Player)
+	clearEnterConnections(player)
 	local car = cars[player]
 	if car then
 		cars[player] = nil
@@ -47,6 +63,20 @@ local function ghostPart(instance: Instance)
 	if instance:IsA("BasePart") then
 		instance.CollisionGroup = CollisionGroups.Drivers
 		instance.Massless = true
+	end
+end
+
+-- Restores a character to normal physics after exiting a car.
+local function unghostPart(instance: Instance)
+	if instance:IsA("BasePart") then
+		instance.CollisionGroup = "Default"
+		instance.Massless = false
+	end
+end
+
+local function unghostCharacter(character: Model)
+	for _, descendant in character:GetDescendants() do
+		unghostPart(descendant)
 	end
 end
 
@@ -110,12 +140,22 @@ local function onCharacterAdded(player: Player, character: Model)
 		end
 		if humanoid.SeatPart then
 			-- Seating welds the character into the car's assembly.
-			giveOwnership(car, player)
+			-- Only clear exited and take ownership if this is the player's own car seat.
+			-- Sitting on a display car or other seat should not count as re-entering.
+			local ownSeat = car:FindFirstChild("DriverSeat")
+			if ownSeat and humanoid.SeatPart == ownSeat then
+				exited[player] = nil
+				giveOwnership(car, player)
+			end
+			return
+		end
+		-- If the player intentionally exited, do not reseat them.
+		if exited[player] then
 			return
 		end
 		task.delay(RESEAT_DELAY, function()
 			local now = cars[player]
-			if now and player.Character == character and humanoid.SeatPart == nil then
+			if now and player.Character == character and humanoid.SeatPart == nil and not exited[player] then
 				seatDriver(now, humanoid)
 			end
 		end)
@@ -136,6 +176,48 @@ respawnCar.Event:Connect(function(player: Player, cframe: CFrame)
 end)
 respawnCar.Parent = ServerStorage
 
+-- Client requested to exit the car: unseat the driver and place them beside
+-- the car so they can walk around. The exited flag prevents the SeatPart
+-- changed signal from reseating them.
+local function onExitCar(player: Player)
+	local car = cars[player]
+	local character = player.Character
+	if not (car and character) then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local seat = car:FindFirstChild("DriverSeat")
+	if not (seat and seat:IsA("Seat")) then
+		return
+	end
+	exited[player] = true
+	seat:Sit(nil) -- break the seat weld
+	humanoid.Jump = true -- nudge them out of the seat
+
+	-- The client zeros the car's velocity before firing the exit remote,
+	-- so the car stops in place. No need to take network ownership here.
+
+	-- Restore the character to normal physics so they don't fall through
+	-- the ground. lockDriver will re-ghost them if they respawn in a new car.
+	unghostCharacter(character)
+
+	-- Place the player standing beside the car.
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		local carCFrame = car:GetPivot()
+		local offset = carCFrame.RightVector * 8
+		local landPos = carCFrame.Position + offset
+		landPos = Vector3.new(landPos.X, math.max(landPos.Y, 3), landPos.Z)
+		character:PivotTo(CFrame.new(landPos))
+	end
+
+	-- Despawn the car so the player is on foot.
+	removeCar(player)
+end
+
 local function onPlayerAdded(player: Player)
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
@@ -149,7 +231,42 @@ local function onPlayerAdded(player: Player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
-Players.PlayerRemoving:Connect(removeCar)
+Players.PlayerRemoving:Connect(function(player)
+	exited[player] = nil
+	removeCar(player)
+end)
+
+-- Hook up the ExitCar RemoteEvent.
+local exitCar = ReplicatedStorage:FindFirstChild("ExitCar")
+if exitCar and exitCar:IsA("RemoteEvent") then
+	exitCar.OnServerEvent:Connect(onExitCar)
+end
+
+-- Spawn a car at the player's position when they press Z on foot.
+local spawnCar = ReplicatedStorage:FindFirstChild("SpawnCar")
+if spawnCar and spawnCar:IsA("RemoteEvent") then
+	spawnCar.OnServerEvent:Connect(function(player: Player)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not (humanoid and humanoid.Health > 0) then
+			return
+		end
+		-- Only spawn if the player is on foot (not already in a car).
+		if cars[player] then
+			return
+		end
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			return
+		end
+		-- Re-ghost the character so it doesn't affect car physics.
+		for _, desc in character:GetDescendants() do
+			ghostPart(desc)
+		end
+		exited[player] = nil
+		placeCar(player, humanoid, hrp.CFrame)
+	end)
+end
 for _, player in Players:GetPlayers() do
 	onPlayerAdded(player)
 end

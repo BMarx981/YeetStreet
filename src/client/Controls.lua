@@ -30,6 +30,7 @@ export type Frame = {
 	roll: number,
 	jet: boolean,
 	reset: boolean,
+	exit: boolean,
 }
 
 local function anyKey(codes: { Enum.KeyCode }): boolean
@@ -44,7 +45,7 @@ end
 function Controls.read(): Frame
 	-- Buttons in the garage panel must not drive the car either.
 	if GarageMenu.isOpen() then
-		return { steer = 0, throttle = 0, pitch = 0, roll = 0, jet = false, reset = false }
+		return { steer = 0, throttle = 0, pitch = 0, roll = 0, jet = false, reset = false, exit = false }
 	end
 	-- Typing in chat must not drive the car.
 	local typing = UserInputService:GetFocusedTextBox() ~= nil
@@ -92,7 +93,8 @@ function Controls.read(): Frame
 			InputAxes.fromKeys(padRollLeft, padRollRight),
 			touch.roll,
 		}),
-		jet = key({ K.Space, K.LeftShift }) or padJet or touch.jet,
+		jet = key({ K.LeftShift }) or padJet or touch.jet,
+		exit = key({ K.Space }),
 		reset = key({ K.R }) or padReset or touch.reset,
 	}
 end

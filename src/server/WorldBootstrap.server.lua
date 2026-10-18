@@ -10,4 +10,10 @@ local TestPark = require(ServerScriptService.TestPark)
 
 workspace.Gravity = Tuning.World.Gravity
 
+if workspace:FindFirstChild("TestPark") then
+	-- World was already built at edit time and saved in the place file.
+	-- Skip runtime generation to avoid creating a duplicate.
+	return
+end
+
 TestPark.build()
