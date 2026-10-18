@@ -31,6 +31,9 @@ Tuning.StarterCar = {
 -- Economy: a run's server score pays out as cash.
 Tuning.Cash = {
 	PerPoint = 1,
+	-- For development: in Studio only, each player's cash is topped up to this
+	-- when they join. 0 turns it off. Studio saves to the same store as the game.
+	StudioCash = 1_000_000_000,
 }
 
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
@@ -171,6 +174,21 @@ Tuning.Air = {
 
 Tuning.Jets = {
 	RelightFuel = 0.25, -- fuel needed to start a new burn
+}
+
+-- What burning jets look like on each thruster (CarVisuals). Each list runs
+-- by Jets look step (CarLooks.StatSteps), from none reached to all four.
+Tuning.JetFlames = {
+	FlameLength = { 3, 4.5, 6, 8, 11 }, -- studs the flame reaches behind the thruster
+	FlameWidth = { 1, 1.15, 1.3, 1.5, 1.8 }, -- at the nozzle, times the thruster's width
+	FlameRate = { 80, 100, 130, 160, 200 }, -- particles per second
+	FlameLife = 0.2, -- seconds; the flame stays on the thruster as the car moves
+	SmokeRate = { 4, 8, 14, 22, 32 }, -- smoke is left behind in the air as a trail
+	SmokeSize = { 1.5, 2, 2.6, 3.4, 4.4 },
+	SmokeLife = 1.6,
+	SmokeColor = Color3.fromRGB(70, 70, 75),
+	GlowRange = { 0, 4, 6, 8, 11 }, -- light around the thruster, 0 for none
+	GlowBrightness = 2,
 }
 
 Tuning.Contact = {

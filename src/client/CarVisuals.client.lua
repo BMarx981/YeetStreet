@@ -7,8 +7,9 @@
 --
 -- Also, on each car:
 --   Hover cars hide their wheels. The physics wheels are still there.
---   Each thruster gets a JetFlame, lit while the car's JetsBurning attribute
---   is true. CarController sets it on the local player's car.
+--   Each thruster gets a flame, a smoke trail, and a glow that grow with the
+--   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
+--   attribute is true. CarController sets it on the local player's car.
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.
@@ -21,6 +22,7 @@ local CarParts = require(ReplicatedStorage.CarParts)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Toughness
+local F = Tuning.JetFlames
 
 local PROPS_GROUP = "Props" -- CollisionGroups.Props, a server module
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
@@ -33,28 +35,71 @@ local function rgb(color: CarDesign.Color): Color3
 	return Color3.fromRGB(color[1], color[2], color[3])
 end
 
--- A flame out of the back of a thruster. The thruster's axis is its X, which
--- points toward the nose, so its back end is at -X. The attachment is turned
--- back to the car's own axes, so the emitter's Back is out of the tail.
-local function addFlame(thruster: BasePart, color: Color3): ParticleEmitter
+-- What a thruster lights up while the jets burn.
+type Jet = {
+	emitters: { ParticleEmitter },
+	glow: PointLight?,
+}
+
+-- A flame, smoke, and glow out of the back of a thruster, sized for Jets look
+-- step `step`. The thruster's axis is its X, which points toward the nose, so
+-- its back end is at -X. The attachment is turned back to the car's own axes,
+-- so the emitters' Back is out of the tail.
+local function addJet(thruster: BasePart, color: Color3, step: number): Jet
+	local k = step + 1
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "Flame"
 	attachment.CFrame = CFrame.new(-thruster.Size.X / 2, 0, 0) * CFrame.Angles(0, math.rad(-90), 0)
 	attachment.Parent = thruster
+
+	-- Locked to the thruster, so it stays a flame at any speed instead of
+	-- being left behind as a streak of dots.
 	local flame = Instance.new("ParticleEmitter")
 	flame.Name = "JetFlame"
 	flame.Enabled = false
+	flame.LockedToPart = true
 	flame.EmissionDirection = Enum.NormalId.Back
-	flame.Rate = 120
-	flame.Lifetime = NumberRange.new(0.15, 0.3)
-	flame.Speed = NumberRange.new(30, 40)
-	flame.SpreadAngle = Vector2.new(6, 6)
+	flame.Rate = F.FlameRate[k]
+	flame.Lifetime = NumberRange.new(F.FlameLife * 0.8, F.FlameLife)
+	local speed = F.FlameLength[k] / F.FlameLife
+	flame.Speed = NumberRange.new(speed * 0.85, speed)
+	flame.SpreadAngle = Vector2.new(4, 4)
 	flame.LightEmission = 1
-	flame.Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.5), color)
-	local size = 0.9 * thruster.Size.Y
-	flame.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, 0) })
+	flame.Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.6), color)
+	local width = F.FlameWidth[k] * thruster.Size.Y
+	flame.Size =
+		NumberSequence.new({ NumberSequenceKeypoint.new(0, width), NumberSequenceKeypoint.new(1, width * 0.2) })
+	flame.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) })
 	flame.Parent = attachment
-	return flame
+
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "JetSmoke"
+	smoke.Enabled = false
+	smoke.EmissionDirection = Enum.NormalId.Back
+	smoke.Rate = F.SmokeRate[k]
+	smoke.Lifetime = NumberRange.new(F.SmokeLife * 0.7, F.SmokeLife)
+	smoke.Speed = NumberRange.new(2, 5)
+	smoke.SpreadAngle = Vector2.new(15, 15)
+	smoke.Drag = 1
+	smoke.Color = ColorSequence.new(F.SmokeColor)
+	local puff = F.SmokeSize[k]
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, puff * 0.4), NumberSequenceKeypoint.new(1, puff) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Rotation = NumberRange.new(0, 360)
+	smoke.RotSpeed = NumberRange.new(-60, 60)
+	smoke.Parent = attachment
+
+	local glow: PointLight? = nil
+	if F.GlowRange[k] > 0 then
+		local light = Instance.new("PointLight")
+		light.Enabled = false
+		light.Color = color
+		light.Range = F.GlowRange[k]
+		light.Brightness = F.GlowBrightness
+		light.Parent = attachment
+		glow = light
+	end
+	return { emitters = { flame, smoke }, glow = glow }
 end
 
 local function knockOff(part: BasePart, hull: BasePart)
@@ -92,7 +137,8 @@ local function setUp(car: Model)
 	local folder = Instance.new("Folder")
 	folder.Name = "Looks"
 	local parts = CarParts.build(design, hull.CFrame, folder)
-	local flames: { ParticleEmitter } = {}
+	local jets: { Jet } = {}
+	local jetStep = CarDesign.step(car:GetAttribute("LevelJets") :: number, Tuning.CarLooks.StatSteps)
 	for i, part in parts do
 		part.CanQuery = false
 		local weld = Instance.new("WeldConstraint")
@@ -101,7 +147,7 @@ local function setUp(car: Model)
 		weld.Parent = part
 		part.Anchored = false
 		if design.parts[i].role == "thruster" then
-			table.insert(flames, addFlame(part, rgb(design.flameColor)))
+			table.insert(jets, addJet(part, rgb(design.flameColor), jetStep))
 		end
 	end
 	folder.Parent = car
@@ -117,8 +163,13 @@ local function setUp(car: Model)
 
 	local function lightFlames()
 		local burning = car:GetAttribute("JetsBurning") == true
-		for _, flame in flames do
-			flame.Enabled = burning
+		for _, jet in jets do
+			for _, emitter in jet.emitters do
+				emitter.Enabled = burning
+			end
+			if jet.glow then
+				jet.glow.Enabled = burning
+			end
 		end
 	end
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)

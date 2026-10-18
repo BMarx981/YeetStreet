@@ -17,6 +17,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -132,6 +133,9 @@ local function onPlayerAdded(player: Player)
 	Leaderstats.value(player, "Cash")
 	local data = PlayerData.waitFor(player)
 	if data then
+		if RunService:IsStudio() then
+			data.Economy.Cash = math.max(data.Economy.Cash, Tuning.Cash.StudioCash)
+		end
 		publish(player, data.Economy)
 	end
 end
