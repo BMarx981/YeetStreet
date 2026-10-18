@@ -10,7 +10,9 @@
 -- which turn 90 points lengthways.
 --
 -- The body comes only from the seed: 5 to 8 slices nose to tail, in nose,
--- cabin, and rear zones, sized from the archetype's ranges. Stat levels add
+-- cabin, and rear zones, sized from the archetype's ranges, with the
+-- archetype's extras (CarKit.Archetype: a flat nose, an upright windshield,
+-- painted walls, a spare tire, school bus trim). Stat levels add
 -- parts on top through look steps (Looks.StatSteps) and use no randomness, so
 -- upgrading never changes the body:
 --   Speed      spoiler, exhausts, hood scoop, a second wing
@@ -94,7 +96,14 @@ type Archetype = {
 	RearSlope: boolean,
 	Bed: boolean?,
 	Open: boolean?,
+	OpenChance: number?,
 	Hover: boolean?,
+	FlatNose: boolean?,
+	Upright: boolean?,
+	Walls: boolean?,
+	Spare: boolean?,
+	SchoolBus: boolean?,
+	Paint: Color?,
 }
 type Tier = {
 	Paints: { Color },
@@ -121,6 +130,9 @@ type Paint = { color: Color, material: string, reflectance: number, role: Role }
 local HEADLIGHT: Color = { 255, 250, 220 }
 local TAILLIGHT: Color = { 220, 30, 30 }
 local HOVER_GLOW: Color = { 80, 200, 255 }
+local TIRE: Color = { 30, 30, 32 }
+local BUS_BLACK: Color = { 20, 20, 20 }
+local STOP_RED: Color = { 200, 20, 20 }
 
 local ROOF_THICKNESS = 0.2
 
@@ -200,7 +212,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	local sliceLength = length / count
 	local bottom = looks.BodyBottom
 
-	local mainPaint = pick(rng, tier.Paints)
+	local mainPaint = shape.Paint or pick(rng, tier.Paints)
 	local accent = if tier.Accents then pick(rng, tier.Accents) else tier.Trim
 	local glow = if tier.Glows then pick(rng, tier.Glows) else HOVER_GLOW
 
@@ -211,7 +223,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		local zoneHeight = if i <= noseCount then noseHeight else bodyHeight
 		local jitter = if i <= noseCount or i > noseCount + cabinCount then rng.range(-0.08, 0.08) else 0
 		heights[i] = zoneHeight + jitter
-		sliceColors[i] = if tier.Mismatched then pick(rng, tier.Paints) else mainPaint
+		sliceColors[i] = if tier.Mismatched and not shape.Paint then pick(rng, tier.Paints) else mainPaint
 	end
 
 	local name = pick(rng, kit.Names[input.tier])
@@ -225,7 +237,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	local trimPaint: Paint = { color = tier.Trim, material = "Metal", reflectance = 0, role = "trim" }
 	local paintedTrim: Paint = { color = mainPaint, material = tier.Material, reflectance = tier.Gloss, role = "trim" }
 	local glassPaint: Paint = { color = tier.Glass, material = "Glass", reflectance = 0.2, role = "glass" }
-	local roofPaint = bodyPaint(if tier.Accents then accent else mainPaint)
+	local roofPaint = bodyPaint(if tier.Accents and not shape.Paint then accent else mainPaint)
 
 	local function sliceZ(i: number): number
 		return -length / 2 + (i - 0.5) * sliceLength
@@ -249,7 +261,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		local z = sliceZ(i)
 		local h = heights[i]
 		local paint = bodyPaint(sliceColors[i])
-		if i == 1 then
+		if i == 1 and not shape.FlatNose then
 			-- The nose tip: a lower block with a sloped hood on top.
 			local low = h * 0.6
 			add("block", "Tub", "nose", vec(width, low, sliceLength), vec(0, bottom + low / 2, z), paint)
@@ -294,13 +306,18 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	end
 
 	-- The cabin: glass with a roof, a windshield wedge in front, and a sloped or
-	-- straight back. Open cars get a roll cage and a seat instead.
+	-- straight back. Upright cabins skip the wedge, and walled ones are painted
+	-- with windows. Open cars get a roll cage and a seat instead.
 	local cabinFirst = noseCount + 1
 	local cabinLast = noseCount + cabinCount
 	local cabinBase = bottom + bodyHeight
-	if shape.Open then
-		local frontZ = sliceZ(cabinFirst) - sliceLength / 2
-		local backZ = sliceZ(cabinLast) + sliceLength / 2
+	local frontZ = sliceZ(cabinFirst) - sliceLength / 2
+	local backZ = sliceZ(cabinLast) + sliceLength / 2
+	local open = shape.Open == true
+	if shape.OpenChance then
+		open = rng.next() < shape.OpenChance
+	end
+	if open then
 		local postY = cabinBase + cabinHeight / 2
 		for _, side in { -1, 1 } do
 			local x = side * (width / 2 - 0.3)
@@ -319,6 +336,25 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		end
 		local seatZ = (frontZ + backZ) / 2
 		add("block", "Seat", nil, vec(2, 1, 1.6), vec(0, cabinBase + 0.5, seatZ), trimPaint)
+		if shape.Upright then
+			local windowZ = frontZ + 0.1
+			add(
+				"block",
+				"FrontWindow",
+				"roof",
+				vec(width - 0.8, 0.9, 0.1),
+				vec(0, cabinBase + 0.45, windowZ),
+				glassPaint
+			)
+			add(
+				"block",
+				"WindowFrame",
+				"roof",
+				vec(width - 0.6, 0.15, 0.15),
+				vec(0, cabinBase + 0.975, windowZ),
+				trimPaint
+			)
+		end
 	else
 		local glassWidth = width - 0.8
 		local glassY = cabinBase + cabinHeight / 2
@@ -327,24 +363,48 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			local size = vec(glassWidth, cabinHeight, sliceLength)
 			local position = vec(0, glassY, z)
 			local single = cabinFirst == cabinLast
-			if i == cabinFirst and not single then
+			if i == cabinFirst and not single and not shape.Upright then
 				add("wedge", "Windshield", "roof", size, position, glassPaint, 0)
 			elseif i == cabinLast and not single and shape.RearSlope then
 				add("wedge", "RearWindow", "roof", size, position, glassPaint, 180)
 			else
 				-- The roof is the top of the cabin, level with the windshield's peak.
 				local glassHeight = cabinHeight - ROOF_THICKNESS
-				local glassSize = vec(glassWidth, glassHeight, sliceLength)
-				add("block", "Cabin", "roof", glassSize, vec(0, cabinBase + glassHeight / 2, z), glassPaint)
+				local cabinWidth = if shape.Walls then width - 0.2 else glassWidth
+				local cabinSize = vec(cabinWidth, glassHeight, sliceLength)
+				local cabinPosition = vec(0, cabinBase + glassHeight / 2, z)
+				if shape.Walls then
+					add("block", "Cabin", "roof", cabinSize, cabinPosition, bodyPaint(sliceColors[i]))
+					for _, side in { -1, 1 } do
+						local x = side * (cabinWidth / 2 + 0.04)
+						local windowSize = vec(0.1, cabinHeight * 0.45, sliceLength * 0.7)
+						add(
+							"block",
+							"Window",
+							"sides",
+							windowSize,
+							vec(x, cabinBase + cabinHeight * 0.6, z),
+							glassPaint
+						)
+					end
+				else
+					add("block", "Cabin", "roof", cabinSize, cabinPosition, glassPaint)
+				end
 				add(
 					"block",
 					"Roof",
 					"roof",
-					vec(glassWidth, ROOF_THICKNESS, sliceLength),
+					vec(cabinWidth, ROOF_THICKNESS, sliceLength),
 					vec(0, cabinBase + cabinHeight - ROOF_THICKNESS / 2, z),
 					roofPaint
 				)
 			end
+		end
+		if shape.Walls then
+			local paneSize = vec(width - 1, cabinHeight * 0.5, 0.1)
+			local paneY = cabinBase + cabinHeight * 0.55
+			add("block", "FrontWindow", "roof", paneSize, vec(0, paneY, frontZ - 0.04), glassPaint)
+			add("block", "BackWindow", "tail", paneSize, vec(0, paneY, backZ + 0.04), glassPaint)
 		end
 	end
 
@@ -381,6 +441,32 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			local x = side * (width / 2 + 0.05)
 			add("block", "Glow", "sides", vec(0.1, 0.15, length * 0.8), vec(x, bottom + 0.25, 0), glowPaint)
 		end
+	end
+	if shape.FlatNose then
+		local h = heights[1]
+		local grille = vec(width * 0.4, h * 0.5, 0.1)
+		add("block", "Grille", "nose", grille, vec(0, bottom + h * 0.55, -length / 2 - 0.04), trimPaint)
+	end
+	if shape.Spare then
+		-- Stands on the back above the thrusters, facing backward.
+		local tirePaint: Paint = { color = TIRE, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local tireY = bottom + heights[count] + 0.65
+		add("cylinder", "Spare", "tail", vec(0.6, 1.7, 1.7), vec(0, tireY, length / 2 + 0.35), tirePaint, 90)
+	end
+	if shape.SchoolBus then
+		local black: Paint = { color = BUS_BLACK, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local stripeLength = backZ - frontZ
+		local stripeZ = (frontZ + backZ) / 2
+		for _, side in { -1, 1 } do
+			for _, height in { 0.45, 0.85 } do
+				local position = vec(side * (width / 2 + 0.05), bottom + bodyHeight * height, stripeZ)
+				add("block", "BusStripe", "sides", vec(0.1, 0.15, stripeLength), position, black)
+			end
+		end
+		-- On the driver's side, below the first window.
+		local signPaint: Paint = { color = STOP_RED, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local signPosition = vec(-(width / 2 + 0.1), cabinBase + 0.35, sliceZ(cabinFirst))
+		add("cylinder", "StopSign", "sides", vec(0.1, 0.8, 0.8), signPosition, signPaint)
 	end
 	if shape.Hover then
 		local padPaint: Paint = { color = glow, material = "Neon", reflectance = 0, role = "trim" }

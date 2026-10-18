@@ -12,7 +12,7 @@
 --   G.clear()
 --
 -- show also takes a table of levels: { Speed = 30, Jets = 0, Toughness = 0, Grip = 0 }.
--- Archetypes: hatch, pickup, muscle, buggy, wedge, hover.
+-- Archetypes: hatch, pickup, muscle, buggy, wedge, hover, jeep, bus.
 -- Tiers: Junker, Street, Sports, Supercar, Rebirth.
 --
 -- The command bar may hand back an old copy of a module after Rojo syncs a

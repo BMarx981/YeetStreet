@@ -12,7 +12,7 @@ local LOOKS: CarDesign.Looks = {
 	StatSteps = { 5, 12, 20, 30 },
 }
 
-local ARCHETYPES = { "hatch", "pickup", "muscle", "buggy", "wedge", "hover" }
+local ARCHETYPES = { "hatch", "pickup", "muscle", "buggy", "wedge", "hover", "jeep", "bus" }
 local TIERS = { "Junker", "Street", "Sports", "Supercar", "Rebirth" }
 
 local function levels(speed: number, jets: number, toughness: number, grip: number): CarDesign.Levels
@@ -119,7 +119,7 @@ local function bottomOf(part: CarDesign.PartSpec): number
 	return part.position.y - part.size.y / 2
 end
 
-local CLOSED = { "hatch", "pickup", "muscle", "wedge", "hover" }
+local CLOSED = { "hatch", "pickup", "muscle", "wedge", "hover", "bus" }
 
 Check.test("the roof sits on the cabin glass, level with the windshield, and no wider", function()
 	for _, archetype in CLOSED do
@@ -245,6 +245,100 @@ Check.test("only hover cars hide their wheels, and they get hover pads", functio
 		local d = design(4, archetype, "Supercar")
 		Check.eq(d.hideWheels, archetype == "hover", archetype)
 		Check.eq(#named(d, "HoverPad") > 0, archetype == "hover", `{archetype} pads`)
+	end
+end)
+
+Check.test("jeeps have a flat nose with a grille, an upright windshield, and a spare tire", function()
+	for seed = 1, 20 do
+		local d = design(seed, "jeep", "Street")
+		local label = `jeep seed {seed}`
+		Check.eq(#named(d, "NoseSlope"), 0, `{label} no sloped hood`)
+		Check.eq(#named(d, "Grille"), 1, `{label} grille`)
+		Check.eq(#named(d, "Windshield"), 0, `{label} no sloped windshield`)
+		Check.eq(#named(d, "RearWindow"), 0, `{label} no sloped rear window`)
+		local spare = named(d, "Spare")
+		Check.eq(#spare, 1, `{label} one spare`)
+		Check.eq(spare[1].shape, "cylinder", `{label} spare is round`)
+		Check.eq(spare[1].slot, "tail", `{label} spare breaks off the tail`)
+		Check.eq(spare[1].position.z > d.length / 2, true, `{label} spare behind the body`)
+	end
+end)
+
+Check.test("some jeeps are open with a windshield frame, the rest have a hard top", function()
+	local open, closed = 0, 0
+	for seed = 1, 40 do
+		local d = design(seed, "jeep", "Street")
+		local isOpen = #named(d, "Seat") > 0
+		if isOpen then
+			open += 1
+			Check.eq(#named(d, "Roof"), 0, `jeep seed {seed} open has no roof`)
+			Check.eq(#named(d, "FrontWindow"), 1, `jeep seed {seed} open has a windshield`)
+		else
+			closed += 1
+			Check.eq(#named(d, "Roof") > 0, true, `jeep seed {seed} hard top has a roof`)
+		end
+	end
+	Check.eq(open > 0, true, "some open jeeps")
+	Check.eq(closed > 0, true, "some hard top jeeps")
+end)
+
+Check.test("school buses are yellow on every tier", function()
+	local yellow = CarKit.Archetypes.bus.Paint
+	assert(yellow, "the bus has a fixed paint")
+	for _, tier in TIERS do
+		for seed = 1, 5 do
+			local d = design(seed, "bus", tier)
+			for _, part in withRole(d, "body") do
+				local label = `bus {tier} seed {seed} {part.name}`
+				Check.eq(table.concat(part.color, ","), table.concat(yellow, ","), label)
+			end
+		end
+	end
+end)
+
+Check.test("school buses have painted walls with windows, stripes, and a stop sign", function()
+	for seed = 1, 20 do
+		local d = design(seed, "bus", "Street")
+		local label = `bus seed {seed}`
+		local cabins = named(d, "Cabin")
+		Check.eq(#cabins >= 3, true, `{label} a long cabin`)
+		for _, cabin in cabins do
+			Check.eq(cabin.role, "body", `{label} walls are painted`)
+		end
+		local left, right = 0, 0
+		for _, window in named(d, "Window") do
+			Check.eq(window.role, "glass", `{label} windows are glass`)
+			if window.position.x < 0 then
+				left += 1
+			else
+				right += 1
+			end
+		end
+		Check.eq(left, #cabins, `{label} a window per cabin slice on the left`)
+		Check.eq(right, #cabins, `{label} a window per cabin slice on the right`)
+		Check.eq(#named(d, "FrontWindow"), 1, `{label} front window`)
+		Check.eq(#named(d, "BusStripe") > 0, true, `{label} stripes`)
+		local sign = named(d, "StopSign")
+		Check.eq(#sign, 1, `{label} stop sign`)
+		Check.eq(sign[1].position.x < 0, true, `{label} stop sign on the left`)
+	end
+end)
+
+Check.test("school buses stand taller than the other cars", function()
+	local function height(d: CarDesign.Design): number
+		local highest = -math.huge
+		for _, part in d.parts do
+			if part.role == "body" or part.role == "glass" then
+				highest = math.max(highest, top(part))
+			end
+		end
+		return highest
+	end
+	for seed = 1, 20 do
+		local bus = height(design(seed, "bus", "Street"))
+		for _, archetype in { "hatch", "pickup", "muscle", "jeep" } do
+			Check.eq(bus > height(design(seed, archetype, "Street")), true, `bus vs {archetype} seed {seed}`)
+		end
 	end
 end)
 

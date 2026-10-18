@@ -85,7 +85,7 @@ Why: it is cheaper to build and balance, keeps leaderboards fair, keeps the focu
 The generator is a design tool used in Studio. Brian rolls seeds, keeps the ones he likes, and locks each chosen seed into the ladder config with its tier, stat caps, and price. Players only ever see locked cars.
 
 1. Inputs: seed, tier, the four stat levels, rebirth count.
-2. Pick an archetype weighted by tier: hatchback, pickup, muscle, buggy, wedge supercar, hover car.
+2. Pick an archetype weighted by tier: hatchback, pickup, muscle, buggy, wedge supercar, hover car, jeep, school bus. The school bus is a short, tall cartoon bus that fits the shared hull, and it is school bus yellow on every tier. Jeeps are open or hard top by seed.
 3. Build the body from 5 to 8 slices nose to tail, each with a height and width sampled from the archetype's ranges, filled with blocks and wedges.
 4. The body exposes named slots: nose, tail, roof, sides, underside, and four wheel spots.
 5. Fill slots from a hand made part kit based on stat levels.

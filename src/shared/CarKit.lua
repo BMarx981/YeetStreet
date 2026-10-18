@@ -26,7 +26,14 @@ export type Archetype = {
 	RearSlope: boolean, -- the cabin's back slopes down instead of standing straight
 	Bed: boolean?, -- behind the cabin is an open bed
 	Open: boolean?, -- a roll cage instead of a cabin
+	OpenChance: number?, -- when Open isn't set, the chance a seed is open anyway
 	Hover: boolean?, -- hover pads instead of wheels
+	FlatNose: boolean?, -- a flat hood with a grille instead of a sloped nose
+	Upright: boolean?, -- an upright windshield instead of a sloped one
+	Walls: boolean?, -- the cabin is painted walls with windows, not glass
+	Spare: boolean?, -- a spare tire on the back
+	SchoolBus: boolean?, -- black side stripes and a stop sign
+	Paint: Color?, -- one body color on every tier, instead of the tier's paints
 }
 
 export type Tier = {
@@ -117,6 +124,40 @@ CarKit.Archetypes = (
 			CabinHeight = { 1.2, 1.5 },
 			RearSlope = true,
 			Hover = true,
+		},
+		-- Boxy and upright: a flat hood with a grille, an upright windshield, a
+		-- spare tire on the back, and either an open roll cage or a hard top.
+		jeep = {
+			Length = { 11.2, 12 },
+			Slices = { 5, 6 },
+			Width = { 5.6, 6 },
+			Nose = { 0.3, 0.38 },
+			CabinEnd = { 0.85, 0.95 },
+			NoseHeight = { 1.7, 2 },
+			BodyHeight = { 1.7, 2 },
+			CabinHeight = { 1.6, 1.9 },
+			RearSlope = false,
+			OpenChance = 0.5,
+			FlatNose = true,
+			Upright = true,
+			Spare = true,
+		},
+		-- A short, tall cartoon school bus: a stubby hood, then painted walls with
+		-- a row of windows to the back. School bus yellow on every tier.
+		bus = {
+			Length = { 12.6, 13.2 },
+			Slices = { 6, 8 },
+			Width = { 5.8, 6 },
+			Nose = { 0.14, 0.2 },
+			CabinEnd = { 0.98, 1 },
+			NoseHeight = { 1.5, 1.7 },
+			BodyHeight = { 1.6, 1.8 },
+			CabinHeight = { 2.4, 2.7 },
+			RearSlope = false,
+			Upright = true,
+			Walls = true,
+			SchoolBus = true,
+			Paint = { 245, 185, 20 },
 		},
 	}
 ) :: { [string]: Archetype }
