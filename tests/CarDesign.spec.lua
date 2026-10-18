@@ -111,6 +111,61 @@ Check.test("the body stays inside the wheels and above the bottom", function()
 	end
 end)
 
+local function top(part: CarDesign.PartSpec): number
+	return part.position.y + part.size.y / 2
+end
+
+local function bottomOf(part: CarDesign.PartSpec): number
+	return part.position.y - part.size.y / 2
+end
+
+local CLOSED = { "hatch", "pickup", "muscle", "wedge", "hover" }
+
+Check.test("the roof sits on the cabin glass, level with the windshield, and no wider", function()
+	for _, archetype in CLOSED do
+		for seed = 1, 20 do
+			local d = design(seed, archetype, "Street")
+			local cabins = named(d, "Cabin")
+			local roofs = named(d, "Roof")
+			local windshield = named(d, "Windshield")[1]
+			Check.eq(#roofs, #cabins, `{archetype} seed {seed} a roof on every cabin block`)
+			for i, roof in roofs do
+				local label = `{archetype} seed {seed} roof {i}`
+				local cabin = cabins[i]
+				Check.near(bottomOf(roof), top(cabin), `{label} sits on the glass`)
+				Check.eq(roof.size.x <= cabin.size.x + 1e-6, true, `{label} no wider than the glass`)
+				if windshield then
+					Check.near(top(roof), top(windshield), `{label} level with the windshield`)
+				end
+			end
+		end
+	end
+end)
+
+Check.test("the roll cage rests on the roof, and roof armor on the cage", function()
+	for _, archetype in CLOSED do
+		for seed = 1, 10 do
+			local d = design(seed, archetype, "Street", MAX)
+			-- Some cabins are only a windshield and a rear window, with no flat roof.
+			local roofTop = -math.huge
+			for _, part in d.parts do
+				if part.slot == "roof" and part.name ~= "RollCage" and part.name ~= "RoofArmor" then
+					roofTop = math.max(roofTop, top(part))
+				end
+			end
+			local cageTop = -math.huge
+			for _, bar in named(d, "RollCage") do
+				local gap = bottomOf(bar) - roofTop
+				Check.eq(gap >= -1e-6 and gap <= 0.05, true, `{archetype} seed {seed} cage gap {gap}`)
+				cageTop = math.max(cageTop, top(bar))
+			end
+			local armor = named(d, "RoofArmor")[1]
+			local gap = bottomOf(armor) - cageTop
+			Check.eq(gap >= -1e-6 and gap <= 0.05, true, `{archetype} seed {seed} armor gap {gap}`)
+		end
+	end
+end)
+
 Check.test("the body is the same at every stat level; only stat parts change", function()
 	for _, archetype in ARCHETYPES do
 		local low = withRole(design(31, archetype, "Sports", ZERO), "body")

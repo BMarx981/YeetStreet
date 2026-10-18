@@ -10,6 +10,12 @@
       "$className": "ServerScriptService",
       "$path": "src/server"
     },
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "Dev": {
+        "$path": "src/dev"
+      }
+    },
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$properties": {

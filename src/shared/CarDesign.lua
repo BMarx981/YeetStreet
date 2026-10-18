@@ -122,6 +122,8 @@ local HEADLIGHT: Color = { 255, 250, 220 }
 local TAILLIGHT: Color = { 220, 30, 30 }
 local HOVER_GLOW: Color = { 80, 200, 255 }
 
+local ROOF_THICKNESS = 0.2
+
 local THRUSTER_COUNTS = { 1, 2, 2, 3, 4 } -- by Jets look step, from 0
 local THRUSTER_RADII = { 0.45, 0.5, 0.6, 0.65, 0.75 }
 
@@ -330,13 +332,16 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			elseif i == cabinLast and not single and shape.RearSlope then
 				add("wedge", "RearWindow", "roof", size, position, glassPaint, 180)
 			else
-				add("block", "Cabin", "roof", size, position, glassPaint)
+				-- The roof is the top of the cabin, level with the windshield's peak.
+				local glassHeight = cabinHeight - ROOF_THICKNESS
+				local glassSize = vec(glassWidth, glassHeight, sliceLength)
+				add("block", "Cabin", "roof", glassSize, vec(0, cabinBase + glassHeight / 2, z), glassPaint)
 				add(
 					"block",
 					"Roof",
 					"roof",
-					vec(width - 0.6, 0.2, sliceLength),
-					vec(0, cabinBase + cabinHeight + 0.1, z),
+					vec(glassWidth, ROOF_THICKNESS, sliceLength),
+					vec(0, cabinBase + cabinHeight - ROOF_THICKNESS / 2, z),
 					roofPaint
 				)
 			end
@@ -463,7 +468,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	if toughness >= 3 then
 		local frontZ = sliceZ(cabinFirst) - sliceLength / 2 + 0.2
 		local backZ = sliceZ(cabinLast) + sliceLength / 2 - 0.2
-		local cageY = cabinBase + cabinHeight + 0.35
+		local cageY = cabinBase + cabinHeight + 0.15
 		add("block", "RollCage", "roof", vec(width - 0.6, 0.25, 0.25), vec(0, cageY, frontZ), trimPaint)
 		add("block", "RollCage", "roof", vec(width - 0.6, 0.25, 0.25), vec(0, cageY, backZ), trimPaint)
 		for _, side in { -1, 1 } do
@@ -480,7 +485,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			"RoofArmor",
 			"roof",
 			vec(width - 1, 0.3, roofLength),
-			vec(0, cabinBase + cabinHeight + 0.6, roofZ),
+			vec(0, cabinBase + cabinHeight + 0.425, roofZ),
 			trimPaint
 		)
 		local h = heights[1]

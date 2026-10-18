@@ -123,6 +123,16 @@ Tuning.Chassis = {
 	RearGripFactor = 1.2, -- rear wheel friction as a multiple of Grip; 1 for even grip
 }
 
+-- How generated cars (CarDesign) sit on the chassis, in studs from the hull's
+-- center. A stat's look steps up at each StatSteps level.
+Tuning.CarLooks = {
+	BodyBottom = -0.6,
+	TrackHalf = Tuning.Chassis.TrackHalf,
+	WheelbaseHalf = Tuning.Chassis.WheelbaseHalf,
+	WheelRadius = Tuning.Chassis.WheelRadius,
+	StatSteps = { 5, 12, 20, 30 },
+}
+
 Tuning.Drive = {
 	DriveTorque = 2000,
 	BrakeTorque = 5000,
