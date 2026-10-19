@@ -353,4 +353,52 @@ Tuning.TestPark = {
 	BoardX = 70,
 }
 
+-- The map seen from above (MapLayout). The hub is the saved test park's back
+-- end around the spawn and runway; the long jump's landing field runs on down
+-- the middle and stays clear. Parks sit to either side. ParkService warns at
+-- startup if areas come closer than Gap or leave Bounds, which is the test
+-- park ground inside its edge wall.
+Tuning.Map = {
+	Gap = 100,
+	Bounds = { MinX = -2900, MaxX = 2900, MinZ = -5900, MaxZ = 800 },
+	Areas = {
+		{
+			Id = "Hub",
+			Name = "Hub",
+			Kind = "Hub",
+			X = 0,
+			Z = 400,
+			Width = 800,
+			Depth = 800,
+			ArriveX = 0,
+			ArriveZ = 700,
+			Heading = 0,
+		},
+		{
+			Id = "LongJump",
+			Name = "Long Jump",
+			Kind = "Open",
+			X = 0,
+			Z = -3000,
+			Width = 1000,
+			Depth = 5800,
+			ArriveX = 0,
+			ArriveZ = -200,
+			Heading = 0,
+		},
+		{
+			Id = "Skate",
+			Name = "Skate Park",
+			Kind = "Park",
+			X = 1500,
+			Z = 200,
+			Width = 1400,
+			Depth = 1200,
+			ArriveX = 1500,
+			ArriveZ = 700,
+			Heading = 0,
+		},
+	},
+}
+
 return Tuning
