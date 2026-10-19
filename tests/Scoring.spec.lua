@@ -15,6 +15,7 @@ local TUNING: Scoring.Tuning = {
 	ComboMax = 2.5,
 	CleanMultiplier = 1.5,
 	SmashPoints = 100,
+	GrindPerSecond = 80,
 }
 
 local function trick(kind: Scoring.TrickKind, direction: number): Scoring.Trick
@@ -143,6 +144,23 @@ end)
 
 Check.test("no smashes given means none", function()
 	Check.eq(Scoring.score(run({ airtime = 2 }), TUNING).smash, 0)
+end)
+
+Check.test("seconds on rails pay grind points in the base", function()
+	local score = Scoring.score(run({ airtime = 1, grind = 2.5 }), TUNING)
+	Check.eq(score.grind, 200)
+	Check.eq(score.base, 250)
+end)
+
+Check.test("grind points get the combo and clean bonus like the rest", function()
+	local tricks = { trick("flip", 1), trick("spin", 1) }
+	local score = Scoring.score(run({ grind = 1, tricks = tricks, clean = true }), TUNING)
+	Check.eq(score.base, 380)
+	Check.eq(score.total, 855)
+end)
+
+Check.test("a run without grind time has no grind points", function()
+	Check.eq(Scoring.score(run({ airtime = 2 }), TUNING).grind, 0)
 end)
 
 Check.test("tricks are named by kind and direction", function()

@@ -27,6 +27,7 @@ local function sample(fields: { [string]: any }?): RunTracker.Sample
 		speed = 100,
 		upY = 1,
 		lying = false,
+		grinding = false,
 	}
 	for key, value in fields or {} do
 		s[key] = value
@@ -254,6 +255,50 @@ Check.test("fast flight and lift off after rolling past the pad are not teleport
 	step(state, { airborne = true, z = -620 })
 	step(state, { airborne = true, z = -699 })
 	Check.eq(state.phase, "flying")
+end)
+
+Check.test("a run without grinding has no grind time", function()
+	local state = launched()
+	local result = step(state, { airborne = false, z = -10 }) :: RunTracker.Result
+	Check.eq(result.grind, 0)
+end)
+
+Check.test("getting on a rail starts a run without a launch pad", function()
+	local state = RunTracker.new()
+	Check.eq(step(state, { grinding = true, airborne = true, y = 5 }), nil)
+	Check.eq(state.phase, "flying")
+end)
+
+Check.test("time on a rail counts as grind time, not airtime", function()
+	local state = launched()
+	step(state, { airborne = true, z = -10 })
+	for i = 1, 3 do
+		step(state, { grinding = true, airborne = true, z = -10 - i * 10 })
+	end
+	local snapshot = RunTracker.snapshot(state) :: RunTracker.Result
+	Check.near(snapshot.airtime, 0.2, "airtime: lift off and one step")
+	Check.near(snapshot.grind, 0.3, "grind")
+end)
+
+Check.test("wheels touching while on a rail do not end the run", function()
+	local state = RunTracker.new()
+	step(state, { grinding = true, airborne = false })
+	Check.eq(step(state, { grinding = true, airborne = false, z = -10 }), nil)
+	Check.eq(step(state, { grinding = true, airborne = false, z = -20, speed = 0 }), nil, "slow on the rail")
+	Check.eq(state.phase, "flying")
+end)
+
+Check.test("landing after a grind ends the run with the grind time", function()
+	local state = RunTracker.new()
+	for i = 1, 4 do
+		step(state, { grinding = true, airborne = true, z = -i * 10 })
+	end
+	step(state, { airborne = true, z = -50 })
+	local result = step(state, { airborne = false, z = -60 }) :: RunTracker.Result
+	Check.eq(result.ending, "landed")
+	Check.near(result.grind, 0.4)
+	Check.near(result.airtime, 0.1)
+	Check.near(result.distance, 50, "from where the grind started")
 end)
 
 Check.finish("RunTracker")

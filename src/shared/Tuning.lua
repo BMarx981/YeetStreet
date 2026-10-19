@@ -248,6 +248,34 @@ Tuning.Score = {
 	ComboMax = 4,
 	CleanMultiplier = 1.5,
 	SmashPoints = 100, -- per part knocked off the car
+	GrindPerSecond = 120, -- per second on a rail
+}
+
+-- Grinding rails (Grind, GrindRide). A rail is a part tagged GrindRail.
+Tuning.Grind = {
+	GrindHeight = 1.6, -- the hull's center above the rail's, sitting on it
+	CaptureRadius = 6, -- the hull this close to the grind line gets on
+	HoldTolerance = 2, -- the server counts a hull this close as grinding
+	MinAlign = 0.8, -- moving within about 37 degrees of the rail
+	MinSpeed = 20, -- along the rail, to get on
+	RideMinSpeed = 40, -- a car rides the rail at its speed getting on, held to these
+	RideMaxSpeed = 160,
+	Cooldown = 2, -- seconds before a rail can catch a car that just left it
+	EndPop = 15, -- straight up off the end of a rail
+	Hop = 40, -- straight up when jets hop the car off
+	SlipSpeed = 35, -- sideways, falling off toward the marker's side, clear of the rail
+	-- The balance bar runs from -1 to 1.
+	ZoneHalf = 0.2,
+	ZoneSpeed = 0.5,
+	RetargetMin = 0.5, -- seconds between the zone picking a new spot
+	RetargetMax = 1.5,
+	Tip = 1.5, -- the marker tips away from the middle
+	Wobble = 2, -- gust strength getting on
+	WobbleGrowth = 0.15, -- gusts grow by this fraction per second on the rail
+	GustTime = 0.25,
+	SteerForce = 8,
+	Damping = 3,
+	Grace = 0.5, -- seconds outside the zone before slipping off
 }
 
 Tuning.Hud = {
@@ -509,6 +537,20 @@ Tuning.Skate = {
 		Spacing = 30,
 		Height = 3,
 		PostSpacing = 50,
+	},
+	-- A ramp up to a deck, then stairs down toward -Z with a handrail to grind
+	-- along each side. TopZ is where the stairs start, at the deck's edge.
+	Stairs = {
+		X = 450,
+		TopZ = 700,
+		Height = 30,
+		Steps = 20,
+		StepDepth = 6,
+		Width = 40,
+		DeckDepth = 40,
+		RampLength = 140,
+		RailHeight = 3, -- above the line of the step noses
+		RailInset = 3, -- in from each side of the stairs
 	},
 	-- Two small kickers back to back with a flat deck between, for free play.
 	Funbox = {

@@ -4,15 +4,16 @@
 -- workspace.Parks.Skate on top of the park's floor. Four launchers with
 -- launch pads: the Mega Ramp straight ahead of the arrival, the Vert Ramp and
 -- the Half Pipe (pads along the bottom of both walls) on the left, and the Bowl on the right, ringed by a ramp so it
--- can be entered from any side. Rails and a funbox sit between them for free
--- play, and cones, benches, and trash cans get knocked flying. Numbers are in
--- Tuning.Skate.
+-- can be entered from any side. Grind rails, a stair set with handrails to
+-- grind, and a funbox sit between them, and cones, benches, and trash cans
+-- get knocked flying. Numbers are in Tuning.Skate.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local CurveProfile = require(ReplicatedStorage.CurveProfile)
+local GrindRails = require(ReplicatedStorage.GrindRails)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
@@ -218,28 +219,101 @@ local function buildProps(parent: Instance, area: MapLayout.Area)
 	end
 end
 
+-- Rails are only seen: the grind (GrindRide) moves a car along them, so
+-- nothing about them can snag a car that misses one.
+local function ghost(part: BasePart)
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+end
+
+-- A grind rail from `a` to `b`, both in world space.
+local function rail(parent: Instance, a: Vector3, b: Vector3)
+	local mid = (a + b) / 2
+	-- A cylinder's length runs along its X axis; turning a facing a quarter
+	-- turn lays X along it.
+	local part = block(
+		parent,
+		"Rail",
+		Vector3.new((b - a).Magnitude, 1.5, 1.5),
+		CFrame.lookAt(mid, b) * CFrame.Angles(0, math.pi / 2, 0),
+		RAIL_COLOR
+	)
+	part.Shape = Enum.PartType.Cylinder
+	part.Material = Enum.Material.Metal
+	ghost(part)
+	CollectionService:AddTag(part, GrindRails.TAG)
+end
+
+-- A post holding up a rail, from the surface at `foot` up `height`.
+local function post(parent: Instance, foot: Vector3, height: number)
+	local center = foot + Vector3.new(0, height / 2, 0)
+	local part = block(parent, "Post", Vector3.new(1, height, 1), CFrame.new(center), POST_COLOR)
+	ghost(part)
+end
+
 local function buildRails(parent: Instance, area: MapLayout.Area)
 	local R = S.Rails
 	local model = Instance.new("Model")
 	model.Name = "Rails"
 	model.Parent = parent
 
-	local centerZ = R.StartZ - R.Length / 2
 	for i = 1, R.Count do
 		local x = R.X + (i - (R.Count + 1) / 2) * R.Spacing
-		local rail = block(
-			model,
-			"Rail",
-			Vector3.new(R.Length, 1.5, 1.5),
-			at(area, x, R.Height, centerZ) * CFrame.Angles(0, math.pi / 2, 0),
-			RAIL_COLOR
-		)
-		rail.Shape = Enum.PartType.Cylinder
-		rail.Material = Enum.Material.Metal
+		rail(model, at(area, x, R.Height, R.StartZ).Position, at(area, x, R.Height, R.StartZ - R.Length).Position)
 		local posts = math.floor(R.Length / R.PostSpacing)
 		for p = 0, posts do
-			local z = R.StartZ - p * R.Length / posts
-			block(model, "Post", Vector3.new(1, R.Height, 1), at(area, x, R.Height / 2, z), POST_COLOR)
+			post(model, at(area, x, 0, R.StartZ - p * R.Length / posts).Position, R.Height)
+		end
+	end
+end
+
+-- A ramp up to a deck, then stairs down with a handrail along each side.
+local function buildStairs(parent: Instance, area: MapLayout.Area)
+	local T = S.Stairs
+	local model = Instance.new("Model")
+	model.Name = "Stairs"
+	model.Parent = parent
+
+	local rise = T.Height / T.Steps
+	local bottomZ = T.TopZ - T.Steps * T.StepDepth
+	block(
+		model,
+		"Deck",
+		Vector3.new(T.Width, T.Height, T.DeckDepth),
+		at(area, T.X, T.Height / 2, T.TopZ + T.DeckDepth / 2),
+		RAMP_COLOR
+	)
+	for i = 1, T.Steps - 1 do
+		local top = T.Height - i * rise
+		block(
+			model,
+			"Step",
+			Vector3.new(T.Width, top, T.StepDepth),
+			at(area, T.X, top / 2, T.TopZ - (i - 0.5) * T.StepDepth),
+			RAMP_COLOR
+		)
+	end
+
+	-- A wedge rises toward its +Z end, so turn it to rise toward the deck.
+	local ramp = Instance.new("WedgePart")
+	ramp.Name = "Ramp"
+	ramp.Anchored = true
+	ramp.Size = Vector3.new(T.Width, T.Height, T.RampLength)
+	ramp.CFrame = at(area, T.X, T.Height / 2, T.TopZ + T.DeckDepth + T.RampLength / 2) * FACE_BACK
+	ramp.Color = RAMP_COLOR
+	ramp.Material = Enum.Material.Concrete
+	ramp.Parent = model
+
+	-- Each handrail follows the line of the step noses, RailHeight above it.
+	for _, side in { -1, 1 } do
+		local x = T.X + side * (T.Width / 2 - T.RailInset)
+		local top = at(area, x, T.Height, T.TopZ).Position
+		local bottom = at(area, x, 0, bottomZ).Position
+		local lift = Vector3.new(0, T.RailHeight, 0)
+		rail(model, top + lift, bottom + lift)
+		for _, f in { 0.05, 0.35, 0.65, 0.95 } do
+			post(model, top:Lerp(bottom, f), T.RailHeight)
 		end
 	end
 end
@@ -266,6 +340,7 @@ function Skate.build(folder: Folder, area: MapLayout.Area)
 	buildBowl(folder, area)
 	buildHalfPipe(folder, area)
 	buildRails(folder, area)
+	buildStairs(folder, area)
 	buildFunbox(folder, area)
 	buildProps(folder, area)
 end

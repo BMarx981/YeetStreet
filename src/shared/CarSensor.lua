@@ -1,8 +1,8 @@
 --!strict
 -- CarSensor (ModuleScript) -> ReplicatedStorage.CarSensor
 -- Reads a car's state each physics step: wheels on the ground, any launch pad
--- under them, flying, lying on its roof or side, any hit it took, and the
--- RunTracker sample.
+-- under them, flying, lying on its roof or side, riding a rail (GrindRails),
+-- any hit it took, and the RunTracker sample.
 -- The driving client and the server both read cars through this, so the
 -- server scores a run from the same inputs the client's HUD uses.
 --
@@ -12,6 +12,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Contact = require(ReplicatedStorage.Contact)
+local GrindRails = require(ReplicatedStorage.GrindRails)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -153,6 +154,7 @@ function CarSensor.read(sensor: Sensor, dt: number): Reading
 			speed = velocity.Magnitude,
 			upY = cf.UpVector.Y,
 			lying = lying,
+			grinding = GrindRails.onAny(cf.Position, velocity),
 		},
 	}
 end

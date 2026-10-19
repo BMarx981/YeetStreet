@@ -12,6 +12,10 @@
 --           TeleportDistance in one step also ends it as a reset, since the
 --           car did not fly there.
 --
+-- Riding a rail (Grind) keeps a run going, or starts one without a launch
+-- pad. Time on the rail counts as grind time instead of airtime, and wheels
+-- touching or a slow car never end the run while it lasts.
+--
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
 -- wobbling never adds up to a trick.
@@ -36,6 +40,7 @@ export type Ending = "landed" | "crashed" | "stopped" | "aborted" | "wrecked"
 export type Result = {
 	ending: Ending,
 	airtime: number,
+	grind: number, -- seconds on rails
 	distance: number, -- flat studs from the launch point to where the run ended
 	height: number, -- peak studs above the launch point
 	tricks: { Trick },
@@ -58,6 +63,7 @@ export type Sample = {
 	speed: number,
 	upY: number,
 	lying: boolean,
+	grinding: boolean, -- on a rail (Grind.onRail)
 }
 
 export type Tuning = {
@@ -79,6 +85,7 @@ export type State = {
 	lastZ: number,
 	peakY: number,
 	airtime: number,
+	grind: number,
 	stoppedTime: number,
 	turnedX: number,
 	turnedY: number,
@@ -98,6 +105,7 @@ function RunTracker.new(): State
 		lastZ = 0,
 		peakY = 0,
 		airtime = 0,
+		grind = 0,
 		stoppedTime = 0,
 		turnedX = 0,
 		turnedY = 0,
@@ -116,6 +124,7 @@ local function measure(state: State, ending: Ending, clean: boolean): Result
 	return {
 		ending = ending,
 		airtime = state.airtime,
+		grind = state.grind,
 		distance = math.sqrt((state.lastX - state.launchX) ^ 2 + (state.lastZ - state.launchZ) ^ 2),
 		height = math.max(state.peakY - state.launchY, 0),
 		tricks = table.clone(state.tricks),
@@ -151,6 +160,12 @@ local function fly(state: State, sample: Sample, tuning: Tuning): Result?
 		return finish(state, "aborted", false)
 	end
 	moveTo(state, sample)
+	if sample.grinding then
+		state.grind += sample.dt
+		state.peakY = math.max(state.peakY, sample.y)
+		state.stoppedTime = 0
+		return nil
+	end
 	if not sample.airborne then
 		return finish(state, "landed", sample.upY >= tuning.CleanUpY)
 	end
@@ -178,6 +193,14 @@ end
 -- Advances one step. Returns the result on the step a run ends, otherwise nil.
 function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 	if state.phase == "flying" then
+		return fly(state, sample, tuning)
+	end
+
+	if sample.grinding then
+		state.phase = "flying"
+		state.launchX, state.launchY, state.launchZ = sample.x, sample.y, sample.z
+		moveTo(state, sample)
+		state.peakY = sample.y
 		return fly(state, sample, tuning)
 	end
 

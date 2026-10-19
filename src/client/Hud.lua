@@ -367,6 +367,9 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	if score.smash > 0 then
 		add("Smash", withCommas(score.smash), 18)
 	end
+	if score.grind > 0 then
+		add(string.format("Grind %.1fs", run.grind or 0), withCommas(score.grind), 18)
+	end
 	if score.combo > 1 then
 		add("Combo", multiplier(score.combo), 18)
 	end
