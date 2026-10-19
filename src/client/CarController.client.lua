@@ -208,10 +208,6 @@ local function trackRun(sample: RunTracker.Sample)
 	local result = RunTracker.step(run, sample, Tuning.Run)
 	if result then
 		endRun(result)
-		-- Auto-teleport back to spawn shortly after the run ends.
-		task.delay(2, function()
-			resetCar()
-		end)
 		return
 	end
 

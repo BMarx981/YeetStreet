@@ -106,6 +106,7 @@ local WEATHER_PRESETS = {
 }
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Garage = require(game:GetService("ServerScriptService").Garage)
 local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
 local adminFeedbackEvent = ReplicatedStorage:WaitForChild("AdminFeedbackEvent")
 local weatherUpdateEvent = ReplicatedStorage:WaitForChild("WeatherUpdateEvent")
@@ -286,8 +287,7 @@ local COMMANDS = {
 
 		if string.lower(targetName) == "all" then
 			for _, p in Players:GetPlayers() do
-				local currentCash = p:GetAttribute("Cash") or 0
-				p:SetAttribute("Cash", currentCash + amount)
+				Garage.pay(p, amount)
 			end
 			return "Gave " .. amount .. " cash to all players."
 		end
@@ -297,8 +297,7 @@ local COMMANDS = {
 			return "Player not found: " .. targetName
 		end
 
-		local currentCash = target:GetAttribute("Cash") or 0
-		target:SetAttribute("Cash", currentCash + amount)
+		Garage.pay(target, amount)
 		return "Gave " .. amount .. " cash to " .. target.Name .. "."
 	end,
 
