@@ -8,7 +8,8 @@
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
 --             pitch in the air), A jets, LB/RB roll, Y reset
 --   Touch     see TouchControls
--- No input reaches the car while the garage panel is open (GarageMenu).
+-- No input reaches the car while the garage panel or teleport menu is open
+-- (GarageMenu, TeleportMenu).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -16,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Tuning = require(ReplicatedStorage.Tuning)
 local GarageMenu = require(script.Parent.GarageMenu)
+local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 
 local K = Enum.KeyCode
@@ -43,8 +45,8 @@ local function anyKey(codes: { Enum.KeyCode }): boolean
 end
 
 function Controls.read(): Frame
-	-- Buttons in the garage panel must not drive the car either.
-	if GarageMenu.isOpen() then
+	-- Buttons in the garage panel or teleport menu must not drive the car either.
+	if GarageMenu.isOpen() or TeleportMenu.isOpen() then
 		return { steer = 0, throttle = 0, pitch = 0, roll = 0, jet = false, reset = false, exit = false }
 	end
 	-- Typing in chat must not drive the car.

@@ -44,6 +44,17 @@ function MapLayout.contains(a: Area, x: number, z: number): boolean
 	return math.abs(x - a.X) <= a.Width / 2 and math.abs(z - a.Z) <= a.Depth / 2
 end
 
+-- The teleport menu's places: every hub and park, in layout order.
+function MapLayout.stops(areas: { Area }): { Area }
+	local stops = {}
+	for _, a in areas do
+		if a.Kind ~= "Open" then
+			table.insert(stops, a)
+		end
+	end
+	return stops
+end
+
 function MapLayout.find(areas: { Area }, id: string): Area?
 	for _, a in areas do
 		if a.Id == id then

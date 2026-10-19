@@ -63,6 +63,13 @@ Tuning.Garage = {
 	Reach = 20, -- studs from a Garage-tagged model's pivot within which the panel opens
 }
 
+-- The teleport menu (TeleportService). A car sent to a garage arrives this
+-- far in front of the garage model's pivot, facing it, inside Garage.Reach.
+Tuning.Teleport = {
+	RequestGap = 1, -- the server ignores teleports closer together than this
+	GarageDistance = 14,
+}
+
 -- Saving player data (PlayerData, SaveRecord).
 Tuning.Save = {
 	AutosaveInterval = 60,
@@ -371,7 +378,7 @@ Tuning.Map = {
 			Width = 800,
 			Depth = 800,
 			ArriveX = 0,
-			ArriveZ = 700,
+			ArriveZ = 680, -- the hub launcher's respawn point, clear of the spawn lanes
 			Heading = 0,
 		},
 		{

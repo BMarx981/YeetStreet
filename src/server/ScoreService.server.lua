@@ -23,7 +23,9 @@
 -- A reset (the client asks on ReplicatedStorage.ResetCar, or Garage fires
 -- ServerStorage.ResetPlayerCar after a purchase) respawns at once.
 -- Both build a fresh car at the last launcher the player used, through
--- CarService's ServerStorage.RespawnCar.
+-- CarService's ServerStorage.RespawnCar. A teleport (TeleportService invokes
+-- ServerStorage.MovePlayerCar) ends the run the same way and builds the car
+-- at its destination.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -271,6 +273,36 @@ local resetPlayerCar = Instance.new("BindableEvent")
 resetPlayerCar.Name = "ResetPlayerCar"
 resetPlayerCar.Event:Connect(reset)
 resetPlayerCar.Parent = ServerStorage
+
+-- Ends the player's run, if any, and builds their car at `cframe`. With
+-- `home`, resets and wrecks come back here too until the next launch pad, and
+-- the car takes a respawn lane there. False if the player has no car.
+local function move(player: Player, cframe: CFrame, home: boolean): boolean
+	if home then
+		lastLaunch[player] = cframe
+	end
+	for _, watch in watches do
+		if watch.player == player then
+			local result = RunTracker.abort(watch.run)
+			if result then
+				finish(watch, result)
+			end
+			if home then
+				respawn(watch)
+			elseif not watch.respawning then
+				watch.respawning = true
+				respawnCar:Fire(player, cframe)
+			end
+			return true
+		end
+	end
+	return false
+end
+
+local movePlayerCar = Instance.new("BindableFunction")
+movePlayerCar.Name = "MovePlayerCar"
+movePlayerCar.OnInvoke = move
+movePlayerCar.Parent = ServerStorage
 
 RunService.Heartbeat:Connect(function(dt: number)
 	for car in watches do

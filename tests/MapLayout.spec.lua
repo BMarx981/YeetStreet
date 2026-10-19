@@ -85,4 +85,15 @@ Check.test("find returns the area with that id, or nil", function()
 	Check.eq(MapLayout.find(areas, "C"), nil)
 end)
 
+Check.test("stops are the hub and parks in layout order, without open areas", function()
+	local hub = area("Hub", 0, 0, 10, 10)
+	hub.Kind = "Hub"
+	local field = area("Field", 0, -500, 10, 10)
+	field.Kind = "Open"
+	local stops = MapLayout.stops({ area("Skate", 500, 0, 10, 10), field, hub })
+	Check.eq(#stops, 2)
+	Check.eq(stops[1].Id, "Skate")
+	Check.eq(stops[2].Id, "Hub")
+end)
+
 Check.finish("MapLayout")

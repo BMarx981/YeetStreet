@@ -42,6 +42,7 @@ local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
 local Hud = require(script.Parent.Hud)
+local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 
 local player = Players.LocalPlayer :: Player
@@ -556,6 +557,7 @@ task.spawn(function()
 end)
 
 GarageMenu.start()
+TeleportMenu.start()
 
 task.spawn(function()
 	-- SetCore fails until the core scripts have registered the callback.
