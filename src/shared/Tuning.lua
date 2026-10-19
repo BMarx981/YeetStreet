@@ -215,6 +215,13 @@ Tuning.Contact = {
 	LandWheels = 2,
 }
 
+-- Launch pads (CarController). A pad pushes only a car whose velocity points
+-- at least this much along the pad (the cosine of the angle between them:
+-- 0.65 is within about 50 degrees).
+Tuning.Launch = {
+	MinHeading = 0.65,
+}
+
 Tuning.Run = {
 	ArmTime = 1, -- seconds after leaving a launch pad that lift off still starts a run
 	StopSpeed = 4, -- a run off its wheels and slower than this for StopTime ends
@@ -398,10 +405,10 @@ Tuning.Map = {
 			Id = "Skate",
 			Name = "Skate Park",
 			Kind = "Park",
-			X = 1500,
-			Z = 200,
-			Width = 1400,
-			Depth = 1200,
+			X = 1800,
+			Z = -100,
+			Width = 2000,
+			Depth = 1800,
 			ArriveX = 1500,
 			ArriveZ = 700,
 			Heading = 0,
@@ -410,18 +417,18 @@ Tuning.Map = {
 }
 
 -- The skate park (ServerScriptService.Parks.Skate). X and Z are studs from
--- the park's center; the arrival point is at Z 500, facing -Z. Each launcher
--- has a runway from RunwayZ toward -Z, and resets put the car at its start.
--- Ramps are CurvedWall pieces: Radius and Angle shape the curve.
+-- the park's center; the arrival point is at X -300, Z 800, facing -Z. Each
+-- launcher has a runway from RunwayZ toward -Z, and resets put the car at its
+-- start. Ramps are CurvedWall pieces: Radius and Angle shape the curve.
 Tuning.Skate = {
 	WallThickness = 2,
 	-- Straight ahead of the arrival: a kicker over a gap onto a long landing
 	-- ramp. At 220 a straight launch comes down on the landing ramp.
 	Mega = {
-		X = 0,
-		LipZ = 150,
+		X = -300,
+		LipZ = 450,
 		Width = 40,
-		RunwayZ = 560,
+		RunwayZ = 860,
 		KickRadius = 60,
 		KickAngle = 35,
 		KickSteps = 10,
@@ -436,10 +443,10 @@ Tuning.Skate = {
 	},
 	-- A pad strip into a vertical quarter pipe: straight up, then back down.
 	Vert = {
-		X = -400,
-		BaseZ = 100, -- where the curve starts
+		X = -700,
+		BaseZ = 400, -- where the curve starts
 		Width = 50,
-		RunwayZ = 450,
+		RunwayZ = 750,
 		Radius = 40,
 		Steps = 12,
 		PadLength = 50,
@@ -450,63 +457,63 @@ Tuning.Skate = {
 	-- booster pads at its foot. Drop in, ride up any part of the wall, and the
 	-- pads around its top launch the car up and out over the lip.
 	Bowl = {
-		X = 390,
+		X = 400,
 		Z = -280,
-		FloorRadius = 120,
-		Radius = 60,
+		FloorRadius = 240,
+		Radius = 120, -- with Angle 80, a wall about 99 studs high
 		Angle = 80,
 		Steps = 12,
-		Slices = 48,
+		Slices = 72,
 		PadPlanks = 2, -- per slice, at the top of the wall
 		LaunchSpeed = 220,
-		BermRun = 107, -- the outside ramp, from its foot in to the rim
-		BermSteps = 6,
-		BermSlices = 64,
-		BoostSpeed = 130, -- the bottom ring of the outside ramp
+		BermRun = 213, -- the outside ramp, from its foot in to the rim: about 25 degrees
+		BermSteps = 8,
+		BermSlices = 96,
+		BoostSpeed = 190, -- the bottom ring of the outside ramp
 	},
-	-- Vertical walls with pads along the bottom of both, so a car rolling
-	-- toward either wall is boosted up it and straight into the air, then
-	-- comes back down and across to the other: back and forth.
+	-- Tall walls with pads along the bottom of both, so a car rolling toward
+	-- either wall is boosted up it and into the air, then comes back down and
+	-- across to the other: back and forth.
 	HalfPipe = {
-		X = -400,
-		Z = -320,
+		X = -700,
+		Z = -470,
 		FlatWidth = 60,
-		Radius = 50,
-		Angle = 100, -- leaning back past vertical keeps launches over the pipe
-		Steps = 12,
-		Length = 300,
+		Radius = 70,
+		Angle = 110, -- leaning back past vertical keeps launches over the pipe
+		Steps = 14,
+		Length = 800,
 		PadPlanks = 3, -- per wall, from the bottom
-		LaunchSpeed = 200,
+		LaunchSpeed = 220,
 		DeckDepth = 20,
 	},
 	-- Knocked flying by a car, back in place after Tuning.Props.ResetTime.
 	Props = {
 		ConeSpacing = 40,
-		ConeStartZ = 520,
-		ConeEndZ = 220,
+		ConeStartZ = 820,
+		ConeEndZ = 520,
 		ConeX = 26, -- either side of the Mega Ramp's runway
 		Benches = {
-			{ X = -60, Z = 470, Turn = 0 },
-			{ X = 60, Z = 470, Turn = 0 },
-			{ X = -260, Z = 300, Turn = 90 },
-			{ X = -140, Z = 300, Turn = 90 },
-			{ X = 260, Z = 260, Turn = 90 },
-			{ X = -330, Z = -140, Turn = 0 },
+			{ X = -360, Z = 770, Turn = 0 },
+			{ X = -240, Z = 770, Turn = 0 },
+			{ X = -560, Z = 600, Turn = 90 },
+			{ X = -440, Z = 600, Turn = 90 },
+			{ X = -40, Z = 560, Turn = 90 },
+			{ X = -600, Z = -30, Turn = 0 },
 		},
 	},
 	Rails = {
-		X = -200,
-		StartZ = 350,
-		Length = 150,
+		X = -500,
+		StartZ = 650,
+		Length = 500,
 		Count = 3,
 		Spacing = 30,
 		Height = 3,
-		PostSpacing = 30,
+		PostSpacing = 50,
 	},
 	-- Two small kickers back to back with a flat deck between, for free play.
 	Funbox = {
-		X = 200,
-		Z = 200,
+		X = -100,
+		Z = 500,
 		Width = 40,
 		Radius = 60,
 		Angle = 25,

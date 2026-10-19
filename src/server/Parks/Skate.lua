@@ -203,7 +203,8 @@ local function buildProps(parent: Instance, area: MapLayout.Area)
 	local z = P.ConeStartZ
 	while z >= P.ConeEndZ do
 		for _, side in { -1, 1 } do
-			local cone = prop(model, "Cone", Vector3.new(1.6, 3, 1.6), at(area, side * P.ConeX, 0, z), CONE_COLOR)
+			local x = S.Mega.X + side * P.ConeX
+			local cone = prop(model, "Cone", Vector3.new(1.6, 3, 1.6), at(area, x, 0, z), CONE_COLOR)
 			upright(cone, 3, 1.6)
 		end
 		z -= P.ConeSpacing

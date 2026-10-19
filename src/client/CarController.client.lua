@@ -11,7 +11,7 @@
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
 --      Lying on its roof or side: AirSpin rolls it back onto its wheels
 --      (Righting), and the player's spin input waits until it is upright.
---   4. Launch pads top speed up along the ramp, for a car moving that way.
+--   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
 --   6. Reset on request, when still stuck on the roof after righting had its
@@ -250,9 +250,10 @@ local function launch(r: Rig, pad: BasePart)
 	local dir = pad.CFrame.LookVector
 	local velocity = r.hull.AssemblyLinearVelocity
 	local along = velocity:Dot(dir)
-	-- Only a car already moving the pad's way, so dropping into a bowl over the
-	-- pads on its rim doesn't throw the car back out.
-	if along > 0 and along < speed then
+	-- Only a car already heading the pad's way, so crossing a bowl's rim pads
+	-- on the way in doesn't throw the car back out.
+	local heading = if velocity.Magnitude > 1e-3 then along / velocity.Magnitude else 0
+	if heading >= Tuning.Launch.MinHeading and along < speed then
 		setVelocity(r, velocity + dir * (speed - along))
 	end
 end

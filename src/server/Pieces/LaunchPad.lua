@@ -1,8 +1,9 @@
 --!strict
 -- LaunchPad (ModuleScript) -> ServerScriptService.Pieces.LaunchPad
 -- Launch pads for building parks. A pad is a part with a LaunchSpeed
--- attribute: a car on it moving along the part's LookVector is pushed that
--- way up to that speed (CarController), and arms a run (RunTracker). Its
+-- attribute: a car on it heading along the part's LookVector
+-- (Tuning.Launch.MinHeading) is pushed that way up to that speed
+-- (CarController), and arms a run (RunTracker). Its
 -- RespawnCFrame
 -- attribute is where a reset or wreck puts a car that last launched there
 -- (ScoreService).
