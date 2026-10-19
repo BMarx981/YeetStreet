@@ -25,14 +25,13 @@ for _, problem in MapLayout.problems(areas, M.Bounds, M.Gap) do
 end
 
 local FLOOR_THICKNESS = 1
-local FLOOR_TOP = 0.1 -- just above the grass, so the two never flicker
 
 local function floor(folder: Folder, area: MapLayout.Area)
 	local part = Instance.new("Part")
 	part.Name = "Floor"
 	part.Anchored = true
 	part.Size = Vector3.new(area.Width, FLOOR_THICKNESS, area.Depth)
-	part.CFrame = CFrame.new(area.X, FLOOR_TOP - FLOOR_THICKNESS / 2, area.Z)
+	part.CFrame = CFrame.new(area.X, M.FloorTop - FLOOR_THICKNESS / 2, area.Z)
 	part.Color = Color3.fromRGB(170, 170, 165)
 	part.Material = Enum.Material.Concrete
 	part.TopSurface = Enum.SurfaceType.Smooth

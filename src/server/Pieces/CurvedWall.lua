@@ -116,4 +116,35 @@ function CurvedWall.bowl(parent: Instance, center: CFrame, floorRadius: number, 
 	return model
 end
 
+-- Fills the space under every plank of a piece down to `floorY` with blocks,
+-- so it is a solid ramp that no car can drive underneath. Each block stops
+-- just below its plank's lowest edge, so it never pokes through the surface.
+-- Planks too steep to have anything under them are skipped.
+function CurvedWall.fill(piece: Model, floorY: number, options: Options)
+	for _, plank in piece:GetDescendants() do
+		if not (plank:IsA("BasePart") and plank.Name == "Plank") then
+			continue
+		end
+		local look = plank.CFrame.LookVector
+		local tilt = math.asin(math.clamp(look.Y, -1, 1))
+		local depth = plank.Size.Z * math.cos(tilt)
+		local lowest = plank.Position.Y
+			- plank.Size.Y / 2 * math.cos(tilt)
+			- plank.Size.Z / 2 * math.abs(math.sin(tilt))
+		local height = lowest - floorY - 0.1
+		if depth < 0.5 or height < 0.5 then
+			continue
+		end
+		local center = Vector3.new(plank.Position.X, floorY + height / 2, plank.Position.Z)
+		local part = Instance.new("Part")
+		part.Name = "Fill"
+		part.Anchored = true
+		part.Size = Vector3.new(plank.Size.X, height, depth)
+		part.CFrame = CFrame.lookAt(center, center + Vector3.new(look.X, 0, look.Z))
+		part.Color = options.color or DEFAULT_COLOR
+		part.Material = options.material or Enum.Material.Concrete
+		part.Parent = plank.Parent
+	end
+end
+
 return CurvedWall

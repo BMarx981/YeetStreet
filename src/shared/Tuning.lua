@@ -366,6 +366,7 @@ Tuning.TestPark = {
 -- startup if areas come closer than Gap or leave Bounds, which is the test
 -- park ground inside its edge wall.
 Tuning.Map = {
+	FloorTop = 0.1, -- park floors sit just above the grass, so the two never flicker
 	Gap = 100,
 	Bounds = { MinX = -2900, MaxX = 2900, MinZ = -5900, MaxZ = 800 },
 	Areas = {
@@ -405,6 +406,81 @@ Tuning.Map = {
 			ArriveZ = 700,
 			Heading = 0,
 		},
+	},
+}
+
+-- The skate park (ServerScriptService.Parks.Skate). X and Z are studs from
+-- the park's center; the arrival point is at Z 500, facing -Z. Each launcher
+-- has a runway from RunwayZ toward -Z, and resets put the car at its start.
+-- Ramps are CurvedWall pieces: Radius and Angle shape the curve.
+Tuning.Skate = {
+	WallThickness = 2,
+	-- Straight ahead of the arrival: a kicker over a gap onto a long landing
+	-- ramp. At 220 a straight launch comes down on the landing ramp.
+	Mega = {
+		X = 0,
+		LipZ = 150,
+		Width = 40,
+		RunwayZ = 560,
+		KickRadius = 60,
+		KickAngle = 35,
+		KickSteps = 10,
+		PadPlanks = 4,
+		LaunchSpeed = 220,
+		Gap = 260, -- from the kicker's lip to the top of the landing ramp
+		LandWidth = 60,
+		LandRadius = 500,
+		LandAngle = 20,
+		LandSteps = 16,
+		DeckDepth = 10, -- flat top on the landing ramp
+	},
+	-- A pad strip into a vertical quarter pipe: straight up, then back down.
+	Vert = {
+		X = -400,
+		BaseZ = 100, -- where the curve starts
+		Width = 50,
+		RunwayZ = 450,
+		Radius = 40,
+		Steps = 12,
+		PadLength = 50,
+		LaunchSpeed = 200,
+		DeckDepth = 20,
+	},
+	-- Drive in through the opening; the pad across the floor sends the car up
+	-- the far wall and out over the lip.
+	Bowl = {
+		X = 420,
+		Z = -50,
+		FloorRadius = 70,
+		Radius = 35,
+		Angle = 80,
+		Steps = 10,
+		Opening = 60, -- degrees of wall left out, facing the arrival
+		Slices = 30,
+		RunwayZ = 350,
+		RunwayWidth = 40,
+		PadLength = 100,
+		PadWidth = 40,
+		LaunchSpeed = 200,
+	},
+	Rails = {
+		X = -200,
+		StartZ = 350,
+		Length = 150,
+		Count = 3,
+		Spacing = 30,
+		Height = 3,
+		PostSpacing = 30,
+	},
+	-- Two small kickers back to back with a flat deck between, for free play.
+	Funbox = {
+		X = 200,
+		Z = 200,
+		Width = 40,
+		Radius = 60,
+		Angle = 25,
+		Steps = 8,
+		DeckLength = 30,
 	},
 }
 
