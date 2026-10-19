@@ -73,4 +73,4 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 ## Current milestone
 
-M2 Economy: cash, four upgrade stats (Speed, Jets, Toughness, Grip), car generator v1, the first three ladder cars, and saves. Done when progress survives rejoining. Upgrade levels belong to the player; the equipped car's caps limit them. Upgrades and cars are bought from a garage panel opened by a HUD button. Launch pads keep their fixed launch speed for now.
+M3 World: the hub and 5 to 8 launchers across the first stunt parks. Done when a new player finds a launcher within 30 seconds. The skate park comes first. No parked cars to grab. Players can reach a garage from anywhere, through garages around the map and a teleport menu, usable at any time, that goes to a garage and back to any park.

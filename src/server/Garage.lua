@@ -14,7 +14,11 @@
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip), Equipped, and CarsOwned (ids
 -- joined by commas). Cash is also in leaderstats.
+--
+-- The panel opens near any model tagged Garage. The hand-placed
+-- workspace.Shopkeeper gets that tag here, so it stays a garage.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -147,5 +151,10 @@ end
 Players.PlayerRemoving:Connect(function(player: Player)
 	lastRequestAt[player] = nil
 end)
+
+local shopkeeper = workspace:FindFirstChild("Shopkeeper")
+if shopkeeper then
+	CollectionService:AddTag(shopkeeper, "Garage")
+end
 
 return Garage

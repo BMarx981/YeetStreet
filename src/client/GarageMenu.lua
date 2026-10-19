@@ -1,8 +1,9 @@
 --!strict
 -- GarageMenu (ModuleScript) -> StarterPlayerScripts.GarageMenu
 -- The garage panel: buy upgrade levels and ladder cars, and equip owned cars.
--- The GARAGE button left of the fuel bar, G on a keyboard, or X on a gamepad
--- opens and closes it; so do the panel's X button and gamepad B.
+-- It opens only within Tuning.Garage.Reach of a model tagged Garage, with G or
+-- E (E shows the Cars tab) on a keyboard or X on a gamepad. The same keys,
+-- the panel's X button, and gamepad B close it.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
@@ -10,6 +11,7 @@
 -- reports why one failed. While the panel is open the car gets no input
 -- (Controls), so a gamepad A press on a button doesn't also fire the jets.
 
+local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +21,8 @@ local Economy = require(ReplicatedStorage.Economy)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local GarageMenu = {}
+
+local GARAGE_TAG = "Garage"
 
 type Tab = "Upgrades" | "Cars"
 
@@ -367,18 +371,25 @@ local function build()
 	carsTab.Activated:Connect(function()
 		showTab("Cars")
 	end)
-	local function nearShopkeeper(): boolean
-		local shopkeeper = workspace:FindFirstChild("Shopkeeper")
+	local function nearGarage(): boolean
 		local character = player.Character
 		local hrp = character and character:FindFirstChild("HumanoidRootPart")
-		if shopkeeper and hrp and hrp:IsA("BasePart") then
-			return (shopkeeper:GetPivot().Position - hrp.Position).Magnitude <= 20
+		if not (hrp and hrp:IsA("BasePart")) then
+			return false
+		end
+		for _, garage in CollectionService:GetTagged(GARAGE_TAG) do
+			if
+				garage:IsA("PVInstance")
+				and (garage:GetPivot().Position - hrp.Position).Magnitude <= Tuning.Garage.Reach
+			then
+				return true
+			end
 		end
 		return false
 	end
 
 	openButton.Activated:Connect(function()
-		if open or nearShopkeeper() then
+		if open or nearGarage() then
 			setOpen(not open, false)
 		end
 	end)
@@ -388,16 +399,16 @@ local function build()
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 		if input.KeyCode == Enum.KeyCode.G and not processed then
-			if open or nearShopkeeper() then
+			if open or nearGarage() then
 				setOpen(not open, false)
 			end
 		elseif input.KeyCode == Enum.KeyCode.E and not processed then
-			if open or nearShopkeeper() then
+			if open or nearGarage() then
 				showTab("Cars")
 				setOpen(not open, false)
 			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonX then
-			if open or nearShopkeeper() then
+			if open or nearGarage() then
 				setOpen(not open, true)
 			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then

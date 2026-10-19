@@ -33,7 +33,7 @@ Tuning.Cash = {
 	PerPoint = 1,
 	-- For development: in Studio only, each player's cash is topped up to this
 	-- when they join. 0 turns it off. Studio saves to the same store as the game.
-	StudioCash = 1_000_000_000,
+	StudioCash = 1_000_000,
 }
 
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
@@ -60,6 +60,7 @@ Tuning.Upgrades = {
 
 Tuning.Garage = {
 	RequestGap = 0.25, -- the server ignores purchases closer together than this
+	Reach = 20, -- studs from a Garage-tagged model's pivot within which the panel opens
 }
 
 -- Saving player data (PlayerData, SaveRecord).
