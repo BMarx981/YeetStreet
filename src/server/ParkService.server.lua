@@ -24,6 +24,13 @@ for _, problem in MapLayout.problems(areas, M.Bounds, M.Gap) do
 	warn(`ParkService: {problem}`)
 end
 
+-- The area marks for building in edit mode (ServerStorage.Dev.ParkAreas)
+-- never show in game.
+local marks = workspace:FindFirstChild("ParkAreas")
+if marks then
+	marks:Destroy()
+end
+
 local FLOOR_THICKNESS = 1
 
 local function floor(folder: Folder, area: MapLayout.Area)
