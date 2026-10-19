@@ -103,6 +103,14 @@ local WEATHER_PRESETS = {
 		OutdoorAmbient = Color3.fromRGB(180, 160, 100),
 		ClockTime = 14,
 	},
+	bonerain = {
+		FogEnd = 1500,
+		FogColor = Color3.fromRGB(200, 190, 160),
+		Brightness = 2,
+		Ambient = Color3.fromRGB(140, 130, 110),
+		OutdoorAmbient = Color3.fromRGB(140, 130, 110),
+		ClockTime = 11,
+	},
 }
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -110,6 +118,9 @@ local Garage = require(game:GetService("ServerScriptService").Garage)
 local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
 local adminFeedbackEvent = ReplicatedStorage:WaitForChild("AdminFeedbackEvent")
 local weatherUpdateEvent = ReplicatedStorage:WaitForChild("WeatherUpdateEvent")
+local commandListEvent = ReplicatedStorage:WaitForChild("CommandListEvent")
+local ServerScriptService = game:GetService("ServerScriptService")
+local boneRainToggle = ServerScriptService:FindFirstChild("BoneRainToggle")
 
 -- Track active weathers as an ordered list (multiple can be active at once)
 local activeWeathers = {"clear"}
@@ -251,6 +262,20 @@ local function stopCoinRain()
 	end
 end
 
+-- ===== COMMAND INFO TABLE (single source of truth for the command list GUI) =====
+-- When you add a new command, also add an entry here so it shows up in the :cmd GUI.
+-- Fields: name (string), description (string), usage (string)
+local COMMAND_INFO = {
+	{ name = "kick",      desc = "Kick a player from all servers",                    usage = ":kick <player> [reason]", optionsType = "player" },
+	{ name = "money",      desc = "Give cash to a player or everyone",                 usage = ":money <username|all> <amount>", optionsType = "player_amount" },
+	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
+	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
+	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global message <text>",         optionsType = "text" },
+	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
+	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
+	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
+}
+
 -- Commands table: each command takes (adminPlayer, argsString)
 local COMMANDS = {
 	kick = function(adminPlayer, args)
@@ -304,19 +329,20 @@ local COMMANDS = {
 	weather = function(adminPlayer, args)
 		local weatherName = string.match(args, "%S+")
 		if not weatherName then
-			return "Usage: :weather <clear|sunny|rain|storm|snow|cloudy|fog|night|coinrain> (toggle on/off, multiple can stack)"
+			return "Usage: :weather <clear|sunny|rain|storm|snow|cloudy|fog|night|coinrain|bonerain> (toggle on/off, multiple can stack)"
 		end
 
 		weatherName = string.lower(weatherName)
 		local preset = WEATHER_PRESETS[weatherName]
 		if not preset then
-			return "Unknown weather: '" .. weatherName .. "'. Available: clear, sunny, rain, storm, snow, cloudy, fog, night, coinrain"
+			return "Unknown weather: '" .. weatherName .. "'. Available: clear, sunny, rain, storm, snow, cloudy, fog, night, coinrain, bonerain"
 		end
 
 		-- "clear" resets everything to just clear weather
 		if weatherName == "clear" then
 			activeWeathers = {"clear"}
 			stopCoinRain()
+			if boneRainToggle then boneRainToggle:Fire(false) end
 			applyWeathers()
 			notifyWeather()
 			return "Weather cleared."
@@ -354,6 +380,10 @@ local COMMANDS = {
 				stopCoinRain()
 			else
 				startCoinRain()
+			end
+		elseif weatherName == "bonerain" then
+			if boneRainToggle then
+				boneRainToggle:Fire(not found)
 			end
 		end
 
@@ -419,6 +449,12 @@ local COMMANDS = {
 		return target.Name .. " has been promoted to admin."
 	end,
 
+	cmd = function(adminPlayer, args)
+		-- Send the live command list to the admin's client
+		commandListEvent:FireClient(adminPlayer, COMMAND_INFO)
+		return nil -- no text feedback; the GUI replaces it
+	end,
+
 	admin = function(adminPlayer, args)
 		local subCmd = string.match(args, "%S+")
 		if subCmd and string.lower(subCmd) == "abuse" then
@@ -426,12 +462,14 @@ local COMMANDS = {
 --- ADMIN COMMAND LIST ---
 (Global - affects ALL servers)
 :kick <player> [reason] - Kick a player from all servers
-:weather <type> - Toggle weather on/off (clear, sunny, rain, storm, snow, cloudy, fog, night, coinrain). Multiple can stack!
+:weather <type> - Toggle weather on/off (clear, sunny, rain, storm, snow, cloudy, fog, night, coinrain, bonerain). Multiple can stack!
   coinrain - Coins fall from the sky! Walk over them to collect $100 each (admin-only)
+  bonerain - Dino bones fall from the sky! Collect them for BoneCoins (admin-only)
 :time <0-24> - Set the time of day everywhere
 :money <username|all> <amount> - Give cash to a specific player or everyone
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global message <text> - Send a global message to all servers
+:cmd - Show the interactive command list
 :admin abuse - Show this help list
 --------------------------]]
 		end
@@ -555,6 +593,7 @@ local function cycleWeather()
 	lastNaturalWeather = nextWeather
 
 	stopCoinRain()
+	if boneRainToggle then boneRainToggle:Fire(false) end
 	activeWeathers = {nextWeather}
 	applyWeathers()
 	notifyWeather()

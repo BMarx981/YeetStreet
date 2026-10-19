@@ -1,18 +1,20 @@
 --!strict
 -- DinoWeather (Script) -> ServerScriptService.DinoWeather
--- Periodically rains dino bones from the sky. Players pick them up by touching
--- them to earn BoneCoins, shown in the leaderstats. The weather runs in
--- cycles: it rains bones for a while, then goes calm, then repeats.
+-- Rains dino bones from the sky when triggered by an admin via the
+-- `:weather bonerain` command. Players pick them up by touching them
+-- to earn BoneCoins, shown in the leaderstats.
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
-local Leaderstats = require(game.ServerScriptService.Leaderstats)
+local Leaderstats = require(ServerScriptService.Leaderstats)
+
+local boneRainEvent = ReplicatedStorage:FindFirstChild("BoneRainEvent")
+local toggleEvent = ServerScriptService:FindFirstChild("BoneRainToggle")
 
 -- ── Config ──────────────────────────────────────────────────────────────
 
-local RAIN_DURATION = 30      -- seconds of bone rain per cycle
-local CALM_DURATION = 60      -- seconds of calm between cycles
 local SPAWN_INTERVAL = 0.4     -- seconds between each bone spawn
 local BONE_LIFETIME = 20       -- seconds before an uncollected bone disappears
 local BONES_PER_PLAYER = 1    -- bones spawned per interval per player
@@ -26,8 +28,7 @@ local BONE_COLOR = Color3.fromRGB(220, 210, 180)
 -- ── State ───────────────────────────────────────────────────────────────
 
 local raining = false
-local cycleTime = 0
-local spawnTimer = 0
+local boneFolder = nil
 
 -- ── Bone spawning ──────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ local function spawnBone(center: Vector3)
 	highlight.Transparency = 0.5
 	highlight.Parent = bone
 
-	bone.Parent = workspace
+	bone.Parent = boneFolder
 
 	-- Track lifetime and cleanup
 	local spawnedAt = os.clock()
@@ -76,6 +77,8 @@ local function spawnBone(center: Vector3)
 		collected = true
 		local coins = Leaderstats.value(player, "BoneCoins")
 		coins.Value += BONE_VALUE
+		local bones = Leaderstats.value(player, "Bones")
+		bones.Value += 1
 		bone:Destroy()
 	end)
 
@@ -91,19 +94,28 @@ local function spawnBone(center: Vector3)
 	end)
 end
 
--- ── Main loop ───────────────────────────────────────────────────────────
+-- ── Start / Stop ────────────────────────────────────────────────────────
 
-RunService.Heartbeat:Connect(function(dt: number)
-	cycleTime += dt
+local function fireBoneRain(isRaining: boolean)
+	if not boneRainEvent then return end
+	for _, p in Players:GetPlayers() do
+		boneRainEvent:FireClient(p, isRaining)
+	end
+end
 
-	if raining then
-		if cycleTime >= RAIN_DURATION then
-			raining = false
-			cycleTime = 0
-		end
-		spawnTimer += dt
-		if spawnTimer >= SPAWN_INTERVAL then
-			spawnTimer = 0
+local function startBoneRain()
+	if raining then return end
+	raining = true
+
+	boneFolder = Instance.new("Folder")
+	boneFolder.Name = "BoneRain"
+	boneFolder.Parent = workspace
+
+	fireBoneRain(true)
+
+	task.spawn(function()
+		while raining do
+			task.wait(SPAWN_INTERVAL)
 			for _, player in Players:GetPlayers() do
 				local character = player.Character
 				local hrp = character and character:FindFirstChild("HumanoidRootPart")
@@ -114,11 +126,32 @@ RunService.Heartbeat:Connect(function(dt: number)
 				end
 			end
 		end
-	else
-		if cycleTime >= CALM_DURATION then
-			raining = true
-			cycleTime = 0
-			spawnTimer = 0
+	end)
+end
+
+local function stopBoneRain()
+	raining = false
+	if boneFolder then
+		boneFolder:Destroy()
+		boneFolder = nil
+	end
+	fireBoneRain(false)
+end
+
+-- Listen for admin toggle commands from AdminCommands
+if toggleEvent then
+	toggleEvent.Event:Connect(function(shouldRain: boolean)
+		if shouldRain then
+			startBoneRain()
+		else
+			stopBoneRain()
 		end
+	end)
+end
+
+-- Fire for players who join mid-rain
+Players.PlayerAdded:Connect(function(player)
+	if boneRainEvent and raining then
+		boneRainEvent:FireClient(player, true)
 	end
 end)

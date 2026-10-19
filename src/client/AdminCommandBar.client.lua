@@ -7,6 +7,8 @@ local player = Players.LocalPlayer
 local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
 local adminFeedbackEvent = ReplicatedStorage:WaitForChild("AdminFeedbackEvent")
 local weatherUpdateEvent = ReplicatedStorage:WaitForChild("WeatherUpdateEvent")
+local boneRainEvent = ReplicatedStorage:WaitForChild("BoneRainEvent")
+local commandListEvent = ReplicatedStorage:WaitForChild("CommandListEvent")
 
 -- Weather icon/emoji mapping
 local WEATHER_ICONS = {
@@ -19,6 +21,7 @@ local WEATHER_ICONS = {
 	fog = { icon = "🌫", label = "Fog", color = Color3.fromRGB(180, 180, 190) },
 	night = { icon = "🌙", label = "Night", color = Color3.fromRGB(80, 80, 140) },
 	coinrain = { icon = "🪙", label = "Coin Rain", color = Color3.fromRGB(255, 200, 0) },
+	bonerain = { icon = "🦴", label = "Bone Rain", color = Color3.fromRGB(230, 210, 160) },
 }
 
 local ADMINS = {
@@ -132,6 +135,31 @@ local function createWeatherIcon(weatherName)
 	return frame
 end
 
+-- Handle bone rain separately (separate event so it doesn't conflict with regular weather icons)
+local boneRainActive = false
+
+local function updateBoneRainIcon()
+	if boneRainActive and not weatherIconFrames["bonerain"] then
+		weatherIconFrames["bonerain"] = createWeatherIcon("bonerain")
+	elseif not boneRainActive and weatherIconFrames["bonerain"] then
+		local frame = weatherIconFrames["bonerain"]
+		weatherIconFrames["bonerain"] = nil
+		local tween = TweenService:Create(frame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			Size = UDim2.new(0, 0, 0, 0),
+			BackgroundTransparency = 1,
+		})
+		tween:Play()
+		tween.Completed:Connect(function()
+			frame:Destroy()
+		end)
+	end
+end
+
+boneRainEvent.OnClientEvent:Connect(function(isRaining)
+	boneRainActive = isRaining
+	updateBoneRainIcon()
+end)
+
 -- Handle weather updates from the server (receives an array of active weather names)
 weatherUpdateEvent.OnClientEvent:Connect(function(weatherNames)
 	-- Backward compat: if a single string is received, wrap it in a table
@@ -146,8 +174,9 @@ weatherUpdateEvent.OnClientEvent:Connect(function(weatherNames)
 	end
 
 	-- Remove icons for weathers that are no longer active (animate out, then destroy)
+	-- Skip "bonerain" since it is managed by the separate BoneRainEvent
 	for name, frame in pairs(weatherIconFrames) do
-		if not newSet[name] then
+		if name ~= "bonerain" and not newSet[name] then
 			weatherIconFrames[name] = nil
 			local tween = TweenService:Create(frame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 				Size = UDim2.new(0, 0, 0, 0),
@@ -355,4 +384,537 @@ adminFeedbackEvent.OnClientEvent:Connect(function(message)
 		ADMINS[player.Name] = true
 		setupAdminBar()
 	end
+end)
+
+-- ===== COMMAND LIST GUI (interactive, clickable, auto-updating, with option sub-panels) =====
+
+-- Weather options (must match the server's WEATHER_PRESETS)
+local WEATHER_OPTIONS = { "clear", "sunny", "rain", "storm", "snow", "cloudy", "fog", "night", "coinrain", "bonerain" }
+
+-- Time presets
+local TIME_PRESETS = { { label = "Morning (6)", value = 6 }, { label = "Noon (12)", value = 12 }, { label = "Evening (18)", value = 18 }, { label = "Midnight (0)", value = 0 }, { label = "Dawn (5)", value = 5 } }
+
+local commandListGui
+local commandListFrame
+local commandListScroll
+local optionsFrame
+local optionsScroll
+local optionsTitleLabel
+local lastCommandInfoList
+
+-- Helper: send a full command string to the server via the admin command bar event
+local function sendCommand(cmdString)
+	if string.sub(cmdString, 1, 1) ~= ":" then
+		cmdString = ":" .. cmdString
+	end
+	adminCommandEvent:FireServer(cmdString)
+end
+
+-- Helper: create a styled clickable button for the options sub-panel
+local function createOptionButton(text, parent, onClick)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -4, 0, 44)
+	btn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	btn.BorderSizePixel = 0
+	btn.Text = ""
+	btn.Parent = parent
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = btn
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -16, 1, 0)
+	label.Position = UDim2.new(0, 12, 0, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = Color3.fromRGB(100, 255, 150)
+	label.Font = Enum.Font.Code
+	label.TextSize = 16
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
+		local stroke = Instance.new("UIStroke")
+		stroke.Name = "HoverStroke"
+		stroke.Color = Color3.fromRGB(100, 200, 255)
+		stroke.Thickness = 1.5
+		stroke.Parent = btn
+	end)
+	btn.MouseLeave:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+		local s = btn:FindFirstChild("HoverStroke")
+		if s then s:Destroy() end
+	end)
+	btn.MouseButton1Click:Connect(onClick)
+	return btn
+end
+
+-- Show the options sub-panel for a given command
+local function showOptions(info)
+	if not optionsFrame then return end
+
+	-- Hide the command list, show the options panel
+	commandListScroll.Visible = false
+	optionsFrame.Visible = true
+
+	optionsTitleLabel.Text = "  :" .. info.name
+
+	-- Clear old option buttons
+	for _, child in ipairs(optionsScroll:GetChildren()) do
+		if child:IsA("TextButton") or child:IsA("Frame") or child:IsA("TextBox") then
+			child:Destroy()
+		end
+	end
+
+	local optType = info.optionsType or "none"
+
+	if optType == "none" then
+		-- No options: send the command directly
+		sendCommand(info.name)
+		commandListGui.Enabled = false
+
+	elseif optType == "weather" then
+		for _, w in ipairs(WEATHER_OPTIONS) do
+			createOptionButton(w, optionsScroll, function()
+				sendCommand("weather " .. w)
+				commandListGui.Enabled = false
+			end)
+		end
+
+	elseif optType == "player" then
+		for _, p in ipairs(Players:GetPlayers()) do
+			createOptionButton(p.Name, optionsScroll, function()
+				sendCommand(info.name .. " " .. p.Name)
+				commandListGui.Enabled = false
+			end)
+		end
+
+	elseif optType == "player_amount" then
+		-- First show player buttons + "all"
+		createOptionButton("all", optionsScroll, function()
+			-- Now show amount input
+			for _, c in ipairs(optionsScroll:GetChildren()) do
+				if c:IsA("TextButton") then c:Destroy() end
+			end
+			optionsTitleLabel.Text = "  :money all — Enter amount"
+			local amountInput = Instance.new("TextBox")
+			amountInput.Size = UDim2.new(1, -4, 0, 44)
+			amountInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+			amountInput.BorderSizePixel = 0
+			amountInput.Text = ""
+			amountInput.PlaceholderText = "Type amount..."
+			amountInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+			amountInput.TextColor3 = Color3.fromRGB(100, 255, 150)
+			amountInput.Font = Enum.Font.Code
+			amountInput.TextSize = 16
+			amountInput.TextXAlignment = Enum.TextXAlignment.Left
+			amountInput.ClearTextOnFocus = false
+			amountInput.Parent = optionsScroll
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, 8)
+			corner.Parent = amountInput
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft = UDim.new(0, 12)
+			pad.PaddingRight = UDim.new(0, 12)
+			pad.Parent = amountInput
+			amountInput:CaptureFocus()
+			local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
+				local amt = tonumber(amountInput.Text)
+				if amt and amt > 0 then
+					sendCommand("money all " .. amt)
+					commandListGui.Enabled = false
+				end
+			end)
+			amountInput.FocusLost:Connect(function(enter)
+				if enter then
+					local amt = tonumber(amountInput.Text)
+					if amt and amt > 0 then
+						sendCommand("money all " .. amt)
+						commandListGui.Enabled = false
+					end
+				end
+			end)
+		end)
+		for _, p in ipairs(Players:GetPlayers()) do
+			createOptionButton(p.Name, optionsScroll, function()
+				for _, c in ipairs(optionsScroll:GetChildren()) do
+					if c:IsA("TextButton") then c:Destroy() end
+				end
+				optionsTitleLabel.Text = "  :money " .. p.Name .. " — Enter amount"
+				local amountInput = Instance.new("TextBox")
+				amountInput.Size = UDim2.new(1, -4, 0, 44)
+				amountInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+				amountInput.BorderSizePixel = 0
+				amountInput.Text = ""
+				amountInput.PlaceholderText = "Type amount..."
+				amountInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+				amountInput.TextColor3 = Color3.fromRGB(100, 255, 150)
+				amountInput.Font = Enum.Font.Code
+				amountInput.TextSize = 16
+				amountInput.TextXAlignment = Enum.TextXAlignment.Left
+				amountInput.ClearTextOnFocus = false
+				amountInput.Parent = optionsScroll
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(0, 8)
+				corner.Parent = amountInput
+				local pad = Instance.new("UIPadding")
+				pad.PaddingLeft = UDim.new(0, 12)
+				pad.PaddingRight = UDim.new(0, 12)
+				pad.Parent = amountInput
+				amountInput:CaptureFocus()
+				local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
+					local amt = tonumber(amountInput.Text)
+					if amt and amt > 0 then
+						sendCommand("money " .. p.Name .. " " .. amt)
+						commandListGui.Enabled = false
+					end
+				end)
+				amountInput.FocusLost:Connect(function(enter)
+					if enter then
+						local amt = tonumber(amountInput.Text)
+						if amt and amt > 0 then
+							sendCommand("money " .. p.Name .. " " .. amt)
+							commandListGui.Enabled = false
+						end
+					end
+				end)
+			end)
+		end
+
+	elseif optType == "time" then
+		-- Show preset buttons
+		for _, preset in ipairs(TIME_PRESETS) do
+			createOptionButton(preset.label, optionsScroll, function()
+				sendCommand("time " .. preset.value)
+				commandListGui.Enabled = false
+			end)
+		end
+		-- Add a custom text input
+		local customInput = Instance.new("TextBox")
+		customInput.Size = UDim2.new(1, -4, 0, 44)
+		customInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+		customInput.BorderSizePixel = 0
+		customInput.Text = ""
+		customInput.PlaceholderText = "Custom time (0-24)..."
+		customInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+		customInput.TextColor3 = Color3.fromRGB(100, 255, 150)
+		customInput.Font = Enum.Font.Code
+		customInput.TextSize = 16
+		customInput.TextXAlignment = Enum.TextXAlignment.Left
+		customInput.ClearTextOnFocus = false
+		customInput.Parent = optionsScroll
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = customInput
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 12)
+		pad.PaddingRight = UDim.new(0, 12)
+		pad.Parent = customInput
+		customInput.FocusLost:Connect(function(enter)
+			if enter then
+				local num = tonumber(customInput.Text)
+				if num and num >= 0 and num <= 24 then
+					sendCommand("time " .. num)
+					commandListGui.Enabled = false
+				end
+			end
+		end)
+
+	elseif optType == "text" then
+		-- Text input for commands like :global message <text>
+		local textInput = Instance.new("TextBox")
+		textInput.Size = UDim2.new(1, -4, 0, 44)
+		textInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+		textInput.BorderSizePixel = 0
+		textInput.Text = ""
+		textInput.PlaceholderText = "Type your message..."
+		textInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 120)
+		textInput.TextColor3 = Color3.fromRGB(100, 255, 150)
+		textInput.Font = Enum.Font.Code
+		textInput.TextSize = 16
+		textInput.TextXAlignment = Enum.TextXAlignment.Left
+		textInput.ClearTextOnFocus = false
+		textInput.Parent = optionsScroll
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = textInput
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft = UDim.new(0, 12)
+		pad.PaddingRight = UDim.new(0, 12)
+		pad.Parent = textInput
+		textInput:CaptureFocus()
+		local confirmBtn = createOptionButton("Send Message", optionsScroll, function()
+			if textInput.Text ~= "" then
+				sendCommand("global message " .. textInput.Text)
+				commandListGui.Enabled = false
+			end
+		end)
+		textInput.FocusLost:Connect(function(enter)
+			if enter and textInput.Text ~= "" then
+				sendCommand("global message " .. textInput.Text)
+				commandListGui.Enabled = false
+			end
+		end)
+	end
+end
+
+local function buildCommandList(commandInfoList)
+	if not commandInfoList then return end
+	lastCommandInfoList = commandInfoList
+
+	-- Create the GUI if it doesn't exist yet
+	if not commandListGui then
+		commandListGui = Instance.new("ScreenGui")
+		commandListGui.Name = "CommandListGui"
+		commandListGui.ResetOnSpawn = false
+		commandListGui.IgnoreGuiInset = true
+		commandListGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		commandListGui.Parent = playerGui
+
+		-- Dark backdrop that dims the rest of the screen for visibility
+		local backdrop = Instance.new("Frame")
+		backdrop.Name = "Backdrop"
+		backdrop.Size = UDim2.new(1, 0, 1, 0)
+		backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		backdrop.BackgroundTransparency = 0.4
+		backdrop.BorderSizePixel = 0
+		backdrop.Parent = commandListGui
+
+		-- Click the backdrop to close
+		backdrop.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 then
+				commandListGui.Enabled = false
+			end
+		end)
+
+		-- Main panel — large, centered, high contrast
+		commandListFrame = Instance.new("Frame")
+		commandListFrame.Name = "CommandListPanel"
+		commandListFrame.Size = UDim2.new(0, 520, 0, 420)
+		commandListFrame.Position = UDim2.new(0.5, -260, 0.5, -210)
+		commandListFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+		commandListFrame.BorderSizePixel = 0
+		commandListFrame.Parent = commandListGui
+
+		local panelCorner = Instance.new("UICorner")
+		panelCorner.CornerRadius = UDim.new(0, 12)
+		panelCorner.Parent = commandListFrame
+
+		local panelStroke = Instance.new("UIStroke")
+		panelStroke.Color = Color3.fromRGB(80, 160, 255)
+		panelStroke.Thickness = 2
+		panelStroke.Transparency = 0.2
+		panelStroke.Parent = commandListFrame
+
+		-- Title bar
+		local titleLabel = Instance.new("TextLabel")
+		titleLabel.Name = "TitleLabel"
+		titleLabel.Size = UDim2.new(1, 0, 0, 48)
+		titleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+		titleLabel.BorderSizePixel = 0
+		titleLabel.Text = "  COMMAND LIST"
+		titleLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+		titleLabel.Font = Enum.Font.GothamBold
+		titleLabel.TextSize = 22
+		titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+		titleLabel.Parent = commandListFrame
+
+		local titleCorner = Instance.new("UICorner")
+		titleCorner.CornerRadius = UDim.new(0, 12)
+		titleCorner.Parent = titleLabel
+
+		-- Close button (top-right)
+		local closeButton = Instance.new("TextButton")
+		closeButton.Name = "CloseButton"
+		closeButton.Size = UDim2.new(0, 36, 0, 36)
+		closeButton.Position = UDim2.new(1, -42, 0, 6)
+		closeButton.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		closeButton.Text = "X"
+		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		closeButton.Font = Enum.Font.GothamBold
+		closeButton.TextSize = 18
+		closeButton.Parent = commandListFrame
+
+		local closeCorner = Instance.new("UICorner")
+		closeCorner.CornerRadius = UDim.new(0, 8)
+		closeCorner.Parent = closeButton
+
+		closeButton.MouseButton1Click:Connect(function()
+			commandListGui.Enabled = false
+		end)
+
+		-- Scrolling frame for command entries
+		commandListScroll = Instance.new("ScrollingFrame")
+		commandListScroll.Name = "CommandScroll"
+		commandListScroll.Size = UDim2.new(1, -16, 1, -60)
+		commandListScroll.Position = UDim2.new(0, 8, 0, 52)
+		commandListScroll.BackgroundTransparency = 1
+		commandListScroll.ScrollBarThickness = 6
+		commandListScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 160, 255)
+		commandListScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+		commandListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		commandListScroll.Parent = commandListFrame
+
+		local commandListLayout = Instance.new("UIListLayout")
+		commandListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		commandListLayout.Padding = UDim.new(0, 6)
+		commandListLayout.Parent = commandListScroll
+
+		-- ===== Options sub-panel (shown when a command is clicked) =====
+		optionsFrame = Instance.new("Frame")
+		optionsFrame.Name = "OptionsPanel"
+		optionsFrame.Size = UDim2.new(1, -16, 1, -60)
+		optionsFrame.Position = UDim2.new(0, 8, 0, 52)
+		optionsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+		optionsFrame.BorderSizePixel = 0
+		optionsFrame.Visible = false
+		optionsFrame.Parent = commandListFrame
+
+		local optionsCorner = Instance.new("UICorner")
+		optionsCorner.CornerRadius = UDim.new(0, 8)
+		optionsCorner.Parent = optionsFrame
+
+		-- Options title bar
+		optionsTitleLabel = Instance.new("TextLabel")
+		optionsTitleLabel.Name = "OptionsTitle"
+		optionsTitleLabel.Size = UDim2.new(1, -100, 0, 40)
+		optionsTitleLabel.Position = UDim2.new(0, 8, 0, 4)
+		optionsTitleLabel.BackgroundTransparency = 1
+		optionsTitleLabel.Text = "  Options"
+		optionsTitleLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+		optionsTitleLabel.Font = Enum.Font.GothamBold
+		optionsTitleLabel.TextSize = 18
+		optionsTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+		optionsTitleLabel.Parent = optionsFrame
+
+		-- Back button (returns to command list)
+		local backButton = Instance.new("TextButton")
+		backButton.Name = "BackButton"
+		backButton.Size = UDim2.new(0, 80, 0, 32)
+		backButton.Position = UDim2.new(1, -90, 0, 8)
+		backButton.BackgroundColor3 = Color3.fromRGB(60, 100, 160)
+		backButton.Text = "< Back"
+		backButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		backButton.Font = Enum.Font.GothamBold
+		backButton.TextSize = 14
+		backButton.Parent = optionsFrame
+
+		local backCorner = Instance.new("UICorner")
+		backCorner.CornerRadius = UDim.new(0, 6)
+		backCorner.Parent = backButton
+
+		backButton.MouseButton1Click:Connect(function()
+			optionsFrame.Visible = false
+			commandListScroll.Visible = true
+		end)
+
+		-- Options scrolling frame
+		optionsScroll = Instance.new("ScrollingFrame")
+		optionsScroll.Name = "OptionsScroll"
+		optionsScroll.Size = UDim2.new(1, -16, 1, -56)
+		optionsScroll.Position = UDim2.new(0, 8, 0, 48)
+		optionsScroll.BackgroundTransparency = 1
+		optionsScroll.ScrollBarThickness = 6
+		optionsScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 160, 255)
+		optionsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+		optionsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		optionsScroll.Parent = optionsFrame
+
+		local optionsLayout = Instance.new("UIListLayout")
+		optionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		optionsLayout.Padding = UDim.new(0, 6)
+		optionsLayout.Parent = optionsScroll
+	end
+
+	-- Reset to command list view (hide options if shown)
+	if optionsFrame then
+		optionsFrame.Visible = false
+	end
+	commandListScroll.Visible = true
+
+	-- Clear old entries
+	for _, child in ipairs(commandListScroll:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+
+	-- Build a clickable entry for each command
+	for i, info in ipairs(commandInfoList) do
+		local entry = Instance.new("Frame")
+		entry.Name = "Command_" .. info.name
+		entry.Size = UDim2.new(1, -4, 0, 64)
+		entry.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+		entry.BorderSizePixel = 0
+		entry.Parent = commandListScroll
+
+		local entryCorner = Instance.new("UICorner")
+		entryCorner.CornerRadius = UDim.new(0, 8)
+		entryCorner.Parent = entry
+
+		-- Usage line (the actual command you type)
+		local usageLabel = Instance.new("TextLabel")
+		usageLabel.Name = "UsageLabel"
+		usageLabel.Size = UDim2.new(1, -16, 0, 28)
+		usageLabel.Position = UDim2.new(0, 8, 0, 4)
+		usageLabel.BackgroundTransparency = 1
+		usageLabel.Text = info.usage or info.name
+		usageLabel.TextColor3 = Color3.fromRGB(100, 255, 150)
+		usageLabel.Font = Enum.Font.Code
+		usageLabel.TextSize = 18
+		usageLabel.TextXAlignment = Enum.TextXAlignment.Left
+		usageLabel.Parent = entry
+
+		-- Description line
+		local descLabel = Instance.new("TextLabel")
+		descLabel.Name = "DescLabel"
+		descLabel.Size = UDim2.new(1, -16, 0, 28)
+		descLabel.Position = UDim2.new(0, 8, 0, 32)
+		descLabel.BackgroundTransparency = 1
+		descLabel.Text = info.desc or ""
+		descLabel.TextColor3 = Color3.fromRGB(200, 200, 210)
+		descLabel.Font = Enum.Font.Gotham
+		descLabel.TextSize = 14
+		descLabel.TextXAlignment = Enum.TextXAlignment.Left
+		descLabel.TextWrapped = true
+		descLabel.Parent = entry
+
+		-- Make the whole entry clickable
+		local clickButton = Instance.new("TextButton")
+		clickButton.Name = "ClickOverlay"
+		clickButton.Size = UDim2.new(1, 0, 1, 0)
+		clickButton.BackgroundTransparency = 1
+		clickButton.Text = ""
+		clickButton.Parent = entry
+
+		-- Hover highlight
+		clickButton.MouseEnter:Connect(function()
+			entry.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
+			local stroke = Instance.new("UIStroke")
+			stroke.Name = "HoverStroke"
+			stroke.Color = Color3.fromRGB(100, 200, 255)
+			stroke.Thickness = 1.5
+			stroke.Parent = entry
+		end)
+		clickButton.MouseLeave:Connect(function()
+			entry.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+			local stroke = entry:FindFirstChild("HoverStroke")
+			if stroke then stroke:Destroy() end
+		end)
+
+		-- Click: show options sub-panel for this command
+		clickButton.MouseButton1Click:Connect(function()
+			showOptions(info)
+		end)
+	end
+
+	-- Show the GUI
+	commandListGui.Enabled = true
+end
+
+-- Receive the command list from the server (fires when admin types :cmd)
+commandListEvent.OnClientEvent:Connect(function(commandInfoList)
+	buildCommandList(commandInfoList)
 end)

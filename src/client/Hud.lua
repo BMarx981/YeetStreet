@@ -40,6 +40,7 @@ local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
 local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
 local CASH_COLOR = Color3.fromRGB(120, 230, 120)
+local BONE_COLOR = Color3.fromRGB(230, 210, 160)
 
 local function round(x: number): number
 	return math.floor(x + 0.5)
@@ -240,6 +241,65 @@ local function build(): Parts
 	end
 	player:GetAttributeChangedSignal("Cash"):Connect(showCash)
 	showCash()
+
+	-- Bone counter: sits below the cash counter, reads from the leaderstats
+	-- "Bones" IntValue (created by DinoWeather when a bone is collected).
+	local bone = label("Bones", cashGui, 24)
+	bone.AnchorPoint = Vector2.new(0, 0)
+	bone.Position = UDim2.new(0.5, 146, 0, 64)
+	bone.Size = UDim2.fromOffset(200, 30)
+	bone.TextXAlignment = Enum.TextXAlignment.Left
+	bone.TextColor3 = BONE_COLOR
+	bone.Text = "🦴 0"
+
+	local boneEarned = label("BoneEarned", cashGui, 20)
+	boneEarned.AnchorPoint = Vector2.new(0, 0)
+	boneEarned.Position = UDim2.new(0.5, 146, 0, 92)
+	boneEarned.Size = UDim2.fromOffset(200, 24)
+	boneEarned.TextXAlignment = Enum.TextXAlignment.Left
+	boneEarned.TextColor3 = BONE_COLOR
+	boneEarned.Visible = false
+
+	local boneShown: number? = nil
+	local boneEarnedShows = 0
+	local function showBones(value: number)
+		bone.Text = `🦴 {withCommas(value)}`
+		if boneShown and value > boneShown then
+			boneEarned.Text = `+{withCommas(value - boneShown)}`
+			boneEarned.Visible = true
+			boneEarnedShows += 1
+			local show = boneEarnedShows
+			task.delay(H.CashEarnedTime, function()
+				if boneEarnedShows == show then
+					boneEarned.Visible = false
+				end
+			end)
+		end
+		boneShown = value
+	end
+
+	-- The Bones IntValue is created lazily, so we need to find it when it appears.
+	local function connectBones()
+		local ls = player:FindFirstChild("leaderstats")
+		if not ls then return false end
+		local bonesVal = ls:FindFirstChild("Bones")
+		if not bonesVal or not bonesVal:IsA("IntValue") then return false end
+		showBones(bonesVal.Value)
+		bonesVal.Changed:Connect(showBones)
+		return true
+	end
+
+	if not connectBones() then
+		-- Watch for leaderstats or the Bones value being added
+		local conn
+		conn = player.DescendantAdded:Connect(function(desc)
+			if desc:IsA("IntValue") and desc.Name == "Bones" then
+				if connectBones() then
+					conn:Disconnect()
+				end
+			end
+		end)
+	end
 
 	gui.Parent = player:WaitForChild("PlayerGui")
 	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card, cashGui = cashGui }
