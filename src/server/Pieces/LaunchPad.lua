@@ -1,8 +1,9 @@
 --!strict
 -- LaunchPad (ModuleScript) -> ServerScriptService.Pieces.LaunchPad
 -- Launch pads for building parks. A pad is a part with a LaunchSpeed
--- attribute: a car on it is pushed along the part's LookVector up to that
--- speed (CarController) and arms a run (RunTracker). Its RespawnCFrame
+-- attribute: a car on it moving along the part's LookVector is pushed that
+-- way up to that speed (CarController), and arms a run (RunTracker). Its
+-- RespawnCFrame
 -- attribute is where a reset or wreck puts a car that last launched there
 -- (ScoreService).
 
@@ -39,9 +40,8 @@ function LaunchPad.flat(
 	return part
 end
 
--- Turns the top `count` planks of a curved piece (CurvedWall) into pads,
--- pushing up the curve.
-function LaunchPad.top(piece: Model, count: number, launchSpeed: number, respawn: CFrame)
+-- The planks of a curved piece (CurvedWall), highest first.
+local function planksByHeight(piece: Model): { BasePart }
 	local planks: { BasePart } = {}
 	for _, part in piece:GetDescendants() do
 		if part:IsA("BasePart") and part.Name == "Plank" then
@@ -51,7 +51,22 @@ function LaunchPad.top(piece: Model, count: number, launchSpeed: number, respawn
 	table.sort(planks, function(a: BasePart, b: BasePart): boolean
 		return a.Position.Y > b.Position.Y
 	end)
+	return planks
+end
+
+-- Turns the top `count` planks of a curved piece into pads, pushing up the
+-- curve. For a ring, count every slice: rings of 2 planks on 48 slices is 96.
+function LaunchPad.top(piece: Model, count: number, launchSpeed: number, respawn: CFrame)
+	local planks = planksByHeight(piece)
 	for i = 1, math.min(count, #planks) do
+		LaunchPad.make(planks[i], launchSpeed, respawn)
+	end
+end
+
+-- Turns the bottom `count` planks of a curved piece into pads, the same way.
+function LaunchPad.bottom(piece: Model, count: number, launchSpeed: number, respawn: CFrame)
+	local planks = planksByHeight(piece)
+	for i = #planks, math.max(#planks - count + 1, 1), -1 do
 		LaunchPad.make(planks[i], launchSpeed, respawn)
 	end
 end

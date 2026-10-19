@@ -1,11 +1,14 @@
 --!strict
 -- Skate (ModuleScript) -> ServerScriptService.Parks.Skate
 -- The skate park's launchers and obstacles, built by ParkService into
--- workspace.Parks.Skate on top of the park's floor. Three launchers, each with
--- a runway and launch pads: the Mega Ramp straight ahead of the arrival, the
--- Vert Ramp on the left, and the Bowl on the right. Rails and a funbox sit
--- between them for free play. Numbers are in Tuning.Skate.
+-- workspace.Parks.Skate on top of the park's floor. Four launchers with
+-- launch pads: the Mega Ramp straight ahead of the arrival, the Vert Ramp and
+-- the Half Pipe (pads along the bottom of both walls) on the left, and the Bowl on the right, ringed by a ramp so it
+-- can be entered from any side. Rails and a funbox sit between them for free
+-- play, and cones, benches, and trash cans get knocked flying. Numbers are in
+-- Tuning.Skate.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -23,6 +26,9 @@ local RAMP_COLOR = Color3.fromRGB(196, 196, 190)
 local RUNWAY_COLOR = Color3.fromRGB(120, 120, 126)
 local RAIL_COLOR = Color3.fromRGB(200, 60, 60)
 local POST_COLOR = Color3.fromRGB(60, 60, 66)
+local CONE_COLOR = Color3.fromRGB(255, 120, 30)
+local BENCH_COLOR = Color3.fromRGB(130, 90, 60)
+local CAN_COLOR = Color3.fromRGB(60, 110, 70)
 
 local Skate = {}
 
@@ -134,25 +140,81 @@ local function buildBowl(parent: Instance, area: MapLayout.Area)
 	model.Name = "Bowl"
 	model.Parent = parent
 
-	-- The wall turns left from its start, so starting half the opening past
-	-- +Z leaves the opening centered on +Z, facing the arrival.
-	local turn = 360 - B.Opening
-	local start = 180 + B.Opening / 2
-	local options = wall(B.Radius, B.Angle, B.Steps)
-	local pivot = at(area, B.X, 0, B.Z) * CFrame.Angles(0, math.rad(start), 0)
-	local bowl = CurvedWall.corner(model, pivot, B.FloorRadius, turn, B.Slices, options)
-	bowl.Name = "Wall"
-	CurvedWall.fill(bowl, FLOOR, options)
+	-- The outside ramp hides the space behind the wall, so neither needs fill.
+	local center = at(area, B.X, 0, B.Z)
+	local depth, height = CurveProfile.extent(B.Radius, B.Angle)
+	local bermInner = B.FloorRadius + depth + S.WallThickness
+	local bermOuter = bermInner + B.BermRun
+	-- Resets come back outside the ramp on the arrival side, facing the bowl.
+	local respawn = at(area, B.X, HULL_HEIGHT, B.Z + bermOuter + 30)
 
-	runway(model, area, B.X, B.RunwayWidth, B.RunwayZ, B.Z + B.FloorRadius)
-	LaunchPad.flat(
-		model,
-		at(area, B.X, 0.1, B.Z),
-		B.PadWidth,
-		B.PadLength,
-		B.LaunchSpeed,
-		respawnAt(area, B.X, B.RunwayZ)
-	)
+	local bowl = CurvedWall.bowl(model, center, B.FloorRadius, B.Slices, wall(B.Radius, B.Angle, B.Steps))
+	LaunchPad.top(bowl, B.PadPlanks * B.Slices, B.LaunchSpeed, respawn)
+
+	-- A berm is straight, so only the thickness and color of its options count.
+	local straight = wall(0, 0, 0)
+	local berm = CurvedWall.berm(model, center, bermOuter, height, B.BermRun, B.BermSlices, B.BermSteps, straight)
+	LaunchPad.bottom(berm, B.BermSlices, B.BoostSpeed, respawn)
+end
+
+local function buildHalfPipe(parent: Instance, area: MapLayout.Area)
+	local H = S.HalfPipe
+	local model = Instance.new("Model")
+	model.Name = "HalfPipe"
+	model.Parent = parent
+
+	-- The walls rise to either side (±X) and the pipe runs along Z, open at
+	-- both ends; resets come back just inside the end nearer the arrival.
+	local options = wall(H.Radius, H.Angle, H.Steps)
+	local center = at(area, H.X, 0, H.Z) * CFrame.Angles(0, math.pi / 2, 0)
+	local pipe = CurvedWall.halfPipe(model, center, H.FlatWidth, H.Length, options)
+	CurvedWall.fill(pipe, FLOOR, options)
+	local respawn = at(area, H.X, HULL_HEIGHT, H.Z + H.Length / 2 - 20)
+	LaunchPad.bottom(pipe, H.PadPlanks * 2, H.LaunchSpeed, respawn)
+
+	local depth, height = CurveProfile.extent(H.Radius, H.Angle)
+	for _, side in { -1, 1 } do
+		local x = H.X + side * (H.FlatWidth / 2 + depth + H.DeckDepth / 2)
+		block(model, "Deck", Vector3.new(H.DeckDepth, height, H.Length), at(area, x, height / 2, H.Z), RAMP_COLOR)
+	end
+end
+
+-- A prop that cars knock flying (PropService): anchored, and standing on the
+-- floor with its base at `cframe`.
+local function prop(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3): Part
+	local part = block(parent, name, size, cframe * CFrame.new(0, size.Y / 2, 0), color)
+	CollectionService:AddTag(part, "Knockable")
+	return part
+end
+
+-- An upright cylinder, which Roblox lays along X.
+local function upright(part: Part, height: number, diameter: number)
+	part.Shape = Enum.PartType.Cylinder
+	part.Size = Vector3.new(height, diameter, diameter)
+	part.CFrame = part.CFrame * CFrame.Angles(0, 0, math.pi / 2)
+end
+
+local function buildProps(parent: Instance, area: MapLayout.Area)
+	local P = S.Props
+	local model = Instance.new("Model")
+	model.Name = "Props"
+	model.Parent = parent
+
+	local z = P.ConeStartZ
+	while z >= P.ConeEndZ do
+		for _, side in { -1, 1 } do
+			local cone = prop(model, "Cone", Vector3.new(1.6, 3, 1.6), at(area, side * P.ConeX, 0, z), CONE_COLOR)
+			upright(cone, 3, 1.6)
+		end
+		z -= P.ConeSpacing
+	end
+
+	for _, spot in P.Benches do
+		local base = at(area, spot.X, 0, spot.Z) * CFrame.Angles(0, math.rad(spot.Turn), 0)
+		prop(model, "Bench", Vector3.new(7, 2, 2), base, BENCH_COLOR)
+		local can = prop(model, "TrashCan", Vector3.new(2.4, 3.4, 2.4), base * CFrame.new(5.5, 0, 0), CAN_COLOR)
+		upright(can, 3.4, 2.4)
+	end
 end
 
 local function buildRails(parent: Instance, area: MapLayout.Area)
@@ -201,8 +263,10 @@ function Skate.build(folder: Folder, area: MapLayout.Area)
 	buildMega(folder, area)
 	buildVert(folder, area)
 	buildBowl(folder, area)
+	buildHalfPipe(folder, area)
 	buildRails(folder, area)
 	buildFunbox(folder, area)
+	buildProps(folder, area)
 end
 
 return Skate

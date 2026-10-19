@@ -116,6 +116,54 @@ function CurvedWall.bowl(parent: Instance, center: CFrame, floorRadius: number, 
 	return model
 end
 
+-- A ring of straight slope around `center`, rising toward it from
+-- `outerRadius` in to `outerRadius - run`, `height` studs high, in `steps`
+-- planks per slice. Drive up it from any side to reach what it rings. Each
+-- plank is as wide as its slice at its outer end, so neighbors overlap a
+-- little instead of leaving gaps.
+function CurvedWall.berm(
+	parent: Instance,
+	center: CFrame,
+	outerRadius: number,
+	height: number,
+	run: number,
+	slices: number,
+	steps: number,
+	options: Options
+): Model
+	local model = newModel(parent, "Berm", center)
+	local slope = math.atan2(height, run)
+	local stepRun = run / steps
+	local sliceAngle = 360 / slices
+	for i = 1, slices do
+		local spin = center * CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0)
+		for s = 1, steps do
+			local fromEdge = (s - 0.5) * stepRun
+			local distance = outerRadius - fromEdge
+			local part = Instance.new("Part")
+			part.Name = "Plank"
+			part.Anchored = true
+			part.Size = Vector3.new(
+				CurveProfile.sliceLength(distance + stepRun / 2, sliceAngle),
+				options.thickness,
+				stepRun / math.cos(slope) + OVERLAP
+			)
+			-- Out from the center, turned to face it, tilted up the slope.
+			part.CFrame = spin
+				* CFrame.new(0, fromEdge * math.tan(slope), -distance)
+				* CFrame.Angles(0, math.pi, 0)
+				* CFrame.Angles(slope, 0, 0)
+				* CFrame.new(0, -options.thickness / 2, 0)
+			part.Color = options.color or DEFAULT_COLOR
+			part.Material = options.material or Enum.Material.Concrete
+			part.TopSurface = Enum.SurfaceType.Smooth
+			part.BottomSurface = Enum.SurfaceType.Smooth
+			part.Parent = model
+		end
+	end
+	return model
+end
+
 -- Fills the space under every plank of a piece down to `floorY` with blocks,
 -- so it is a solid ramp that no car can drive underneath. Each block stops
 -- just below its plank's lowest edge, so it never pokes through the surface.

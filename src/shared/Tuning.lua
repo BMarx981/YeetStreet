@@ -446,22 +446,53 @@ Tuning.Skate = {
 		LaunchSpeed = 200,
 		DeckDepth = 20,
 	},
-	-- Drive in through the opening; the pad across the floor sends the car up
-	-- the far wall and out over the lip.
+	-- A ramp all around the outside leads up to the rim from any side, with
+	-- booster pads at its foot. Drop in, ride up any part of the wall, and the
+	-- pads around its top launch the car up and out over the lip.
 	Bowl = {
-		X = 420,
-		Z = -50,
-		FloorRadius = 70,
-		Radius = 35,
+		X = 390,
+		Z = -280,
+		FloorRadius = 120,
+		Radius = 60,
 		Angle = 80,
-		Steps = 10,
-		Opening = 60, -- degrees of wall left out, facing the arrival
-		Slices = 30,
-		RunwayZ = 350,
-		RunwayWidth = 40,
-		PadLength = 100,
-		PadWidth = 40,
+		Steps = 12,
+		Slices = 48,
+		PadPlanks = 2, -- per slice, at the top of the wall
+		LaunchSpeed = 220,
+		BermRun = 107, -- the outside ramp, from its foot in to the rim
+		BermSteps = 6,
+		BermSlices = 64,
+		BoostSpeed = 130, -- the bottom ring of the outside ramp
+	},
+	-- Vertical walls with pads along the bottom of both, so a car rolling
+	-- toward either wall is boosted up it and straight into the air, then
+	-- comes back down and across to the other: back and forth.
+	HalfPipe = {
+		X = -400,
+		Z = -320,
+		FlatWidth = 60,
+		Radius = 50,
+		Angle = 100, -- leaning back past vertical keeps launches over the pipe
+		Steps = 12,
+		Length = 300,
+		PadPlanks = 3, -- per wall, from the bottom
 		LaunchSpeed = 200,
+		DeckDepth = 20,
+	},
+	-- Knocked flying by a car, back in place after Tuning.Props.ResetTime.
+	Props = {
+		ConeSpacing = 40,
+		ConeStartZ = 520,
+		ConeEndZ = 220,
+		ConeX = 26, -- either side of the Mega Ramp's runway
+		Benches = {
+			{ X = -60, Z = 470, Turn = 0 },
+			{ X = 60, Z = 470, Turn = 0 },
+			{ X = -260, Z = 300, Turn = 90 },
+			{ X = -140, Z = 300, Turn = 90 },
+			{ X = 260, Z = 260, Turn = 90 },
+			{ X = -330, Z = -140, Turn = 0 },
+		},
 	},
 	Rails = {
 		X = -200,
