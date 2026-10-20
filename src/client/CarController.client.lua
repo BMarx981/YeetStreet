@@ -8,7 +8,7 @@
 --      under it (CarSensor, which the server uses too).
 --      Near a rail, moving along it, GrindRide puts the car on the rail and
 --      rides it there instead of the steps below, except run tracking and
---      resets.
+--      resets. On a swing seat, SwingRide does the same.
 --   2. Jets: burn, drain, and recharge fuel, push along the nose (Jets).
 --   3. On the ground: wheel motors and front wheel steering (Drive).
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
@@ -33,6 +33,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
+local GapZones = require(ReplicatedStorage.GapZones)
 local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
@@ -46,6 +47,8 @@ local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
 local GrindRide = require(script.Parent.GrindRide)
 local Hud = require(script.Parent.Hud)
+local SwingRide = require(script.Parent.SwingRide)
+local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 
@@ -223,6 +226,7 @@ local function setVelocity(r: Rig, velocity: Vector3)
 end
 
 local function endRun(result: RunTracker.Result)
+	result.gaps = GapZones.find(result)
 	Hud.result(result, Scoring.score(result, Tuning.Score), false)
 	Hud.live(nil)
 	tricksShown = 0
@@ -295,8 +299,12 @@ local function step(r: Rig, dt: number)
 	local reading = CarSensor.read(r.sensor, dt)
 	local airborne = reading.airborne
 
-	-- On a rail, GrindRide moves the car: no driving, jets, or air control.
-	if GrindRide.step(r.model, r.hull, r.roots, input.steer, input.jet, dt) then
+	-- On a rail or a swing seat, GrindRide or SwingRide moves the car: no
+	-- driving, jets, or air control.
+	if
+		GrindRide.step(r.model, r.hull, r.roots, input.steer, input.jet, dt)
+		or SwingRide.step(r.model, r.hull, r.roots, input.throttle, input.jet, dt)
+	then
 		burning = false
 		r.jet.Force = Vector3.zero
 		r.spin.Enabled = false
@@ -308,6 +316,7 @@ local function step(r: Rig, dt: number)
 		resetHeld = input.reset
 		if resetPressed then
 			GrindRide.stop()
+			SwingRide.stop()
 			resetCar()
 		end
 		return
@@ -425,6 +434,7 @@ end
 local function enter(r: Rig)
 	rig = r
 	GrindRide.stop()
+	SwingRide.stop()
 	fuel = r.jetFuel
 	burning = false
 	stuckTime = 0
@@ -452,6 +462,7 @@ end
 local function leave()
 	rig = nil
 	GrindRide.stop()
+	SwingRide.stop()
 	if defaultControls then
 		defaultControls:Enable()
 	end
@@ -629,6 +640,7 @@ task.spawn(function()
 end)
 
 GarageMenu.start()
+SwingSet.start()
 TeleportMenu.start()
 
 task.spawn(function()

@@ -4,17 +4,20 @@
 -- workspace.Parks.Skate on top of the park's floor. Four launchers with
 -- launch pads: the Mega Ramp straight ahead of the arrival, the Vert Ramp and
 -- the Half Pipe (pads along the bottom of both walls) on the left, and the Bowl on the right, ringed by a ramp so it
--- can be entered from any side. Grind rails, a stair set with handrails to
--- grind, and a funbox sit between them, and cones, benches, and trash cans
--- get knocked flying. Numbers are in Tuning.Skate.
+-- can be entered from any side; jumping across it is the Bowl Gap. Grind
+-- rails, a stair set with handrails to grind, a funbox, and a swing set sit
+-- between them, and cones, benches, and trash cans get knocked flying.
+-- Numbers are in Tuning.Skate.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local CurveProfile = require(ReplicatedStorage.CurveProfile)
+local GapZones = require(ReplicatedStorage.GapZones)
 local GrindRails = require(ReplicatedStorage.GrindRails)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local Swings = require(ReplicatedStorage.Swings)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
@@ -156,6 +159,22 @@ local function buildBowl(parent: Instance, area: MapLayout.Area)
 	local straight = wall(0, 0, 0)
 	local berm = CurvedWall.berm(model, center, bermOuter, height, B.BermRun, B.BermSlices, B.BermSteps, straight)
 	LaunchPad.bottom(berm, B.BermSlices, B.BoostSpeed, respawn)
+
+	-- Persistent, so streaming never takes it from a client scoring a run.
+	local zone = Instance.new("Model")
+	zone.Name = "BowlGap"
+	zone.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	zone.Parent = model
+	local gap = block(zone, "Marker", Vector3.one, center, RAMP_COLOR)
+	gap.Transparency = 1
+	gap.CanCollide = false
+	gap.CanQuery = false
+	gap.CanTouch = false
+	gap:SetAttribute("GapName", "Bowl Gap")
+	gap:SetAttribute("Inner", bermInner - B.GapInside)
+	gap:SetAttribute("Outer", bermOuter + B.GapOutside)
+	gap:SetAttribute("MinAngle", B.GapAngle)
+	CollectionService:AddTag(gap, GapZones.TAG)
 end
 
 local function buildHalfPipe(parent: Instance, area: MapLayout.Area)
@@ -334,6 +353,73 @@ local function buildFunbox(parent: Instance, area: MapLayout.Area)
 	block(model, "Deck", Vector3.new(F.Width, height, F.DeckLength), at(area, F.X, height / 2, F.Z), RAMP_COLOR)
 end
 
+-- A row of giant swings (Swings) hanging from a beam on two A-frames, with a
+-- kicker in front aimed at the seats and a deck at each end of the row, level
+-- with the end seat at the bottom of its swing. The server builds no seats:
+-- each client builds and moves its own (SwingSet).
+local function buildSwings(parent: Instance, area: MapLayout.Area)
+	local W = S.Swings
+	local seatWidth, length = Tuning.Swing.SeatWidth, Tuning.Swing.Length
+	local model = Instance.new("Model")
+	model.Name = "SwingSet"
+	model.Parent = parent
+
+	local pivotY = W.SeatHeight + length
+	local half = (W.Count - 1) / 2 * W.Spacing + seatWidth / 2 -- out to the end seats' far edges
+	local beamHalf = half + W.LegGap
+	block(model, "Beam", Vector3.new(2 * beamHalf, 4, 4), at(area, W.X, pivotY, W.Z), POST_COLOR)
+	for _, side in { -1, 1 } do
+		local top = at(area, W.X + side * beamHalf, pivotY, W.Z).Position
+		for _, spread in { -1, 1 } do
+			local foot = at(area, W.X + side * beamHalf, 0, W.Z + spread * W.LegSpread).Position
+			local leg = CFrame.lookAt((top + foot) / 2, top)
+			block(model, "Leg", Vector3.new(3, 3, (top - foot).Magnitude), leg, POST_COLOR)
+		end
+	end
+
+	for i = 1, W.Count do
+		local swing = Instance.new("Model")
+		swing.Name = `Swing{i}`
+		local x = W.X + (i - (W.Count + 1) / 2) * W.Spacing
+		swing:SetAttribute("Pivot", at(area, x, pivotY, W.Z))
+		swing:SetAttribute("State", Vector2.new(math.rad(W.StartAngles[i] or 0), 0))
+		swing:SetAttribute("RiderId", 0)
+		swing.Parent = model
+		CollectionService:AddTag(swing, Swings.TAG)
+	end
+
+	-- The kicker rises toward the seats from the +Z side.
+	local kickDepth = CurveProfile.extent(W.KickRadius, W.KickAngle)
+	local kickBaseZ = W.Z + W.LipDistance + kickDepth
+	local runwayZ = kickBaseZ + W.RunwayLength
+	runway(model, area, W.X, 2 * half, runwayZ, kickBaseZ)
+	local options = wall(W.KickRadius, W.KickAngle, W.KickSteps)
+	local kicker = CurvedWall.straight(model, at(area, W.X, 0, kickBaseZ), 2 * half, options)
+	CurvedWall.fill(kicker, FLOOR, options)
+	LaunchPad.top(kicker, W.PadPlanks, W.LaunchSpeed, respawnAt(area, W.X, runwayZ))
+
+	for _, side in { -1, 1 } do
+		local inner = half + W.DeckGap
+		block(
+			model,
+			"Deck",
+			Vector3.new(W.DeckLength, W.SeatHeight, W.DeckWidth),
+			at(area, W.X + side * (inner + W.DeckLength / 2), W.SeatHeight / 2, W.Z),
+			RAMP_COLOR
+		)
+		-- A wedge rises toward its +Z end, so turn that end toward the deck.
+		local ramp = Instance.new("WedgePart")
+		ramp.Name = "Ramp"
+		ramp.Anchored = true
+		ramp.Size = Vector3.new(W.DeckWidth, W.SeatHeight, W.RampLength)
+		ramp.CFrame = at(area, W.X + side * (inner + W.DeckLength + W.RampLength / 2), W.SeatHeight / 2, W.Z)
+			* CFrame.Angles(0, -side * math.pi / 2, 0)
+		ramp.Color = RAMP_COLOR
+		ramp.Material = Enum.Material.Concrete
+		ramp.Parent = model
+	end
+end
+
 function Skate.build(folder: Folder, area: MapLayout.Area)
 	buildMega(folder, area)
 	buildVert(folder, area)
@@ -342,6 +428,7 @@ function Skate.build(folder: Folder, area: MapLayout.Area)
 	buildRails(folder, area)
 	buildStairs(folder, area)
 	buildFunbox(folder, area)
+	buildSwings(folder, area)
 	buildProps(folder, area)
 end
 

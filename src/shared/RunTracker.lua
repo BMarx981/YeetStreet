@@ -16,6 +16,10 @@
 -- pad. Time on the rail counts as grind time instead of airtime, and wheels
 -- touching or a slow car never end the run while it lasts.
 --
+-- A swing seat (Swing) is a launcher like a pad: riding it arms a run, and
+-- leaving it into the air starts one. Coming down on a seat ends a run as a
+-- landing, with the swing bonus unless it is the seat the run launched from.
+--
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
 -- wobbling never adds up to a trick.
@@ -45,6 +49,13 @@ export type Result = {
 	height: number, -- peak studs above the launch point
 	tricks: { Trick },
 	clean: boolean, -- landed upright
+	swing: boolean, -- landed on a swing seat other than the one it launched from
+	-- Where the run took off and ended, seen from above, for gaps (Gap).
+	launchX: number,
+	launchZ: number,
+	endX: number,
+	endZ: number,
+	gaps: { string }?, -- the gaps it cleared, filled in by whoever scores it
 }
 
 -- One physics step. Position is the hull's; turn is how far the car rotated
@@ -64,6 +75,7 @@ export type Sample = {
 	upY: number,
 	lying: boolean,
 	grinding: boolean, -- on a rail (Grind.onRail)
+	swing: string?, -- the swing whose seat it rides, if any
 }
 
 export type Tuning = {
@@ -91,6 +103,7 @@ export type State = {
 	turnedY: number,
 	turnedZ: number,
 	tricks: { Trick },
+	launchSwing: string?, -- the swing the run launched from, if any
 }
 
 function RunTracker.new(): State
@@ -111,6 +124,7 @@ function RunTracker.new(): State
 		turnedY = 0,
 		turnedZ = 0,
 		tricks = {},
+		launchSwing = nil,
 	}
 end
 
@@ -118,9 +132,10 @@ local function reset(state: State)
 	for key, value in RunTracker.new() :: any do
 		(state :: any)[key] = value
 	end
+	state.launchSwing = nil
 end
 
-local function measure(state: State, ending: Ending, clean: boolean): Result
+local function measure(state: State, ending: Ending, clean: boolean, swing: boolean): Result
 	return {
 		ending = ending,
 		airtime = state.airtime,
@@ -129,11 +144,16 @@ local function measure(state: State, ending: Ending, clean: boolean): Result
 		height = math.max(state.peakY - state.launchY, 0),
 		tricks = table.clone(state.tricks),
 		clean = clean,
+		swing = swing,
+		launchX = state.launchX,
+		launchZ = state.launchZ,
+		endX = state.lastX,
+		endZ = state.lastZ,
 	}
 end
 
-local function finish(state: State, ending: Ending, clean: boolean): Result
-	local result = measure(state, ending, clean)
+local function finish(state: State, ending: Ending, clean: boolean, swing: boolean?): Result
+	local result = measure(state, ending, clean, swing == true)
 	reset(state)
 	return result
 end
@@ -165,6 +185,9 @@ local function fly(state: State, sample: Sample, tuning: Tuning): Result?
 		state.peakY = math.max(state.peakY, sample.y)
 		state.stoppedTime = 0
 		return nil
+	end
+	if sample.swing then
+		return finish(state, "landed", sample.upY >= tuning.CleanUpY, sample.swing ~= state.launchSwing)
 	end
 	if not sample.airborne then
 		return finish(state, "landed", sample.upY >= tuning.CleanUpY)
@@ -204,9 +227,10 @@ function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 		return fly(state, sample, tuning)
 	end
 
-	if sample.onPad then
+	if sample.onPad or sample.swing then
 		state.phase = "armed"
 		state.armTimer = tuning.ArmTime
+		state.launchSwing = sample.swing
 		state.launchX, state.launchY, state.launchZ = sample.x, sample.y, sample.z
 		moveTo(state, sample)
 		return nil

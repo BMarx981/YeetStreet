@@ -1,8 +1,8 @@
 --!strict
 -- CarSensor (ModuleScript) -> ReplicatedStorage.CarSensor
 -- Reads a car's state each physics step: wheels on the ground, any launch pad
--- under them, flying, lying on its roof or side, riding a rail (GrindRails),
--- any hit it took, and the RunTracker sample.
+-- under them, flying, lying on its roof or side, riding a rail (GrindRails)
+-- or a swing seat (Swings), any hit it took, and the RunTracker sample.
 -- The driving client and the server both read cars through this, so the
 -- server scores a run from the same inputs the client's HUD uses.
 --
@@ -15,6 +15,7 @@ local Contact = require(ReplicatedStorage.Contact)
 local GrindRails = require(ReplicatedStorage.GrindRails)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
+local Swings = require(ReplicatedStorage.Swings)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local CarSensor = {}
@@ -25,6 +26,7 @@ export type Sensor = {
 	hull: BasePart,
 	wheels: { BasePart },
 	wheelRadius: number,
+	ownerId: number, -- the car's OwnerUserId, 0 if it has none
 	rayParams: RaycastParams,
 	contact: Contact.State,
 	lastCFrame: CFrame?,
@@ -67,10 +69,12 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 	-- Only what a car can collide with, so knocked props are never ground.
 	rayParams.CollisionGroup = "Cars"
 
+	local ownerId = model:GetAttribute("OwnerUserId")
 	return {
 		hull = hull,
 		wheels = wheels,
 		wheelRadius = wheelRadius,
+		ownerId = if typeof(ownerId) == "number" then ownerId else 0,
 		rayParams = rayParams,
 		contact = Contact.new(),
 		lastCFrame = nil,
@@ -155,6 +159,7 @@ function CarSensor.read(sensor: Sensor, dt: number): Reading
 			upY = cf.UpVector.Y,
 			lying = lying,
 			grinding = GrindRails.onAny(cf.Position, velocity),
+			swing = Swings.ridden(sensor.ownerId, cf.Position),
 		},
 	}
 end

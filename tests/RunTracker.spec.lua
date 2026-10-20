@@ -301,4 +301,65 @@ Check.test("landing after a grind ends the run with the grind time", function()
 	Check.near(result.distance, 50, "from where the grind started")
 end)
 
+Check.test("a result says where the run took off and where it ended", function()
+	local state = RunTracker.new()
+	step(state, { onPad = true, x = 5, z = 7 })
+	step(state, { airborne = true, x = 6, z = 0 })
+	local result = step(state, { airborne = false, x = 20, z = -50 }) :: RunTracker.Result
+	Check.eq(result.launchX, 5)
+	Check.eq(result.launchZ, 7)
+	Check.eq(result.endX, 20)
+	Check.eq(result.endZ, -50)
+end)
+
+Check.test("a seat on a swing is a launcher: leaving it starts a run", function()
+	local state = RunTracker.new()
+	Check.eq(step(state, { swing = "A" }), nil)
+	Check.eq(step(state, { swing = "A", airborne = true, z = -10 }), nil, "still riding")
+	Check.eq(state.phase, "armed")
+	step(state, { airborne = true, z = -20 })
+	Check.eq(state.phase, "flying")
+end)
+
+Check.test("landing on a swing seat ends the run with the swing bonus", function()
+	local state = launched()
+	step(state, { airborne = true, z = -50 })
+	local result = step(state, { swing = "A", airborne = true, z = -100 }) :: RunTracker.Result
+	Check.eq(result.ending, "landed")
+	Check.eq(result.swing, true)
+	Check.eq(result.clean, true)
+end)
+
+Check.test("coming back down on the swing it launched from ends the run without the bonus", function()
+	local state = RunTracker.new()
+	step(state, { swing = "A" })
+	step(state, { airborne = true, y = 20 })
+	local result = step(state, { swing = "A", airborne = false }) :: RunTracker.Result
+	Check.eq(result.ending, "landed")
+	Check.eq(result.swing, false)
+end)
+
+Check.test("landing on a different swing than the one it launched from gets the bonus", function()
+	local state = RunTracker.new()
+	step(state, { swing = "A" })
+	step(state, { airborne = true, y = 20 })
+	local result = step(state, { swing = "B", airborne = false, x = 60 }) :: RunTracker.Result
+	Check.eq(result.swing, true)
+end)
+
+Check.test("a launch pad after a swing launches without the swing", function()
+	local state = RunTracker.new()
+	step(state, { swing = "A" })
+	step(state, { onPad = true })
+	step(state, { airborne = true })
+	local result = step(state, { swing = "A", airborne = false }) :: RunTracker.Result
+	Check.eq(result.swing, true)
+end)
+
+Check.test("a plain landing has no swing bonus", function()
+	local state = launched()
+	local result = step(state, { airborne = false, z = -10 }) :: RunTracker.Result
+	Check.eq(result.swing, false)
+end)
+
 Check.finish("RunTracker")

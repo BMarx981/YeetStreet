@@ -339,6 +339,8 @@ Tuning.Score = {
 	CleanMultiplier = 1.5,
 	SmashPoints = 100, -- per part knocked off the car
 	GrindPerSecond = 120, -- per second on a rail
+	GapPoints = 500, -- per gap cleared, such as across the skate park's bowl
+	SwingPoints = 300, -- coming down on a swing seat
 }
 
 -- Grinding rails (Grind, GrindRide). A rail is a part tagged GrindRail.
@@ -367,6 +369,32 @@ Tuning.Grind = {
 	Damping = 3,
 	Grace = 0.5, -- seconds outside the zone before slipping off
 	StartGrace = 1.5, -- seconds after getting on before the zone moves, gusts blow, or the car can slip off
+}
+
+-- Giant swings (Swing, SwingRide, SwingService). A car on a seat sticks to
+-- it, even upside down; gas and brake pump it, jets launch off it.
+Tuning.Swing = {
+	Gravity = Tuning.World.Gravity,
+	Length = 70, -- pivot to the seat's top face; over the top takes about 191 studs/s at the bottom
+	BaseAngle = 35, -- how high every swing keeps swinging by itself
+	BaseDrive = 0.5,
+	PumpAccel = 0.35, -- pumping in time goes over the top in about 10 seconds
+	Damping = 0.02, -- slowly settles a swing back to BaseAngle once pumping stops
+	MaxSpeed = 230, -- studs per second at the seat
+	SeatWidth = 40,
+	SeatDepth = 40,
+	SeatThickness = 2,
+	HoldHeight = 6, -- a hull this close above the seat's top face gets on
+	CaptureUp = 0.5, -- and its up vector at least this much along the seat's
+	Slide = 8, -- studs the car rolls along the seat toward the way it pumps
+	SlideRate = 4,
+	TurnRate = 6, -- radians per second the car turns to face along the seat
+	Hop = 40, -- off the seat's face when jets launch the car
+	Cooldown = 1, -- seconds before a seat can catch the car that just left it
+	SendRate = 15, -- times per second the rider's client and the server send the swing
+	RiderTimeout = 0.5, -- seconds without word from the rider before the server lets go
+	HoldSlack = 15, -- studs of leeway when the server checks a hull is on its seat
+	Follow = 3, -- how fast a client pulls a swing it doesn't ride toward the server's
 }
 
 Tuning.Hud = {
@@ -696,6 +724,36 @@ Tuning.Skate = {
 		BermSteps = 8,
 		BermSlices = 96,
 		BoostSpeed = 190, -- the bottom ring of the outside ramp
+		-- The Bowl Gap: take off anywhere from GapInside below the rim out to
+		-- GapOutside past the outside ramp's foot, and come down in the same
+		-- ring at least GapAngle degrees around.
+		GapInside = 60,
+		GapOutside = 60,
+		GapAngle = 120,
+	},
+	-- A swing set: Count giant swings (Tuning.Swing) in a row along X,
+	-- swinging along Z. A kicker in front aims at the seats, and a deck at
+	-- each end of the row lines up with an end seat at the bottom of its swing.
+	Swings = {
+		X = -380,
+		Z = -500, -- the pivot line
+		Count = 3,
+		Spacing = 60, -- between seat centers
+		SeatHeight = 12, -- the seat's top face above the floor, hanging still
+		StartAngles = { 35, -15, 20 }, -- degrees, so the seats swing out of step
+		LegGap = 20, -- from the outer seats' edges to the legs
+		LegSpread = 60, -- each leg's foot, out from the pivot line along Z
+		LipDistance = 76, -- from the pivot line to the kicker's lip
+		KickRadius = 40,
+		KickAngle = 35,
+		KickSteps = 8,
+		PadPlanks = 3,
+		LaunchSpeed = 110, -- lands about LipDistance on, near the bottom of the seats' swing
+		RunwayLength = 200,
+		DeckGap = 2, -- from the end seats' edges
+		DeckLength = 40,
+		DeckWidth = 30,
+		RampLength = 60,
 	},
 	-- Tall walls with pads along the bottom of both, so a car rolling toward
 	-- either wall is boosted up it and into the air, then comes back down and

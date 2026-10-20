@@ -16,6 +16,8 @@ local TUNING: Scoring.Tuning = {
 	CleanMultiplier = 1.5,
 	SmashPoints = 100,
 	GrindPerSecond = 80,
+	GapPoints = 500,
+	SwingPoints = 300,
 }
 
 local function trick(kind: Scoring.TrickKind, direction: number): Scoring.Trick
@@ -161,6 +163,28 @@ end)
 
 Check.test("a run without grind time has no grind points", function()
 	Check.eq(Scoring.score(run({ airtime = 2 }), TUNING).grind, 0)
+end)
+
+Check.test("each gap cleared pays gap points in the base", function()
+	local score = Scoring.score(run({ airtime = 1, gaps = { "Bowl Gap" } }), TUNING)
+	Check.eq(score.gap, 500)
+	Check.eq(score.base, 550)
+	Check.eq(Scoring.score(run({ gaps = { "A", "B" } }), TUNING).gap, 1000, "two gaps")
+	Check.eq(Scoring.score(run({ airtime = 1 }), TUNING).gap, 0, "none")
+end)
+
+Check.test("landing on a swing pays swing points in the base", function()
+	local score = Scoring.score(run({ airtime = 1, swing = true }), TUNING)
+	Check.eq(score.swing, 300)
+	Check.eq(score.base, 350)
+	Check.eq(Scoring.score(run({ airtime = 1, swing = false }), TUNING).swing, 0, "no swing")
+end)
+
+Check.test("a crash across a gap keeps the gap points but no combo", function()
+	local tricks = { trick("flip", 1), trick("spin", 1) }
+	local score = Scoring.score(run({ ending = "crashed", gaps = { "Bowl Gap" }, tricks = tricks }), TUNING)
+	Check.eq(score.base, 800)
+	Check.eq(score.total, 800)
 end)
 
 Check.test("tricks are named by kind and direction", function()

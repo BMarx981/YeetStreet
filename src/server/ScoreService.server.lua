@@ -36,6 +36,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local Economy = require(ReplicatedStorage.Economy)
+local GapZones = require(ReplicatedStorage.GapZones)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -176,6 +177,7 @@ local function hurt(watch: Watch, hit: Vector3)
 end
 
 local function finish(watch: Watch, result: RunTracker.Result)
+	result.gaps = GapZones.find(result)
 	local score = Scoring.score(result, Tuning.Score, watch.smashes)
 	watch.smashes = 0
 	watch.toughness = watch.maxToughness

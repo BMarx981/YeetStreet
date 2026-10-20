@@ -2,12 +2,15 @@
 -- Scoring (ModuleScript) -> ReplicatedStorage.Scoring
 -- Turns a finished run from RunTracker into points. Pure, see InputAxes.
 --
---   total = (airtime + grind + distance + height + tricks + smash) * combo * clean
+--   total = (airtime + grind + distance + height + tricks + gap + swing + smash)
+--           * combo * clean
 --
 -- Each repeat of the same trick (kind and direction) pays RepeatFalloff times
 -- the last, down to RepeatFloor of full points. The combo grows by ComboStep
 -- for each different trick after the first. A clean landing multiplies on top.
--- Grind points pay for each second on rails (Grind).
+-- Grind points pay for each second on rails (Grind). Gap points pay for each
+-- gap the run cleared (Gap), and swing points for coming down on a swing seat
+-- (Swing).
 -- Smash points pay for each part knocked off the car during the run; only the
 -- server knows those, so the client's own score leaves them out. A run that
 -- crashes, ends off its wheels, or ends by reset keeps its base points and
@@ -33,6 +36,8 @@ export type Run = {
 	height: number,
 	tricks: { Trick },
 	clean: boolean,
+	gaps: { string }?, -- names of the gaps cleared; nil is none
+	swing: boolean?, -- landed on a swing seat
 }
 
 export type Tuning = {
@@ -49,11 +54,15 @@ export type Tuning = {
 	CleanMultiplier: number,
 	SmashPoints: number,
 	GrindPerSecond: number,
+	GapPoints: number,
+	SwingPoints: number,
 }
 
 export type Score = {
 	airtime: number,
 	grind: number,
+	gap: number,
+	swing: number,
 	distance: number,
 	height: number,
 	trickPoints: { number }, -- one per trick, in the order they were done
@@ -113,8 +122,10 @@ function Scoring.score(run: Run, tuning: Tuning, smashes: number?): Score
 		trickTotal += points
 	end
 
+	local gap = #(run.gaps or {}) * tuning.GapPoints
+	local swing = if run.swing then tuning.SwingPoints else 0
 	local smash = (smashes or 0) * tuning.SmashPoints
-	local base = airtime + grind + distance + height + trickTotal + smash
+	local base = airtime + grind + distance + height + trickTotal + gap + swing + smash
 	local landed = run.ending == "landed"
 	local combo = if landed then math.min(1 + tuning.ComboStep * math.max(different - 1, 0), tuning.ComboMax) else 1
 	local clean = if landed and run.clean then tuning.CleanMultiplier else 1
@@ -122,6 +133,8 @@ function Scoring.score(run: Run, tuning: Tuning, smashes: number?): Score
 	return {
 		airtime = airtime,
 		grind = grind,
+		gap = gap,
+		swing = swing,
 		distance = distance,
 		height = height,
 		trickPoints = trickPoints,

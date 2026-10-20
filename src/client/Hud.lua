@@ -430,6 +430,13 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	if score.grind > 0 then
 		add(string.format("Grind %.1fs", run.grind or 0), withCommas(score.grind), 18)
 	end
+	if score.gap > 0 then
+		local gaps = run.gaps or {}
+		add(table.concat(gaps, ", "), withCommas(score.gap), 18)
+	end
+	if score.swing > 0 then
+		add("Swing landing", withCommas(score.swing), 18)
+	end
 	if score.combo > 1 then
 		add("Combo", multiplier(score.combo), 18)
 	end
