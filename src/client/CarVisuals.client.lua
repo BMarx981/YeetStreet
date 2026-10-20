@@ -127,6 +127,49 @@ local function setUp(car: Model)
 	if built[car] or car.Parent == nil then
 		return
 	end
+	if car:GetAttribute("FrogCar") == true then
+		built[car] = true
+		hull.Transparency = 0
+		hull.Color = Color3.fromRGB(80, 180, 60)
+		hull.Material = Enum.Material.SmoothPlastic
+		local function addEye(xOffset: number)
+			local eye = Instance.new("Part")
+			eye.Shape = Enum.PartType.Ball
+			eye.Size = Vector3.new(2.5, 2.5, 2.5)
+			eye.CFrame = hull.CFrame * CFrame.new(xOffset, hull.Size.Y / 2 + 1.8, -hull.Size.Z / 2 + 2.5)
+			eye.Color = Color3.fromRGB(255, 255, 255)
+			eye.Material = Enum.Material.SmoothPlastic
+			eye.CanCollide = false
+			eye.CanTouch = false
+			eye.CanQuery = false
+			eye.Massless = true
+			eye.Anchored = false
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = hull
+			weld.Part1 = eye
+			weld.Parent = eye
+			eye.Parent = car
+			local pupil = Instance.new("Part")
+			pupil.Shape = Enum.PartType.Ball
+			pupil.Size = Vector3.new(1, 1, 1)
+			pupil.CFrame = eye.CFrame * CFrame.new(0, 0, -1.3)
+			pupil.Color = Color3.fromRGB(20, 20, 20)
+			pupil.Material = Enum.Material.SmoothPlastic
+			pupil.CanCollide = false
+			pupil.CanTouch = false
+			pupil.CanQuery = false
+			pupil.Massless = true
+			pupil.Anchored = false
+			local pweld = Instance.new("WeldConstraint")
+			pweld.Part0 = eye
+			pweld.Part1 = pupil
+			pweld.Parent = pupil
+			pupil.Parent = car
+		end
+		addEye(-1.8)
+		addEye(1.8)
+		return
+	end
 	local design = CarParts.designFor(car)
 	if not design then
 		warn(`CarVisuals: {car.Name} has no look attributes`)

@@ -51,6 +51,16 @@ local TouchControls = require(script.Parent.TouchControls)
 
 local player = Players.LocalPlayer :: Player
 
+-- Weather grip multiplier (1.0 = normal, lower = more slippery). Updated by server.
+local weatherGripValue = ReplicatedStorage:FindFirstChild("WeatherGripValue")
+local weatherGrip = 1.0
+if weatherGripValue and weatherGripValue:IsA("NumberValue") then
+	weatherGrip = weatherGripValue.Value
+	weatherGripValue.Changed:Connect(function(v: number)
+		weatherGrip = v
+	end)
+end
+
 local PLAYER_MODULE_WAIT = 10
 
 local WHEEL_NAMES = { "FL", "FR", "RL", "RR" }
@@ -68,6 +78,7 @@ type Wheel = {
 	mount: Attachment,
 	mountBase: CFrame,
 	steers: boolean,
+	weatherGrip: number?,
 }
 
 type Rig = {
@@ -88,6 +99,9 @@ type Rig = {
 	grip: number,
 	rollUnlocked: boolean,
 	wheelRadius: number,
+	isFrog: boolean,
+	jumpPower: number,
+	jumpCooldown: number,
 }
 
 local rig: Rig? = nil
@@ -99,6 +113,7 @@ local burning = false
 local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
+local frogCooldown = 0
 local righting = false
 local run = RunTracker.new()
 local tricksShown = 0
@@ -163,6 +178,9 @@ local function rigFor(model: Model, character: Model): Rig?
 	if not (topSpeed and jetPower and jetFuel and fuelRecharge and turnRate and grip and wheelRadius) then
 		return nil
 	end
+	local isFrog = model:GetAttribute("FrogCar") == true
+	local jumpPower = numberAttribute(model, "JumpPower") or 0
+	local jumpCooldown = numberAttribute(model, "JumpCooldown") or 0
 	local sensor = CarSensor.new(model, { character })
 	if not sensor then
 		return nil
@@ -192,6 +210,9 @@ local function rigFor(model: Model, character: Model): Rig?
 		grip = grip,
 		rollUnlocked = model:GetAttribute("RollUnlocked") == true,
 		wheelRadius = wheelRadius,
+		isFrog = isFrog,
+		jumpPower = jumpPower,
+		jumpCooldown = jumpCooldown,
 	}
 end
 
@@ -294,13 +315,27 @@ local function step(r: Rig, dt: number)
 	local RT = Tuning.Righting
 	righting = Righting.step(righting, reading.lying, reading.wheelsDown, cf.UpVector.Y, RT)
 
-	-- Jets
-	burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
-	fuel = Jets.stepFuel(fuel, r.jetFuel, burning, not airborne, r.fuelRecharge, dt)
-	r.jet.Force = Vector3.new(0, 0, if burning then -r.jetPower * r.mass else 0)
-	-- Set only on this client; CarVisuals lights the thruster flames from it.
-	if r.model:GetAttribute("JetsBurning") ~= burning then
-		r.model:SetAttribute("JetsBurning", burning)
+	-- Frog jump or jets
+	if r.isFrog then
+		frogCooldown = math.max(0, frogCooldown - dt)
+		if input.jet and not airborne and frogCooldown <= 0 then
+			local vel = r.hull.AssemblyLinearVelocity
+			setVelocity(r, Vector3.new(vel.X, r.jumpPower, vel.Z))
+			frogCooldown = r.jumpCooldown
+		end
+		burning = false
+		r.jet.Force = Vector3.zero
+		if r.model:GetAttribute("JetsBurning") then
+			r.model:SetAttribute("JetsBurning", false)
+		end
+	else
+		burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
+		fuel = Jets.stepFuel(fuel, r.jetFuel, burning, not airborne, r.fuelRecharge, dt)
+		r.jet.Force = Vector3.new(0, 0, if burning then -r.jetPower * r.mass else 0)
+		-- Set only on this client; CarVisuals lights the thruster flames from it.
+		if r.model:GetAttribute("JetsBurning") ~= burning then
+			r.model:SetAttribute("JetsBurning", burning)
+		end
 	end
 
 	-- In the air, gas and brake only pitch the car, and the wheels free roll so
@@ -318,12 +353,20 @@ local function step(r: Rig, dt: number)
 		r.topSpeed,
 		D.MaxSteerAngle,
 		D.HighSpeedSteerFactor,
-		D.SteerGrip * r.grip * workspace.Gravity,
+		D.SteerGrip * r.grip * weatherGrip * workspace.Gravity,
 		2 * Tuning.Chassis.WheelbaseHalf
 	)
 	for _, wheel in r.wheels do
 		wheel.axle.AngularVelocity = wheelSpin * D.SpinSign
 		wheel.axle.MotorMaxTorque = torque
+		-- Update wheel friction based on weather grip
+		if wheel.weatherGrip ~= weatherGrip then
+			wheel.weatherGrip = weatherGrip
+			local baseGrip = if wheel.steers then r.grip else r.grip * Tuning.Chassis.RearGripFactor
+			local frictionGrip = math.max(baseGrip * weatherGrip, 0.05)
+			local density = wheel.part.CustomPhysicalProperties and wheel.part.CustomPhysicalProperties.Density or Tuning.Chassis.WheelDensity
+			wheel.part.CustomPhysicalProperties = PhysicalProperties.new(density, frictionGrip, 0, 100, 100)
+		end
 		if wheel.steers then
 			-- Positive steer is right, which is a negative turn about the hull's up axis.
 			local base = wheel.mountBase
@@ -391,6 +434,7 @@ local function enter(r: Rig)
 	resetAskedAt = -math.huge
 	carGoneAt = nil
 	exitHeld = false
+	frogCooldown = 0
 	if defaultControls then
 		defaultControls:Disable()
 	end

@@ -25,6 +25,7 @@ local CarBuilder = require(ServerScriptService.CarBuilder)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local Garage = require(ServerScriptService.Garage)
 local TestPark = require(ServerScriptService.TestPark)
+local Tuning = require(ReplicatedStorage.Tuning)
 
 local RESEAT_DELAY = 0.2
 
@@ -126,6 +127,24 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	giveOwnership(car, player)
 end
 
+-- Builds a Frog Car for the player. Admin-only, spawned via the GiveFrogCar
+-- BindableEvent. Uses CarBuilder with frog stats and sets the FrogCar attribute
+-- so CarVisuals builds frog looks and CarController handles jumping.
+local function placeFrogCar(player: Player, humanoid: Humanoid, cframe: CFrame)
+	if humanoid.Parent ~= player.Character then
+		return
+	end
+	removeCar(player)
+	local car = CarBuilder.build(Tuning.FrogCar :: any, cframe)
+	car.Name = `Car_{player.Name}`
+	car:SetAttribute("OwnerUserId", player.UserId)
+	car:SetAttribute("FrogCar", true)
+	car.Parent = carsFolder
+	cars[player] = car
+	seatDriver(car, humanoid)
+	giveOwnership(car, player)
+end
+
 local function onCharacterAdded(player: Player, character: Model)
 	removeCar(player)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
@@ -176,6 +195,35 @@ respawnCar.Event:Connect(function(player: Player, cframe: CFrame)
 end)
 respawnCar.Parent = ServerStorage
 
+-- Admin command: give a player the Frog Car.
+local giveFrogCar = Instance.new("BindableEvent")
+giveFrogCar.Name = "GiveFrogCar"
+giveFrogCar.Event:Connect(function(player: Player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not (humanoid and humanoid.Health > 0) then
+		return
+	end
+	local cframe
+	local existingCar = cars[player]
+	if existingCar then
+		cframe = existingCar:GetPivot()
+	else
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			return
+		end
+		cframe = hrp.CFrame
+		-- Ghost the character so it doesn't affect car physics.
+		for _, desc in character:GetDescendants() do
+			ghostPart(desc)
+		end
+		exited[player] = nil
+	end
+	placeFrogCar(player, humanoid, cframe)
+end)
+giveFrogCar.Parent = ServerStorage
+
 -- Client requested to exit the car: unseat the driver and place them beside
 -- the car so they can walk around. The exited flag prevents the SeatPart
 -- changed signal from reseating them.
@@ -198,7 +246,7 @@ local function onExitCar(player: Player)
 	humanoid.Jump = true -- nudge them out of the seat
 
 	-- The client zeros the car's velocity before firing the exit remote,
-	-- so the car stops in place. No need to take network ownership here.
+	-- so the car stops in place.
 
 	-- Restore the character to normal physics so they don't fall through
 	-- the ground. lockDriver will re-ghost them if they respawn in a new car.
@@ -214,7 +262,6 @@ local function onExitCar(player: Player)
 		character:PivotTo(CFrame.new(landPos))
 	end
 
-	-- Despawn the car so the player is on foot.
 	removeCar(player)
 end
 
@@ -251,10 +298,7 @@ if spawnCar and spawnCar:IsA("RemoteEvent") then
 		if not (humanoid and humanoid.Health > 0) then
 			return
 		end
-		-- Only spawn if the player is on foot (not already in a car).
-		if cars[player] then
-			return
-		end
+
 		local hrp = character:FindFirstChild("HumanoidRootPart")
 		if not hrp then
 			return

@@ -33,12 +33,23 @@ export type Car = {
 	Tier: string,
 }
 
+-- A limited edition item from Tuning.Limiteds.
+export type Limited = {
+	Id: string,
+	Name: string, -- shown to players
+	Price: number,
+	Stock: number, -- how many exist in total; decreases as players buy
+	Description: string,
+	AdminOnly: boolean?, -- if true, only obtainable via admin command, never purchasable
+}
+
 -- What a player owns. This is the saved part of their data.
 export type State = {
 	Cash: number,
 	Levels: Levels,
 	Cars: { string }, -- ids of owned cars, in the order they were bought
 	Equipped: string,
+	Limiteds: { string }, -- ids of owned limited items
 }
 
 export type CostTuning = {
@@ -104,6 +115,7 @@ function Economy.newState(ladder: { Car }): State
 		Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0 },
 		Cars = { first },
 		Equipped = first,
+		Limiteds = {},
 	}
 end
 
@@ -137,11 +149,28 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 			end
 		end
 	end
+	state.Limiteds = {}
+	if typeof(saved.Limiteds) == "table" then
+		for _, id in saved.Limiteds do
+			if typeof(id) == "string" and not table.find(state.Limiteds, id) then
+				table.insert(state.Limiteds, id)
+			end
+		end
+	end
 	local equipped = saved.Equipped
 	if typeof(equipped) == "string" and table.find(state.Cars, equipped) and Economy.findCar(ladder, equipped) then
 		state.Equipped = equipped
 	end
 	return state
+end
+
+function Economy.findLimited(limiteds: { Limited }, id: string): Limited?
+	for _, item in limiteds do
+		if item.Id == id then
+			return item
+		end
+	end
+	return nil
 end
 
 function Economy.findCar(ladder: { Car }, id: string): Car?
@@ -240,6 +269,33 @@ function Economy.equip(state: State, id: string): (State?, string?)
 	end
 	local after = table.clone(state)
 	after.Equipped = id
+	return after, nil
+end
+
+-- Buys a limited edition item. Fails with "UnknownLimited", "Owned", "SoldOut",
+-- or "NotEnoughCash".
+function Economy.buyLimited(state: State, id: string, limiteds: { Limited }, stock: { [string]: number }): (State?, string?)
+	local item = Economy.findLimited(limiteds, id)
+	if not item then
+		return nil, "UnknownLimited"
+	end
+	if item.AdminOnly then
+		return nil, "UnknownLimited"
+	end
+	if table.find(state.Limiteds, id) then
+		return nil, "Owned"
+	end
+	if (stock[id] or item.Stock) <= 0 then
+		return nil, "SoldOut"
+	end
+	if state.Cash < item.Price then
+		return nil, "NotEnoughCash"
+	end
+	local after = table.clone(state)
+	after.Cash -= item.Price
+	after.Limiteds = table.clone(state.Limiteds)
+	table.insert(after.Limiteds, id)
+	stock[id] = (stock[id] or item.Stock) - 1
 	return after, nil
 end
 

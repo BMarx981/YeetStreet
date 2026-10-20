@@ -131,6 +131,47 @@ Tuning.Ladder = {
 	},
 }
 
+-- Limited edition items, purchasable in the store's Limiteds tab. Each has a
+-- stock that decreases as players buy it; when stock hits zero it's sold out.
+Tuning.Limiteds = {
+	{
+		Id = "NeonGlow",
+		Name = "Neon Underglow",
+		Price = 25000,
+		Stock = 100,
+		Description = "Glowing neon lights beneath your car.",
+	},
+	{
+		Id = "GoldRims",
+		Name = "Gold Rims",
+		Price = 50000,
+		Stock = 50,
+		Description = "Premium gold-plated wheels.",
+	},
+	{
+		Id = "RainbowTrail",
+		Name = "Rainbow Trail",
+		Price = 100000,
+		Stock = 25,
+		Description = "A rainbow trail follows your car through the air.",
+	},
+	{
+		Id = "Crown",
+		Name = "Royal Crown",
+		Price = 250000,
+		Stock = 10,
+		Description = "A golden crown floats above your car.",
+	},
+	{
+		Id = "FrogCar",
+		Name = "Frog Car",
+		Price = 0,
+		Stock = 0,
+		Description = "A special car that jumps instead of using jets. Admin-only.",
+		AdminOnly = true,
+	},
+}
+
 Tuning.Chassis = {
 	HullSize = Vector3.new(6, 1.6, 11),
 	HullDensity = 1,
@@ -192,6 +233,21 @@ Tuning.Air = {
 
 Tuning.Jets = {
 	RelightFuel = 0.25, -- fuel needed to start a new burn
+}
+
+-- The admin-only Frog Car. Built by CarBuilder with these stats, and the jet
+-- button (Left Shift) triggers a jump instead of jets. Given via :frog command.
+Tuning.FrogCar = {
+	TopSpeed = 90,
+	JetPower = 0, -- no jets; the jet button triggers a jump instead
+	JetFuel = 1,
+	FuelRecharge = 1,
+	TurnRate = 3,
+	Grip = 1.5,
+	RollUnlocked = true,
+	Toughness = 200,
+	JumpPower = 100, -- upward velocity impulse in studs/second
+	JumpCooldown = 1.0, -- seconds between jumps
 }
 
 -- What burning jets look like on each thruster (CarVisuals). Each list runs

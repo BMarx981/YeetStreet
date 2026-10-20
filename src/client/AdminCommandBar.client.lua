@@ -2,6 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
@@ -20,7 +22,7 @@ local WEATHER_ICONS = {
 	cloudy = { icon = "☁", label = "Cloudy", color = Color3.fromRGB(180, 180, 190) },
 	fog = { icon = "🌫", label = "Fog", color = Color3.fromRGB(180, 180, 190) },
 	night = { icon = "🌙", label = "Night", color = Color3.fromRGB(80, 80, 140) },
-	coinrain = { icon = "🪙", label = "Coin Rain", color = Color3.fromRGB(255, 200, 0) },
+	coinrain = { icon = "💸", label = "Coin Rain", color = Color3.fromRGB(255, 200, 0) },
 	bonerain = { icon = "🦴", label = "Bone Rain", color = Color3.fromRGB(230, 210, 160) },
 }
 
@@ -160,6 +162,239 @@ boneRainEvent.OnClientEvent:Connect(function(isRaining)
 	updateBoneRainIcon()
 end)
 
+-- ===== WEATHER PARTICLE EFFECTS (rain, snow, storm lightning) =====
+-- A hidden part above the camera that emits weather particles
+local weatherEffectPart = Instance.new("Part")
+weatherEffectPart.Name = "WeatherEffectPart"
+weatherEffectPart.Anchored = true
+weatherEffectPart.CanCollide = false
+weatherEffectPart.CanQuery = false
+weatherEffectPart.CanTouch = false
+weatherEffectPart.Transparency = 1
+weatherEffectPart.Size = Vector3.new(400, 1, 400)
+weatherEffectPart.Parent = workspace
+
+-- Track active emitters and lightning task
+local weatherEmitters = {}
+local lightningTask = nil
+
+local function stopEffect(name)
+	local emitter = weatherEmitters[name]
+	if emitter then
+		emitter.Enabled = false
+		weatherEmitters[name] = nil
+		task.delay(4, function()
+			if emitter and emitter.Parent then
+				emitter:Destroy()
+			end
+		end)
+	end
+end
+
+local function startRain()
+	if weatherEmitters["rain"] then return end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "Rain"
+	emitter.Rate = 700
+	emitter.Lifetime = NumberRange.new(2, 3)
+	emitter.Speed = NumberRange.new(90, 110)
+	emitter.SpreadAngle = Vector2.new(5, 5)
+	emitter.Color = ColorSequence.new(Color3.fromRGB(160, 190, 255))
+	emitter.Transparency = NumberSequence.new(0.5)
+	emitter.Size = NumberSequence.new(0.8)
+	emitter.EmissionDirection = Enum.NormalId.Bottom
+	emitter.LightEmission = 0.1
+	emitter.Parent = weatherEffectPart
+	weatherEmitters["rain"] = emitter
+end
+
+local function startSnow()
+	if weatherEmitters["snow"] then return end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "Snow"
+	emitter.Rate = 200
+	emitter.Lifetime = NumberRange.new(5, 8)
+	emitter.Speed = NumberRange.new(8, 12)
+	emitter.SpreadAngle = Vector2.new(45, 45)
+	emitter.Color = ColorSequence.new(Color3.fromRGB(240, 245, 255))
+	emitter.Transparency = NumberSequence.new(0.2)
+	emitter.Size = NumberSequence.new(1.2)
+	emitter.Acceleration = Vector3.new(3, -3, 3)
+	emitter.EmissionDirection = Enum.NormalId.Bottom
+	emitter.LightEmission = 0.3
+	emitter.Parent = weatherEffectPart
+	weatherEmitters["snow"] = emitter
+end
+
+-- Folder to hold lightning bolts in the world
+local lightningFolder = Instance.new("Folder")
+lightningFolder.Name = "LightningBolts"
+lightningFolder.Parent = workspace
+
+local function stopLightning()
+	if lightningTask then
+		task.cancel(lightningTask)
+		lightningTask = nil
+	end
+	for _, effect in Lighting:GetChildren() do
+		if effect.Name == "LightningFlash" then
+			effect:Destroy()
+		end
+	end
+	for _, bolt in lightningFolder:GetChildren() do
+		bolt:Destroy()
+	end
+end
+
+-- Build a jagged lightning bolt from `topPos` down to `bottomPos` using thin parts
+local function createLightningBolt(topPos: Vector3, bottomPos: Vector3)
+	local segments = 14
+	local jaggedness = 25
+	local points = {}
+	for i = 0, segments do
+		local t = i / segments
+		local base = topPos:Lerp(bottomPos, t)
+		-- Add horizontal jagged offset, less near the top and bottom
+		local edgeFade = math.sin(t * math.pi)
+		local offset = Vector3.new(
+			(math.random() - 0.5) * jaggedness * edgeFade,
+			0,
+			(math.random() - 0.5) * jaggedness * edgeFade
+		)
+		table.insert(points, base + offset)
+	end
+
+	local bolt = Instance.new("Model")
+	bolt.Name = "LightningBolt"
+
+	for i = 1, #points - 1 do
+		local a = points[i]
+		local b = points[i + 1]
+		local mid = (a + b) / 2
+		local dist = (b - a).Magnitude
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Material = Enum.Material.Neon
+		part.Color = Color3.fromRGB(200, 220, 255)
+		part.Transparency = 0.2
+		part.Size = Vector3.new(0.6, dist, 0.6)
+		part.CFrame = CFrame.lookAt(mid, b) * CFrame.Angles(math.rad(90), 0, 0)
+		part.Parent = bolt
+
+		-- Glow light at each segment for a bright bolt
+		local glow = Instance.new("PointLight")
+		glow.Color = Color3.fromRGB(200, 220, 255)
+		glow.Range = 30
+		glow.Brightness = 3
+		glow.Parent = part
+	end
+
+	-- Bright point light at the strike point
+	local strikeLight = Instance.new("Part")
+	strikeLight.Anchored = true
+	strikeLight.CanCollide = false
+	strikeLight.Transparency = 1
+	strikeLight.Size = Vector3.new(1, 1, 1)
+	strikeLight.CFrame = CFrame.new(bottomPos)
+	strikeLight.Parent = bolt
+	local impactLight = Instance.new("PointLight")
+	impactLight.Color = Color3.fromRGB(200, 220, 255)
+	impactLight.Range = 60
+	impactLight.Brightness = 5
+	impactLight.Parent = strikeLight
+
+	bolt.Parent = lightningFolder
+
+	-- Fade out and destroy the bolt
+	task.spawn(function()
+		task.wait(0.12)
+		for _, p in bolt:GetDescendants() do
+			if p:IsA("BasePart") and p.Transparency < 1 then
+				TweenService:Create(p, TweenInfo.new(0.25), { Transparency = 1 }):Play()
+			elseif p:IsA("PointLight") then
+				TweenService:Create(p, TweenInfo.new(0.25), { Brightness = 0 }):Play()
+			end
+		end
+		task.wait(0.3)
+		if bolt.Parent then bolt:Destroy() end
+	end)
+end
+
+local function startLightning()
+	if lightningTask then return end
+	lightningTask = task.spawn(function()
+		while true do
+			task.wait(math.random(5, 14))
+			local camera = workspace.CurrentCamera
+			if not camera then continue end
+			local camPos = camera.CFrame.Position
+			-- Random strike position within 300 studs of the camera
+			local angle = math.random() * math.pi * 2
+			local dist = math.random(50, 300)
+			local strikeX = camPos.X + math.cos(angle) * dist
+			local strikeZ = camPos.Z + math.sin(angle) * dist
+			local topPos = Vector3.new(strikeX, camPos.Y + 200, strikeZ)
+			local bottomPos = Vector3.new(strikeX, camPos.Y - 50, strikeZ)
+
+			createLightningBolt(topPos, bottomPos)
+
+			-- Subtle screen flash synced with the strike
+			local flash = Instance.new("ColorCorrectionEffect")
+			flash.Name = "LightningFlash"
+			flash.Brightness = 0.2
+			flash.Parent = Lighting
+			TweenService:Create(flash, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Brightness = 0,
+			}):Play()
+			task.delay(0.3, function()
+				if flash and flash.Parent then flash:Destroy() end
+			end)
+		end
+	end)
+end
+
+-- Follow the camera each frame so particles always fall around the player
+RunService.RenderStepped:Connect(function()
+	local camera = workspace.CurrentCamera
+	if camera then
+		local pos = camera.CFrame.Position
+		weatherEffectPart.CFrame = CFrame.new(pos.X, pos.Y + 80, pos.Z)
+	end
+end)
+
+-- Update weather particle effects based on active weathers
+local function updateWeatherEffects(weatherNames)
+	local hasRain = false
+	local hasStorm = false
+	local hasSnow = false
+	for _, name in ipairs(weatherNames) do
+		if name == "rain" then hasRain = true end
+		if name == "storm" then hasStorm = true end
+		if name == "snow" then hasSnow = true end
+	end
+	-- Rain (also enabled during storm)
+	if hasRain or hasStorm then
+		startRain()
+	else
+		stopEffect("rain")
+	end
+	-- Snow
+	if hasSnow then
+		startSnow()
+	else
+		stopEffect("snow")
+	end
+	-- Lightning (only during storm)
+	if hasStorm then
+		startLightning()
+	else
+		stopLightning()
+	end
+end
+
 -- Handle weather updates from the server (receives an array of active weather names)
 weatherUpdateEvent.OnClientEvent:Connect(function(weatherNames)
 	-- Backward compat: if a single string is received, wrap it in a table
@@ -195,6 +430,9 @@ weatherUpdateEvent.OnClientEvent:Connect(function(weatherNames)
 			weatherIconFrames[name] = createWeatherIcon(name)
 		end
 	end
+
+	-- Update particle effects (rain, snow, lightning)
+	updateWeatherEffects(weatherNames)
 end)
 
 -- Feedback label for admin command responses (created early so the event handler can use it)

@@ -24,7 +24,7 @@ local GarageMenu = {}
 
 local GARAGE_TAG = "Garage"
 
-type Tab = "Upgrades" | "Cars"
+type Tab = "Upgrades" | "Cars" | "Limiteds"
 
 type Row = {
 	frame: Frame,
@@ -42,10 +42,12 @@ local STATS: { { stat: Economy.StatName, about: string } } = {
 local REASONS: { [string]: string } = {
 	NotEnoughCash = "Not enough cash yet.",
 	AtCap = "This car is maxed out there. A better car raises the limit.",
-	Owned = "You already own that car.",
+	Owned = "You already own that.",
 	NotOwned = "Buy that car first.",
 	TooSoon = "One moment...",
 	NotLoaded = "Your garage is still loading.",
+	SoldOut = "That item is sold out.",
+	UnknownLimited = "That item doesn't exist.",
 }
 
 local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
@@ -125,6 +127,16 @@ local function owned(): { string }
 	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
 end
 
+local function limitedsOwned(): { string }
+	local value = player:GetAttribute("LimitedsOwned")
+	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
+end
+
+local function limitedStockRemaining(id: string): number
+	local value = player:GetAttribute(`LimitedStock_{id}`)
+	return if typeof(value) == "number" then value else 0
+end
+
 local function carText(car: Economy.Car): string
 	local caps = car.Caps
 	local free = if car.Bonus > 0 then `+{car.Bonus} free levels. ` else ""
@@ -196,6 +208,7 @@ local function build()
 	end
 	local upgradesTab = tabButton("Upgrades", 0)
 	local carsTab = tabButton("Cars", 138)
+	local limitedsTab = tabButton("Limiteds", 276)
 
 	local status = text("Status", panel, 16, Enum.Font.GothamBold)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -223,6 +236,7 @@ local function build()
 	end
 	local upgradesList = tabList("Upgrades")
 	local carsList = tabList("Cars")
+	local limitedsList = tabList("Limiteds")
 
 	local function row(list: ScrollingFrame, order: number, name: string): Row
 		local frame = Instance.new("Frame")
@@ -254,6 +268,10 @@ local function build()
 	local carRows: { [string]: Row } = {}
 	for i, car in Tuning.Ladder do
 		carRows[car.Id] = row(carsList, i, car.Name)
+	end
+	local limitedRows: { [string]: Row } = {}
+	for i, item in Tuning.Limiteds do
+		limitedRows[item.Id] = row(limitedsList, i, item.Name)
 	end
 
 	local function refresh()
@@ -294,10 +312,36 @@ local function build()
 			end
 		end
 
+		-- Limiteds tab
+		local ownedLimiteds = limitedsOwned()
+		for _, item in Tuning.Limiteds do
+			local r = limitedRows[item.Id]
+			if item.AdminOnly then
+				r.detail.Text = item.Description
+				if table.find(ownedLimiteds, item.Id) then
+					setButton(r.button, "OWNED", false)
+				else
+					setButton(r.button, "LOCKED", false)
+				end
+			else
+				local remaining = limitedStockRemaining(item.Id)
+				r.detail.Text = `{item.Description} {remaining} left in stock.`
+				if table.find(ownedLimiteds, item.Id) then
+					setButton(r.button, "OWNED", false)
+				elseif remaining <= 0 then
+					setButton(r.button, "SOLD OUT", false)
+				else
+					setButton(r.button, `$ {withCommas(item.Price)}`, loaded and not busy and money >= item.Price)
+				end
+			end
+		end
+
 		upgradesList.Visible = tab == "Upgrades"
 		carsList.Visible = tab == "Cars"
+		limitedsList.Visible = tab == "Limiteds"
 		upgradesTab.BackgroundColor3 = if tab == "Upgrades" then BUY_COLOR else OFF_COLOR
 		carsTab.BackgroundColor3 = if tab == "Cars" then BUY_COLOR else OFF_COLOR
+		limitedsTab.BackgroundColor3 = if tab == "Limiteds" then BUY_COLOR else OFF_COLOR
 	end
 
 	-- Sends one request to the server and reports how it went.
@@ -345,6 +389,14 @@ local function build()
 			end
 		end)
 	end
+	for _, item in Tuning.Limiteds do
+		local r = limitedRows[item.Id]
+		r.button.Activated:Connect(function()
+			if r.button.Active then
+				ask("BuyLimited", item.Id, `Got the {item.Name}!`)
+			end
+		end)
+	end
 
 	local function setOpen(value: boolean, byGamepad: boolean)
 		open = value
@@ -354,7 +406,8 @@ local function build()
 			refresh()
 		end
 		if value and byGamepad then
-			GuiService.SelectedObject = if tab == "Upgrades" then upgradesTab else carsTab
+			local sel: TextButton? = if tab == "Upgrades" then upgradesTab elseif tab == "Cars" then carsTab else limitedsTab
+			GuiService.SelectedObject = sel
 		elseif not value and GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(gui) then
 			GuiService.SelectedObject = nil
 		end
@@ -370,6 +423,9 @@ local function build()
 	end)
 	carsTab.Activated:Connect(function()
 		showTab("Cars")
+	end)
+	limitedsTab.Activated:Connect(function()
+		showTab("Limiteds")
 	end)
 	local function nearGarage(): boolean
 		local character = player.Character
@@ -416,7 +472,11 @@ local function build()
 		end
 	end)
 
-	for _, attribute in { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned" } do
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned" }
+	for _, item in Tuning.Limiteds do
+		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
+	end
+	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()
 			if open then
 				refresh()

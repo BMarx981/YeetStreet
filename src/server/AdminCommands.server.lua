@@ -49,12 +49,12 @@ local WEATHER_PRESETS = {
 		ClockTime = 12,
 	},
 	rain = {
-		FogEnd = 500,
-		FogColor = Color3.fromRGB(100, 100, 110),
-		Brightness = 1.5,
-		Ambient = Color3.fromRGB(90, 90, 100),
-		OutdoorAmbient = Color3.fromRGB(90, 90, 100),
-		ClockTime = 10,
+		FogEnd = 400,
+		FogColor = Color3.fromRGB(50, 50, 60),
+		Brightness = 0.8,
+		Ambient = Color3.fromRGB(40, 40, 50),
+		OutdoorAmbient = Color3.fromRGB(40, 40, 50),
+		ClockTime = 7,
 	},
 	storm = {
 		FogEnd = 300,
@@ -119,6 +119,21 @@ local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
 local adminFeedbackEvent = ReplicatedStorage:WaitForChild("AdminFeedbackEvent")
 local weatherUpdateEvent = ReplicatedStorage:WaitForChild("WeatherUpdateEvent")
 local commandListEvent = ReplicatedStorage:WaitForChild("CommandListEvent")
+local weatherGripValue = ReplicatedStorage:WaitForChild("WeatherGripValue")
+
+-- Grip multipliers per weather (1.0 = normal, lower = more slippery)
+local WEATHER_GRIP = {
+	clear = 1.0,
+	sunny = 1.0,
+	rain = 0.55,
+	storm = 0.4,
+	snow = 0.3,
+	cloudy = 0.9,
+	fog = 0.85,
+	night = 1.0,
+	coinrain = 1.0,
+	bonerain = 1.0,
+}
 local ServerScriptService = game:GetService("ServerScriptService")
 local boneRainToggle = ServerScriptService:FindFirstChild("BoneRainToggle")
 
@@ -142,6 +157,15 @@ local function applyWeathers()
 			end
 		end
 	end
+	-- Set the grip multiplier to the lowest (most slippery) active weather
+	local minGrip = 1.0
+	for _, weatherName in ipairs(activeWeathers) do
+		local g = WEATHER_GRIP[weatherName]
+		if g and g < minGrip then
+			minGrip = g
+		end
+	end
+	weatherGripValue.Value = minGrip
 end
 
 -- Send the current active weathers to a specific player (or all players if nil)
@@ -271,6 +295,7 @@ local COMMAND_INFO = {
 	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
 	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global message <text>",         optionsType = "text" },
+	{ name = "frog",       desc = "Give a player the Frog Car (it can jump!)",            usage = ":frog <playerName>",            optionsType = "player" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
@@ -428,6 +453,27 @@ local COMMANDS = {
 		return "[Global] " .. senderName .. ": " .. actualMessage, senderName, actualMessage
 	end,
 
+	frog = function(adminPlayer, args)
+		local targetName = string.match(args, "%S+")
+		if not targetName then
+			return "Usage: :frog <playerName>"
+		end
+
+		local target = findPlayer(targetName)
+		if not target then
+			return "Player not found: " .. targetName
+		end
+
+		local ServerStorage = game:GetService("ServerStorage")
+		local giveFrogCar = ServerStorage:FindFirstChild("GiveFrogCar")
+		if giveFrogCar and giveFrogCar:IsA("BindableEvent") then
+			giveFrogCar:Fire(target)
+		end
+		-- Persist Frog Car ownership so it shows as OWNED in the Limiteds tab.
+		Garage.giveLimited(target, "FrogCar")
+		return "Gave a Frog Car to " .. target.Name .. "!"
+	end,
+
 	promote = function(adminPlayer, args)
 		local targetName = string.match(args, "%S+")
 		if not targetName then
@@ -463,10 +509,14 @@ local COMMANDS = {
 (Global - affects ALL servers)
 :kick <player> [reason] - Kick a player from all servers
 :weather <type> - Toggle weather on/off (clear, sunny, rain, storm, snow, cloudy, fog, night, coinrain, bonerain). Multiple can stack!
+  rain - Dark sky, rain particles, slippery roads (55% grip)
+  storm - Rain + physical lightning bolts strike the world! Very slippery (40% grip)
+  snow - Snow particles, icy roads (30% grip)
   coinrain - Coins fall from the sky! Walk over them to collect $100 each (admin-only)
   bonerain - Dino bones fall from the sky! Collect them for BoneCoins (admin-only)
 :time <0-24> - Set the time of day everywhere
 :money <username|all> <amount> - Give cash to a specific player or everyone
+:frog <playerName> - Give a player the Frog Car (it can jump!)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global message <text> - Send a global message to all servers
 :cmd - Show the interactive command list

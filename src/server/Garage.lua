@@ -34,6 +34,18 @@ local Garage = {}
 
 local lastRequestAt: { [Player]: number } = {}
 
+-- Remaining stock for limited items, shared across all players. Initialized from
+-- Tuning.Limiteds on first use; decreases as players buy.
+local limitedStock: { [string]: number } = {}
+local function initLimitedStock()
+	for _, item in Tuning.Limiteds do
+		if limitedStock[item.Id] == nil then
+			limitedStock[item.Id] = item.Stock
+		end
+	end
+end
+initLimitedStock()
+
 local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Cash", state.Cash)
 	player:SetAttribute("Speed", state.Levels.Speed)
@@ -42,6 +54,11 @@ local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Grip", state.Levels.Grip)
 	player:SetAttribute("Equipped", state.Equipped)
 	player:SetAttribute("CarsOwned", table.concat(state.Cars, ","))
+	player:SetAttribute("LimitedsOwned", table.concat(state.Limiteds, ","))
+	-- Publish remaining stock for each limited item so the UI can show it.
+	for _, item in Tuning.Limiteds do
+		player:SetAttribute(`LimitedStock_{item.Id}`, limitedStock[item.Id] or item.Stock)
+	end
 	Leaderstats.value(player, "Cash").Value = state.Cash
 end
 
@@ -132,6 +149,29 @@ remote("EquipCar", function(player: Player, id: any): (boolean, string?)
 		return Economy.equip(state, id)
 	end, true)
 end)
+
+remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
+	if typeof(id) ~= "string" then
+		return false, "UnknownLimited"
+	end
+	return request(player, function(state)
+		return Economy.buyLimited(state, id, Tuning.Limiteds, limitedStock)
+	end, false)
+end)
+
+-- Grants a limited item without charge. Used by admin commands (e.g. :frog)
+-- to give admin-only limiteds like the Frog Car. Adds the id to the player's
+-- saved Limiteds and publishes the update so the garage UI refreshes.
+function Garage.giveLimited(player: Player, id: string)
+	local data = PlayerData.get(player)
+	if not data then
+		return
+	end
+	if not table.find(data.Economy.Limiteds, id) then
+		table.insert(data.Economy.Limiteds, id)
+		publish(player, data.Economy)
+	end
+end
 
 local function onPlayerAdded(player: Player)
 	Leaderstats.value(player, "Cash")
