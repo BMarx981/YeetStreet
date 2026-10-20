@@ -599,7 +599,11 @@ Tuning.Corkscrew = {
 	Thickness = 2,
 	PayScale = 0.5,
 	Ramp = {
-		Width = 30,
+		Width = 30, -- the flat middle
+		-- Each side curls LipHeight up over LipWidth beyond the flat middle,
+		-- like the corkscrew track's lips.
+		LipWidth = 15,
+		LipHeight = 8,
 		BoostEvery = 150, -- studs between booster strips
 		BoostLength = 30,
 		BoostSpeed = 200,
