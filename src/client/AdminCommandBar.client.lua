@@ -885,13 +885,13 @@ local function showOptions(info)
 		textInput:CaptureFocus()
 		local confirmBtn = createOptionButton("Send Message", optionsScroll, function()
 			if textInput.Text ~= "" then
-				sendCommand("global message " .. textInput.Text)
+				sendCommand("global " .. textInput.Text)
 				commandListGui.Enabled = false
 			end
 		end)
 		textInput.FocusLost:Connect(function(enter)
 			if enter and textInput.Text ~= "" then
-				sendCommand("global message " .. textInput.Text)
+				sendCommand("global " .. textInput.Text)
 				commandListGui.Enabled = false
 			end
 		end)

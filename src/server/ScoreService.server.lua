@@ -6,7 +6,8 @@
 -- sends a score; this one is the one that counts.
 --
 -- When a run ends, the driver's client gets the server's result on
--- ReplicatedStorage.RunResult, the total pays out as cash (Garage), and a
+-- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
+-- the PayScale of the launch pad the run started from, and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 --
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
@@ -57,6 +58,9 @@ type Watch = {
 	-- Running damage per slot since the car was built, for breaking parts.
 	slotDamage: { [string]: number },
 	smashes: number, -- parts broken this run
+	-- The PayScale of the last launch pad touched (1 if it has none), which
+	-- scales the cash the next run pays.
+	payScale: number,
 	wrecked: boolean,
 	respawning: boolean, -- a respawn was asked for; the car is about to go
 }
@@ -136,6 +140,7 @@ local function watchFor(car: Model): Watch?
 		toughness = maxToughness,
 		slotDamage = {},
 		smashes = 0,
+		payScale = 1,
 		wrecked = false,
 		respawning = false,
 	}
@@ -182,7 +187,8 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	PlayerData.update(watch.player, function(data)
 		data.Best = math.max(data.Best, score.total)
 	end)
-	Garage.pay(watch.player, Economy.payout(score.total, Tuning.Cash.PerPoint))
+	Garage.pay(watch.player, Economy.payout(score.total, Tuning.Cash.PerPoint * watch.payScale))
+	watch.payScale = 1
 	runResult:FireClient(watch.player, result, score)
 end
 
@@ -318,6 +324,10 @@ RunService.Heartbeat:Connect(function(dt: number)
 				local respawnAt = reading.pad and reading.pad:GetAttribute("RespawnCFrame")
 				if typeof(respawnAt) == "CFrame" then
 					lastLaunch[watch.player] = respawnAt
+				end
+				if reading.pad then
+					local payScale = reading.pad:GetAttribute("PayScale")
+					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 				end
 				hurt(watch, reading.impact)
 				if watch.toughness <= 0 and not watch.wrecked then

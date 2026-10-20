@@ -294,7 +294,7 @@ local COMMAND_INFO = {
 	{ name = "money",      desc = "Give cash to a player or everyone",                 usage = ":money <username|all> <amount>", optionsType = "player_amount" },
 	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
-	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global message <text>",         optionsType = "text" },
+	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global <text>",                optionsType = "text" },
 	{ name = "frog",       desc = "Give a player the Frog Car (it can jump!)",            usage = ":frog <playerName>",            optionsType = "player" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
@@ -438,19 +438,13 @@ local COMMANDS = {
 	end,
 
 	global = function(adminPlayer, args)
-		local messageText = string.match(args, "%S+%s+(.+)")
-		if not messageText then
-			return "Usage: :global message <text>"
-		end
-
-		-- Extract the subcommand (should be "message")
-		local subCmd, actualMessage = string.match(args, "(%S+)%s+(.+)")
-		if not subCmd or string.lower(subCmd) ~= "message" then
-			return "Usage: :global message <text>"
+		local messageText = string.match(args, "%s*(.+)")
+		if not messageText or messageText == "" then
+			return "Usage: :global <text>"
 		end
 
 		local senderName = adminPlayer and adminPlayer.Name or "Admin"
-		return "[Global] " .. senderName .. ": " .. actualMessage, senderName, actualMessage
+		return "[Global] " .. senderName .. ": " .. messageText, senderName, messageText
 	end,
 
 	frog = function(adminPlayer, args)
@@ -518,7 +512,7 @@ local COMMANDS = {
 :money <username|all> <amount> - Give cash to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
-:global message <text> - Send a global message to all servers
+:global <text> - Send a global message to all servers
 :cmd - Show the interactive command list
 :admin abuse - Show this help list
 --------------------------]]
@@ -562,8 +556,15 @@ local function processCommand(player, message)
 			MessagingService:PublishAsync(TELEMETRY_TOPIC, broadcastData)
 		end
 
-		-- Send feedback to the admin via the feedback RemoteEvent
-		adminFeedbackEvent:FireClient(player, result or "Command executed.")
+		-- For global messages, fire to ALL players on this server (not just the admin)
+		if commandName == "global" and result and string.sub(result, 1, 8) == "[Global]" then
+			for _, p in Players:GetPlayers() do
+				adminFeedbackEvent:FireClient(p, result)
+			end
+		else
+			-- Send feedback to the admin via the feedback RemoteEvent
+			adminFeedbackEvent:FireClient(player, result or "Command executed.")
+		end
 	end
 end
 

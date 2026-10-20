@@ -34,18 +34,31 @@ if marks then
 end
 
 local FLOOR_THICKNESS = 1
+local MAX_PART = 2048 -- engine limit on a part's size along any axis
 
+-- In equal tiles where the park is bigger than one part can be.
 local function floor(folder: Folder, area: MapLayout.Area)
-	local part = Instance.new("Part")
-	part.Name = "Floor"
-	part.Anchored = true
-	part.Size = Vector3.new(area.Width, FLOOR_THICKNESS, area.Depth)
-	part.CFrame = CFrame.new(area.X, M.FloorTop - FLOOR_THICKNESS / 2, area.Z)
-	part.Color = Color3.fromRGB(170, 170, 165)
-	part.Material = Enum.Material.Concrete
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = folder
+	local across = math.ceil(area.Width / MAX_PART)
+	local down = math.ceil(area.Depth / MAX_PART)
+	local width, depth = area.Width / across, area.Depth / down
+	for i = 1, across do
+		for j = 1, down do
+			local part = Instance.new("Part")
+			part.Name = "Floor"
+			part.Anchored = true
+			part.Size = Vector3.new(width, FLOOR_THICKNESS, depth)
+			part.CFrame = CFrame.new(
+				area.X - area.Width / 2 + (i - 0.5) * width,
+				M.FloorTop - FLOOR_THICKNESS / 2,
+				area.Z - area.Depth / 2 + (j - 0.5) * depth
+			)
+			part.Color = Color3.fromRGB(170, 170, 165)
+			part.Material = Enum.Material.Concrete
+			part.TopSurface = Enum.SurfaceType.Smooth
+			part.BottomSurface = Enum.SurfaceType.Smooth
+			part.Parent = folder
+		end
+	end
 end
 
 -- Ahead of the arrival point and to its left, facing back at an arriving car.

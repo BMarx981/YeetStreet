@@ -29,6 +29,7 @@ type Launcher = {
 	Angle: number,
 	Steps: number,
 	LaunchSpeed: number,
+	PayScale: number,
 }
 
 local LongJump = {}
@@ -67,7 +68,7 @@ local function buildLauncher(parent: Instance, launcher: Launcher)
 	local kicker = CurvedWall.straight(model, at(launcher.X, 0, baseZ), launcher.Width, options)
 	CurvedWall.fill(kicker, GROUND, options)
 	local respawn = at(launcher.X, HULL_HEIGHT, L.RunwayZ - 20)
-	LaunchPad.top(kicker, launcher.Steps, launcher.LaunchSpeed, respawn)
+	LaunchPad.top(kicker, launcher.Steps, launcher.LaunchSpeed, respawn, launcher.PayScale)
 end
 
 function LongJump.build(folder: Folder, _area: MapLayout.Area)

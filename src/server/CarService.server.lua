@@ -109,8 +109,16 @@ local function seatDriver(car: Model, humanoid: Humanoid)
 	end
 end
 
+-- Forward declaration so placeCar can dispatch to it.
+local placeFrogCar
+
 -- Replaces the player's car with a fresh one at `cframe` and seats them in it.
+-- If the player has the frog car equipped, dispatches to placeFrogCar instead.
 local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
+	if player:GetAttribute("FrogCarEquipped") then
+		placeFrogCar(player, humanoid, cframe)
+		return
+	end
 	local ladderCar, stats, looks = Garage.car(player)
 	if not (ladderCar and stats and looks) or humanoid.Parent ~= player.Character then
 		return
@@ -130,7 +138,7 @@ end
 -- Builds a Frog Car for the player. Admin-only, spawned via the GiveFrogCar
 -- BindableEvent. Uses CarBuilder with frog stats and sets the FrogCar attribute
 -- so CarVisuals builds frog looks and CarController handles jumping.
-local function placeFrogCar(player: Player, humanoid: Humanoid, cframe: CFrame)
+placeFrogCar = function(player: Player, humanoid: Humanoid, cframe: CFrame)
 	if humanoid.Parent ~= player.Character then
 		return
 	end
@@ -220,6 +228,7 @@ giveFrogCar.Event:Connect(function(player: Player)
 		end
 		exited[player] = nil
 	end
+	player:SetAttribute("FrogCarEquipped", true)
 	placeFrogCar(player, humanoid, cframe)
 end)
 giveFrogCar.Parent = ServerStorage
@@ -311,6 +320,42 @@ if spawnCar and spawnCar:IsA("RemoteEvent") then
 		placeCar(player, humanoid, hrp.CFrame)
 	end)
 end
+-- Toggle the Frog Car on/off. Only works if the player owns the FrogCar limited.
+local toggleFrogCar = ReplicatedStorage:FindFirstChild("ToggleFrogCar")
+if toggleFrogCar and toggleFrogCar:IsA("RemoteEvent") then
+	toggleFrogCar.OnServerEvent:Connect(function(player: Player)
+		local limitedsOwned = player:GetAttribute("LimitedsOwned")
+		local owned = typeof(limitedsOwned) == "string" and string.find(limitedsOwned, "FrogCar") ~= nil
+		if not owned then
+			return
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not (humanoid and humanoid.Health > 0) then
+			return
+		end
+		local equipped = player:GetAttribute("FrogCarEquipped") == true
+		player:SetAttribute("FrogCarEquipped", not equipped)
+
+		local cframe
+		local existingCar = cars[player]
+		if existingCar then
+			cframe = existingCar:GetPivot()
+		else
+			local hrp = character:FindFirstChild("HumanoidRootPart")
+			if not hrp then
+				return
+			end
+			cframe = hrp.CFrame
+			for _, desc in character:GetDescendants() do
+				ghostPart(desc)
+			end
+			exited[player] = nil
+		end
+		placeCar(player, humanoid, cframe)
+	end)
+end
+
 for _, player in Players:GetPlayers() do
 	onPlayerAdded(player)
 end

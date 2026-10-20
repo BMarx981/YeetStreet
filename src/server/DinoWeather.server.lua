@@ -25,10 +25,143 @@ local DESPAWN_Y = -50         -- bones below this Y are removed
 
 local BONE_COLOR = Color3.fromRGB(220, 210, 180)
 
--- ── State ───────────────────────────────────────────────────────────────
+-- ── State (declared early so functions below can reference) ──────────────
 
 local raining = false
 local boneFolder = nil
+
+-- ── Trader NPC ──────────────────────────────────────────────────────────
+
+local ServerStorage = game:GetService("ServerStorage")
+local CollectionService = game:GetService("CollectionService")
+local traderTemplate = ServerStorage:FindFirstChild("BoneTrader")
+local traderNPC = nil
+local traderWanderTask = nil
+
+-- Wander config
+local WANDER_RADIUS = 250      -- studs from map center to pick wander targets
+local WANDER_TIMEOUT = 12      -- seconds before giving up on a walk target and picking a new one
+local TRADER_SPAWN_HEIGHT = 5  -- studs above ground to spawn
+
+-- Find a valid ground position by raycasting downward from the sky
+local function findGroundPos(x: number, z: number): Vector3?
+	local origin = Vector3.new(x, 500, z)
+	local direction = Vector3.new(0, -1000, 0)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	local excludeList = {}
+	if boneFolder then table.insert(excludeList, boneFolder) end
+	if traderNPC then table.insert(excludeList, traderNPC) end
+	params.FilterDescendantsInstances = excludeList
+
+	local result = workspace:Raycast(origin, direction, params)
+	if result and result.Position.Y > -10 then
+		return result.Position
+	end
+	return nil
+end
+
+local function spawnTrader()
+	if traderNPC then return end
+	if not traderTemplate then return end
+
+	traderNPC = traderTemplate:Clone()
+
+	-- Find a spawn position near the map center
+	local spawnPos = nil
+	for _ = 1, 20 do
+		local angle = math.random() * math.pi * 2
+		local dist = math.random(20, 100)
+		local x = math.cos(angle) * dist
+		local z = math.sin(angle) * dist
+		local ground = findGroundPos(x, z)
+		if ground then
+			spawnPos = ground + Vector3.new(0, 3, 0)
+			break
+		end
+	end
+
+	if not spawnPos then
+		spawnPos = Vector3.new(0, 5, 0)
+	end
+
+	traderNPC:PivotTo(CFrame.new(spawnPos))
+	traderNPC.Parent = workspace
+
+	-- Tag as Garage (so the shop key opens) and BoneTrader (so the shop shows
+	-- bone items instead of the regular garage)
+	CollectionService:AddTag(traderNPC, "Garage")
+	CollectionService:AddTag(traderNPC, "BoneTrader")
+
+	-- Add a glow so players can spot the trader easily
+	local humanoid = traderNPC:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		local root = traderNPC:FindFirstChild("HumanoidRootPart")
+		if root then
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 200, 100)
+			light.Range = 25
+			light.Brightness = 2
+			light.Parent = root
+		end
+	end
+
+	-- Start wandering loop
+	traderWanderTask = task.spawn(function()
+		while traderNPC and traderNPC.Parent do
+			local humanoid = traderNPC:FindFirstChildOfClass("Humanoid")
+			local root = traderNPC:FindFirstChild("HumanoidRootPart")
+			if not humanoid or not root then break end
+
+			-- Pick a random wander target
+			local targetPos = nil
+			for _ = 1, 10 do
+				local angle = math.random() * math.pi * 2
+				local dist = math.random(30, WANDER_RADIUS)
+				local x = math.cos(angle) * dist
+				local z = math.sin(angle) * dist
+				local ground = findGroundPos(x, z)
+				if ground then
+					targetPos = ground + Vector3.new(0, 3, 0)
+					break
+				end
+			end
+
+			if targetPos then
+				humanoid:MoveTo(targetPos)
+				-- Wait until the trader reaches the target or times out
+				local reached = false
+				local conn = humanoid.MoveToFinished:Connect(function()
+					reached = true
+				end)
+				local waited = 0
+				while not reached and waited < WANDER_TIMEOUT and traderNPC and traderNPC.Parent do
+					task.wait(0.5)
+					waited += 0.5
+				end
+				conn:Disconnect()
+			else
+				task.wait(1)
+			end
+
+			-- Brief pause between walks
+			if traderNPC and traderNPC.Parent then
+				task.wait(math.random(1, 3))
+			end
+		end
+	end)
+end
+
+local function removeTrader()
+	if traderWanderTask then
+		task.cancel(traderWanderTask)
+		traderWanderTask = nil
+	end
+	if traderNPC then
+		traderNPC:Destroy()
+		traderNPC = nil
+	end
+end
 
 -- ── Bone spawning ──────────────────────────────────────────────────────
 
@@ -79,6 +212,8 @@ local function spawnBone(center: Vector3)
 		coins.Value += BONE_VALUE
 		local bones = Leaderstats.value(player, "Bones")
 		bones.Value += 1
+		-- Also publish as an attribute so the GarageMenu client can refresh
+		player:SetAttribute("BoneCoins", coins.Value)
 		bone:Destroy()
 	end)
 
@@ -113,6 +248,9 @@ local function startBoneRain()
 
 	fireBoneRain(true)
 
+	-- Spawn the wandering Bone Trader NPC
+	spawnTrader()
+
 	task.spawn(function()
 		while raining do
 			task.wait(SPAWN_INTERVAL)
@@ -135,6 +273,7 @@ local function stopBoneRain()
 		boneFolder:Destroy()
 		boneFolder = nil
 	end
+	removeTrader()
 	fireBoneRain(false)
 end
 

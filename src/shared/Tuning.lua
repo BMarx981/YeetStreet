@@ -135,11 +135,20 @@ Tuning.Ladder = {
 -- stock that decreases as players buy it; when stock hits zero it's sold out.
 Tuning.Limiteds = {
 	{
+		Id = "FrogCar",
+		Name = "Frog Car",
+		Price = 0,
+		Stock = 0,
+		Description = "A special car that jumps instead of using jets. Admin-only.",
+		AdminOnly = true,
+	},
+	{
 		Id = "NeonGlow",
 		Name = "Neon Underglow",
 		Price = 25000,
 		Stock = 100,
 		Description = "Glowing neon lights beneath your car.",
+		AdminOnly = true,
 	},
 	{
 		Id = "GoldRims",
@@ -147,12 +156,14 @@ Tuning.Limiteds = {
 		Price = 50000,
 		Stock = 50,
 		Description = "Premium gold-plated wheels.",
+		AdminOnly = true,
 	},
 	{
 		Id = "RainbowTrail",
 		Name = "Rainbow Trail",
 		Price = 100000,
 		Stock = 25,
+		AdminOnly = true,
 		Description = "A rainbow trail follows your car through the air.",
 	},
 	{
@@ -161,14 +172,37 @@ Tuning.Limiteds = {
 		Price = 250000,
 		Stock = 10,
 		Description = "A golden crown floats above your car.",
+		AdminOnly = true,
+	},
+}
+
+-- Items sold by the Bone Trader NPC during bone rain, priced in BoneCoins
+-- (the leaderstat that goes up when players collect falling bones). Each item
+-- exchanges bones for cash; Stock of -1 means unlimited.
+Tuning.BoneShop = {
+	{
+		Id = "BoneCashSmall",
+		Name = "Pocket Change",
+		BonePrice = 25,
+		CashReward = 5000,
+		Description = "Swap 25 bones for $5,000 cash.",
+		Stock = -1,
 	},
 	{
-		Id = "FrogCar",
-		Name = "Frog Car",
-		Price = 0,
-		Stock = 0,
-		Description = "A special car that jumps instead of using jets. Admin-only.",
-		AdminOnly = true,
+		Id = "BoneCashMedium",
+		Name = "Bone Bundle",
+		BonePrice = 75,
+		CashReward = 20000,
+		Description = "Swap 75 bones for $20,000 cash.",
+		Stock = -1,
+	},
+	{
+		Id = "BoneCashLarge",
+		Name = "Bone Fortune",
+		BonePrice = 150,
+		CashReward = 50000,
+		Description = "Swap 150 bones for $50,000 cash.",
+		Stock = -1,
 	},
 }
 
@@ -497,6 +531,18 @@ Tuning.Map = {
 			ArriveZ = 700,
 			Heading = 0,
 		},
+		{
+			Id = "Corkscrew",
+			Name = "Corkscrew",
+			Kind = "Park",
+			X = -1700,
+			Z = -1300,
+			Width = 2000,
+			Depth = 4000,
+			ArriveX = -820,
+			ArriveZ = 650,
+			Heading = 0,
+		},
 	},
 }
 
@@ -504,16 +550,77 @@ Tuning.Map = {
 -- the hub launcher on its east side, all firing down the long jump field. X
 -- is world X. Each kicker's lip sits at LipZ, the hub ramp's lip, so the
 -- distance boards measure every launcher. Every plank of a kicker is a pad,
--- so a car too slow to climb it is still carried up and over.
+-- so a car too slow to climb it is still carried up and over. PayScale cuts
+-- the cash per point so a straight jump pays a little more than the hub
+-- launcher's 430, not two or three times as much (score and Best are not cut).
 Tuning.LongJump = {
 	LipZ = 88,
 	RunwayZ = 730, -- where every runway starts, level with the hub spawn
 	WallThickness = 2,
 	Launchers = {
-		-- With Radius 160 and Angle 40, a lip about 37 high, like the hub ramp.
-		{ Name = "BigKicker", X = 170, Width = 50, Radius = 160, Angle = 40, Steps = 14, LaunchSpeed = 380 },
-		-- With Radius 260 and Angle 45, a lip about 76 high.
-		{ Name = "SkyRamp", X = 320, Width = 70, Radius = 260, Angle = 45, Steps = 18, LaunchSpeed = 450 },
+		-- With Radius 160 and Angle 40, a lip about 37 high, like the hub
+		-- ramp. A straight jump scores about 770, so pays about 500.
+		{
+			Name = "BigKicker",
+			X = 170,
+			Width = 50,
+			Radius = 160,
+			Angle = 40,
+			Steps = 14,
+			LaunchSpeed = 380,
+			PayScale = 0.65,
+		},
+		-- With Radius 260 and Angle 45, a lip about 76 high. A straight jump
+		-- scores about 1030, so pays about 520.
+		{
+			Name = "SkyRamp",
+			X = 320,
+			Width = 70,
+			Radius = 260,
+			Angle = 45,
+			Steps = 18,
+			LaunchSpeed = 450,
+			PayScale = 0.5,
+		},
+	},
+}
+
+-- The corkscrew park (ServerScriptService.Parks.Corkscrew). X and Z are
+-- studs from the park's center. A straight ramp climbs Rise over Run toward
+-- -Z from X, StartZ to a kicker at the top, and a corkscrew track loops
+-- around it, entered from the ground on the right and leaving partway up the
+-- left wall of its last loop, which throws the car out to the left. Both have
+-- boosters all the way up.
+Tuning.Corkscrew = {
+	X = 700,
+	StartZ = 1800, -- where the middle ramp leaves the ground
+	Run = 1500,
+	Rise = 260,
+	Thickness = 2,
+	PayScale = 0.5,
+	Ramp = {
+		Width = 30,
+		BoostEvery = 150, -- studs between booster strips
+		BoostLength = 30,
+		BoostSpeed = 200,
+		-- On the end of the ramp, so it leaves about 10 + Angle degrees up.
+		KickRadius = 120,
+		KickAngle = 30,
+		KickSteps = 10,
+		LaunchSpeed = 380,
+	},
+	Track = {
+		Radius = 50, -- from the middle ramp's line to the track
+		Loops = 9,
+		StepsPerLoop = 32,
+		Width = 50,
+		ExitAngle = 45, -- how far up the wall past the last loop it ends
+		EndGap = 20, -- along the ramp, from the track's end to the kicker
+		BoostEvery = 4, -- every this many planks is a booster
+		BoostSpeed = 220, -- well over the 76 a car needs to stay on at the top
+		ExitPlanks = 4, -- the last planks, which launch
+		ExitSpeed = 320,
+		ApproachLength = 200,
 	},
 }
 

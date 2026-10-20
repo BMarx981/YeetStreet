@@ -319,7 +319,16 @@ local function build()
 			if item.AdminOnly then
 				r.detail.Text = item.Description
 				if table.find(ownedLimiteds, item.Id) then
-					setButton(r.button, "OWNED", false)
+					if item.Id == "FrogCar" then
+						local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
+						if frogEquipped then
+							setButton(r.button, "DRIVING", false)
+						else
+							setButton(r.button, "EQUIP", loaded and not busy)
+						end
+					else
+						setButton(r.button, "OWNED", false)
+					end
 				else
 					setButton(r.button, "LOCKED", false)
 				end
@@ -392,7 +401,15 @@ local function build()
 	for _, item in Tuning.Limiteds do
 		local r = limitedRows[item.Id]
 		r.button.Activated:Connect(function()
-			if r.button.Active then
+			if not r.button.Active then
+				return
+			end
+			if item.AdminOnly and item.Id == "FrogCar" then
+				local remote = ReplicatedStorage:FindFirstChild("ToggleFrogCar")
+				if remote and remote:IsA("RemoteEvent") then
+					remote:FireServer()
+				end
+			else
 				ask("BuyLimited", item.Id, `Got the {item.Name}!`)
 			end
 		end)
@@ -472,7 +489,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end
