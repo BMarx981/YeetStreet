@@ -14,7 +14,9 @@
 -- drifts toward a new random spot every so often. The marker tips away from
 -- the middle, gets pushed by random gusts that grow stronger the longer the
 -- grind lasts, and steering pushes it back. Outside the zone for Grace
--- seconds in a row, the car falls off.
+-- seconds in a row, the car falls off. For the first StartGrace seconds on
+-- the rail the zone holds still, no gusts blow, and the car cannot fall, so
+-- the player can find the bar first.
 
 local Grind = {}
 
@@ -44,6 +46,7 @@ export type Tuning = {
 	SteerForce: number,
 	Damping: number,
 	Grace: number,
+	StartGrace: number,
 }
 
 export type Balance = {
@@ -167,20 +170,23 @@ end
 -- when the car falls off.
 function Grind.stepBalance(b: Balance, steer: number, dt: number, rng: Random, tuning: Tuning): boolean
 	b.time += dt
+	local starting = b.time <= tuning.StartGrace + 1e-9
 
-	b.retarget -= dt
-	if b.retarget <= 0 then
-		local limit = 1 - tuning.ZoneHalf
-		b.zoneTarget = rng.range(-limit, limit)
-		b.retarget = rng.range(tuning.RetargetMin, tuning.RetargetMax)
-	end
-	local move = tuning.ZoneSpeed * dt
-	b.zone += math.clamp(b.zoneTarget - b.zone, -move, move)
+	if not starting then
+		b.retarget -= dt
+		if b.retarget <= 0 then
+			local limit = 1 - tuning.ZoneHalf
+			b.zoneTarget = rng.range(-limit, limit)
+			b.retarget = rng.range(tuning.RetargetMin, tuning.RetargetMax)
+		end
+		local move = tuning.ZoneSpeed * dt
+		b.zone += math.clamp(b.zoneTarget - b.zone, -move, move)
 
-	b.gustLeft -= dt
-	if b.gustLeft <= 0 then
-		b.gust = rng.range(-1, 1)
-		b.gustLeft = tuning.GustTime
+		b.gustLeft -= dt
+		if b.gustLeft <= 0 then
+			b.gust = rng.range(-1, 1)
+			b.gustLeft = tuning.GustTime
+		end
 	end
 
 	local accel = b.gust * Grind.wobble(b, tuning)
@@ -194,7 +200,7 @@ function Grind.stepBalance(b: Balance, steer: number, dt: number, rng: Random, t
 		b.velocity = 0
 	end
 
-	if Grind.inZone(b, tuning) then
+	if starting or Grind.inZone(b, tuning) then
 		b.outside = 0
 	else
 		b.outside += dt

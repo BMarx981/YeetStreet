@@ -20,6 +20,7 @@ local TUNING: Grind.Tuning = {
 	SteerForce = 8,
 	Damping = 3,
 	Grace = 0.5,
+	StartGrace = 0,
 }
 
 -- 100 studs along +Z at height 3; the grind line is 2 above it, at y 5.
@@ -109,6 +110,30 @@ Check.test("coming back inside resets the grace time", function()
 	b.velocity = 0
 	Grind.stepBalance(b, 0, 0.1, rng, calm)
 	Check.eq(b.outside, 0)
+end)
+
+Check.test("the car cannot fall during the start grace", function()
+	local calm = still({ Tip = 0, Wobble = 0, WobbleGrowth = 0, ZoneSpeed = 0, StartGrace = 1.5 })
+	local b = Grind.balance()
+	b.marker = 0.9
+	local rng = Rng.new(1)
+	for i = 1, 6 do -- 1.5 seconds
+		Check.eq(Grind.stepBalance(b, 0, 0.25, rng, calm), false, `step {i}`)
+		Check.eq(b.outside, 0, `outside at step {i}`)
+	end
+	Check.eq(Grind.stepBalance(b, 0, 0.25, rng, calm), false, "grace time starts after")
+	Check.eq(Grind.stepBalance(b, 0, 0.25, rng, calm), true, "at the grace time after")
+end)
+
+Check.test("the zone and gusts wait for the start grace to end", function()
+	local b = Grind.balance()
+	local rng = Rng.new(5)
+	for _ = 1, 6 do -- 1.5 seconds
+		Grind.stepBalance(b, 0, 0.25, rng, still({ StartGrace = 1.5 }))
+	end
+	Check.eq(b.zone, 0, "zone")
+	Check.eq(b.marker, 0, "marker")
+	Check.eq(b.gust, 0, "gust")
 end)
 
 Check.test("steering pushes the marker that way", function()

@@ -366,6 +366,7 @@ Tuning.Grind = {
 	SteerForce = 8,
 	Damping = 3,
 	Grace = 0.5, -- seconds outside the zone before slipping off
+	StartGrace = 1.5, -- seconds after getting on before the zone moves, gusts blow, or the car can slip off
 }
 
 Tuning.Hud = {
@@ -693,7 +694,7 @@ Tuning.Skate = {
 		LaunchSpeed = 220,
 		BermRun = 213, -- the outside ramp, from its foot in to the rim: about 25 degrees
 		BermSteps = 8,
-		BermSlices = 144,
+		BermSlices = 96,
 		BoostSpeed = 190, -- the bottom ring of the outside ramp
 	},
 	-- Tall walls with pads along the bottom of both, so a car rolling toward
