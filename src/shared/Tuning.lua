@@ -616,6 +616,11 @@ Tuning.Corkscrew = {
 		-- Along the ramp. Under the gap between loops (about 124), or the
 		-- loops close into a tube.
 		Width = 80,
+		-- Each side curls LipHeight up toward the ramp over its outer
+		-- LipWidth, so the track is a gutter that pushes a drifting car back
+		-- to the flat middle.
+		LipWidth = 15,
+		LipHeight = 8,
 		ExitAngle = 45, -- how far up the wall past the last loop it ends
 		EndGap = 20, -- along the ramp, from the track's end to the kicker
 		BoostEvery = 4, -- every this many planks is a booster
