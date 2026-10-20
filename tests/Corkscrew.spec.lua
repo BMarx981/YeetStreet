@@ -39,15 +39,16 @@ Check.test("each plank ends where the next starts", function()
 	end
 end)
 
-Check.test("a plank is the chord of its slice of the helix", function()
+Check.test("a plank runs square to the axis, so neighbors share a straight seam", function()
 	local radius, pitch = 50, 130
 	local plank = Corkscrew.planks(radius, pitch, 1, 32, 0)[1]
 	local step = 2 * math.pi / 32
 	local around = 2 * radius * math.sin(step / 2)
 	local along = pitch / 32
 	Check.near(plank.step, step, "step")
-	Check.near(plank.length, math.sqrt(around ^ 2 + along ^ 2), "length")
-	Check.near(plank.slope, math.atan2(along, around), "slope")
+	Check.near(plank.length, around, "the chord of its slice of the circle")
+	Check.near(plank.shift, along, "the next plank sits this much farther along")
+	Check.near(plank.slope, math.atan2(along, around), "the track turns this far from straight around")
 	Check.near(plank.inset, radius * (1 - math.cos(step / 2)), "the chord's middle sits inside the circle")
 end)
 
@@ -57,11 +58,12 @@ Check.test("with no pitch it is a flat ring", function()
 	Check.near(planks[12].along, 0, "never moves along")
 end)
 
-Check.test("the track starts where the bottom of a loop just touches the ground", function()
+Check.test("the track starts where the low side of a loop's bottom just touches the ground", function()
 	-- A rise of 3 over a run of 4 climbs 3 for every 5 along, and a loop
-	-- square to that axis reaches 4/5 of its radius below it.
-	local along = Corkscrew.entry(30, 300, 400)
-	Check.near(along * 3 / 5, 30 * 4 / 5)
+	-- square to that axis reaches 4/5 of its radius below it. The track's
+	-- near edge is half its width back down the axis.
+	local along = Corkscrew.entry(30, 300, 400, 20)
+	Check.near((along - 10) * 3 / 5, 30 * 4 / 5)
 end)
 
 Check.finish("Corkscrew")

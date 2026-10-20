@@ -612,15 +612,21 @@ Tuning.Corkscrew = {
 	Track = {
 		Radius = 50, -- from the middle ramp's line to the track
 		Loops = 9,
-		StepsPerLoop = 32,
-		Width = 50,
+		StepsPerLoop = 48,
+		-- Along the ramp. Under the gap between loops (about 124), or the
+		-- loops close into a tube.
+		Width = 80,
 		ExitAngle = 45, -- how far up the wall past the last loop it ends
 		EndGap = 20, -- along the ramp, from the track's end to the kicker
 		BoostEvery = 4, -- every this many planks is a booster
 		BoostSpeed = 220, -- well over the 76 a car needs to stay on at the top
-		ExitPlanks = 4, -- the last planks, which launch
+		ExitPlanks = 6, -- the last planks, which launch
 		ExitSpeed = 320,
-		ApproachLength = 200,
+		-- From flat floor into the track's first plank, whose edge slopes
+		-- with the ramp; the last rows are boosters.
+		RunwayLength = 300,
+		RunwayRows = 12,
+		RunwayBoostRows = 2,
 	},
 }
 

@@ -3,7 +3,10 @@
 -- The track of a corkscrew: a helix of `radius` around a straight axis,
 -- moving `pitch` studs along the axis for each loop, built from straight
 -- planks. The car rides on the inside, with the axis overhead at the bottom
--- of each loop and underfoot at the top. Pure, see InputAxes.
+-- of each loop and underfoot at the top. Each plank lies square to the axis,
+-- its width along the axis, and the next one sits a little farther along, so
+-- neighbors share one straight seam the way a curved ramp's planks do. Pure,
+-- see InputAxes.
 --
 -- Helix coordinates: `along` is studs along the axis from where the track
 -- starts, `angle` is radians around the axis from the bottom of the first
@@ -15,9 +18,10 @@ export type Plank = {
 	along: number, -- midpoint
 	angle: number, -- midpoint
 	step: number, -- radians around the axis from the plank's start to its end
-	length: number, -- chord length, before any overlap
-	-- Radians the plank turns from straight around the axis toward straight
-	-- along it.
+	length: number, -- chord length around the axis, before any overlap
+	shift: number, -- studs along the axis from this plank to the next
+	-- Radians the track turns from straight around the axis toward straight
+	-- along it, which is the way a booster on the plank pushes.
 	slope: number,
 	inset: number, -- how much nearer the axis than `radius` its middle sits
 }
@@ -39,7 +43,8 @@ function Corkscrew.planks(radius: number, pitch: number, loops: number, stepsPer
 			along = pitch * angle / (2 * math.pi),
 			angle = angle,
 			step = step,
-			length = math.sqrt(around ^ 2 + alongStep ^ 2),
+			length = around,
+			shift = alongStep,
 			slope = math.atan2(alongStep, around),
 			inset = radius * (1 - math.cos(step / 2)),
 		})
@@ -47,10 +52,11 @@ function Corkscrew.planks(radius: number, pitch: number, loops: number, stepsPer
 	return planks
 end
 
--- How far along an axis climbing `rise` over `run` from the ground a loop
--- square to the axis just touches the ground.
-function Corkscrew.entry(radius: number, rise: number, run: number): number
-	return radius * run / rise
+-- How far along an axis climbing `rise` over `run` from the ground a track
+-- `width` wide can start, so the low side of its first loop's bottom just
+-- touches the ground.
+function Corkscrew.entry(radius: number, rise: number, run: number, width: number): number
+	return radius * run / rise + width / 2
 end
 
 return Corkscrew

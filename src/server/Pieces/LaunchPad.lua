@@ -7,20 +7,29 @@
 -- RespawnCFrame
 -- attribute is where a reset or wreck puts a car that last launched there
 -- (ScoreService). An optional PayScale attribute scales the cash a run from
--- it pays, so the biggest launchers can pay less per point.
+-- it pays, so the biggest launchers can pay less per point. An optional
+-- LaunchDirection attribute (world space) pushes that way instead of along
+-- the LookVector, for pads laid across the way the track runs.
 
 local LaunchPad = {}
 
 local COLOR = Color3.fromRGB(255, 200, 40)
 
 -- Makes `part` a launch pad.
-function LaunchPad.make(part: BasePart, launchSpeed: number, respawn: CFrame, payScale: number?)
+function LaunchPad.make(
+	part: BasePart,
+	launchSpeed: number,
+	respawn: CFrame,
+	payScale: number?,
+	direction: Vector3?
+)
 	part.Name = "LaunchPad"
 	part.Color = COLOR
 	part.Material = Enum.Material.Neon
 	part:SetAttribute("LaunchSpeed", launchSpeed)
 	part:SetAttribute("RespawnCFrame", respawn)
 	part:SetAttribute("PayScale", payScale)
+	part:SetAttribute("LaunchDirection", direction)
 end
 
 -- A flat pad whose top face is centered on `top`, pushing along its LookVector.

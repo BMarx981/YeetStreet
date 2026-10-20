@@ -4,8 +4,9 @@
 -- top of the park's floor. Two ways up one long climb: a straight ramp up
 -- the middle to a kicker at the top, and a corkscrew track looping around
 -- that ramp (Corkscrew), ridden on the inside, upside down at the top of each
--- loop. The track's edges are open, so a car that drifts off falls. Boosters
--- run all the way up both. Numbers are in Tuning.Corkscrew.
+-- loop. The track's edges are open, so a car that drifts off falls. A runway
+-- leads into the track from the floor. Boosters run all the way up both.
+-- Numbers are in Tuning.Corkscrew.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -15,6 +16,7 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
+local Triangle = require(ServerScriptService.Pieces.Triangle)
 
 local C = Tuning.Corkscrew
 local FLOOR = Tuning.Map.FloorTop
@@ -88,49 +90,87 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 	LaunchPad.top(kicker, R.KickSteps, R.LaunchSpeed, respawn, C.PayScale)
 end
 
+-- A point on the track's circle, `angle` around from the bottom and `along`
+-- up the axis.
+local function onCircle(axis: CFrame, radius: number, angle: number, along: number): Vector3
+	return axis:PointToWorldSpace(
+		Vector3.new(radius * math.sin(TURN * angle), -radius * math.cos(TURN * angle), -along)
+	)
+end
+
+-- A runway from flat floor RunwayLength back along `heading`, blending in
+-- RunwayRows rows of triangles into the sloped edge from `low` to `high`
+-- where the track starts. Its last RunwayBoostRows rows are boosters.
+local function buildRunway(parent: Instance, low: Vector3, high: Vector3, heading: Vector3, respawn: CFrame)
+	local T = C.Track
+	local function floorPoint(p: Vector3): Vector3
+		local back = p - heading * T.RunwayLength
+		return Vector3.new(back.X, FLOOR, back.Z)
+	end
+	local backLow, backHigh = floorPoint(low), floorPoint(high)
+	for row = 1, T.RunwayRows do
+		local t0, t1 = (row - 1) / T.RunwayRows, row / T.RunwayRows
+		local a, b = backLow:Lerp(low, t0), backHigh:Lerp(high, t0)
+		local c, d = backLow:Lerp(low, t1), backHigh:Lerp(high, t1)
+		local parts = Triangle.make(parent, a, b, d, Vector3.yAxis, C.Thickness, RUNWAY_COLOR)
+		for _, part in Triangle.make(parent, a, d, c, Vector3.yAxis, C.Thickness, RUNWAY_COLOR) do
+			table.insert(parts, part)
+		end
+		if row > T.RunwayRows - T.RunwayBoostRows then
+			local direction = ((c + d) / 2 - (a + b) / 2).Unit
+			for _, part in parts do
+				LaunchPad.make(part, T.BoostSpeed, respawn, C.PayScale, direction)
+			end
+		end
+	end
+end
+
 local function buildTrack(parent: Instance, axis: CFrame, length: number)
 	local T = C.Track
 	local model = Instance.new("Model")
 	model.Name = "Corkscrew"
 	model.Parent = parent
 
-	local entry = Corkscrew.entry(T.Radius, C.Rise, C.Run)
-	local pitch = (length - entry - T.EndGap) / (T.Loops + T.ExitAngle / 360)
+	local entry = Corkscrew.entry(T.Radius, C.Rise, C.Run, T.Width)
+	local pitch = (length - entry - T.Width / 2 - T.EndGap) / (T.Loops + T.ExitAngle / 360)
 	local planks = Corkscrew.planks(T.Radius, pitch, T.Loops, T.StepsPerLoop, T.ExitAngle)
 
-	-- Where the track meets the floor, and the way in along the floor.
-	local start = axis * CFrame.new(0, 0, -entry) * CFrame.new(0, -T.Radius, 0)
+	-- The first plank's back edge, where the runway meets the track, and the
+	-- way along the floor into it: around the loop and up the ramp the way
+	-- the track runs, so a car driving straight in keeps up with the track.
 	local first = planks[1]
-	local look = (start * CFrame.Angles(0, TURN * (first.slope - math.pi / 2), 0)).LookVector
-	look = Vector3.new(look.X, 0, look.Z).Unit
-	local enter = Vector3.new(start.Position.X, FLOOR, start.Position.Z)
-	local runwayMid = enter - look * T.ApproachLength / 2
-	block(
-		model,
-		"Runway",
-		Vector3.new(T.Width, 0.2, T.ApproachLength),
-		CFrame.lookAt(runwayMid, runwayMid + look) * CFrame.new(0, -0.05, 0),
-		RUNWAY_COLOR
-	)
-	local back = enter - look * (T.ApproachLength - 20)
-	local respawn = CFrame.lookAt(back, back + look) * CFrame.new(0, HULL_HEIGHT, 0)
+	local firstAlong = entry + first.along
+	local low = onCircle(axis, T.Radius, 0, firstAlong - T.Width / 2)
+	local high = onCircle(axis, T.Radius, 0, firstAlong + T.Width / 2)
+	local firstAround = (onCircle(axis, T.Radius, first.step, firstAlong) - onCircle(axis, T.Radius, 0, firstAlong)).Unit
+	local into = firstAround * first.length + axis.LookVector * first.shift
+	local heading = Vector3.new(into.X, 0, into.Z).Unit
+	local start = (low + high) / 2 - heading * (T.RunwayLength - 20)
+	local respawn = CFrame.lookAt(start, start + heading) * CFrame.new(0, FLOOR - start.Y + HULL_HEIGHT, 0)
+	buildRunway(model, low, high, heading, respawn)
 
 	for i, plank in planks do
-		-- Out from the axis to the plank's angle, turned from straight around
-		-- toward straight along by its slope, then down half its thickness so
-		-- its top face lies on the helix.
-		local cframe = axis
-			* CFrame.new(0, 0, -(entry + plank.along))
-			* CFrame.Angles(0, 0, TURN * plank.angle)
-			* CFrame.new(0, -(T.Radius - plank.inset), 0)
-			* CFrame.Angles(0, TURN * (plank.slope - math.pi / 2), 0)
-			* CFrame.new(0, -C.Thickness / 2, 0)
-		local part =
-			block(model, "Plank", Vector3.new(T.Width, C.Thickness, plank.length + OVERLAP), cframe, TRACK_COLOR)
+		-- The chord of the plank's slice of the circle, square to the axis,
+		-- with its top face on the chord and its width along the axis.
+		local along = entry + plank.along
+		local from = onCircle(axis, T.Radius, plank.angle - plank.step / 2, along)
+		local to = onCircle(axis, T.Radius, plank.angle + plank.step / 2, along)
+		local middle = (from + to) / 2
+		local around = (to - from).Unit
+		local inward = (axis:PointToWorldSpace(Vector3.new(0, 0, -along)) - middle).Unit
+		local part = block(
+			model,
+			"Plank",
+			Vector3.new(T.Width, C.Thickness, plank.length + OVERLAP),
+			CFrame.fromMatrix(middle - inward * C.Thickness / 2, around:Cross(inward), inward),
+			TRACK_COLOR
+		)
+		-- Boosters push the way the track runs, not straight around.
+		local direction = (around * plank.length + axis.LookVector * plank.shift).Unit
 		if i > #planks - T.ExitPlanks then
-			LaunchPad.make(part, T.ExitSpeed, respawn, C.PayScale)
+			LaunchPad.make(part, T.ExitSpeed, respawn, C.PayScale, direction)
 		elseif i % T.BoostEvery == 0 then
-			LaunchPad.make(part, T.BoostSpeed, respawn, C.PayScale)
+			LaunchPad.make(part, T.BoostSpeed, respawn, C.PayScale, direction)
 		end
 	end
 end

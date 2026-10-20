@@ -272,7 +272,8 @@ local function launch(r: Rig, pad: BasePart)
 	if typeof(speed) ~= "number" then
 		return
 	end
-	local dir = pad.CFrame.LookVector
+	local direction = pad:GetAttribute("LaunchDirection")
+	local dir = if typeof(direction) == "Vector3" then direction.Unit else pad.CFrame.LookVector
 	local velocity = r.hull.AssemblyLinearVelocity
 	local along = velocity:Dot(dir)
 	-- Only a car already heading the pad's way, so crossing a bowl's rim pads
