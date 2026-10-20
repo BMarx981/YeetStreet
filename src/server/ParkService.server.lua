@@ -4,6 +4,8 @@
 -- a concrete floor over the park's ground and a name sign by its arrival
 -- point. A park with a module in ServerScriptService.Parks (named by its Id)
 -- also gets that module's build(folder, area) for its launchers and obstacles.
+-- Other areas with a module, such as the long jump, get only the module's
+-- build, with no floor or sign.
 -- A park whose folder is already in workspace was saved with the place, so it
 -- is left as it is. Warns at startup about anything wrong with the layout.
 
@@ -79,14 +81,17 @@ parks.Parent = workspace
 local modules = ServerScriptService:FindFirstChild("Parks")
 
 for _, area in areas do
-	if area.Kind ~= "Park" or parks:FindFirstChild(area.Id) then
+	local module = modules and modules:FindFirstChild(area.Id)
+	local hasModule = module ~= nil and module:IsA("ModuleScript")
+	if (area.Kind ~= "Park" and not hasModule) or parks:FindFirstChild(area.Id) then
 		continue
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = area.Id
-	floor(folder, area)
-	sign(folder, area)
-	local module = modules and modules:FindFirstChild(area.Id)
+	if area.Kind == "Park" then
+		floor(folder, area)
+		sign(folder, area)
+	end
 	if module and module:IsA("ModuleScript") then
 		local park: ParkModule = (require :: any)(module)
 		park.build(folder, area)

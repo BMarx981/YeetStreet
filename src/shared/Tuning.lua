@@ -500,6 +500,23 @@ Tuning.Map = {
 	},
 }
 
+-- The long jump (ServerScriptService.Parks.LongJump): bigger launchers beside
+-- the hub launcher on its east side, all firing down the long jump field. X
+-- is world X. Each kicker's lip sits at LipZ, the hub ramp's lip, so the
+-- distance boards measure every launcher. Every plank of a kicker is a pad,
+-- so a car too slow to climb it is still carried up and over.
+Tuning.LongJump = {
+	LipZ = 88,
+	RunwayZ = 730, -- where every runway starts, level with the hub spawn
+	WallThickness = 2,
+	Launchers = {
+		-- With Radius 160 and Angle 40, a lip about 37 high, like the hub ramp.
+		{ Name = "BigKicker", X = 170, Width = 50, Radius = 160, Angle = 40, Steps = 14, LaunchSpeed = 380 },
+		-- With Radius 260 and Angle 45, a lip about 76 high.
+		{ Name = "SkyRamp", X = 320, Width = 70, Radius = 260, Angle = 45, Steps = 18, LaunchSpeed = 450 },
+	},
+}
+
 -- The skate park (ServerScriptService.Parks.Skate). X and Z are studs from
 -- the park's center; the arrival point is at X -300, Z 800, facing -Z. Each
 -- launcher has a runway from RunwayZ toward -Z, and resets put the car at its
