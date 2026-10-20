@@ -50,7 +50,6 @@ function ParkAreas.show(): Folder
 			continue
 		end
 		local color = if area.Kind == "Park" then PARK_COLOR else OPEN_COLOR
-		local note = if area.Kind == "Park" then "built by code, keep clear" else "landing field, keep clear"
 
 		local mark = Instance.new("Part")
 		mark.Name = area.Id
@@ -67,22 +66,6 @@ function ParkAreas.show(): Folder
 		outline.Color3 = color
 		outline.LineThickness = 1.5
 		outline.Parent = mark
-
-		local label = Instance.new("BillboardGui")
-		label.Size = UDim2.fromOffset(320, 60)
-		label.StudsOffsetWorldSpace = Vector3.new(0, 60, 0)
-		label.AlwaysOnTop = true
-		label.MaxDistance = 20000
-		label.Parent = mark
-		local text = Instance.new("TextLabel")
-		text.Size = UDim2.fromScale(1, 1)
-		text.BackgroundTransparency = 1
-		text.Text = `{area.Name}\n{note}`
-		text.TextScaled = true
-		text.Font = Enum.Font.GothamBlack
-		text.TextColor3 = color
-		text.TextStrokeTransparency = 0.2
-		text.Parent = label
 	end
 	folder.Parent = workspace
 	print(`ParkAreas: marked {#folder:GetChildren()} areas.`)
