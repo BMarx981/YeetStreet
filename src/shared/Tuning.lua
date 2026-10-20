@@ -685,13 +685,15 @@ Tuning.Skate = {
 		FloorRadius = 240,
 		Radius = 120, -- with Angle 80, a wall about 99 studs high
 		Angle = 80,
-		Steps = 12,
-		Slices = 72,
-		PadPlanks = 2, -- per slice, at the top of the wall
+		-- Many small planks, so a car riding the wall crosses folds of about
+		-- 3 degrees instead of bumping over bigger ones.
+		Steps = 24,
+		Slices = 144,
+		PadPlanks = 4, -- per slice, at the top of the wall
 		LaunchSpeed = 220,
 		BermRun = 213, -- the outside ramp, from its foot in to the rim: about 25 degrees
 		BermSteps = 8,
-		BermSlices = 96,
+		BermSlices = 144,
 		BoostSpeed = 190, -- the bottom ring of the outside ramp
 	},
 	-- Tall walls with pads along the bottom of both, so a car rolling toward
