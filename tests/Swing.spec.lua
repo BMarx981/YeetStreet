@@ -13,6 +13,9 @@ local TUNING: Swing.Tuning = {
 	SeatWidth = 40,
 	SeatDepth = 40,
 	HoldHeight = 6,
+	DriveSpeed = 16,
+	DriveAccel = 40,
+	SteerRate = 2.5,
 }
 
 local DT = 1 / 60
@@ -121,6 +124,68 @@ Check.test("slack widens the footprint", function()
 	local s = Swing.new(0)
 	Check.eq(Swing.onSeat(s, 0, -70 + 2.6, 25, 0, TUNING), false)
 	Check.eq(Swing.onSeat(s, 0, -70 + 2.6, 25, 10, TUNING), true)
+end)
+
+local function rider(yaw: number): Swing.Rider
+	return { x = 0, z = 0, yaw = yaw, speed = 0 }
+end
+
+-- Drives for up to `seconds`; returns whether the car stayed on and how long it took to leave.
+local function driveFor(r: Swing.Rider, throttle: number, steer: number, seconds: number): (boolean, number)
+	for i = 1, math.floor(seconds / DT) do
+		if not Swing.drive(r, throttle, steer, DT, TUNING) then
+			return false, i * DT
+		end
+	end
+	return true, seconds
+end
+
+Check.test("gas drives the car along its nose and off the front edge", function()
+	local r = rider(0)
+	local stayed, took = driveFor(r, 1, 0, 10)
+	Check.eq(stayed, false, "drove off")
+	Check.eq(r.z < -TUNING.SeatDepth / 2, true, "past the front")
+	Check.near(r.x, 0, "straight")
+	Check.eq(took > 1, true, "takes a moment")
+end)
+
+Check.test("a car facing across the seat drives off the side", function()
+	local r = rider(math.pi / 2)
+	Check.eq((driveFor(r, 1, 0, 10)), false)
+	Check.eq(r.x < -TUNING.SeatWidth / 2, true, "past the left side")
+end)
+
+Check.test("the car never drives faster than DriveSpeed and stops when let off", function()
+	local r = rider(0)
+	for _ = 1, 30 do
+		Swing.drive(r, 1, 0, DT, TUNING)
+		Check.eq(r.speed <= TUNING.DriveSpeed, true)
+	end
+	driveFor(r, 0, 0, 2)
+	Check.eq(r.speed, 0)
+end)
+
+Check.test("brake drives it backward", function()
+	local r = rider(0)
+	Check.eq((driveFor(r, -1, 0, 10)), false)
+	Check.eq(r.z > TUNING.SeatDepth / 2, true, "past the back")
+end)
+
+Check.test("steering turns the car only while it moves", function()
+	local still = rider(0)
+	Swing.drive(still, 0, 1, DT, TUNING)
+	Check.eq(still.yaw, 0, "parked")
+	local moving = rider(0)
+	moving.speed = TUNING.DriveSpeed
+	Swing.drive(moving, 1, 1, DT, TUNING)
+	Check.eq(moving.yaw < 0, true, "right is a negative turn")
+end)
+
+Check.test("gas pumps the way the nose points along the swing", function()
+	Check.near(Swing.pump(rider(0), 1), 1, "nose forward")
+	Check.near(Swing.pump(rider(math.pi), 1), -1, "nose back")
+	Check.near(Swing.pump(rider(0), -1), -1, "reversing")
+	Check.near(Swing.pump(rider(math.pi / 2), 1), 0, "across")
 end)
 
 Check.finish("Swing")

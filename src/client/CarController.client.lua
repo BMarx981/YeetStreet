@@ -303,7 +303,7 @@ local function step(r: Rig, dt: number)
 	-- driving, jets, or air control.
 	if
 		GrindRide.step(r.model, r.hull, r.roots, input.steer, input.jet, dt)
-		or SwingRide.step(r.model, r.hull, r.roots, input.throttle, input.jet, dt)
+		or SwingRide.step(r.model, r.hull, r.roots, input.throttle, input.steer, input.jet, dt)
 	then
 		burning = false
 		r.jet.Force = Vector3.zero

@@ -14,6 +14,11 @@
 -- with the motion swings it higher, against it slows it. High enough, it goes
 -- all the way over the top. Damping slowly takes back what pumping added, and
 -- the seat never moves faster than MaxSpeed.
+--
+-- A car riding a seat drives around on it like on the ground, only slower
+-- (drive): gas pumps the way its nose points along the swing (pump), so
+-- driving back and forth in time with the swing swings it higher. Driving
+-- past an edge takes it off the seat.
 
 local Swing = {}
 
@@ -28,10 +33,23 @@ export type Tuning = {
 	SeatWidth: number, -- along X
 	SeatDepth: number, -- along the swing
 	HoldHeight: number, -- a hull up to this far above the seat's top face is on it
+	DriveSpeed: number, -- studs per second a car drives on the seat
+	DriveAccel: number,
+	SteerRate: number, -- radians per second of turn at DriveSpeed
 }
 
 export type State = {
 	angle: number, -- radians, from -pi to pi
+	speed: number,
+}
+
+-- A car on a seat, in the seat's space (see toSeat): its hull's x and z,
+-- its heading (0 nose forward, positive turned left), and its speed along
+-- its nose.
+export type Rider = {
+	x: number,
+	z: number,
+	yaw: number,
 	speed: number,
 }
 
@@ -104,6 +122,24 @@ function Swing.onSeat(s: State, x: number, y: number, z: number, slack: number, 
 		and math.abs(sz) <= tuning.SeatDepth / 2 + slack
 		and sy >= -slack
 		and sy <= tuning.HoldHeight + slack
+end
+
+-- Drives a car on the seat one step with `throttle` and `steer` from -1 to
+-- 1, positive steer turning right. Returns false once the hull's center is
+-- past an edge: it drove off.
+function Swing.drive(r: Rider, throttle: number, steer: number, dt: number, tuning: Tuning): boolean
+	local change = tuning.DriveAccel * dt
+	r.speed += math.clamp(throttle * tuning.DriveSpeed - r.speed, -change, change)
+	r.yaw -= steer * tuning.SteerRate * (r.speed / tuning.DriveSpeed) * dt
+	r.x -= math.sin(r.yaw) * r.speed * dt
+	r.z -= math.cos(r.yaw) * r.speed * dt
+	return math.abs(r.x) <= tuning.SeatWidth / 2 and math.abs(r.z) <= tuning.SeatDepth / 2
+end
+
+-- How hard the rider pumps the swing, from -1 to 1: gas along the way its
+-- nose points along the swing.
+function Swing.pump(r: Rider, throttle: number): number
+	return throttle * math.cos(r.yaw)
 end
 
 return Swing

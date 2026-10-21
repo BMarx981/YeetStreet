@@ -159,6 +159,49 @@ remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
 	end, false)
 end)
 
+remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
+	if typeof(id) ~= "string" then
+		return false, "UnknownBoneShop"
+	end
+	local item
+	for _, shopItem in Tuning.BoneShop do
+		if shopItem.Id == id then
+			item = shopItem
+			break
+		end
+	end
+	if not item then
+		return false, "UnknownBoneShop"
+	end
+	local now = os.clock()
+	if now - (lastRequestAt[player] or -math.huge) < Tuning.Garage.RequestGap then
+		return false, "TooSoon"
+	end
+	lastRequestAt[player] = now
+	local data = PlayerData.get(player)
+	if not data then
+		return false, "NotLoaded"
+	end
+	local boneCoins = Leaderstats.value(player, "BoneCoins")
+	if not boneCoins or boneCoins.Value < item.BonePrice then
+		return false, "NotEnoughBones"
+	end
+	boneCoins.Value -= item.BonePrice
+	player:SetAttribute("BoneCoins", boneCoins.Value)
+	if item.CarId then
+		if table.find(data.Economy.Cars, item.CarId) then
+			boneCoins.Value += item.BonePrice
+			player:SetAttribute("BoneCoins", boneCoins.Value)
+			return false, "Owned"
+		end
+		table.insert(data.Economy.Cars, item.CarId)
+	else
+		data.Economy.Cash += item.CashReward
+	end
+	publish(player, data.Economy)
+	return true, nil
+end)
+
 -- Grants a limited item without charge. Used by admin commands (e.g. :frog)
 -- to give admin-only limiteds like the Frog Car. Adds the id to the player's
 -- saved Limiteds and publishes the update so the garage UI refreshes.

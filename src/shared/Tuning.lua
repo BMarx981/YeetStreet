@@ -372,7 +372,8 @@ Tuning.Grind = {
 }
 
 -- Giant swings (Swing, SwingRide, SwingService). A car on a seat sticks to
--- it, even upside down; gas and brake pump it, jets launch off it.
+-- it, even upside down, and drives around on it; gas pumps it the way the
+-- nose points, driving off an edge or jets get off it.
 Tuning.Swing = {
 	Gravity = Tuning.World.Gravity,
 	Length = 70, -- pivot to the seat's top face; over the top takes about 191 studs/s at the bottom
@@ -386,9 +387,11 @@ Tuning.Swing = {
 	SeatThickness = 2,
 	HoldHeight = 6, -- a hull this close above the seat's top face gets on
 	CaptureUp = 0.5, -- and its up vector at least this much along the seat's
-	Slide = 8, -- studs the car rolls along the seat toward the way it pumps
-	SlideRate = 4,
-	TurnRate = 6, -- radians per second the car turns to face along the seat
+	-- Slow, so gas held through half a swing (about 2.3 s) takes the car
+	-- most of the way across the seat instead of off it.
+	DriveSpeed = 16,
+	DriveAccel = 40,
+	SteerRate = 2.5, -- radians per second of turn at DriveSpeed
 	Hop = 40, -- off the seat's face when jets launch the car
 	Cooldown = 1, -- seconds before a seat can catch the car that just left it
 	SendRate = 15, -- times per second the rider's client and the server send the swing
@@ -629,10 +632,13 @@ Tuning.Corkscrew = {
 	PayScale = 0.5,
 	Ramp = {
 		Width = 30, -- the flat middle
-		-- Each side curls LipHeight up over LipWidth beyond the flat middle,
-		-- like the corkscrew track's lips.
-		LipWidth = 15,
-		LipHeight = 8,
+		-- Each side curves up WallRadius to vertical, WallRadius beyond the
+		-- flat middle, in WallSteps strips (7.5 degree folds at 12), so a car
+		-- steering into it rides up and comes back down instead of over.
+		-- 15 turns back about 60 studs/s sideways; the tops stay about 4
+		-- studs inside cars riding the corkscrew's lips.
+		WallRadius = 15,
+		WallSteps = 12,
 		BoostEvery = 150, -- studs between booster strips
 		BoostLength = 30,
 		BoostSpeed = 200,
@@ -731,12 +737,16 @@ Tuning.Skate = {
 		GapOutside = 60,
 		GapAngle = 120,
 	},
-	-- A swing set: Count giant swings (Tuning.Swing) in a row along X,
-	-- swinging along Z. A kicker in front aims at the seats, and a deck at
-	-- each end of the row lines up with an end seat at the bottom of its swing.
+	-- A swing set: Count giant swings (Tuning.Swing) in a row, a kicker in
+	-- front aiming at the seats, and a deck at each end of the row lined up
+	-- with an end seat at the bottom of its swing. Unturned, the row runs
+	-- along X and the kicker is on the +Z side; Turn turns the whole set
+	-- about the middle of its pivot line (90 puts the kicker on the +X side,
+	-- -90 on the -X side, which then needs X moved about 200 east).
 	Swings = {
-		X = -380,
-		Z = -500, -- the pivot line
+		X = -480,
+		Z = -500, -- the middle of the pivot line
+		Turn = 90, -- degrees
 		Count = 3,
 		Spacing = 60, -- between seat centers
 		SeatHeight = 12, -- the seat's top face above the floor, hanging still

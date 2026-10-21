@@ -24,7 +24,7 @@ local GarageMenu = {}
 
 local GARAGE_TAG = "Garage"
 
-type Tab = "Upgrades" | "Cars" | "Limiteds"
+type Tab = "Upgrades" | "Cars" | "Limiteds" | "Bones" | "Event"
 
 type Row = {
 	frame: Frame,
@@ -48,6 +48,8 @@ local REASONS: { [string]: string } = {
 	NotLoaded = "Your garage is still loading.",
 	SoldOut = "That item is sold out.",
 	UnknownLimited = "That item doesn't exist.",
+	NotEnoughBones = "Not enough bones yet.",
+	UnknownBoneShop = "That trade doesn't exist.",
 }
 
 local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
@@ -203,12 +205,15 @@ local function build()
 	local function tabButton(name: Tab, x: number): TextButton
 		local b = button(`{name}Tab`, panel, string.upper(name))
 		b.Position = UDim2.fromOffset(x, 40)
-		b.Size = UDim2.fromOffset(130, 30)
+		b.Size = UDim2.fromOffset(100, 30)
+		b.TextSize = 16
 		return b
 	end
 	local upgradesTab = tabButton("Upgrades", 0)
-	local carsTab = tabButton("Cars", 138)
-	local limitedsTab = tabButton("Limiteds", 276)
+	local carsTab = tabButton("Cars", 108)
+	local limitedsTab = tabButton("Limiteds", 216)
+	local bonesTab = tabButton("Bones", 324)
+	local eventTab = tabButton("Event", 432)
 
 	local status = text("Status", panel, 16, Enum.Font.GothamBold)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -237,6 +242,8 @@ local function build()
 	local upgradesList = tabList("Upgrades")
 	local carsList = tabList("Cars")
 	local limitedsList = tabList("Limiteds")
+	local bonesList = tabList("Bones")
+	local eventList = tabList("Event")
 
 	local function row(list: ScrollingFrame, order: number, name: string): Row
 		local frame = Instance.new("Frame")
@@ -266,12 +273,38 @@ local function build()
 		statRows[info.stat] = row(upgradesList, i, info.stat)
 	end
 	local carRows: { [string]: Row } = {}
+	local eventRows: { [string]: Row } = {}
 	for i, car in Tuning.Ladder do
-		carRows[car.Id] = row(carsList, i, car.Name)
+		if car.Tier == "Dino" then
+			eventRows[car.Id] = row(eventList, i, car.Name)
+		else
+			carRows[car.Id] = row(carsList, i, car.Name)
+		end
 	end
 	local limitedRows: { [string]: Row } = {}
 	for i, item in Tuning.Limiteds do
 		limitedRows[item.Id] = row(limitedsList, i, item.Name)
+	end
+	local boneRows: { [string]: Row } = {}
+	for i, item in Tuning.BoneShop do
+		boneRows[item.Id] = row(bonesList, i, item.Name)
+	end
+
+	local function nearBoneTrader(): boolean
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if not (hrp and hrp:IsA("BasePart")) then
+			return false
+		end
+		for _, trader in CollectionService:GetTagged("BoneTrader") do
+			if
+				trader:IsA("PVInstance")
+				and (trader:GetPivot().Position - hrp.Position).Magnitude <= Tuning.Garage.Reach
+			then
+				return true
+			end
+		end
+		return false
 	end
 
 	local function refresh()
@@ -302,6 +335,7 @@ local function build()
 		local cars = owned()
 		for _, ladderCar in Tuning.Ladder do
 			local r = carRows[ladderCar.Id]
+			if not r then continue end
 			r.detail.Text = carText(ladderCar)
 			if ladderCar.Id == equipped then
 				setButton(r.button, "DRIVING", false)
@@ -322,7 +356,7 @@ local function build()
 					if item.Id == "FrogCar" then
 						local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
 						if frogEquipped then
-							setButton(r.button, "DRIVING", false)
+							setButton(r.button, "UNEQUIP", loaded and not busy)
 						else
 							setButton(r.button, "EQUIP", loaded and not busy)
 						end
@@ -345,12 +379,55 @@ local function build()
 			end
 		end
 
+		-- Bone shop tab
+		local boneCoinsVal = player:GetAttribute("BoneCoins")
+		local boneBalance = if typeof(boneCoinsVal) == "number" then boneCoinsVal else 0
+		for _, item in Tuning.BoneShop do
+			local r = boneRows[item.Id]
+			r.detail.Text = `{item.Description} You have {boneBalance} bones.`
+			local boneOwned = item.CarId and table.find(cars, item.CarId) ~= nil
+			if boneOwned then
+				setButton(r.button, "OWNED", false)
+			else
+				setButton(r.button, `{item.BonePrice} bones`, loaded and not busy and boneBalance >= item.BonePrice)
+			end
+		end
+
+		-- Event tab
+		for _, ladderCar in Tuning.Ladder do
+			if ladderCar.Tier ~= "Dino" then continue end
+			local r = eventRows[ladderCar.Id]
+			if r then
+				if table.find(cars, ladderCar.Id) then
+					if ladderCar.Id == equipped then
+						r.detail.Text = "Currently equipped. Click unequip to go back to your previous car."
+						setButton(r.button, "UNEQUIP", loaded and not busy)
+					else
+						r.detail.Text = "You own this car. Click equip to drive it!"
+						setButton(r.button, "EQUIP", loaded and not busy)
+					end
+				else
+					r.detail.Text = "Not owned. Visit the Bone Trader during bone rain to buy this car for 1,000 bones."
+					setButton(r.button, "LOCKED", false)
+				end
+			end
+		end
+
+		local atBoneTrader = nearBoneTrader()
+		if tab == "Bones" and not atBoneTrader then
+			tab = "Upgrades"
+		end
+		bonesTab.Visible = atBoneTrader
 		upgradesList.Visible = tab == "Upgrades"
 		carsList.Visible = tab == "Cars"
 		limitedsList.Visible = tab == "Limiteds"
+		bonesList.Visible = tab == "Bones" and atBoneTrader
+		eventList.Visible = tab == "Event"
 		upgradesTab.BackgroundColor3 = if tab == "Upgrades" then BUY_COLOR else OFF_COLOR
 		carsTab.BackgroundColor3 = if tab == "Cars" then BUY_COLOR else OFF_COLOR
 		limitedsTab.BackgroundColor3 = if tab == "Limiteds" then BUY_COLOR else OFF_COLOR
+		bonesTab.BackgroundColor3 = if tab == "Bones" then BUY_COLOR else OFF_COLOR
+		eventTab.BackgroundColor3 = if tab == "Event" then BUY_COLOR else OFF_COLOR
 	end
 
 	-- Sends one request to the server and reports how it went.
@@ -387,6 +464,7 @@ local function build()
 	end
 	for _, ladderCar in Tuning.Ladder do
 		local r = carRows[ladderCar.Id]
+		if not r then continue end
 		r.button.Activated:Connect(function()
 			if not r.button.Active then
 				return
@@ -414,6 +492,35 @@ local function build()
 			end
 		end)
 	end
+	for _, item in Tuning.BoneShop do
+		local r = boneRows[item.Id]
+		r.button.Activated:Connect(function()
+			if not r.button.Active then
+				return
+			end
+			ask("BuyBoneShop", item.Id, if item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`)
+		end)
+	end
+	for _, ladderCar in Tuning.Ladder do
+		if ladderCar.Tier ~= "Dino" then continue end
+		local r = eventRows[ladderCar.Id]
+		if r then
+			r.button.Activated:Connect(function()
+				if not r.button.Active then
+					return
+				end
+				local currentEquipped = player:GetAttribute("Equipped")
+				if typeof(currentEquipped) ~= "string" then
+					currentEquipped = Tuning.Ladder[1].Id
+				end
+				if ladderCar.Id == currentEquipped then
+					ask("EquipCar", Tuning.Ladder[1].Id, `Unequipped the {ladderCar.Name}.`)
+				else
+					ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}!`)
+				end
+			end)
+		end
+	end
 
 	local function setOpen(value: boolean, byGamepad: boolean)
 		open = value
@@ -423,7 +530,7 @@ local function build()
 			refresh()
 		end
 		if value and byGamepad then
-			local sel: TextButton? = if tab == "Upgrades" then upgradesTab elseif tab == "Cars" then carsTab else limitedsTab
+			local sel: TextButton? = if tab == "Upgrades" then upgradesTab elseif tab == "Cars" then carsTab elseif tab == "Bones" then bonesTab elseif tab == "Event" then eventTab else limitedsTab
 			GuiService.SelectedObject = sel
 		elseif not value and GuiService.SelectedObject and GuiService.SelectedObject:IsDescendantOf(gui) then
 			GuiService.SelectedObject = nil
@@ -443,6 +550,12 @@ local function build()
 	end)
 	limitedsTab.Activated:Connect(function()
 		showTab("Limiteds")
+	end)
+	bonesTab.Activated:Connect(function()
+		showTab("Bones")
+	end)
+	eventTab.Activated:Connect(function()
+		showTab("Event")
 	end)
 	local function nearGarage(): boolean
 		local character = player.Character
@@ -489,7 +602,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "BoneCoins" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end

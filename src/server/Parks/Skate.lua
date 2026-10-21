@@ -356,7 +356,9 @@ end
 -- A row of giant swings (Swings) hanging from a beam on two A-frames, with a
 -- kicker in front aimed at the seats and a deck at each end of the row, level
 -- with the end seat at the bottom of its swing. The server builds no seats:
--- each client builds and moves its own (SwingSet).
+-- each client builds and moves its own (SwingSet). The whole set is laid
+-- out in its own frame, turned by Turn: the row runs along its X and the
+-- kicker is on its +Z side.
 local function buildSwings(parent: Instance, area: MapLayout.Area)
 	local W = S.Swings
 	local seatWidth, length = Tuning.Swing.SeatWidth, Tuning.Swing.Length
@@ -364,14 +366,20 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 	model.Name = "SwingSet"
 	model.Parent = parent
 
+	local base = at(area, W.X, 0, W.Z) * CFrame.Angles(0, math.rad(W.Turn), 0)
+	-- A point in the set's frame, `y` above the floor.
+	local function point(x: number, y: number, z: number): CFrame
+		return base * CFrame.new(x, y, z)
+	end
+
 	local pivotY = W.SeatHeight + length
 	local half = (W.Count - 1) / 2 * W.Spacing + seatWidth / 2 -- out to the end seats' far edges
 	local beamHalf = half + W.LegGap
-	block(model, "Beam", Vector3.new(2 * beamHalf, 4, 4), at(area, W.X, pivotY, W.Z), POST_COLOR)
+	block(model, "Beam", Vector3.new(2 * beamHalf, 4, 4), point(0, pivotY, 0), POST_COLOR)
 	for _, side in { -1, 1 } do
-		local top = at(area, W.X + side * beamHalf, pivotY, W.Z).Position
+		local top = point(side * beamHalf, pivotY, 0).Position
 		for _, spread in { -1, 1 } do
-			local foot = at(area, W.X + side * beamHalf, 0, W.Z + spread * W.LegSpread).Position
+			local foot = point(side * beamHalf, 0, spread * W.LegSpread).Position
 			local leg = CFrame.lookAt((top + foot) / 2, top)
 			block(model, "Leg", Vector3.new(3, 3, (top - foot).Magnitude), leg, POST_COLOR)
 		end
@@ -380,8 +388,7 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 	for i = 1, W.Count do
 		local swing = Instance.new("Model")
 		swing.Name = `Swing{i}`
-		local x = W.X + (i - (W.Count + 1) / 2) * W.Spacing
-		swing:SetAttribute("Pivot", at(area, x, pivotY, W.Z))
+		swing:SetAttribute("Pivot", point((i - (W.Count + 1) / 2) * W.Spacing, pivotY, 0))
 		swing:SetAttribute("State", Vector2.new(math.rad(W.StartAngles[i] or 0), 0))
 		swing:SetAttribute("RiderId", 0)
 		swing.Parent = model
@@ -390,13 +397,19 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 
 	-- The kicker rises toward the seats from the +Z side.
 	local kickDepth = CurveProfile.extent(W.KickRadius, W.KickAngle)
-	local kickBaseZ = W.Z + W.LipDistance + kickDepth
+	local kickBaseZ = W.LipDistance + kickDepth
 	local runwayZ = kickBaseZ + W.RunwayLength
-	runway(model, area, W.X, 2 * half, runwayZ, kickBaseZ)
+	block(
+		model,
+		"Runway",
+		Vector3.new(2 * half, 0.2, W.RunwayLength),
+		point(0, -0.05, (kickBaseZ + runwayZ) / 2),
+		RUNWAY_COLOR
+	)
 	local options = wall(W.KickRadius, W.KickAngle, W.KickSteps)
-	local kicker = CurvedWall.straight(model, at(area, W.X, 0, kickBaseZ), 2 * half, options)
+	local kicker = CurvedWall.straight(model, point(0, 0, kickBaseZ), 2 * half, options)
 	CurvedWall.fill(kicker, FLOOR, options)
-	LaunchPad.top(kicker, W.PadPlanks, W.LaunchSpeed, respawnAt(area, W.X, runwayZ))
+	LaunchPad.top(kicker, W.PadPlanks, W.LaunchSpeed, point(0, HULL_HEIGHT, runwayZ - 20))
 
 	for _, side in { -1, 1 } do
 		local inner = half + W.DeckGap
@@ -404,7 +417,7 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 			model,
 			"Deck",
 			Vector3.new(W.DeckLength, W.SeatHeight, W.DeckWidth),
-			at(area, W.X + side * (inner + W.DeckLength / 2), W.SeatHeight / 2, W.Z),
+			point(side * (inner + W.DeckLength / 2), W.SeatHeight / 2, 0),
 			RAMP_COLOR
 		)
 		-- A wedge rises toward its +Z end, so turn that end toward the deck.
@@ -412,7 +425,7 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 		ramp.Name = "Ramp"
 		ramp.Anchored = true
 		ramp.Size = Vector3.new(W.DeckWidth, W.SeatHeight, W.RampLength)
-		ramp.CFrame = at(area, W.X + side * (inner + W.DeckLength + W.RampLength / 2), W.SeatHeight / 2, W.Z)
+		ramp.CFrame = point(side * (inner + W.DeckLength + W.RampLength / 2), W.SeatHeight / 2, 0)
 			* CFrame.Angles(0, -side * math.pi / 2, 0)
 		ramp.Color = RAMP_COLOR
 		ramp.Material = Enum.Material.Concrete

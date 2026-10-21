@@ -73,19 +73,23 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 		axis * CFrame.new(0, -C.Thickness / 2, -length / 2),
 		RAMP_COLOR
 	)
-	-- A lip along each side, rising LipHeight over LipWidth, so a car
-	-- drifting onto one is pushed back to the middle.
-	local tilt = math.atan2(R.LipHeight, R.LipWidth)
+	-- A curved wall up each side, so a car steering into one rides up it and
+	-- comes back down to the middle.
+	local wallOptions: CurvedWall.Options = {
+		radius = R.WallRadius,
+		endAngle = 90,
+		steps = R.WallSteps,
+		thickness = C.Thickness,
+		color = RAMP_COLOR,
+	}
 	for _, side in { -1, 1 } do
-		block(
+		local edge = axis * CFrame.new(side * R.Width / 2, 0, -length / 2)
+		local out = edge.RightVector * side
+		CurvedWall.straight(
 			model,
-			"Lip",
-			Vector3.new(math.sqrt(R.LipWidth ^ 2 + R.LipHeight ^ 2), C.Thickness, length),
-			axis
-				* CFrame.new(side * (R.Width + R.LipWidth) / 2, R.LipHeight / 2, -length / 2)
-				* CFrame.Angles(0, 0, side * tilt)
-				* CFrame.new(0, -C.Thickness / 2, 0),
-			RAMP_COLOR
+			CFrame.fromMatrix(edge.Position, out:Cross(edge.UpVector), edge.UpVector),
+			length,
+			wallOptions
 		)
 	end
 	local d = R.BoostLength / 2 + 5

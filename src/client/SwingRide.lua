@@ -4,14 +4,15 @@
 -- step each physics step; it puts a car that comes down on a seat, or drives
 -- onto one, on that seat. While step returns true the car sticks to the seat,
 -- even upside down: this places it there every step and moves it with the
--- seat, and CarController leaves driving, jets, and air control alone. The
--- car turns to face along the seat.
+-- seat, and CarController leaves driving, jets, and air control alone.
 --
--- This client steps the swing it rides (Swing), pumped by gas and brake along
--- the car's nose: pumping in time with the swing takes it higher, all the way
--- over the top, and the car rolls a little toward the way it pumps. The swing
--- goes to the server (SwingService) SendRate times a second, so everyone sees
--- the seat move the way it is pumped.
+-- On the seat the car drives around with gas, brake, and steering (Swing.drive),
+-- and driving past an edge takes it off, with the seat's speed plus its own.
+-- This client steps the swing it rides (Swing), pumped by gas the way the
+-- car's nose points: driving back and forth in time with the swing takes it
+-- higher, all the way over the top. The swing goes to the server
+-- (SwingService) SendRate times a second, so everyone sees the seat move the
+-- way it is pumped.
 --
 -- Jets launch the car off: it leaves with the seat's speed plus a hop off the
 -- seat's face. A seat waits Cooldown seconds before it can catch the same car
@@ -27,16 +28,12 @@ local SwingSet = require(script.Parent.SwingSet)
 
 local SwingRide = {}
 
--- How far from the seat's edges the hull's center stays.
-local EDGE_X = 4
-local EDGE_Z = 6
+-- A car caught right at an edge starts this far in from it.
+local EDGE = 1
 
 type Ride = {
 	entry: Swings.Entry,
-	x: number, -- across the seat
-	slide: number, -- along it, forward positive
-	yaw: number, -- the car's heading on the seat, 0 nose forward
-	facing: number, -- 1 riding nose forward, -1 nose back
+	rider: Swing.Rider,
 }
 
 local player = Players.LocalPlayer :: Player
@@ -62,6 +59,11 @@ local function send(entry: Swings.Entry, riding: boolean)
 	end
 end
 
+-- The way the rider's nose points, in world space.
+local function nose(entry: Swings.Entry, rider: Swing.Rider): Vector3
+	return Swings.seatCFrame(entry):VectorToWorldSpace(Vector3.new(-math.sin(rider.yaw), 0, -math.cos(rider.yaw)))
+end
+
 local function tryCapture(hull: BasePart): Ride?
 	local S = Tuning.Swing
 	local now = os.clock()
@@ -82,18 +84,20 @@ local function tryCapture(hull: BasePart): Ride?
 		end
 		local onSeat = seat:PointToObjectSpace(hull.Position)
 		local look = seat:VectorToObjectSpace(hull.CFrame.LookVector)
-		local yaw = math.atan2(-look.X, -look.Z)
-		local edgeX, edgeZ = S.SeatWidth / 2 - EDGE_X, S.SeatDepth / 2 - EDGE_Z
+		local edgeX, edgeZ = S.SeatWidth / 2 - EDGE, S.SeatDepth / 2 - EDGE
+		local rider: Swing.Rider = {
+			x = math.clamp(onSeat.X, -edgeX, edgeX),
+			z = math.clamp(onSeat.Z, -edgeZ, edgeZ),
+			yaw = math.atan2(-look.X, -look.Z),
+			speed = 0,
+		}
+		-- Keep the car's own speed across the seat, up to what it can drive there.
+		local relative = hull.AssemblyLinearVelocity - Swings.velocityAt(entry, hull.Position)
+		rider.speed = math.clamp(relative:Dot(nose(entry, rider)), -S.DriveSpeed, S.DriveSpeed)
 		entry.driven = true
 		entry.riderId = player.UserId
 		sinceSend = math.huge
-		return {
-			entry = entry,
-			x = math.clamp(onSeat.X, -edgeX, edgeX),
-			slide = math.clamp(-onSeat.Z, -edgeZ, edgeZ),
-			yaw = yaw,
-			facing = if math.cos(yaw) >= 0 then 1 else -1,
-		}
+		return { entry = entry, rider = rider }
 	end
 	return nil
 end
@@ -114,12 +118,12 @@ local function letGo(current: Ride)
 	send(entry, false)
 end
 
--- Puts the hull on the seat, its wheels on the seat's top face.
+-- Puts the hull on the seat where the rider is, its wheels on the top face.
 local function place(model: Model, hull: BasePart, current: Ride)
-	local seat = Swings.seatCFrame(current.entry)
-	local target = seat
-		* CFrame.new(current.x, Tuning.TestPark.SpawnHeight, -current.slide)
-		* CFrame.Angles(0, current.yaw, 0)
+	local r = current.rider
+	local target = Swings.seatCFrame(current.entry)
+		* CFrame.new(r.x, Tuning.TestPark.SpawnHeight, r.z)
+		* CFrame.Angles(0, r.yaw, 0)
 	model:PivotTo(target * hull.CFrame:ToObjectSpace(model:GetPivot()))
 end
 
@@ -129,6 +133,7 @@ function SwingRide.step(
 	hull: BasePart,
 	roots: { BasePart },
 	throttle: number,
+	steer: number,
 	jet: boolean,
 	dt: number
 ): boolean
@@ -141,27 +146,29 @@ function SwingRide.step(
 		return false
 	end
 	ride = current
-	local entry = current.entry
+	local entry, r = current.entry, current.rider
 	local spin = entry.pivot.RightVector * entry.state.speed
 
 	if jetPressed then
 		local up = Swings.seatCFrame(entry).UpVector
+		local velocity = Swings.velocityAt(entry, hull.Position) + nose(entry, r) * r.speed + up * S.Hop
 		letGo(current)
-		setMotion(roots, Swings.velocityAt(entry, hull.Position) + up * S.Hop, spin)
+		setMotion(roots, velocity, spin)
 		return false
 	end
 
-	local pump = math.clamp(throttle, -1, 1) * current.facing
-	Swing.step(entry.state, pump, dt, S)
+	Swing.step(entry.state, Swing.pump(r, throttle), dt, S)
 	SwingSet.place(entry)
-
-	current.slide += (pump * S.Slide - current.slide) * math.min(S.SlideRate * dt, 1)
-	local ahead = if current.facing > 0 then 0 elseif current.yaw >= 0 then math.pi else -math.pi
-	local turn = S.TurnRate * dt
-	current.yaw += math.clamp(ahead - current.yaw, -turn, turn)
-
+	local stays = Swing.drive(r, math.clamp(throttle, -1, 1), math.clamp(steer, -1, 1), dt, S)
 	place(model, hull, current)
-	setMotion(roots, Swings.velocityAt(entry, hull.Position), entry.pivot.RightVector * entry.state.speed)
+	local velocity = Swings.velocityAt(entry, hull.Position) + nose(entry, r) * r.speed
+	spin = entry.pivot.RightVector * entry.state.speed
+	if not stays then
+		letGo(current)
+		setMotion(roots, velocity, spin)
+		return false
+	end
+	setMotion(roots, velocity, spin)
 
 	sinceSend += dt
 	if sinceSend >= 1 / S.SendRate then
