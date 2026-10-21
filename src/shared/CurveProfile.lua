@@ -38,6 +38,32 @@ function CurveProfile.planks(radius: number, endAngle: number, steps: number): {
 	return planks
 end
 
+export type Point = {
+	out: number,
+	up: number,
+}
+
+-- The curve partway curled up from lying flat, for blending a wall in from
+-- flat ground: the corners of its `steps` planks, from the base line out.
+-- `curl` 1 is the curve itself; 0 lies flat on the ground, as wide as the
+-- curve is long; in between it bends `curl` times as far on a wider circle,
+-- so every curl is the same length.
+function CurveProfile.curl(radius: number, endAngle: number, steps: number, curl: number): { Point }
+	local length = radius * math.rad(endAngle)
+	local points: { Point } = {}
+	for i = 0, steps do
+		local along = length * i / steps
+		if curl <= 0 then
+			table.insert(points, { out = along, up = 0 })
+		else
+			local wider = radius / curl
+			local out, up = point(wider, along / wider)
+			table.insert(points, { out = out, up = up })
+		end
+	end
+	return points
+end
+
 -- How far the curve reaches from the base line, and how tall it is.
 function CurveProfile.extent(radius: number, endAngle: number): (number, number)
 	local finish = math.rad(endAngle)

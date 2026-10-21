@@ -56,6 +56,39 @@ Check.test("extent of a quarter pipe and a lean-back wall", function()
 	Check.near(height, 60 * (1 - math.cos(math.rad(45))))
 end)
 
+Check.test("fully curled, the curl is the curve's plank corners", function()
+	local planks = CurveProfile.planks(15, 90, 12)
+	local points = CurveProfile.curl(15, 90, 12, 1)
+	Check.eq(#points, 13)
+	for i, plank in planks do
+		local out, up = bottomOf(plank)
+		Check.near(points[i].out, out, `corner {i} out`, 1e-9)
+		Check.near(points[i].up, up, `corner {i} up`, 1e-9)
+	end
+	local out, up = topOf(planks[#planks])
+	Check.near(points[13].out, out, "top out", 1e-9)
+	Check.near(points[13].up, up, "top up", 1e-9)
+end)
+
+Check.test("not curled, the curl lies flat as wide as the curve is long", function()
+	local points = CurveProfile.curl(15, 90, 12, 0)
+	local arc = 15 * math.pi / 2
+	for i, point in points do
+		Check.near(point.out, arc * (i - 1) / 12, `corner {i} out`)
+		Check.near(point.up, 0, `corner {i} up`)
+	end
+end)
+
+Check.test("half curled, the curl bends half as far, starting flat at the base line", function()
+	local points = CurveProfile.curl(15, 90, 12, 0.5)
+	Check.near(points[1].out, 0, "starts at the base line")
+	Check.near(points[1].up, 0, "starts on the ground")
+	Check.near(points[2].up / points[2].out, math.tan(math.rad(45) / 12 / 2), "starts nearly flat", 1e-9)
+	local radius = 15 / 0.5
+	Check.near(points[13].out, radius * math.sin(math.rad(45)), "top out")
+	Check.near(points[13].up, radius * (1 - math.cos(math.rad(45))), "top up")
+end)
+
 Check.test("a slice of a swept corner is long enough to meet its neighbors", function()
 	Check.near(CurveProfile.sliceLength(100, 90), 200)
 	Check.near(CurveProfile.sliceLength(100, 10), 2 * 100 * math.tan(math.rad(5)))

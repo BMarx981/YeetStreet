@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Corkscrew = require(ReplicatedStorage.Corkscrew)
+local CurveProfile = require(ReplicatedStorage.CurveProfile)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
@@ -59,6 +60,33 @@ local function axisFrame(area: MapLayout.Area): CFrame
 	return CFrame.lookAt(start, start + Vector3.new(0, C.Rise, -C.Run), Vector3.yAxis)
 end
 
+-- The bottom EntryLength of one side wall of the middle ramp (`side` -1 left,
+-- 1 right), curling up from flat on the floor at the ramp's foot to the
+-- wall's full curve, in EntryRows rows of triangles. The curl eases in and
+-- out, so it meets the floor and the wall above it without a fold.
+local function buildEntry(parent: Instance, axis: CFrame, side: number)
+	local R = C.Ramp
+	local function corners(row: number): { Vector3 }
+		local t = row / R.EntryRows
+		local along = R.EntryLength * t
+		local points: { Vector3 } = {}
+		for _, p in CurveProfile.curl(R.WallRadius, 90, R.WallSteps, t * t * (3 - 2 * t)) do
+			table.insert(points, axis:PointToWorldSpace(Vector3.new(side * (R.Width / 2 + p.out), p.up, -along)))
+		end
+		return points
+	end
+	local inward = axis.UpVector - axis.RightVector * side
+	local back = corners(0)
+	for row = 1, R.EntryRows do
+		local front = corners(row)
+		for k = 1, #front - 1 do
+			Triangle.make(parent, back[k], back[k + 1], front[k + 1], inward, C.Thickness, RAMP_COLOR)
+			Triangle.make(parent, back[k], front[k + 1], front[k], inward, C.Thickness, RAMP_COLOR)
+		end
+		back = front
+	end
+end
+
 local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, length: number)
 	local R = C.Ramp
 	local model = Instance.new("Model")
@@ -74,7 +102,9 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 		RAMP_COLOR
 	)
 	-- A curved wall up each side, so a car steering into one rides up it and
-	-- comes back down to the middle.
+	-- comes back down to the middle. Over the first EntryLength each wall
+	-- curls up from lying flat on the floor, so the bottom is a wide mouth a
+	-- car can drive into at an angle.
 	local wallOptions: CurvedWall.Options = {
 		radius = R.WallRadius,
 		endAngle = 90,
@@ -82,15 +112,17 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 		thickness = C.Thickness,
 		color = RAMP_COLOR,
 	}
+	local wallLength = length - R.EntryLength
 	for _, side in { -1, 1 } do
-		local edge = axis * CFrame.new(side * R.Width / 2, 0, -length / 2)
+		local edge = axis * CFrame.new(side * R.Width / 2, 0, -(R.EntryLength + wallLength / 2))
 		local out = edge.RightVector * side
 		CurvedWall.straight(
 			model,
 			CFrame.fromMatrix(edge.Position, out:Cross(edge.UpVector), edge.UpVector),
-			length,
+			wallLength,
 			wallOptions
 		)
+		buildEntry(model, axis, side)
 	end
 	local d = R.BoostLength / 2 + 5
 	while d < length - R.BoostLength / 2 do

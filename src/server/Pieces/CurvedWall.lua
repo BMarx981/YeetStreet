@@ -97,6 +97,36 @@ function CurvedWall.corner(
 	return model
 end
 
+-- The wall swept around the outside of a corner, such as a building's: it
+-- rises toward `pivot` from `turnRadius` out, so its top meets the corner's
+-- edge. It starts out along the pivot's LookVector and turns left by
+-- `turnAngle` degrees in `slices` slices. Each plank is as wide as its slice
+-- at its outer, lower end, so neighbors overlap a little instead of leaving
+-- gaps.
+function CurvedWall.outside(
+	parent: Instance,
+	pivot: CFrame,
+	turnRadius: number,
+	turnAngle: number,
+	slices: number,
+	options: Options
+): Model
+	local model = newModel(parent, "OutsideCorner", pivot)
+	local planks = CurveProfile.planks(options.radius, options.endAngle, options.steps)
+	local sliceAngle = turnAngle / slices
+	for i = 1, slices do
+		local base = pivot
+			* CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0)
+			* CFrame.new(0, 0, -turnRadius)
+			* CFrame.Angles(0, math.pi, 0)
+		for _, plank in planks do
+			local outerEnd = turnRadius - (plank.out - plank.length / 2 * math.cos(plank.tilt))
+			buildPlank(model, base, plank, CurveProfile.sliceLength(outerEnd, sliceAngle), options)
+		end
+	end
+	return model
+end
+
 -- Two straight walls facing each other across `width` studs of flat floor,
 -- one rising along `center`'s LookVector and one behind it. They run
 -- `length` studs along its RightVector.

@@ -575,6 +575,18 @@ Tuning.Map = {
 			ArriveZ = 650,
 			Heading = 0,
 		},
+		{
+			Id = "City",
+			Name = "Downtown",
+			Kind = "Park",
+			X = 1750,
+			Z = -3000,
+			Width = 2100,
+			Depth = 3600,
+			ArriveX = 1750,
+			ArriveZ = -1300,
+			Heading = 0,
+		},
 	},
 }
 
@@ -639,6 +651,10 @@ Tuning.Corkscrew = {
 		-- studs inside cars riding the corkscrew's lips.
 		WallRadius = 15,
 		WallSteps = 12,
+		-- Up the ramp from its foot, where the walls curl up from flat on
+		-- the floor, so the mouth at the foot is about 77 wide.
+		EntryLength = 100,
+		EntryRows = 16,
 		BoostEvery = 150, -- studs between booster strips
 		BoostLength = 30,
 		BoostSpeed = 200,
@@ -671,6 +687,57 @@ Tuning.Corkscrew = {
 		RunwayLength = 300,
 		RunwayRows = 12,
 		RunwayBoostRows = 2,
+	},
+}
+
+-- The dense city (ServerScriptService.Parks.City). X and Z are studs from the
+-- park's center; the arrival point is at X 0, Z 1700, facing -Z, at the top
+-- of the avenue down the middle. Cross streets split the rest into blocks of
+-- buildings, with open plazas at both ends. The Highway Overpass climbs
+-- straight down the avenue from just ahead of the arrival to a broken end,
+-- a kicker that throws the car on down the avenue.
+Tuning.City = {
+	Avenue = {
+		Width = 160,
+		DashLength = 30,
+		DashEvery = 80,
+	},
+	Streets = {
+		Width = 100,
+		Z = { 1000, 200, -600, -1400 }, -- each one's middle, running across the park
+	},
+	Buildings = {
+		Seed = 7, -- the same seed builds the same skyline every time
+		TopZ = 1500, -- the first block starts here; the arrival plaza is ahead of it
+		Setback = 20, -- from the street to the first building, room for its curve
+		Lot = 160, -- each building's footprint, square
+		Alley = 50, -- between neighbors: both curves, with 10 flat between
+		-- Around each building's foot, rising to straight up the wall.
+		CurveRadius = 20,
+		CurveSteps = 10,
+		CornerSlices = 4,
+		MinHeight = 40,
+		MaxHeight = 260,
+		EmptyChance = 0.15, -- some lots stay empty, as parking lots to land in
+	},
+	Overpass = {
+		StartZ = 1550, -- where it leaves the ground, 150 ahead of the arrival
+		Run = 900,
+		Rise = 110,
+		Width = 50,
+		Thickness = 2,
+		BarrierHeight = 4, -- straight up, so a car hits it instead of riding over
+		BarrierWidth = 3,
+		PillarEvery = 150,
+		PillarSize = 12,
+		BoostEvery = 150,
+		BoostLength = 30,
+		BoostSpeed = 200,
+		-- On the broken end, so it leaves about 7 + KickAngle degrees up.
+		KickRadius = 120,
+		KickAngle = 25,
+		KickSteps = 8,
+		LaunchSpeed = 320,
 	},
 }
 
