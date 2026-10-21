@@ -720,6 +720,35 @@ Tuning.City = {
 		MaxHeight = 260,
 		EmptyChance = 0.15, -- some lots stay empty, as parking lots to land in
 	},
+	-- Wide buildings with a tunnel through: in from the avenue, an S of
+	-- turns, and out onto the next cross street. Each takes the Columns by
+	-- Rows lots nearest the avenue at the top of its block (1 is the first
+	-- block past the arrival plaza). Side 1 is +X; the other side is the
+	-- mirror image. The tunnel's walls are the building's foot curve, running
+	-- on in through the mouths.
+	Tunnels = {
+		Floor = 40, -- flat between the curves
+		Height = 40, -- floor to ceiling
+		Columns = 2,
+		Rows = 3,
+		Slices = 6, -- per turn
+		-- From the street side of the building back to where the middle line
+		-- comes in from the avenue. The segments must end on the street side.
+		EntryBack = 480,
+		Segments = {
+			{ Straight = 60 },
+			{ Turn = -90, Radius = 80 }, -- toward the cross street
+			{ Straight = 100 },
+			{ Turn = 90, Radius = 80 },
+			{ Turn = -90, Radius = 80 },
+			{ Straight = 140 },
+		},
+		Places = {
+			{ Side = 1, Block = 2 },
+			{ Side = -1, Block = 3 },
+			{ Side = 1, Block = 4 },
+		},
+	},
 	Overpass = {
 		StartZ = 1550, -- where it leaves the ground, 150 ahead of the arrival
 		Run = 900,

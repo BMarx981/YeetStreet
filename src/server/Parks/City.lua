@@ -11,8 +11,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local CurveProfile = require(ReplicatedStorage.CurveProfile)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Tunnel = require(ReplicatedStorage.Tunnel)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 
@@ -150,18 +152,183 @@ local function buildBuilding(
 	end
 end
 
+-- A corner's curve around the outside of `corner` (on the floor), between the
+-- sides facing `a` and `b`, a quarter turn apart.
+local function outsideCorner(parent: Instance, corner: Vector3, a: Vector3, b: Vector3, options: CurvedWall.Options)
+	-- The curve turns left from where it starts.
+	local left = Vector3.new(a.Z, 0, -a.X)
+	local start = if left:Dot(b) > 0.5 then a else b
+	CurvedWall.outside(
+		parent,
+		CFrame.lookAt(corner, corner + start),
+		C.Buildings.CurveRadius,
+		90,
+		C.Buildings.CornerSlices,
+		options
+	)
+end
+
+-- A footprint in park coordinates, seen from above.
+type Rect = { x1: number, x2: number, z1: number, z2: number }
+
+-- A building with a tunnel through its ground floor, on `side` of the
+-- avenue at the top of the block whose street side is `top`. The tunnel's
+-- walls are curves rising away from its flat floor up to straight walls, and
+-- the building above is its ceiling. The walls run out through each mouth
+-- into the curves along the building's foot.
+local function buildTunnel(parent: Instance, area: MapLayout.Area, rng: Random, side: number, top: number): Rect
+	local B, T = C.Buildings, C.Tunnels
+	local inner = C.Avenue.Width / 2 + B.Setback
+	local width = T.Columns * B.Lot + (T.Columns - 1) * B.Alley
+	local depth = T.Rows * B.Lot + (T.Rows - 1) * B.Alley
+	local rect: Rect = {
+		x1 = if side > 0 then inner else -inner - width,
+		x2 = if side > 0 then inner + width else -inner,
+		z1 = top - depth,
+		z2 = top,
+	}
+	local height = rng:NextInteger(math.max(B.MinHeight, T.Height + 20), B.MaxHeight)
+	local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
+	local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
+
+	local model = Instance.new("Model")
+	model.Name = "TunnelBuilding"
+	model.Parent = parent
+
+	local tower = block(
+		model,
+		"Tower",
+		Vector3.new(width, height - T.Height, depth),
+		at(area, (rect.x1 + rect.x2) / 2, (height + T.Height) / 2, (rect.z1 + rect.z2) / 2),
+		color
+	)
+	tower.Material = material
+
+	local options: CurvedWall.Options = {
+		radius = B.CurveRadius,
+		endAngle = 90,
+		steps = B.CurveSteps,
+		thickness = 2,
+		color = color,
+		material = material,
+	}
+	local R = B.CurveRadius
+	local band = T.Floor / 2 + R -- from the middle line to each straight wall
+	local wallHeight = T.Height - R
+	local function floorAt(x: number, z: number): Vector3
+		return at(area, x, 0, z).Position
+	end
+	-- A straight wall from the top of a curve up to the ceiling, its outer
+	-- face on `face` and facing along `out`, `length` long.
+	local function wall(face: Vector3, out: Vector3, length: number)
+		local middle = face + out * 1 + Vector3.new(0, R + wallHeight / 2, 0)
+		block(model, "Wall", Vector3.new(length, wallHeight, 2), CFrame.lookAt(middle, middle + out), color).Material =
+			material
+	end
+
+	-- The middle line, mirrored on the -X side.
+	local segments: { Tunnel.Segment } = {}
+	for _, segment in T.Segments do
+		table.insert(segments, {
+			Straight = segment.Straight,
+			Turn = if segment.Turn then segment.Turn * side else nil,
+			Radius = segment.Radius,
+		})
+	end
+	local entryX, entryZ = side * inner, top - T.EntryBack
+	local pieces, finish = Tunnel.path(entryX, entryZ, side, 0, segments)
+	if math.abs(finish.z - top) > 0.01 or finish.headingZ < 0.99 then
+		warn(`City: a tunnel ends at ({finish.x}, {finish.z}), not on its building's street side at Z {top}`)
+	end
+
+	for _, piece in pieces do
+		if piece.kind == "straight" then
+			local from, to = floorAt(piece.fromX, piece.fromZ), floorAt(piece.toX, piece.toZ)
+			local length = (to - from).Magnitude
+			local along = (to - from).Unit
+			local middle = (from + to) / 2
+			for _, out in { Vector3.new(along.Z, 0, -along.X), Vector3.new(-along.Z, 0, along.X) } do
+				local base = middle + out * T.Floor / 2
+				CurvedWall.straight(model, CFrame.lookAt(base, base + out), length, options)
+				wall(middle + out * band, out, length)
+			end
+		else
+			local center = floorAt(piece.centerX, piece.centerZ)
+			local pivot = CFrame.lookAt(center, floorAt(piece.startX, piece.startZ))
+			local turn = math.deg(piece.sweep)
+			CurvedWall.corner(model, pivot, piece.radius + T.Floor / 2, turn, T.Slices, options)
+			CurvedWall.outside(model, pivot, piece.radius - T.Floor / 2, turn, T.Slices, options)
+			local sliceAngle = turn / T.Slices
+			for i = 1, T.Slices do
+				local spoke = (pivot * CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0)).LookVector
+				local outer, innerRadius = piece.radius + band, piece.radius - band
+				wall(center + spoke * outer, spoke, CurveProfile.sliceLength(outer + 2, sliceAngle))
+				wall(center + spoke * innerRadius, -spoke, CurveProfile.sliceLength(innerRadius, sliceAngle))
+			end
+		end
+	end
+
+	-- The building's sides, each with the curve along its foot and a straight
+	-- wall up to the tower, broken where a tunnel mouth opens in it.
+	local mouths = { floorAt(entryX, entryZ), floorAt(finish.x, finish.z) }
+	local corners = {
+		floorAt(rect.x1, rect.z1),
+		floorAt(rect.x2, rect.z1),
+		floorAt(rect.x2, rect.z2),
+		floorAt(rect.x1, rect.z2),
+	}
+	local outs = { Vector3.new(0, 0, -1), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(-1, 0, 0) }
+	for i, from in corners do
+		local to = corners[i % 4 + 1]
+		local out = outs[i]
+		local along = (to - from).Unit
+		local length = (to - from).Magnitude
+		outsideCorner(model, from, outs[(i + 2) % 4 + 1], out, options)
+		-- The stretches of this side between its mouths.
+		local stretches = { { 0, length } }
+		for _, mouth in mouths do
+			local offset = mouth - from
+			if math.abs(offset:Dot(out)) < 0.01 then
+				local m = offset:Dot(along)
+				local last = stretches[#stretches]
+				stretches[#stretches] = { last[1], m - band }
+				table.insert(stretches, { m + band, last[2] })
+				outsideCorner(model, from + along * (m - band), out, along, options)
+				outsideCorner(model, from + along * (m + band), out, -along, options)
+			end
+		end
+		for _, stretch in stretches do
+			local a, b = stretch[1], stretch[2]
+			local face = from + along * (a + b) / 2
+			local base = face + out * R
+			CurvedWall.straight(model, CFrame.lookAt(base, base - out), b - a, options)
+			wall(face - out * 2, out, b - a)
+		end
+	end
+	return rect
+end
+
 -- Fills the block from z1 down to z2 on both sides of the avenue with
--- buildings in a grid, each a random height, some lots left empty.
-local function buildBlock(parent: Instance, area: MapLayout.Area, rng: Random, z1: number, z2: number)
+-- buildings in a grid, each a random height, some lots left empty and none
+-- where a tunnel building already stands.
+local function buildBlock(parent: Instance, area: MapLayout.Area, rng: Random, z1: number, z2: number, taken: { Rect })
 	local B = C.Buildings
 	local inner = C.Avenue.Width / 2 + B.Setback
 	local outer = area.Width / 2 - B.Setback
+	local function free(x: number, z: number): boolean
+		for _, rect in taken do
+			if x > rect.x1 and x < rect.x2 and z > rect.z1 and z < rect.z2 then
+				return false
+			end
+		end
+		return true
+	end
 	for _, side in { -1, 1 } do
 		local x = inner
 		while x + B.Lot <= outer do
 			local z = z1 - B.Setback
 			while z - B.Lot >= z2 + B.Setback do
-				if rng:NextNumber() >= B.EmptyChance then
+				if free(side * (x + B.Lot / 2), z - B.Lot / 2) and rng:NextNumber() >= B.EmptyChance then
 					local height = rng:NextInteger(B.MinHeight, B.MaxHeight)
 					local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
 					local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
@@ -182,9 +349,17 @@ local function buildBuildings(parent: Instance, area: MapLayout.Area)
 	local rng = Random.new(C.Buildings.Seed)
 	local half = C.Streets.Width / 2
 	local top = C.Buildings.TopZ
+	local index = 0
 	for _, z in C.Streets.Z do
 		if top > z + half then
-			buildBlock(model, area, rng, top, z + half)
+			index += 1
+			local taken: { Rect } = {}
+			for _, place in C.Tunnels.Places do
+				if place.Block == index then
+					table.insert(taken, buildTunnel(model, area, rng, place.Side, top - C.Buildings.Setback))
+				end
+			end
+			buildBlock(model, area, rng, top, z + half, taken)
 		end
 		top = z - half
 	end
