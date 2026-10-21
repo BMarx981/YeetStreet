@@ -298,20 +298,19 @@ end
 
 local requestExit: () -> () -- forward declaration so step() can call it
 
--- The city's tube tunnels, in park coordinates (Tunnel.layout), and the
+-- The city's tunnel chains, in park coordinates (Tunnel.layout), and the
 -- park's place on the map.
 local cityArea = MapLayout.find(Tuning.Map.Areas :: any, "City")
-local tubes = Tunnel.layout(Tuning.City :: any)
-local tubeMiddleY = Tunnel.centerHeight(Tuning.City.Tunnels, Tuning.Map.FloorTop)
+local chains = Tunnel.layout(Tuning.City :: any)
 
--- Which way a city tube pulls a car at `position`, or nil outside them all.
+-- Which way a city tunnel pulls a car at `position`, or nil outside them all.
 local function tubePull(position: Vector3): Vector3?
 	if not cityArea then
 		return nil
 	end
-	local x, z = position.X - cityArea.X, position.Z - cityArea.Z
-	for _, tube in tubes do
-		local px, py, pz = Tunnel.pull(tube.pieces, Tuning.City.Tunnels.Radius, tubeMiddleY, x, position.Y, z)
+	local x, y, z = position.X - cityArea.X, position.Y - Tuning.Map.FloorTop, position.Z - cityArea.Z
+	for _, chain in chains do
+		local px, py, pz = Tunnel.pull(chain.pieces, Tuning.City.Tunnels.Radius, x, y, z)
 		if px and py and pz then
 			return Vector3.new(px, py, pz)
 		end

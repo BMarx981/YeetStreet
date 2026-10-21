@@ -720,65 +720,61 @@ Tuning.City = {
 		MaxHeight = 260,
 		EmptyChance = 0.15, -- some lots stay empty, as parking lots to land in
 	},
-	-- Wide buildings with a round tube tunnel through their ground floor (laid
-	-- out by Tunnel.layout). Each takes Columns by Rows lots at the top of its
-	-- block (Block 1 is the first past the arrival plaza), from lot Column out
-	-- (1 is nearest the avenue). Side 1 is +X; the other side is the mirror
-	-- image. Inside a tube a driver's car is pulled toward the nearest wall
-	-- instead of down (CarController), so it can drive round the walls and
-	-- along the roof at any speed. Dim lights hang along the roof.
+	-- Twisting round tube tunnels in chains of two buildings, laid out by
+	-- Tunnel.layout. Each building takes Columns by Rows lots; a chain's two
+	-- stand side by side across the alley between them, against the Street
+	-- at the Top or Bottom of their Block (Block 1 is the first past the
+	-- arrival plaza), on Side 1 (+X) or -1 (the mirror image). A chain's tube
+	-- comes in on the ground from the avenue, Offset in from that street,
+	-- snakes and climbs through the first building (Climb), crosses the alley
+	-- high enough to drive under, then sweeps and drops through the second
+	-- (Drop) and out onto the street. Turns are degrees, positive left;
+	-- Rise is studs, eased so the tube never folds. Inside a tube a driver's
+	-- car is pulled toward the nearest wall instead of down (CarController),
+	-- so it can drive round the walls and along the roof, and climb, at any
+	-- speed. Dim lights hang along the roof.
 	Tunnels = {
 		Radius = 30, -- from the middle line to the planks
 		Sides = 24, -- planks around the ring
 		Pull = 1, -- toward the wall inside a tube, times world gravity
-		-- Over FlareLength at each end the tube opens out into a mouth with a
-		-- flat floor (and roof) MouthFloor wide and curves MouthCurve around
-		-- up each side, like the corkscrew's middle ramp, so a car can get in
-		-- off center or at an angle. Each tunnel must start and end with a
-		-- straight at least FlareLength long.
+		-- Over FlareLength at each end on the ground the tube opens out into
+		-- a mouth with a flat floor (and roof) MouthFloor wide and curves
+		-- MouthCurve around up each side, like the corkscrew's middle ramp,
+		-- so a car can get in off center or at an angle. Climb must start, and
+		-- Drop end, with a level straight at least FlareLength long.
 		MouthFloor = 68,
 		MouthCurve = 18,
 		FlareLength = 80,
 		FlareRows = 8,
-		Columns = 2,
-		Rows = 3,
-		SliceAngle = 5, -- degrees of turn per slice of wall
+		AboveTunnel = 20, -- every tunnel building rises at least this far above its tube
+		SliceAngle = 5, -- degrees of turn per slice of tube
+		StepLength = 12, -- studs per ring of planks where a straight climbs
 		LightEvery = 60, -- studs along the middle line
 		LightBrightness = 0.6,
 		LightRange = 30,
-		-- A tunnel's middle line starts Offset into the side facing the
-		-- avenue (from the street side) or the street (from the avenue
-		-- side), runs its segments, then goes straight out of whichever side
-		-- it ends heading for. Turns are degrees, positive left.
-		Shapes = {
-			-- In from the avenue, one long sweep round onto the cross street.
-			Corner = {
-				Start = "Avenue",
-				Offset = 460,
-				Segments = {
-					{ Straight = 80 },
-					{ Turn = -90, Radius = 210 },
-				},
-			},
-			-- From one cross street to the next, with a gentle jog.
-			Long = {
-				Start = "Street",
-				Offset = 140,
-				Segments = {
-					{ Straight = 100 },
-					{ Turn = -25, Radius = 300 },
-					{ Straight = 80 },
-					{ Turn = 25, Radius = 300 },
-				},
-			},
+		Columns = 2,
+		Rows = 2,
+		Offset = 230,
+		-- Right, left, right: a snake that ends back on its line, 32 up, so the
+		-- tube's bottom crosses the alley about 30 above it.
+		Climb = {
+			{ Straight = 80 },
+			{ Turn = -60, Radius = 70, Rise = 8 },
+			{ Turn = 120, Radius = 70, Rise = 16 },
+			{ Turn = -60, Radius = 70, Rise = 8 },
+		},
+		-- A long sweep round toward the street, back down to the ground.
+		Drop = {
+			{ Straight = 40 },
+			{ Turn = -90, Radius = 150, Rise = -32 },
 		},
 		Places = {
-			{ Side = 1, Block = 2, Column = 1, Shape = "Corner" },
-			{ Side = -1, Block = 2, Column = 3, Shape = "Long" },
-			{ Side = -1, Block = 3, Column = 1, Shape = "Corner" },
-			{ Side = 1, Block = 3, Column = 3, Shape = "Long" },
-			{ Side = 1, Block = 4, Column = 1, Shape = "Corner" },
-			{ Side = -1, Block = 4, Column = 1, Shape = "Long" },
+			{ Side = 1, Block = 2, Street = "Top" },
+			{ Side = -1, Block = 2, Street = "Bottom" },
+			{ Side = 1, Block = 3, Street = "Bottom" },
+			{ Side = -1, Block = 3, Street = "Top" },
+			{ Side = 1, Block = 4, Street = "Top" },
+			{ Side = -1, Block = 4, Street = "Bottom" },
 		},
 	},
 	Overpass = {
