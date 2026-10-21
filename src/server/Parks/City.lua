@@ -18,6 +18,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CurveProfile = require(ReplicatedStorage.CurveProfile)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Railway = require(ReplicatedStorage.Railway)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
@@ -391,28 +392,24 @@ local function buildBuilding(
 	buildSides(model, area, { x1 = x - half, x2 = x + half, z1 = z - half, z2 = z + half }, {}, 0, color, material)
 end
 
--- A chain of two buildings with a round tube tunnel through their ground
--- floors, laid out by Tunnel.layout. The tube is a ring of Sides planks all
--- the way round, so a car can drive up its walls and along its roof, and
--- climb (CarController pulls a car toward the wall inside one). It snakes
--- and climbs through the first building, crosses the alley high enough to
--- drive under, then sweeps and drops through the second. The buildings sit
--- on the tube. Over FlareLength at each end on the ground the tube opens
--- out into a mouth with a wide flat floor and curves up each side, like the
--- corkscrew's middle ramp, so a car can drive in off center or at an angle,
--- and the curve along the building's foot wraps in to meet it. Dim lights
--- hang along the roof.
-local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, chain: Tunnel.Chain)
-	local B, T = C.Buildings, C.Tunnels
+-- A round tube along the middle line `pieces` (park coordinates): a ring of
+-- Sides planks all the way round every `sliceAngle` degrees of its turns and
+-- `stepLength` of its climbs, so a car can drive up its walls and along its
+-- roof, and climb (CarController pulls a car toward the wall inside one).
+-- Over FlareLength at each end the tube opens out into a mouth with a wide
+-- flat floor and curves up each side, like the corkscrew's middle ramp, so
+-- a car can drive in off center or at an angle; each end's floor is a
+-- ground height below its middle line. Dim lights hang along the roof.
+local function buildTube(
+	model: Instance,
+	area: MapLayout.Area,
+	pieces: { Tunnel.Piece },
+	sliceAngle: number,
+	stepLength: number
+)
+	local T = C.Tunnels
 	local face = T.Radius * math.cos(HALF_STEP) -- from the middle line to each plank's inside face
-	local towerBottom = chain.alleyHeight + outsideOf(T.Radius)
-	if chain.warning then
-		warn(`City: {chain.warning}`)
-	end
-
-	local model = Instance.new("Model")
-	model.Name = "TunnelChain"
-	model.Parent = parent
+	local ground = Tunnel.groundHeight(T)
 
 	local function floorAt(x: number, z: number): Vector3
 		return at(area, x, 0, z).Position
@@ -467,13 +464,12 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 		end
 	end
 
-	local pieces = chain.pieces
 	local total = 0
 	for _, piece in pieces do
 		total += Tunnel.length(piece)
 	end
 	if Tunnel.length(pieces[1]) < T.FlareLength or Tunnel.length(pieces[#pieces]) < T.FlareLength then
-		warn("City: a chain needs a level straight at least FlareLength long at each end")
+		warn("City: a tube needs a level straight at least FlareLength long at each end")
 	end
 	-- Lights every LightEvery of the middle line, but not in the mouths.
 	local travelled = 0
@@ -486,10 +482,10 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 		local start = if index == 1 then T.FlareLength / length else 0
 		local finish = if index == #pieces then 1 - T.FlareLength / length else 1
 		local steps = if piece.kind == "arc"
-			then math.ceil(math.deg(piece.sweep) / T.SliceAngle)
-			elseif climbs then math.ceil(length / T.StepLength)
+			then math.ceil(math.deg(piece.sweep) / sliceAngle)
+			elseif climbs then math.ceil(length / stepLength)
 			else 1
-		local sliceAngle = math.deg(piece.sweep) / steps
+		local slice = math.deg(piece.sweep) / steps
 		local center = floorAt(piece.centerX, piece.centerZ)
 		for i = 1, steps do
 			local t0 = start + (finish - start) * (i - 1) / steps
@@ -506,7 +502,7 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 				local outward = Vector3.new(middle.X - center.X, 0, middle.Z - center.Z).Unit
 				local level = math.sqrt(1 - along.Y * along.Y)
 				lengthAt = function(out: number): number
-					return CurveProfile.sliceLength(piece.radius + out * side:Dot(outward), sliceAngle) / level + bend
+					return CurveProfile.sliceLength(piece.radius + out * side:Dot(outward), slice) / level + bend
 				end
 			else
 				local stretch = (pointAt(piece, t1) - pointAt(piece, t0)).Magnitude + bend
@@ -517,10 +513,10 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 			ring(model, middle, side, up, 0, T.Radius, lengthAt)
 		end
 		if index == 1 then
-			flare(pointAt(piece, 0) - Vector3.new(0, piece.fromY, 0), tangentAt(piece, 0))
+			flare(pointAt(piece, 0) - Vector3.new(0, ground, 0), tangentAt(piece, 0))
 		end
 		if index == #pieces then
-			flare(pointAt(piece, 1) - Vector3.new(0, piece.toY, 0), -tangentAt(piece, 1))
+			flare(pointAt(piece, 1) - Vector3.new(0, ground, 0), -tangentAt(piece, 1))
 		end
 
 		local d = (T.LightEvery / 2 - travelled) % T.LightEvery
@@ -537,6 +533,34 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 		end
 		travelled += length
 	end
+end
+
+-- A chain of two buildings with a round tube tunnel through their ground
+-- floors, laid out by Tunnel.layout. The tube is a ring of Sides planks all
+-- the way round, so a car can drive up its walls and along its roof, and
+-- climb (CarController pulls a car toward the wall inside one). It snakes
+-- and climbs through the first building, crosses the alley high enough to
+-- drive under, then sweeps and drops through the second. The buildings sit
+-- on the tube. Over FlareLength at each end on the ground the tube opens
+-- out into a mouth with a wide flat floor and curves up each side, like the
+-- corkscrew's middle ramp, so a car can drive in off center or at an angle,
+-- and the curve along the building's foot wraps in to meet it. Dim lights
+-- hang along the roof.
+local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, chain: Tunnel.Chain)
+	local B, T = C.Buildings, C.Tunnels
+	local towerBottom = chain.alleyHeight + outsideOf(T.Radius)
+	if chain.warning then
+		warn(`City: {chain.warning}`)
+	end
+
+	local model = Instance.new("Model")
+	model.Name = "TunnelChain"
+	model.Parent = parent
+
+	local function floorAt(x: number, z: number): Vector3
+		return at(area, x, 0, z).Position
+	end
+	buildTube(model, area, chain.pieces, T.SliceAngle, T.StepLength)
 
 	-- The two buildings, each on the tube, with the holes in their sides.
 	local ground = function(crossing: Tunnel.Crossing): Hole
@@ -578,6 +602,97 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 		tower.Material = material
 		buildSides(building, area, rect, holes[i], towerBottom, color, material)
 	end
+end
+
+-- A spiral tower, laid out by Tunnel.spirals: a hollow building whose round
+-- tube comes in on the ground from the street, climbs round and round
+-- inside, comes up through the roof under a hut and runs along the roof to
+-- a mouth, with a kicker beyond it off the roof's street edge. A reset after
+-- a launch from the kicker puts the car back in the mouth.
+local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, spiral: Tunnel.Spiral)
+	local S, T = C.Spirals, C.Tunnels
+	if spiral.warning then
+		warn(`City: {spiral.warning}`)
+	end
+	local model = Instance.new("Model")
+	model.Name = "SpiralTower"
+	model.Parent = parent
+	buildTube(model, area, spiral.pieces, S.SliceAngle, S.StepLength)
+
+	local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
+	local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
+	local roof = spiral.roof
+	local out = Vector3.new(spiral.outX, 0, spiral.outZ)
+	local function wall(name: string, size: Vector3, middle: Vector3)
+		block(model, name, size, CFrame.new(middle), color).Material = material
+	end
+
+	-- The building, its walls up to the roof and the tube's mouth in its
+	-- street side, and the roof over it but for the hatch.
+	local mouth: Hole = {
+		point = at(area, spiral.entry.x, 0, spiral.entry.z).Position,
+		ground = true,
+		middleY = MOUTH_MIDDLE,
+		flat = MOUTH_FLAT,
+		outside = outsideOf(T.MouthCurve),
+	}
+	buildSides(model, area, spiral.rect, { mouth }, roof - S.RoofThickness, color, material)
+	for _, piece in Railway.cut(spiral.rect, { spiral.hatch }) do
+		wall(
+			"Roof",
+			Vector3.new(piece.x2 - piece.x1, S.RoofThickness, piece.z2 - piece.z1),
+			at(area, (piece.x1 + piece.x2) / 2, roof - S.RoofThickness / 2, (piece.z1 + piece.z2) / 2).Position
+		)
+	end
+
+	-- The hut over the hatch: the tube leaves through a round hole in its
+	-- street side, level on the roof.
+	local hut = spiral.hatch
+	local exit: Hole = {
+		point = at(area, spiral.exit.x, roof, spiral.exit.z).Position,
+		ground = false,
+		middleY = Tunnel.groundHeight(T),
+		flat = 0,
+		outside = outsideOf(T.Radius),
+	}
+	holePlate(model, exit, out, S.HutHeight, color, material)
+	local width, depth = hut.x2 - hut.x1, hut.z2 - hut.z1
+	local middle = at(area, (hut.x1 + hut.x2) / 2, roof + S.HutHeight / 2, (hut.z1 + hut.z2) / 2).Position
+	local beside = (width / 2 - exit.outside) / 2
+	for _, sign in { -1, 1 } do
+		wall(
+			"Wall",
+			Vector3.new(THICKNESS, S.HutHeight, depth),
+			middle + Vector3.new(sign * (width / 2 - THICKNESS / 2), 0, 0)
+		)
+		if beside > 0 then
+			wall(
+				"Wall",
+				Vector3.new(2 * beside, S.HutHeight, THICKNESS),
+				exit.point + Vector3.new(sign * (exit.outside + beside), S.HutHeight / 2, 0) - out * THICKNESS / 2
+			)
+		end
+	end
+	wall("Wall", Vector3.new(width, S.HutHeight, THICKNESS), middle - out * (depth / 2 - THICKNESS / 2))
+	wall(
+		"Roof",
+		Vector3.new(width, S.RoofThickness, depth),
+		middle + Vector3.new(0, S.HutHeight / 2 - S.RoofThickness / 2, 0)
+	)
+
+	-- The kicker, from just past the mouth to the roof's edge.
+	local K = S.Kick
+	local respawn = at(area, spiral.mouth.x, roof + HULL_HEIGHT, spiral.mouth.z).Position - out * 15
+	local base = at(area, spiral.mouth.x, roof, spiral.mouth.z).Position
+		+ out * (S.KickRoom - K.Radius * math.sin(math.rad(K.Angle)) - 5)
+	local kicker = CurvedWall.straight(model, CFrame.lookAt(base, base + out), K.Width, {
+		radius = K.Radius,
+		endAngle = K.Angle,
+		steps = K.Steps,
+		thickness = THICKNESS,
+		color = RAMP_COLOR,
+	})
+	LaunchPad.top(kicker, K.Steps, K.LaunchSpeed, CFrame.lookAt(respawn, respawn + out))
 end
 
 -- Fills the block from z1 down to z2 on both sides of the avenue with
@@ -628,6 +743,7 @@ local function buildBuildings(parent: Instance, area: MapLayout.Area)
 	local rng = Random.new(C.Buildings.Seed)
 	local city: Tunnel.City = C :: any
 	local chains = Tunnel.layout(city)
+	local spirals = Tunnel.spirals(city, C.Spirals :: any)
 	for index, lots in Tunnel.blocks(city) do
 		local taken: { Tunnel.Rect } = {}
 		for _, chain in chains do
@@ -636,6 +752,12 @@ local function buildBuildings(parent: Instance, area: MapLayout.Area)
 				for _, rect in chain.rects do
 					table.insert(taken, rect)
 				end
+			end
+		end
+		for _, spiral in spirals do
+			if spiral.place.Block == index then
+				buildSpiral(model, area, rng, spiral)
+				table.insert(taken, spiral.rect)
 			end
 		end
 		buildBlock(model, area, rng, lots.top, lots.bottom, taken)

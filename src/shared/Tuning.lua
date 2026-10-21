@@ -788,6 +788,44 @@ Tuning.City = {
 			{ Side = -1, Block = 4, Street = "Bottom" },
 		},
 	},
+	-- Spiral towers, laid out by Tunnel.spirals: a hollow building Columns
+	-- by Rows lots from lot Column of its Block, on Side of the avenue,
+	-- against the Street at the Top or Bottom of the block. A round tube (like
+	-- the chains', with the same pull) comes in on the ground from that
+	-- street, Radius out from the building's middle, runs Inset in, and
+	-- climbs Loops and a half round the middle, Pitch up each loop. It comes
+	-- out heading back toward the street, climbs up through the roof under a
+	-- hut HutHeight tall, runs LevelRun along the roof and ends in a mouth
+	-- KickRoom in from the roof's street edge, where a kicker throws the car
+	-- off. Outside is from the tube's middle line to its outside.
+	Spirals = {
+		Radius = 105,
+		Pitch = 72,
+		Loops = 2,
+		Inset = 225,
+		KickRoom = 40,
+		LevelRun = 85,
+		Outside = 33,
+		RoofThickness = 2,
+		Columns = 2,
+		Rows = 2,
+		SliceAngle = 7.5, -- degrees of turn per ring of planks, coarser than the chains' to save parts
+		StepLength = 5, -- studs per ring where it climbs through the roof, steeply
+		HutHeight = 72,
+		Kick = {
+			Radius = 60,
+			Angle = 25,
+			Steps = 8,
+			Width = 120,
+			LaunchSpeed = 220,
+		},
+		Places = {
+			{ Side = 1, Block = 1, Column = 1, Street = "Bottom" },
+			{ Side = -1, Block = 1, Column = 1, Street = "Bottom" },
+			{ Side = 1, Block = 1, Column = 3, Street = "Bottom" },
+			{ Side = -1, Block = 1, Column = 3, Street = "Bottom" },
+		},
+	},
 	-- The train line (Railway, built by Parks.CityRailway): one loop,
 	-- elevated High over the first of StreetZ, down a ramp along the strip
 	-- outside the last lots at StripX either side, through an open cutting

@@ -299,10 +299,17 @@ end
 
 local requestExit: () -> () -- forward declaration so step() can call it
 
--- The city's tunnel chains, in park coordinates (Tunnel.layout), and the
+-- The middle lines of the city's tubes, the tunnel chains' (Tunnel.layout)
+-- and the spiral towers' (Tunnel.spirals), in park coordinates, and the
 -- park's place on the map.
 local cityArea = MapLayout.find(Tuning.Map.Areas :: any, "City")
-local chains = Tunnel.layout(Tuning.City :: any)
+local tubes: { { Tunnel.Piece } } = {}
+for _, chain in Tunnel.layout(Tuning.City :: any) do
+	table.insert(tubes, chain.pieces)
+end
+for _, spiral in Tunnel.spirals(Tuning.City :: any, Tuning.City.Spirals :: any) do
+	table.insert(tubes, spiral.pieces)
+end
 
 -- Which way a city tunnel pulls a car at `position`, or nil outside them all.
 local function tubePull(position: Vector3): Vector3?
@@ -310,8 +317,8 @@ local function tubePull(position: Vector3): Vector3?
 		return nil
 	end
 	local x, y, z = position.X - cityArea.X, position.Y - Tuning.Map.FloorTop, position.Z - cityArea.Z
-	for _, chain in chains do
-		local px, py, pz = Tunnel.pull(chain.pieces, Tuning.City.Tunnels.Radius, x, y, z)
+	for _, pieces in tubes do
+		local px, py, pz = Tunnel.pull(pieces, Tuning.City.Tunnels.Radius, x, y, z)
 		if px and py and pz then
 			return Vector3.new(px, py, pz)
 		end

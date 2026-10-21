@@ -245,4 +245,149 @@ Check.test("a right turn's tube is found from either end", function()
 	Check.eq(Tunnel.pull(right, 30, 160, 30, 0), nil, "on the circle but outside the turn")
 end)
 
+Check.test("in a spiral the pull is out from the loop the car is in", function()
+	-- Two loops left around (-80, 0), climbing 200: a quarter of the way
+	-- round the second loop is 5/8 of the climb along.
+	local spiral = Tunnel.path(0, 0, 0, -1, { { Turn = 720, Radius = 80, Rise = 200 } }, 30)
+	local high = 30 + 200 * Tunnel.ease(5 / 8)
+	local x, y, z = Tunnel.pull(spiral, 30, -80, high + 10, -80)
+	vec("above the second loop", x, y, z, 0, 1, 0)
+	local low = 30 + 200 * Tunnel.ease(1 / 8)
+	x, y, z = Tunnel.pull(spiral, 30, -80, low - 10, -80)
+	vec("below the first loop", x, y, z, 0, -1, 0)
+	Check.eq(Tunnel.pull(spiral, 30, -80, (low + high) / 2, -80), nil, "between the loops")
+end)
+
+Check.test("in a right-hand spiral the pull is out from the loop the car is in", function()
+	-- Two loops right around (80, 0): a quarter of the way round the second
+	-- loop is 5/8 of the climb along.
+	local spiral = Tunnel.path(0, 0, 0, -1, { { Turn = -720, Radius = 80, Rise = 200 } }, 30)
+	local high = 30 + 200 * Tunnel.ease(5 / 8)
+	local x, y, z = Tunnel.pull(spiral, 30, 80, high + 10, -80)
+	vec("above the second loop", x, y, z, 0, 1, 0)
+end)
+
+local SPIRALS: Tunnel.Spirals = {
+	Radius = 105,
+	Pitch = 72,
+	Loops = 2,
+	Inset = 225,
+	KickRoom = 40,
+	LevelRun = 85,
+	Outside = 33,
+	RoofThickness = 2,
+	Columns = 2,
+	Rows = 2,
+	Places = {},
+}
+
+local function spiralsAt(place: Tunnel.SpiralPlace): { Tunnel.Spiral }
+	local layout = table.clone(SPIRALS)
+	layout.Places = { place }
+	return Tunnel.spirals(city({}), layout)
+end
+
+-- Points every few studs along a spiral's middle line.
+local function samples(spiral: Tunnel.Spiral): { { x: number, y: number, z: number, s: number } }
+	local points = {}
+	local travelled = 0
+	for _, piece in spiral.pieces do
+		local length = Tunnel.length(piece)
+		local steps = math.ceil(length / 4)
+		for i = 0, steps - 1 do
+			local x, y, z = Tunnel.pointAt(piece, i / steps)
+			table.insert(points, { x = x, y = y, z = z, s = travelled + length * i / steps })
+		end
+		travelled += length
+	end
+	return points
+end
+
+Check.test("a spiral tower stands on two by two lots at its column, against its street", function()
+	local spiral = spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1]
+	Check.near(spiral.rect.x1, 100, "from the avenue's setback")
+	Check.near(spiral.rect.x2, 470, "two lots and an alley wide")
+	Check.near(spiral.rect.z1, 1110, "against the block's lowest lots")
+	Check.near(spiral.rect.z2, 1480, "two lots and an alley deep")
+	local third = spiralsAt({ Side = -1, Block = 1, Column = 3, Street = "Bottom" })[1]
+	Check.near(third.rect.x1, -890, "two columns further out, the other side")
+	Check.near(third.rect.x2, -520)
+end)
+
+Check.test("a spiral comes in on the ground from its street and ends level on the roof heading back out", function()
+	local spiral = spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1]
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	Check.eq(spiral.warning, nil)
+	Check.near(spiral.entry.x, 285 + 105, "a helix radius out from the middle")
+	Check.near(spiral.entry.z, 1110, "on the street side")
+	Check.near(spiral.pieces[1].fromY, ground, "on the ground")
+	local last = spiral.pieces[#spiral.pieces]
+	Check.near(last.fromY, spiral.roof + ground, "level on the roof")
+	Check.near(last.toY, spiral.roof + ground)
+	Check.near(spiral.mouth.x, 285 - 105, "back down the other side")
+	Check.near(spiral.mouth.z, 1110 + 40, "KickRoom in from the roof's street edge")
+	Check.near(spiral.outX, 0)
+	Check.near(spiral.outZ, -1, "heading out toward the street")
+	Check.near(spiral.roof, ground + 2.5 * 72 + 33 + 2, "the roof just over the top loop")
+end)
+
+Check.test("a spiral against the top street on the other side is the mirror image", function()
+	local spiral = spiralsAt({ Side = -1, Block = 1, Column = 1, Street = "Top" })[1]
+	Check.eq(spiral.warning, nil)
+	Check.near(spiral.entry.x, -285 - 105)
+	Check.near(spiral.entry.z, 1480)
+	Check.near(spiral.mouth.x, -285 + 105)
+	Check.near(spiral.mouth.z, 1480 - 40)
+	Check.near(spiral.outZ, 1)
+end)
+
+Check.test("a spiral's tube never meets itself", function()
+	local points = samples(spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1])
+	for i, a in points do
+		for j = i + 1, #points do
+			local b = points[j]
+			if b.s - a.s > 3 * SPIRALS.Outside then
+				local apart = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2)
+				if apart < 2 * SPIRALS.Outside then
+					error(`tube at {a.s} and {b.s} overlap: middles {apart} apart`)
+				end
+			end
+		end
+	end
+end)
+
+Check.test("a spiral's tube stays inside its building", function()
+	local spiral = spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1]
+	local rect = spiral.rect
+	for _, p in samples(spiral) do
+		if p.s > SPIRALS.Outside then
+			local inside = math.min(p.x - rect.x1, rect.x2 - p.x, p.z - rect.z1, rect.z2 - p.z)
+			Check.eq(inside >= SPIRALS.Outside, true, `{inside} inside at {p.s}`)
+		end
+	end
+end)
+
+Check.test("the roof covers the tube but at the hatch, where it comes up through", function()
+	local spiral = spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1]
+	local bottom = spiral.roof - SPIRALS.RoofThickness
+	local onRoof = spiral.roof + Tunnel.groundHeight(city({}).Tunnels) - 0.01
+	local hatch = spiral.hatch
+	local crossings = 0
+	for _, p in samples(spiral) do
+		-- Until it lies on the roof, any of it at the roof's height.
+		if p.y < onRoof and p.y + SPIRALS.Outside > bottom then
+			crossings += 1
+			local inHatch = p.x >= hatch.x1 and p.x <= hatch.x2 and p.z >= hatch.z1 and p.z <= hatch.z2
+			Check.eq(inHatch, true, `through the roof outside the hatch at {p.x}, {p.z}`)
+		end
+	end
+	Check.eq(crossings > 0, true, "it does come up through the roof")
+	Check.near(spiral.exit.x, spiral.mouth.x, "it leaves the hatch on its line")
+	Check.near(spiral.exit.z, hatch.z1, "at the hatch's street side")
+end)
+
+Check.test("a spiral in a block that does not exist is skipped", function()
+	Check.eq(#spiralsAt({ Side = 1, Block = 9, Column = 1, Street = "Bottom" }), 0)
+end)
+
 Check.finish("Tunnel")

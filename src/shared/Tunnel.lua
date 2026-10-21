@@ -335,6 +335,134 @@ function Tunnel.layout(city: City): { Chain }
 	return chains
 end
 
+-- Spiral towers (Tuning.City.Spirals): a building Columns by Rows lots from
+-- lot Column of its Block on Side of the avenue, against the Street at the
+-- Top or Bottom of the block. A tube comes in on the ground from that
+-- street, Radius out from the building's middle, runs Inset in, and
+-- climbs Loops and a half round the middle, Pitch up each loop, coming
+-- out heading back toward the street on the other side. Then it climbs up
+-- through the roof at the hatch, levels out on the roof, and ends after
+-- LevelRun, KickRoom in from the roof's street edge. Outside is from the
+-- tube's middle line to its outside; the roof is RoofThickness thick, just
+-- over the top loop.
+export type SpiralPlace = {
+	Side: number,
+	Block: number,
+	Column: number,
+	Street: string, -- "Top" or "Bottom"
+}
+
+export type Spirals = {
+	Radius: number,
+	Pitch: number,
+	Loops: number,
+	Inset: number,
+	KickRoom: number,
+	LevelRun: number,
+	Outside: number,
+	RoofThickness: number,
+	Columns: number,
+	Rows: number,
+	Places: { SpiralPlace },
+}
+
+export type Spiral = {
+	place: SpiralPlace,
+	rect: Rect,
+	pieces: { Piece },
+	entry: Crossing, -- on the ground, the building's street side
+	roof: number, -- the roof's top, from the floor
+	hatch: Rect, -- where the tube comes up through the roof
+	exit: Crossing, -- where the tube leaves the hatch, level on the roof
+	mouth: Crossing, -- the tube's end on the roof
+	outX: number, -- the way from the mouth toward the street
+	outZ: number,
+	warning: string?,
+}
+
+local function layoutSpiral(city: City, spirals: Spirals, place: SpiralPlace, block: Block): Spiral
+	local B = city.Buildings
+	local side = place.Side
+	local inward = if place.Street == "Bottom" then 1 else -1
+	local width = spirals.Columns * B.Lot + (spirals.Columns - 1) * B.Alley
+	local depth = spirals.Rows * B.Lot + (spirals.Rows - 1) * B.Alley
+	local lotsTop = block.top - B.Setback
+	local rows = math.floor((lotsTop - (block.bottom + B.Setback) + B.Alley) / (B.Lot + B.Alley))
+	local lotsBottom = lotsTop - rows * B.Lot - (rows - 1) * B.Alley
+	local z1 = if inward > 0 then lotsBottom else lotsTop - depth
+	local wall = if inward > 0 then z1 else z1 + depth
+	local edge = city.Avenue.Width / 2 + B.Setback + (place.Column - 1) * (B.Lot + B.Alley)
+	local rect = {
+		x1 = if side > 0 then edge else -edge - width,
+		x2 = if side > 0 then edge + width else -edge,
+		z1 = z1,
+		z2 = z1 + depth,
+	}
+	local middle = (rect.x1 + rect.x2) / 2
+	local R = spirals.Radius
+
+	-- In on the outer side of the middle, round the middle so the center is
+	-- Radius back toward it, and out on the inner side.
+	local turn = -side * inward
+	local segments: { Segment } = { { Straight = spirals.Inset } }
+	for _ = 1, spirals.Loops do
+		table.insert(segments, { Turn = turn * 360, Radius = R, Rise = spirals.Pitch })
+	end
+	table.insert(segments, { Turn = turn * 180, Radius = R, Rise = spirals.Pitch / 2 })
+	local ground = Tunnel.groundHeight(city.Tunnels)
+	local top = ground + (spirals.Loops + 0.5) * spirals.Pitch
+	local roof = top + spirals.Outside + spirals.RoofThickness
+	local climb = spirals.Inset - spirals.KickRoom - spirals.LevelRun
+	table.insert(segments, { Straight = climb, Rise = roof + ground - top })
+	table.insert(segments, { Straight = spirals.LevelRun })
+	local x = middle + side * R
+	local pieces = Tunnel.path(x, wall, 0, inward, segments, ground)
+
+	local warning: string? = nil
+	if climb <= 0 then
+		warning = "a spiral's Inset leaves no room to climb through the roof"
+	elseif spirals.Pitch < 2 * spirals.Outside then
+		warning = "a spiral's Pitch lets its loops meet"
+	elseif R + spirals.Outside > width / 2 or spirals.Inset + R + spirals.Outside > depth then
+		warning = "a spiral does not fit its building"
+	end
+
+	local outX = middle - side * R
+	local hatchNear = wall + inward * (spirals.KickRoom + spirals.LevelRun)
+	local hatchFar = wall + inward * spirals.Inset
+	return {
+		place = place,
+		rect = rect,
+		pieces = pieces,
+		entry = { x = x, z = wall },
+		roof = roof,
+		hatch = {
+			x1 = outX - spirals.Outside,
+			x2 = outX + spirals.Outside,
+			z1 = math.min(hatchNear, hatchFar),
+			z2 = math.max(hatchNear, hatchFar),
+		},
+		exit = { x = outX, z = hatchNear },
+		mouth = { x = outX, z = wall + inward * spirals.KickRoom },
+		outX = 0,
+		outZ = -inward,
+		warning = warning,
+	}
+end
+
+-- Every spiral tower in Spirals.Places whose block exists.
+function Tunnel.spirals(city: City, spirals: Spirals): { Spiral }
+	local blocks = Tunnel.blocks(city)
+	local list: { Spiral } = {}
+	for _, place in spirals.Places do
+		local block = blocks[place.Block]
+		if block then
+			table.insert(list, layoutSpiral(city, spirals, place, block))
+		end
+	end
+	return list
+end
+
 -- The way a tube of `radius` around the middle line `pieces` pulls a car at
 -- (x, y, z): straight out from the nearest point on the middle line through
 -- the car, toward the nearest wall, as a unit vector. Nil outside the tube,
@@ -342,14 +470,15 @@ end
 -- down.
 function Tunnel.pull(pieces: { Piece }, radius: number, x: number, y: number, z: number): (number?, number?, number?)
 	for _, piece in pieces do
-		-- How far along the piece the car is alongside it, if it is.
-		local t: number? = nil
+		-- How far along the piece the car is alongside it: once on a
+		-- straight, and once each time round a turn that loops.
+		local alongside: { number } = {}
 		if piece.kind == "straight" then
 			local dx, dz = piece.toX - piece.fromX, piece.toZ - piece.fromZ
 			local length2 = dx * dx + dz * dz
 			local along = ((x - piece.fromX) * dx + (z - piece.fromZ) * dz) / length2
 			if along >= 0 and along <= 1 then
-				t = along
+				table.insert(alongside, along)
 			end
 		else
 			local ux, uz = piece.startX - piece.centerX, piece.startZ - piece.centerZ
@@ -359,11 +488,14 @@ function Tunnel.pull(pieces: { Piece }, radius: number, x: number, y: number, z:
 			if around < 0 then
 				around += 2 * math.pi
 			end
-			if (wx * wx + wz * wz) > 1e-9 and around <= piece.sweep then
-				t = if piece.left then around / piece.sweep else 1 - around / piece.sweep
+			if (wx * wx + wz * wz) > 1e-9 then
+				while around <= piece.sweep do
+					table.insert(alongside, if piece.left then around / piece.sweep else 1 - around / piece.sweep)
+					around += 2 * math.pi
+				end
 			end
 		end
-		if t then
+		for _, t in alongside do
 			local ax, ay, az = Tunnel.pointAt(piece, t)
 			local px, py, pz = x - ax, y - ay, z - az
 			local distance = math.sqrt(px * px + py * py + pz * pz)
