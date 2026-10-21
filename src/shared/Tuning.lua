@@ -720,33 +720,65 @@ Tuning.City = {
 		MaxHeight = 260,
 		EmptyChance = 0.15, -- some lots stay empty, as parking lots to land in
 	},
-	-- Wide buildings with a tunnel through: in from the avenue, an S of
-	-- turns, and out onto the next cross street. Each takes the Columns by
-	-- Rows lots nearest the avenue at the top of its block (1 is the first
-	-- block past the arrival plaza). Side 1 is +X; the other side is the
-	-- mirror image. The tunnel's walls are the building's foot curve, running
-	-- on in through the mouths.
+	-- Wide buildings with a round tube tunnel through their ground floor (laid
+	-- out by Tunnel.layout). Each takes Columns by Rows lots at the top of its
+	-- block (Block 1 is the first past the arrival plaza), from lot Column out
+	-- (1 is nearest the avenue). Side 1 is +X; the other side is the mirror
+	-- image. Inside a tube a driver's car is pulled toward the nearest wall
+	-- instead of down (CarController), so it can drive round the walls and
+	-- along the roof at any speed. Dim lights hang along the roof.
 	Tunnels = {
-		Floor = 40, -- flat between the curves
-		Height = 40, -- floor to ceiling
+		Radius = 30, -- from the middle line to the planks
+		Sides = 24, -- planks around the ring
+		Pull = 1, -- toward the wall inside a tube, times world gravity
+		-- Over FlareLength at each end the tube opens out into a mouth with a
+		-- flat floor (and roof) MouthFloor wide and curves MouthCurve around
+		-- up each side, like the corkscrew's middle ramp, so a car can get in
+		-- off center or at an angle. Each tunnel must start and end with a
+		-- straight at least FlareLength long.
+		MouthFloor = 68,
+		MouthCurve = 18,
+		FlareLength = 80,
+		FlareRows = 8,
 		Columns = 2,
 		Rows = 3,
-		Slices = 6, -- per turn
-		-- From the street side of the building back to where the middle line
-		-- comes in from the avenue. The segments must end on the street side.
-		EntryBack = 480,
-		Segments = {
-			{ Straight = 60 },
-			{ Turn = -90, Radius = 80 }, -- toward the cross street
-			{ Straight = 100 },
-			{ Turn = 90, Radius = 80 },
-			{ Turn = -90, Radius = 80 },
-			{ Straight = 140 },
+		SliceAngle = 5, -- degrees of turn per slice of wall
+		LightEvery = 60, -- studs along the middle line
+		LightBrightness = 0.6,
+		LightRange = 30,
+		-- A tunnel's middle line starts Offset into the side facing the
+		-- avenue (from the street side) or the street (from the avenue
+		-- side), runs its segments, then goes straight out of whichever side
+		-- it ends heading for. Turns are degrees, positive left.
+		Shapes = {
+			-- In from the avenue, one long sweep round onto the cross street.
+			Corner = {
+				Start = "Avenue",
+				Offset = 460,
+				Segments = {
+					{ Straight = 80 },
+					{ Turn = -90, Radius = 210 },
+				},
+			},
+			-- From one cross street to the next, with a gentle jog.
+			Long = {
+				Start = "Street",
+				Offset = 140,
+				Segments = {
+					{ Straight = 100 },
+					{ Turn = -25, Radius = 300 },
+					{ Straight = 80 },
+					{ Turn = 25, Radius = 300 },
+				},
+			},
 		},
 		Places = {
-			{ Side = 1, Block = 2 },
-			{ Side = -1, Block = 3 },
-			{ Side = 1, Block = 4 },
+			{ Side = 1, Block = 2, Column = 1, Shape = "Corner" },
+			{ Side = -1, Block = 2, Column = 3, Shape = "Long" },
+			{ Side = -1, Block = 3, Column = 1, Shape = "Corner" },
+			{ Side = 1, Block = 3, Column = 3, Shape = "Long" },
+			{ Side = 1, Block = 4, Column = 1, Shape = "Corner" },
+			{ Side = -1, Block = 4, Column = 1, Shape = "Long" },
 		},
 	},
 	Overpass = {

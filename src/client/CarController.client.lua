@@ -38,10 +38,12 @@ local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
+local MapLayout = require(ReplicatedStorage.MapLayout)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Tunnel = require(ReplicatedStorage.Tunnel)
 local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
@@ -90,6 +92,7 @@ type Rig = {
 	wheels: { Wheel },
 	spin: AngularVelocity,
 	jet: VectorForce,
+	stick: VectorForce?, -- nil on a car built before tubes had one
 	-- Every unanchored part that is its own assembly: hull, hubs, wheels.
 	roots: { BasePart },
 	sensor: CarSensor.Sensor,
@@ -118,6 +121,9 @@ local resetHeld = false
 local exitHeld = false
 local frogCooldown = 0
 local righting = false
+-- Which way is up for the car: world up, or inside a city tube, toward its
+-- middle line.
+local up = Vector3.yAxis
 local run = RunTracker.new()
 local tricksShown = 0
 local resetAskedAt = -math.huge
@@ -141,6 +147,7 @@ local function rigFor(model: Model, character: Model): Rig?
 	end
 	local spin = hull:FindFirstChild("AirSpin")
 	local jet = hull:FindFirstChild("Jet")
+	local stick = hull:FindFirstChild("Stick")
 	if not (spin and spin:IsA("AngularVelocity") and jet and jet:IsA("VectorForce")) then
 		return nil
 	end
@@ -202,6 +209,7 @@ local function rigFor(model: Model, character: Model): Rig?
 		wheels = wheels,
 		spin = spin,
 		jet = jet,
+		stick = if stick and stick:IsA("VectorForce") then stick else nil,
 		roots = roots,
 		sensor = sensor,
 		mass = mass,
@@ -290,13 +298,44 @@ end
 
 local requestExit: () -> () -- forward declaration so step() can call it
 
+-- The city's tube tunnels, in park coordinates (Tunnel.layout), and the
+-- park's place on the map.
+local cityArea = MapLayout.find(Tuning.Map.Areas :: any, "City")
+local tubes = Tunnel.layout(Tuning.City :: any)
+local tubeMiddleY = Tunnel.centerHeight(Tuning.City.Tunnels, Tuning.Map.FloorTop)
+
+-- Which way a city tube pulls a car at `position`, or nil outside them all.
+local function tubePull(position: Vector3): Vector3?
+	if not cityArea then
+		return nil
+	end
+	local x, z = position.X - cityArea.X, position.Z - cityArea.Z
+	for _, tube in tubes do
+		local px, py, pz = Tunnel.pull(tube.pieces, Tuning.City.Tunnels.Radius, tubeMiddleY, x, position.Y, z)
+		if px and py and pz then
+			return Vector3.new(px, py, pz)
+		end
+	end
+	return nil
+end
+
 local function step(r: Rig, dt: number)
 	local input = Controls.read()
 	local cf = r.hull.CFrame
 	local velocity = r.hull.AssemblyLinearVelocity
 	local forwardSpeed = velocity:Dot(cf.LookVector)
 
-	local reading = CarSensor.read(r.sensor, dt)
+	-- Inside a city tube the car is pulled toward the nearest wall instead of
+	-- down, so it can drive round the walls and along the roof.
+	local pull = tubePull(cf.Position)
+	up = if pull then -pull else Vector3.yAxis
+	if r.stick then
+		r.stick.Force = if pull
+			then (pull * Tuning.City.Tunnels.Pull + Vector3.yAxis) * workspace.Gravity * r.hull.AssemblyMass
+			else Vector3.zero
+	end
+
+	local reading = CarSensor.read(r.sensor, dt, up)
 	local airborne = reading.airborne
 
 	-- On a rail or a swing seat, GrindRide or SwingRide moves the car: no
@@ -323,7 +362,8 @@ local function step(r: Rig, dt: number)
 	end
 
 	local RT = Tuning.Righting
-	righting = Righting.step(righting, reading.lying, reading.wheelsDown, cf.UpVector.Y, RT)
+	local upright = cf.UpVector:Dot(up)
+	righting = Righting.step(righting, reading.lying, reading.wheelsDown, upright, RT)
 
 	-- Frog jump or jets
 	if r.isFrog then
@@ -386,9 +426,13 @@ local function step(r: Rig, dt: number)
 
 	-- Righting, else air control
 	if righting then
-		local up, look = cf.UpVector, cf.LookVector
-		local wx, wy, wz = Righting.rate(up.X, up.Y, up.Z, look.X, look.Y, look.Z, RT)
-		r.spin.AngularVelocity = cf:VectorToObjectSpace(Vector3.new(wx, wy, wz))
+		-- Worked out with `up` as Y, then turned back into world space.
+		local across = up:Cross(if math.abs(up.X) < 0.9 then Vector3.xAxis else Vector3.zAxis).Unit
+		local frame = if pull then CFrame.fromMatrix(Vector3.zero, across, up) else CFrame.identity
+		local carUp = frame:VectorToObjectSpace(cf.UpVector)
+		local look = frame:VectorToObjectSpace(cf.LookVector)
+		local wx, wy, wz = Righting.rate(carUp.X, carUp.Y, carUp.Z, look.X, look.Y, look.Z, RT)
+		r.spin.AngularVelocity = cf:VectorToObjectSpace(frame:VectorToWorldSpace(Vector3.new(wx, wy, wz)))
 		r.spin.MaxTorque = r.mass * RT.TorquePerMass
 		r.spin.Enabled = true
 	elseif airborne then
@@ -423,7 +467,7 @@ local function step(r: Rig, dt: number)
 
 	-- Resets
 	local R = Tuning.Reset
-	stuckTime = Contact.stepStuck(stuckTime, cf.UpVector.Y, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
+	stuckTime = Contact.stepStuck(stuckTime, upright, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
 	local resetPressed = input.reset and not resetHeld
 	resetHeld = input.reset
 	if resetPressed or stuckTime >= R.StuckTime or cf.Position.Y < Tuning.World.FallResetY then
@@ -460,7 +504,11 @@ local function enter(r: Rig)
 end
 
 local function leave()
+	if rig and rig.stick then
+		rig.stick.Force = Vector3.zero
+	end
 	rig = nil
+	up = Vector3.yAxis
 	GrindRide.stop()
 	SwingRide.stop()
 	if defaultControls then
@@ -542,7 +590,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		return
 	end
 	local contact = current.sensor.contact
-	ChaseCamera.update(current.hull, contact.airborne, dt)
+	ChaseCamera.update(current.hull, contact.airborne, dt, up)
 	Hud.update(
 		fuel / current.jetFuel,
 		current.hull.AssemblyLinearVelocity.Magnitude,

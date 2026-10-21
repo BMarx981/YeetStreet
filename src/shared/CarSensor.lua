@@ -124,7 +124,9 @@ local function impact(last: CFrame?, lastVelocity: Vector3?, cf: CFrame, velocit
 	return cf:VectorToObjectSpace(change)
 end
 
-function CarSensor.read(sensor: Sensor, dt: number): Reading
+-- `up` is which way the car should be the right way up: world up, or inside
+-- a city tube, toward its middle line.
+function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	local cf = sensor.hull.CFrame
 	local velocity = sensor.hull.AssemblyLinearVelocity
 	local wheelsDown, pad = probe(sensor, cf)
@@ -132,8 +134,9 @@ function CarSensor.read(sensor: Sensor, dt: number): Reading
 	sensor.contact = Contact.step(sensor.contact, wheelsDown, dt, C.AirDelay, C.LandWheels)
 
 	local RT = Tuning.Righting
-	local groundClose = workspace:Raycast(cf.Position, Vector3.new(0, -RT.GroundProbe, 0), sensor.rayParams) ~= nil
-	local lying = Righting.lying(wheelsDown, cf.UpVector.Y, groundClose, RT)
+	local upward = up or Vector3.yAxis
+	local groundClose = workspace:Raycast(cf.Position, -upward * RT.GroundProbe, sensor.rayParams) ~= nil
+	local lying = Righting.lying(wheelsDown, cf.UpVector:Dot(upward), groundClose, RT)
 
 	local rotation = turn(sensor.lastCFrame, cf)
 	local hit = impact(sensor.lastCFrame, sensor.lastVelocity, cf, velocity, dt)

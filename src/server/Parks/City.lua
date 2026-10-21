@@ -6,7 +6,8 @@
 -- both ends. The Highway Overpass climbs straight down the avenue to a broken
 -- end, a kicker with boosters that throws the car on down the avenue.
 -- Every building has a curve all around its foot, so a car driven at it
--- rides up the wall instead of stopping dead. Numbers are in Tuning.City.
+-- rides up the wall instead of stopping dead, and some have a round tube
+-- tunnel through them. Numbers are in Tuning.City.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -17,6 +18,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
+local Triangle = require(ServerScriptService.Pieces.Triangle)
 
 local C = Tuning.City
 local FLOOR = Tuning.Map.FloorTop
@@ -28,6 +30,10 @@ local DASH_COLOR = Color3.fromRGB(240, 200, 40)
 local RAMP_COLOR = Color3.fromRGB(196, 196, 190)
 local BARRIER_COLOR = Color3.fromRGB(225, 225, 220)
 local PILLAR_COLOR = Color3.fromRGB(150, 150, 150)
+local LIGHT_COLOR = Color3.fromRGB(255, 214, 160)
+local TUBE_COLOR = Color3.fromRGB(150, 156, 166)
+-- Planks are this much wider than their chord so the seams stay closed.
+local OVERLAP = 0.4
 local BUILDING_COLORS = {
 	Color3.fromRGB(150, 160, 175),
 	Color3.fromRGB(120, 90, 80),
@@ -168,109 +174,275 @@ local function outsideCorner(parent: Instance, corner: Vector3, a: Vector3, b: V
 	)
 end
 
--- A footprint in park coordinates, seen from above.
-type Rect = { x1: number, x2: number, z1: number, z2: number }
-
--- A building with a tunnel through its ground floor, on `side` of the
--- avenue at the top of the block whose street side is `top`. The tunnel's
--- walls are curves rising away from its flat floor up to straight walls, and
--- the building above is its ceiling. The walls run out through each mouth
--- into the curves along the building's foot.
-local function buildTunnel(parent: Instance, area: MapLayout.Area, rng: Random, side: number, top: number): Rect
+-- A building with a round tube tunnel through its ground floor, laid out by
+-- Tunnel.layout. The tube is a ring of Sides planks all the way round, so a
+-- car can drive up its walls and along its roof (CarController pulls a car
+-- toward the wall inside one). The building above sits on the tube. Over
+-- FlareLength at each end the tube opens out into a mouth with a wide flat
+-- floor and curves up each side, like the corkscrew's middle ramp, so a car
+-- can drive in off center or at an angle. Each mouth is a hole in a plate
+-- across the building's side, and the curve along the building's foot wraps
+-- in to meet it. Dim lights hang along the roof.
+local function buildTunnel(parent: Instance, area: MapLayout.Area, rng: Random, tube: Tunnel.Tube)
 	local B, T = C.Buildings, C.Tunnels
-	local inner = C.Avenue.Width / 2 + B.Setback
-	local width = T.Columns * B.Lot + (T.Columns - 1) * B.Alley
-	local depth = T.Rows * B.Lot + (T.Rows - 1) * B.Alley
-	local rect: Rect = {
-		x1 = if side > 0 then inner else -inner - width,
-		x2 = if side > 0 then inner + width else -inner,
-		z1 = top - depth,
-		z2 = top,
-	}
-	local height = rng:NextInteger(math.max(B.MinHeight, T.Height + 20), B.MaxHeight)
+	local rect = tube.rect
+	local R = B.CurveRadius
+	local thickness = 2
+	local halfStep = math.pi / T.Sides
+	local face = T.Radius * math.cos(halfStep) -- from the middle line to each plank's inside face
+	local chord = 2 * T.Radius * math.sin(halfStep)
+	local middleY = Tunnel.centerHeight(T, FLOOR) - FLOOR
+	-- The ring's outside corners are this far from the middle line.
+	local outside = (face + thickness) / math.cos(halfStep)
+	local towerBottom = middleY + outside
+	-- The same for the mouths, whose curves are MouthCurve around and sit
+	-- either side of a flat floor and roof MouthFloor wide.
+	local mouthHalf = T.MouthFloor / 2
+	local mouthFace = T.MouthCurve * math.cos(halfStep)
+	local mouthMiddleY = mouthFace + Tunnel.LIFT
+	local mouthOutside = (mouthFace + thickness) / math.cos(halfStep)
+
+	local height = rng:NextInteger(math.max(B.MinHeight, math.ceil(towerBottom) + 20), B.MaxHeight)
 	local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
 	local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
+	if tube.warning then
+		warn(`City: {tube.warning}`)
+	end
 
 	local model = Instance.new("Model")
 	model.Name = "TunnelBuilding"
 	model.Parent = parent
 
+	local width, depth = rect.x2 - rect.x1, rect.z2 - rect.z1
 	local tower = block(
 		model,
 		"Tower",
-		Vector3.new(width, height - T.Height, depth),
-		at(area, (rect.x1 + rect.x2) / 2, (height + T.Height) / 2, (rect.z1 + rect.z2) / 2),
+		Vector3.new(width, height - towerBottom, depth),
+		at(area, (rect.x1 + rect.x2) / 2, (height + towerBottom) / 2, (rect.z1 + rect.z2) / 2),
 		color
 	)
 	tower.Material = material
 
+	local function floorAt(x: number, z: number): Vector3
+		return at(area, x, 0, z).Position
+	end
+	local function plank(cframe: CFrame, length: number)
+		block(model, "Plank", Vector3.new(chord + OVERLAP, thickness, length), cframe, TUBE_COLOR)
+	end
+	-- One ring of planks around the middle line at `middle`, whose cross
+	-- section has `side` level and square to the line, `length` along it, or
+	-- `lengthAt` for each plank, given how far out to the side it is.
+	local function ring(middle: Vector3, side: Vector3, lengthAt: (number) -> number)
+		for k = 0, T.Sides - 1 do
+			local angle = 2 * halfStep * k -- from the bottom, round toward `side`
+			local out = -Vector3.yAxis * math.cos(angle) + side * math.sin(angle)
+			local around = side * math.cos(angle) + Vector3.yAxis * math.sin(angle)
+			local position = middle + out * (face + thickness / 2)
+			plank(CFrame.fromMatrix(position, around, -out), lengthAt(face * math.sin(angle)))
+		end
+	end
+
+	-- Dim lights along the roof, every LightEvery studs of the middle line.
+	local function light(cframe: CFrame)
+		local fixture = block(model, "Light", Vector3.new(6, 0.3, 2), cframe, LIGHT_COLOR)
+		fixture.Material = Enum.Material.SmoothPlastic
+		fixture.CanCollide = false
+		fixture.CanQuery = false
+		fixture.CanTouch = false
+		local glow = Instance.new("PointLight")
+		glow.Brightness = T.LightBrightness
+		glow.Range = T.LightRange
+		glow.Color = LIGHT_COLOR
+		glow.Parent = fixture
+	end
+	local roof = middleY + face - 0.1
+	local untilLight = T.LightEvery / 2
+
+	-- The opening from a mouth on the floor at `mouth` in along `inward` to
+	-- where it meets the tube, in FlareRows rows of triangles between rings
+	-- of the planks' inside corners. Each ring is the tube's, pulled apart
+	-- across the middle into a flat floor and roof, its curves eased from
+	-- MouthCurve around to Radius and its floor from MouthFloor wide to
+	-- nothing, so it meets the tube without a fold.
+	local function flare(mouth: Vector3, inward: Vector3)
+		local side = Vector3.new(-inward.Z, 0, inward.X)
+		local function corners(row: number): ({ Vector3 }, Vector3)
+			local t = 1 - row / T.FlareRows
+			local ease = t * t * (3 - 2 * t)
+			local radius = T.Radius + (T.MouthCurve - T.Radius) * ease
+			local flat = mouthHalf * ease
+			local middle = mouth
+				+ inward * (T.FlareLength * row / T.FlareRows)
+				+ Vector3.new(0, radius * math.cos(halfStep) + Tunnel.LIFT, 0)
+			local points: { Vector3 } = {}
+			for k = 0, T.Sides - 1 do
+				local angle = 2 * halfStep * k + halfStep
+				local across = radius * math.sin(angle) + flat * math.sign(math.sin(angle))
+				table.insert(points, middle + side * across - Vector3.yAxis * radius * math.cos(angle))
+			end
+			return points, middle
+		end
+		local back, backMiddle = corners(0)
+		for row = 1, T.FlareRows do
+			local front, frontMiddle = corners(row)
+			local middle = (backMiddle + frontMiddle) / 2
+			for k = 1, T.Sides do
+				local n = k % T.Sides + 1
+				local inside = middle - (back[k] + front[n]) / 2
+				for _, wedge in Triangle.make(model, back[k], back[n], front[n], inside, thickness, TUBE_COLOR) do
+					wedge.Name = "Plank"
+				end
+				for _, wedge in Triangle.make(model, back[k], front[n], front[k], inside, thickness, TUBE_COLOR) do
+					wedge.Name = "Plank"
+				end
+			end
+			back, backMiddle = front, frontMiddle
+		end
+	end
+
+	-- The first and last pieces are straights, their outer FlareLength the
+	-- bells.
+	local pieces = tube.pieces
+	local firstPiece, lastPiece = pieces[1], pieces[#pieces]
+	local function straightLength(piece: Tunnel.Piece): number
+		return if piece.kind == "straight"
+			then math.sqrt((piece.toX - piece.fromX) ^ 2 + (piece.toZ - piece.fromZ) ^ 2)
+			else 0
+	end
+	if straightLength(firstPiece) < T.FlareLength or straightLength(lastPiece) < T.FlareLength then
+		warn(`City: a {tube.place.Shape} tunnel needs a straight at least FlareLength long at each end`)
+	end
+	local total = 0
+	for _, piece in pieces do
+		total += if piece.kind == "straight" then straightLength(piece) else piece.radius * piece.sweep
+	end
+	-- No lights hang in the bells, where the roof is higher.
+	local travelled = 0
+	local function lit(distance: number): boolean
+		local reached = travelled + distance
+		return reached > T.FlareLength and reached < total - T.FlareLength
+	end
+
+	for index, piece in pieces do
+		if piece.kind == "straight" then
+			local from, to = floorAt(piece.fromX, piece.fromZ), floorAt(piece.toX, piece.toZ)
+			local length = (to - from).Magnitude
+			local along = (to - from).Unit
+			local start = if index == 1 then T.FlareLength else 0
+			local finish = length - (if index == #pieces then T.FlareLength else 0)
+			if finish > start then
+				local middle = from + along * (start + finish) / 2 + Vector3.new(0, middleY, 0)
+				ring(middle, Vector3.new(-along.Z, 0, along.X), function(_: number): number
+					return finish - start
+				end)
+			end
+			if index == 1 then
+				flare(from, along)
+			end
+			if index == #pieces then
+				flare(to, -along)
+			end
+			while untilLight <= length do
+				local spot = from + along * untilLight + Vector3.new(0, roof, 0)
+				if lit(untilLight) then
+					light(CFrame.lookAt(spot, spot + along))
+				end
+				untilLight += T.LightEvery
+			end
+			untilLight -= length
+			travelled += length
+		else
+			local center = floorAt(piece.centerX, piece.centerZ)
+			local pivot = CFrame.lookAt(center, floorAt(piece.startX, piece.startZ))
+			local turn = math.deg(piece.sweep)
+			local slices = math.ceil(turn / T.SliceAngle)
+			local sliceAngle = turn / slices
+			for i = 1, slices do
+				local spoke = (pivot * CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0)).LookVector
+				-- Each plank as long as its slice where the car drives on it.
+				ring(center + spoke * piece.radius + Vector3.new(0, middleY, 0), spoke, function(out: number): number
+					return CurveProfile.sliceLength(piece.radius + out, sliceAngle)
+				end)
+			end
+			-- Lights by distance around the middle line the way the car goes,
+			-- which for a right turn is back from the sweep's start.
+			local length = piece.radius * piece.sweep
+			local left = piece.startX == piece.fromX and piece.startZ == piece.fromZ
+			while untilLight <= length do
+				local around = if left then untilLight else length - untilLight
+				local spot = pivot
+					* CFrame.Angles(0, around / piece.radius, 0)
+					* CFrame.new(0, roof, -piece.radius)
+					* CFrame.Angles(0, math.pi / 2, 0)
+				if lit(untilLight) then
+					light(spot)
+				end
+				untilLight += T.LightEvery
+			end
+			untilLight -= length
+			travelled += length
+		end
+	end
+
+	-- A plate across the building's side at a mouth on the floor at `mouth`,
+	-- facing `out`, from `reach` either side of it and from below the floor up
+	-- to the tower, with the mouth's outline cut out of it.
+	local reach = mouthHalf + mouthOutside + R
+	local up, down = towerBottom - mouthMiddleY, mouthOutside
+	local function portal(mouth: Vector3, out: Vector3)
+		local across = Vector3.new(out.Z, 0, -out.X)
+		local function point(t: number, y: number): Vector3
+			return mouth + across * t + Vector3.new(0, mouthMiddleY + y, 0)
+		end
+		local function triangle(a: Vector3, b: Vector3, c: Vector3)
+			if (b - a):Cross(c - a).Magnitude < 0.01 then
+				return
+			end
+			for _, wedge in Triangle.make(model, a, b, c, out, thickness, color) do
+				wedge.Material = material
+			end
+		end
+		-- The mouth's outline and where each corner of it, seen straight out
+		-- from its middle, meets the plate's edge.
+		local corners: { { t: number, y: number } } = {}
+		local edges: { { t: number, y: number } } = {}
+		for k = 0, T.Sides - 1 do
+			local angle = 2 * halfStep * k + halfStep
+			local t = mouthOutside * math.sin(angle) + mouthHalf * math.sign(math.sin(angle))
+			local y = -mouthOutside * math.cos(angle)
+			table.insert(corners, { t = t, y = y })
+			local scale = math.min(reach / math.abs(t), (if y > 0 then up else down) / math.max(math.abs(y), 1e-9))
+			table.insert(edges, { t = t * scale, y = y * scale })
+		end
+		for k = 1, T.Sides do
+			local n = k % T.Sides + 1
+			local a, b = corners[k], corners[n]
+			local ea, eb = edges[k], edges[n]
+			triangle(point(a.t, a.y), point(b.t, b.y), point(eb.t, eb.y))
+			triangle(point(a.t, a.y), point(eb.t, eb.y), point(ea.t, ea.y))
+			-- Round a corner of the plate where the two edge points are on
+			-- different sides of it.
+			local onSideA = math.abs(math.abs(ea.t) - reach) < 1e-6
+			local onSideB = math.abs(math.abs(eb.t) - reach) < 1e-6
+			if onSideA ~= onSideB then
+				local corner =
+					point(reach * math.sign(ea.t + eb.t), if (if onSideA then eb.y else ea.y) > 0 then up else -down)
+				triangle(point(ea.t, ea.y), point(eb.t, eb.y), corner)
+			end
+		end
+	end
+
+	-- The building's sides, each with the curve along its foot and a wall up
+	-- to the tower, broken where a mouth opens in it.
 	local options: CurvedWall.Options = {
-		radius = B.CurveRadius,
+		radius = R,
 		endAngle = 90,
 		steps = B.CurveSteps,
 		thickness = 2,
 		color = color,
 		material = material,
 	}
-	local R = B.CurveRadius
-	local band = T.Floor / 2 + R -- from the middle line to each straight wall
-	local wallHeight = T.Height - R
-	local function floorAt(x: number, z: number): Vector3
-		return at(area, x, 0, z).Position
-	end
-	-- A straight wall from the top of a curve up to the ceiling, its outer
-	-- face on `face` and facing along `out`, `length` long.
-	local function wall(face: Vector3, out: Vector3, length: number)
-		local middle = face + out * 1 + Vector3.new(0, R + wallHeight / 2, 0)
-		block(model, "Wall", Vector3.new(length, wallHeight, 2), CFrame.lookAt(middle, middle + out), color).Material =
-			material
-	end
-
-	-- The middle line, mirrored on the -X side.
-	local segments: { Tunnel.Segment } = {}
-	for _, segment in T.Segments do
-		table.insert(segments, {
-			Straight = segment.Straight,
-			Turn = if segment.Turn then segment.Turn * side else nil,
-			Radius = segment.Radius,
-		})
-	end
-	local entryX, entryZ = side * inner, top - T.EntryBack
-	local pieces, finish = Tunnel.path(entryX, entryZ, side, 0, segments)
-	if math.abs(finish.z - top) > 0.01 or finish.headingZ < 0.99 then
-		warn(`City: a tunnel ends at ({finish.x}, {finish.z}), not on its building's street side at Z {top}`)
-	end
-
-	for _, piece in pieces do
-		if piece.kind == "straight" then
-			local from, to = floorAt(piece.fromX, piece.fromZ), floorAt(piece.toX, piece.toZ)
-			local length = (to - from).Magnitude
-			local along = (to - from).Unit
-			local middle = (from + to) / 2
-			for _, out in { Vector3.new(along.Z, 0, -along.X), Vector3.new(-along.Z, 0, along.X) } do
-				local base = middle + out * T.Floor / 2
-				CurvedWall.straight(model, CFrame.lookAt(base, base + out), length, options)
-				wall(middle + out * band, out, length)
-			end
-		else
-			local center = floorAt(piece.centerX, piece.centerZ)
-			local pivot = CFrame.lookAt(center, floorAt(piece.startX, piece.startZ))
-			local turn = math.deg(piece.sweep)
-			CurvedWall.corner(model, pivot, piece.radius + T.Floor / 2, turn, T.Slices, options)
-			CurvedWall.outside(model, pivot, piece.radius - T.Floor / 2, turn, T.Slices, options)
-			local sliceAngle = turn / T.Slices
-			for i = 1, T.Slices do
-				local spoke = (pivot * CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0)).LookVector
-				local outer, innerRadius = piece.radius + band, piece.radius - band
-				wall(center + spoke * outer, spoke, CurveProfile.sliceLength(outer + 2, sliceAngle))
-				wall(center + spoke * innerRadius, -spoke, CurveProfile.sliceLength(innerRadius, sliceAngle))
-			end
-		end
-	end
-
-	-- The building's sides, each with the curve along its foot and a straight
-	-- wall up to the tower, broken where a tunnel mouth opens in it.
-	local mouths = { floorAt(entryX, entryZ), floorAt(finish.x, finish.z) }
+	local mouths = { floorAt(tube.entry.x, tube.entry.z), floorAt(tube.finish.x, tube.finish.z) }
 	local corners = {
 		floorAt(rect.x1, rect.z1),
 		floorAt(rect.x2, rect.z1),
@@ -284,34 +456,42 @@ local function buildTunnel(parent: Instance, area: MapLayout.Area, rng: Random, 
 		local along = (to - from).Unit
 		local length = (to - from).Magnitude
 		outsideCorner(model, from, outs[(i + 2) % 4 + 1], out, options)
-		-- The stretches of this side between its mouths.
 		local stretches = { { 0, length } }
 		for _, mouth in mouths do
 			local offset = mouth - from
 			if math.abs(offset:Dot(out)) < 0.01 then
 				local m = offset:Dot(along)
 				local last = stretches[#stretches]
-				stretches[#stretches] = { last[1], m - band }
-				table.insert(stretches, { m + band, last[2] })
-				outsideCorner(model, from + along * (m - band), out, along, options)
-				outsideCorner(model, from + along * (m + band), out, -along, options)
+				stretches[#stretches] = { last[1], m - reach }
+				table.insert(stretches, { m + reach, last[2] })
+				outsideCorner(model, from + along * (m - reach), out, along, options)
+				outsideCorner(model, from + along * (m + reach), out, -along, options)
+				portal(mouth, out)
 			end
 		end
 		for _, stretch in stretches do
 			local a, b = stretch[1], stretch[2]
-			local face = from + along * (a + b) / 2
-			local base = face + out * R
+			local middle = from + along * (a + b) / 2
+			local base = middle + out * R
 			CurvedWall.straight(model, CFrame.lookAt(base, base - out), b - a, options)
-			wall(face - out * 2, out, b - a)
+			local wallMiddle = middle - out + Vector3.new(0, towerBottom / 2, 0)
+			block(model, "Wall", Vector3.new(b - a, towerBottom, 2), CFrame.lookAt(wallMiddle, wallMiddle + out), color).Material =
+				material
 		end
 	end
-	return rect
 end
 
 -- Fills the block from z1 down to z2 on both sides of the avenue with
 -- buildings in a grid, each a random height, some lots left empty and none
 -- where a tunnel building already stands.
-local function buildBlock(parent: Instance, area: MapLayout.Area, rng: Random, z1: number, z2: number, taken: { Rect })
+local function buildBlock(
+	parent: Instance,
+	area: MapLayout.Area,
+	rng: Random,
+	z1: number,
+	z2: number,
+	taken: { Tunnel.Rect }
+)
 	local B = C.Buildings
 	local inner = C.Avenue.Width / 2 + B.Setback
 	local outer = area.Width / 2 - B.Setback
@@ -347,21 +527,17 @@ local function buildBuildings(parent: Instance, area: MapLayout.Area)
 	model.Parent = parent
 
 	local rng = Random.new(C.Buildings.Seed)
-	local half = C.Streets.Width / 2
-	local top = C.Buildings.TopZ
-	local index = 0
-	for _, z in C.Streets.Z do
-		if top > z + half then
-			index += 1
-			local taken: { Rect } = {}
-			for _, place in C.Tunnels.Places do
-				if place.Block == index then
-					table.insert(taken, buildTunnel(model, area, rng, place.Side, top - C.Buildings.Setback))
-				end
+	local city: Tunnel.City = C :: any
+	local tubes = Tunnel.layout(city)
+	for index, lots in Tunnel.blocks(city) do
+		local taken: { Tunnel.Rect } = {}
+		for _, tube in tubes do
+			if tube.place.Block == index then
+				buildTunnel(model, area, rng, tube)
+				table.insert(taken, tube.rect)
 			end
-			buildBlock(model, area, rng, top, z + half, taken)
 		end
-		top = z - half
+		buildBlock(model, area, rng, lots.top, lots.bottom, taken)
 	end
 end
 

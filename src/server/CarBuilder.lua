@@ -95,6 +95,15 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 	jet.Force = Vector3.zero
 	jet.Parent = hull
 
+	-- Holds the car to a city tube's wall (CarController), in world space.
+	local stick = Instance.new("VectorForce")
+	stick.Name = "Stick"
+	stick.Attachment0 = center
+	stick.RelativeTo = Enum.ActuatorRelativeTo.World
+	stick.ApplyAtCenterOfMass = true
+	stick.Force = Vector3.zero
+	stick.Parent = hull
+
 	local driverSeat = Instance.new("Seat")
 	driverSeat.Name = "DriverSeat"
 	driverSeat.Size = Vector3.new(2, 0.4, 2)
