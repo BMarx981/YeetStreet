@@ -331,6 +331,11 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 				local top = if covered then roof else 0
 				local bottom = y + R.EdgeRadius
 				if top > bottom then
+					-- On a turn, as long as the slice is at the walls' outside
+					-- face, so the outer wall's blocks meet.
+					local wallLength = if piece.kind == "arc"
+						then CurveProfile.sliceLength(piece.radius + half, math.deg(piece.sweep) * (t1 - t0))
+						else span + 2
 					for _, side in { -1, 1 } do
 						local level = CFrame.lookAt(
 							middle.Position,
@@ -340,7 +345,7 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 						block(
 							model,
 							"Wall",
-							Vector3.new(R.Thickness, top - bottom, span + 2),
+							Vector3.new(R.Thickness, top - bottom, wallLength),
 							CFrame.new(centre.X, FLOOR + (top + bottom) / 2, centre.Z) * level.Rotation,
 							WALL_COLOR
 						)
