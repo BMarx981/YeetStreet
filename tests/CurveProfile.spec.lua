@@ -89,6 +89,42 @@ Check.test("half curled, the curl bends half as far, starting flat at the base l
 	Check.near(points[13].up, radius * (1 - math.cos(math.rad(45))), "top up")
 end)
 
+Check.test("clipped at a height, the curve stops on it and runs flat out to the reach", function()
+	local points = CurveProfile.clip(15, 90, 10, 5, 17)
+	Check.eq(#points, 12, "the curve's corners and one more for the flat")
+	Check.near(points[1].out, 0, "starts at the base line")
+	Check.near(points[1].up, 0, "starts on the ground")
+	for i = 1, 11 do
+		local p = points[i]
+		Check.near(p.out ^ 2 + (15 - p.up) ^ 2, 15 ^ 2, `corner {i} on the curve`, 1e-6)
+	end
+	Check.near(points[11].up, 5, "stops at the height")
+	Check.near(points[11].out, math.sqrt(15 ^ 2 - 10 ^ 2), "where the curve reaches it")
+	Check.near(points[12].out, 17, "flat out to the reach")
+	Check.near(points[12].up, 5, "at the height")
+end)
+
+Check.test("clipped above its top, the curve is whole and the flat runs along its top", function()
+	local points = CurveProfile.clip(15, 90, 10, 40, 17)
+	local whole = CurveProfile.curl(15, 90, 10, 1)
+	for i = 1, 11 do
+		Check.near(points[i].out, whole[i].out, `corner {i} out`)
+		Check.near(points[i].up, whole[i].up, `corner {i} up`)
+	end
+	Check.near(points[12].out, 17)
+	Check.near(points[12].up, 15)
+end)
+
+Check.test("clipped at the ground, the curve shrinks to its base and the flat lies on the ground", function()
+	local points = CurveProfile.clip(15, 90, 10, 0, 17)
+	for i = 1, 11 do
+		Check.near(points[i].out, 0, `corner {i} out`)
+		Check.near(points[i].up, 0, `corner {i} up`)
+	end
+	Check.near(points[12].out, 17)
+	Check.near(points[12].up, 0)
+end)
+
 Check.test("a slice of a swept corner is long enough to meet its neighbors", function()
 	Check.near(CurveProfile.sliceLength(100, 90), 200)
 	Check.near(CurveProfile.sliceLength(100, 10), 2 * 100 * math.tan(math.rad(5)))

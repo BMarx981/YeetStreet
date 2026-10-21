@@ -88,22 +88,31 @@ local function light(parent: Instance, cframe: CFrame)
 	glow.Parent = fixture
 end
 
--- The curve along each side of the deck between frames `a` and `b`, curled
--- from `curlA` to `curlB` (0 lies flat out from the deck, 1 is the full
--- curve), as rows of triangles (CurveProfile.curl).
-local function curledEdges(parent: Instance, a: CFrame, b: CFrame, curlA: number, curlB: number)
-	local profileA = CurveProfile.curl(R.EdgeRadius, 90, R.EdgeSteps, curlA)
-	local profileB = CurveProfile.curl(R.EdgeRadius, 90, R.EdgeSteps, curlB)
+-- The edge along each side of the deck between frames `a` and `b`, shaped
+-- from `profileA` to `profileB` (CurveProfile points with as many corners),
+-- as rows of triangles. Rows shrunk to nothing at one end are left out.
+local function sideEdges(
+	parent: Instance,
+	a: CFrame,
+	b: CFrame,
+	profileA: { CurveProfile.Point },
+	profileB: { CurveProfile.Point }
+)
 	for _, side in { -1, 1 } do
 		local function corner(frame: CFrame, p: CurveProfile.Point): Vector3
 			return frame:PointToWorldSpace(Vector3.new(side * (R.DeckWidth / 2 + p.out), p.up, 0))
+		end
+		local function triangle(p: Vector3, q: Vector3, r: Vector3, inward: Vector3)
+			if (q - p):Cross(r - p).Magnitude > 1e-4 then
+				Triangle.make(parent, p, q, r, inward, R.Thickness, DECK_COLOR)
+			end
 		end
 		local inward = (a.UpVector - a.RightVector * side)
 		for k = 1, #profileA - 1 do
 			local a0, a1 = corner(a, profileA[k]), corner(a, profileA[k + 1])
 			local b0, b1 = corner(b, profileB[k]), corner(b, profileB[k + 1])
-			Triangle.make(parent, a0, a1, b1, inward, R.Thickness, DECK_COLOR)
-			Triangle.make(parent, a0, b1, b0, inward, R.Thickness, DECK_COLOR)
+			triangle(a0, a1, b1, inward)
+			triangle(a0, b1, b0, inward)
 		end
 	end
 end
@@ -230,8 +239,8 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 		local cutting: Railway.Rect? = nil
 
 		-- How flat the curves lie at `t`: 0 at the ground, 1 a CurlLength
-		-- either way and beyond. Downhill, the flat curves go under the
-		-- ground beside the cutting.
+		-- either way and beyond. Downhill is the open cutting, where the
+		-- curves are cut off at the ground instead.
 		local function curl(t: number): number
 			if curlTo < 0 then
 				return 1
@@ -273,8 +282,28 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 					DECK_COLOR
 				)
 				local c0, c1 = curl(t0), curl(t1)
-				if c0 < 0.999 or c1 < 0.999 then
-					curledEdges(model, a, b, c0, c1)
+				local _, y0 = Tunnel.pointAt(piece, t0)
+				local _, y1 = Tunnel.pointAt(piece, t1)
+				if y < 0 and y > -R.RoofClear and math.min(-y0, -y1) < R.EdgeRadius then
+					-- In the open cutting, curves that would stick up past the
+					-- ground stop at it and run flat out to the hole's edge, so
+					-- a car rolls over the edge and drops in from the side.
+					local reach = R.EdgeRadius + R.Thickness
+					sideEdges(
+						model,
+						a,
+						b,
+						CurveProfile.clip(R.EdgeRadius, 90, R.EdgeSteps, -y0 / a.UpVector.Y, reach),
+						CurveProfile.clip(R.EdgeRadius, 90, R.EdgeSteps, -y1 / b.UpVector.Y, reach)
+					)
+				elseif c0 < 0.999 or c1 < 0.999 then
+					sideEdges(
+						model,
+						a,
+						b,
+						CurveProfile.curl(R.EdgeRadius, 90, R.EdgeSteps, c0),
+						CurveProfile.curl(R.EdgeRadius, 90, R.EdgeSteps, c1)
+					)
 				else
 					for _, side in { -1, 1 } do
 						local edge = middle * CFrame.new(side * R.DeckWidth / 2, 0, 0)
@@ -297,23 +326,29 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 				rail.CanTouch = false
 			end
 
-			-- Under the deck: pillars where it is high, a solid fill where a
-			-- car could only just get under it, nothing where it is under the
-			-- ground. Under the ground: walls up to the roof, or to the floor
-			-- in the open cutting.
+			-- Under the deck: pillars every PillarEvery where it is high, but
+			-- none on the turns, a solid fill where a car could only just get
+			-- under it, nothing where it is under the ground. Under the
+			-- ground: walls up to the roof, or to the floor in the open
+			-- cutting.
 			local under = y - R.Thickness
 			if under > R.FillBelow then
-				untilPillar -= span
-				if untilPillar <= 0 then
-					block(
-						model,
-						"Pillar",
-						Vector3.new(R.PillarSize, under, R.PillarSize),
-						CFrame.new(middle.Position.X, FLOOR + under / 2, middle.Position.Z),
-						PILLAR_COLOR
-					)
-					untilPillar += R.PillarEvery
+				local at = untilPillar
+				while at <= span do
+					local spot = a.Position:Lerp(b.Position, at / span)
+					local height = spot.Y - FLOOR - R.Thickness
+					if piece.kind ~= "arc" then
+						block(
+							model,
+							"Pillar",
+							Vector3.new(R.PillarSize, height, R.PillarSize),
+							CFrame.new(spot.X, FLOOR + height / 2, spot.Z),
+							PILLAR_COLOR
+						)
+					end
+					at += R.PillarEvery
 				end
+				untilPillar = at - span
 			elseif under > 0 then
 				block(
 					model,

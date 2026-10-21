@@ -29,6 +29,7 @@ export type Trains = {
 
 export type Push = {
 	Margin: number,
+	Depth: number,
 	Ahead: number,
 	Side: number,
 }
@@ -100,11 +101,14 @@ function Railway.carriages(total: number, time: number, trains: Trains): { Span 
 	return spans
 end
 
--- How a carriage `half` its size each way (length, width, height), going
--- at `speed`, pushes a car whose middle is at (along, across, up) from the
--- carriage's middle, going (va, vc, vu) the same ways: when the car is
--- within Margin of it, ahead at Ahead times the train's speed or more, and
--- nudged out to its side at Side or more. Nil when the car is clear.
+-- How a train's lead carriage, `half` its size each way (length, width,
+-- height), going at `speed`, pushes a car whose middle is at (along,
+-- across, up) from the carriage's middle, going (va, vc, vu) the same ways.
+-- Only its nose pushes: when the car is from Depth inside the nose to
+-- Margin ahead of it, and within Margin of its sides, top, and bottom, it
+-- goes ahead at Ahead times the train's speed or more, nudged out to its
+-- side at Side or more. Nil anywhere else, so a car beside or inside the
+-- train is passed by it.
 function Railway.push(
 	along: number,
 	across: number,
@@ -119,7 +123,8 @@ function Railway.push(
 	push: Push
 ): (number?, number?, number?)
 	if
-		math.abs(along) > halfLength + push.Margin
+		along > halfLength + push.Margin
+		or along < halfLength - push.Depth
 		or math.abs(across) > halfWidth + push.Margin
 		or math.abs(up) > halfHeight + push.Margin
 	then

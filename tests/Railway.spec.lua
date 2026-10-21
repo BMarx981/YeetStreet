@@ -66,23 +66,35 @@ Check.test("trains spread evenly round the loop, carriages one behind the next",
 	Check.eq(spans[4].train, 2)
 end)
 
+local PUSH = { Margin = 2, Depth = 4, Ahead = 1.25, Side = 8 }
+
 Check.test("a car in front of a train is pushed ahead faster than the train", function()
-	local va, vc, vu = Railway.push(22, 1, 0, 10, 0, 0, 20, 10, 7, 50, { Margin = 2, Ahead = 1.25, Side = 8 })
+	local va, vc, vu = Railway.push(22, 1, 0, 10, 0, 0, 20, 10, 7, 50, PUSH)
 	Check.near(va :: number, 62.5, "ahead")
 	Check.near(vc :: number, 8, "nudged to its side")
 	Check.near(vu :: number, 0)
 end)
 
 Check.test("a car already pulling away from a train is left alone ahead", function()
-	local va = Railway.push(22, -1, 0, 90, -20, 0, 20, 10, 7, 50, { Margin = 2, Ahead = 1.25, Side = 8 })
+	local va = Railway.push(22, -1, 0, 90, -20, 0, 20, 10, 7, 50, PUSH)
 	Check.near(va :: number, 90, "already faster")
 end)
 
+Check.test("a car just inside the train's nose is still pushed out ahead", function()
+	local va = Railway.push(17, 0, 0, 0, 0, 0, 20, 10, 7, 50, PUSH)
+	Check.near(va :: number, 62.5)
+end)
+
+Check.test("only the train's nose pushes", function()
+	Check.eq(Railway.push(15, 0, 0, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "deeper inside than Depth")
+	Check.eq(Railway.push(0, 11, 0, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "beside its middle")
+	Check.eq(Railway.push(-21, 0, 0, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "behind its tail")
+end)
+
 Check.test("a car clear of a train is not pushed", function()
-	local push = { Margin = 2, Ahead = 1.25, Side = 8 }
-	Check.eq(Railway.push(23, 0, 0, 0, 0, 0, 20, 10, 7, 50, push), nil, "ahead of it")
-	Check.eq(Railway.push(0, 13, 0, 0, 0, 0, 20, 10, 7, 50, push), nil, "beside it")
-	Check.eq(Railway.push(0, 0, 10, 0, 0, 0, 20, 10, 7, 50, push), nil, "above it")
+	Check.eq(Railway.push(23, 0, 0, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "ahead of it")
+	Check.eq(Railway.push(21, 13, 0, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "beside its nose")
+	Check.eq(Railway.push(21, 0, 10, 0, 0, 0, 20, 10, 7, 50, PUSH), nil, "above its nose")
 end)
 
 Check.test("cutting a hole from a tile leaves the four pieces around it", function()

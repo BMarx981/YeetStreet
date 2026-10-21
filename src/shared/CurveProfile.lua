@@ -64,6 +64,25 @@ function CurveProfile.curl(radius: number, endAngle: number, steps: number, curl
 	return points
 end
 
+-- The curve cut off where it reaches `height`, then running flat at that
+-- height out to `reach`, for a curve that must not stick up past the
+-- ground around a hole: its `steps` planks' corners, spread over what is
+-- left of the curve, and the flat's far end. Above the curve's top it is
+-- the whole curve; at 0 the curve shrinks to its base line.
+function CurveProfile.clip(radius: number, endAngle: number, steps: number, height: number, reach: number): { Point }
+	local finish = math.rad(endAngle)
+	if height < radius * (1 - math.cos(finish)) then
+		finish = math.acos(1 - math.max(height, 0) / radius)
+	end
+	local points: { Point } = {}
+	for i = 0, steps do
+		local out, up = point(radius, finish * i / steps)
+		table.insert(points, { out = out, up = up })
+	end
+	table.insert(points, { out = reach, up = points[#points].up })
+	return points
+end
+
 -- How far the curve reaches from the base line, and how tall it is.
 function CurveProfile.extent(radius: number, endAngle: number): (number, number)
 	local finish = math.rad(endAngle)

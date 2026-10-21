@@ -108,11 +108,15 @@ local function place(time: number)
 	end
 end
 
--- The velocity a train gives a car whose hull is `hull`, or nil when no
--- train is touching it (Railway.push).
+-- The velocity a train's nose gives a car whose hull is `hull`, or nil when
+-- no train's nose is touching it (Railway.push). Each train's first
+-- carriage is the one with the nose.
 function TrainSet.push(hull: BasePart): Vector3?
 	local velocity = hull.AssemblyLinearVelocity
-	for _, frame in frames do
+	for i, frame in frames do
+		if (i - 1) % T.Carriages ~= 0 then
+			continue
+		end
 		local p = frame:PointToObjectSpace(hull.Position)
 		local v = frame:VectorToObjectSpace(velocity)
 		local va, vc, vu =

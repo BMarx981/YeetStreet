@@ -807,7 +807,8 @@ Tuning.City = {
 		LightEvery = 60, -- along the subway's roof
 		-- Each player's client moves the trains from the server's clock
 		-- (TrainSet), so everyone sees them in the same place. They never
-		-- touch anything; a train that reaches a car pushes it (Railway.push).
+		-- touch anything; a train's nose that reaches a car pushes it, and
+		-- a car beside or inside a train is passed by it (Railway.push).
 		Trains = {
 			Count = 2,
 			Carriages = 4,
@@ -819,6 +820,7 @@ Tuning.City = {
 		},
 		Push = {
 			Margin = 6, -- from the carriage's sides to the car's middle, about half a car
+			Depth = 6, -- a car's middle this far inside the train's nose still gets pushed out ahead
 			Ahead = 1.25, -- times the train's speed
 			Side = 8,
 		},
