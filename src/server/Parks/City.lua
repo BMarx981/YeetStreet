@@ -683,9 +683,13 @@ local function buildOverpass(parent: Instance, area: MapLayout.Area)
 		d += O.PillarEvery
 	end
 
+	-- The pads lie 0.1 above the ramp, so cars pass through them and ride the
+	-- one smooth ramp block: at jet speeds even a 0.1 step throws a car off.
+	-- CarSensor's rays still find them.
 	d = O.BoostLength / 2 + 5
 	while d < length - O.BoostLength / 2 do
-		LaunchPad.flat(model, axis * CFrame.new(0, 0.1, -d), O.Width, O.BoostLength, O.BoostSpeed, respawn)
+		local pad = LaunchPad.flat(model, axis * CFrame.new(0, 0.1, -d), O.Width, O.BoostLength, O.BoostSpeed, respawn)
+		pad.CanCollide = false
 		d += O.BoostEvery
 	end
 

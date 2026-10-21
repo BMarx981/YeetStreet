@@ -124,12 +124,26 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 		)
 		buildEntry(model, axis, side)
 	end
+	-- The pads lie 0.1 above the ramp, so cars pass through them and ride the
+	-- one smooth ramp block: at jet speeds even a 0.1 step throws a car off.
+	-- CarSensor's rays still find them.
 	local d = R.BoostLength / 2 + 5
 	while d < length - R.BoostLength / 2 do
-		LaunchPad.flat(model, axis * CFrame.new(0, 0.1, -d), R.Width, R.BoostLength, R.BoostSpeed, respawn, C.PayScale)
+		local pad = LaunchPad.flat(
+			model,
+			axis * CFrame.new(0, 0.1, -d),
+			R.Width,
+			R.BoostLength,
+			R.BoostSpeed,
+			respawn,
+			C.PayScale
+		)
+		pad.CanCollide = false
 		d += R.BoostEvery
 	end
 
+	-- The kicker spans the whole ramp end, walls included, so a car riding
+	-- up a wall still hits it.
 	local options: CurvedWall.Options = {
 		radius = R.KickRadius,
 		endAngle = R.KickAngle,
@@ -137,7 +151,8 @@ local function buildRamp(parent: Instance, area: MapLayout.Area, axis: CFrame, l
 		thickness = C.Thickness,
 		color = RAMP_COLOR,
 	}
-	local kicker = CurvedWall.straight(model, axis * CFrame.new(0, 0, -length), R.Width, options)
+	local kickWidth = R.Width + 2 * R.WallRadius
+	local kicker = CurvedWall.straight(model, axis * CFrame.new(0, 0, -length), kickWidth, options)
 	LaunchPad.top(kicker, R.KickSteps, R.LaunchSpeed, respawn, C.PayScale)
 end
 
