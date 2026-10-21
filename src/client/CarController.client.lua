@@ -53,6 +53,7 @@ local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
+local TrainSet = require(script.Parent.TrainSet)
 
 local player = Players.LocalPlayer :: Player
 
@@ -332,6 +333,12 @@ local function step(r: Rig, dt: number)
 		r.stick.Force = if pull
 			then (pull * Tuning.City.Tunnels.Pull + Vector3.yAxis) * workspace.Gravity * r.hull.AssemblyMass
 			else Vector3.zero
+	end
+
+	-- A train that reaches the car pushes it ahead and a little aside.
+	local pushed = TrainSet.push(r.hull)
+	if pushed then
+		setVelocity(r, pushed)
 	end
 
 	local reading = CarSensor.read(r.sensor, dt, up)
@@ -688,6 +695,7 @@ end)
 
 GarageMenu.start()
 SwingSet.start()
+TrainSet.start()
 TeleportMenu.start()
 
 task.spawn(function()

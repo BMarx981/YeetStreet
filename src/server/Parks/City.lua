@@ -8,7 +8,8 @@
 -- Every building has a curve all around its foot, so a car driven at it
 -- rides up the wall instead of stopping dead. Chains of two buildings have
 -- a twisting round tube through them that crosses the alley between them
--- overhead. Numbers are in Tuning.City.
+-- overhead. A train line loops round, elevated and underground
+-- (CityRailway). Numbers are in Tuning.City.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -20,6 +21,7 @@ local Tunnel = require(ReplicatedStorage.Tunnel)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
+local CityRailway = require(script.Parent.CityRailway)
 
 local C = Tuning.City
 local FLOOR = Tuning.Map.FloorTop
@@ -702,6 +704,7 @@ function City.build(folder: Folder, area: MapLayout.Area)
 	buildStreets(folder, area)
 	buildBuildings(folder, area)
 	buildOverpass(folder, area)
+	CityRailway.build(folder, area)
 end
 
 return City

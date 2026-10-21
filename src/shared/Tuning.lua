@@ -777,6 +777,52 @@ Tuning.City = {
 			{ Side = -1, Block = 4, Street = "Bottom" },
 		},
 	},
+	-- The train line (Railway, built by Parks.CityRailway): one loop,
+	-- elevated High over the first of StreetZ, down a ramp along the strip
+	-- outside the last lots at StripX either side, through an open cutting
+	-- and under the ground Low along the second street, with turns Corner
+	-- round. Heights are the deck's top, from the floor. The deck is
+	-- DeckWidth flat with a curve EdgeRadius round up to straight on each
+	-- side, like the corkscrew's middle ramp, so a drifting car rides up and
+	-- back. Where a ramp passes the ground, the curves lie flat for
+	-- CurlLength on the uphill side so a car can drive on from the side.
+	Railway = {
+		High = 40,
+		Low = -34,
+		Corner = 120,
+		StreetZ = { 200, -600 },
+		StripX = 980,
+		DeckWidth = 30,
+		EdgeRadius = 15,
+		EdgeSteps = 10,
+		Thickness = 2,
+		StepLength = 12, -- studs per piece of deck where it climbs
+		SliceAngle = 5, -- degrees of turn per piece of deck
+		PillarEvery = 120,
+		PillarSize = 8,
+		FillBelow = 12, -- below this much clearance the deck sits on a solid fill, so no car gets under it
+		RoofClear = 22, -- the cutting stays open until the deck is this far under the ground
+		CurlLength = 40,
+		CurlRows = 8,
+		LightEvery = 60, -- along the subway's roof
+		-- Each player's client moves the trains from the server's clock
+		-- (TrainSet), so everyone sees them in the same place. They never
+		-- touch anything; a train that reaches a car pushes it (Railway.push).
+		Trains = {
+			Count = 2,
+			Carriages = 4,
+			Length = 40,
+			Gap = 4,
+			Width = 20,
+			Height = 14,
+			Speed = 60,
+		},
+		Push = {
+			Margin = 6, -- from the carriage's sides to the car's middle, about half a car
+			Ahead = 1.25, -- times the train's speed
+			Side = 8,
+		},
+	},
 	Overpass = {
 		StartZ = 1550, -- where it leaves the ground, 150 ahead of the arrival
 		Run = 900,
