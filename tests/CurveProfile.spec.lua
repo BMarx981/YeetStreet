@@ -125,6 +125,18 @@ Check.test("clipped at the ground, the curve shrinks to its base and the flat li
 	Check.near(points[12].up, 0)
 end)
 
+Check.test("an arc of the curve runs between two angles, its corners on the curve", function()
+	local points = CurveProfile.arc(30, 90, 120, 3)
+	Check.eq(#points, 4)
+	Check.near(points[1].out, 30, "starts straight up, a radius out")
+	Check.near(points[1].up, 30, "and a radius up")
+	Check.near(points[4].out, 30 * math.sin(math.rad(120)), "ends leaning back")
+	Check.near(points[4].up, 45, "half a radius higher")
+	for i, p in points do
+		Check.near(p.out ^ 2 + (30 - p.up) ^ 2, 30 ^ 2, `corner {i} on the curve`, 1e-6)
+	end
+end)
+
 Check.test("a slice of a swept corner is long enough to meet its neighbors", function()
 	Check.near(CurveProfile.sliceLength(100, 90), 200)
 	Check.near(CurveProfile.sliceLength(100, 10), 2 * 100 * math.tan(math.rad(5)))

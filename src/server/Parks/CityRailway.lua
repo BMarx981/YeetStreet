@@ -273,6 +273,58 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 					middle * CFrame.new(0, -R.Thickness / 2, 0),
 					DECK_COLOR
 				)
+				-- Up high, a wall on top of each curve to keep a car on the
+				-- turn, each block as long as its slice at the wall's face
+				-- that is farther round.
+				if y > R.FillBelow then
+					for _, side in { -1, 1 } do
+						local far = if side > 0 then piece.radius + half else piece.radius - half + R.Thickness
+						local centre = middle.Position + middle.RightVector * side * (half - R.Thickness / 2)
+						block(
+							model,
+							"TurnWall",
+							Vector3.new(R.Thickness, R.TurnWall + 1, CurveProfile.sliceLength(far, sliceAngle)),
+							CFrame.new(centre + Vector3.new(0, R.EdgeRadius + (R.TurnWall - 1) / 2, 0))
+								* middle.Rotation,
+							DECK_COLOR
+						)
+					end
+					-- Its top curves on past straight up, leaning in over the
+					-- track, so a car leaving it heads back over the deck: a
+					-- plank per step of the curve, as long as its slice where
+					-- it is farther round, its back away from the curve's middle.
+					local lip = CurveProfile.arc(R.TurnLipRadius, 90, R.TurnLipAngle, R.TurnLipSteps)
+					local base = R.DeckWidth / 2 + R.EdgeRadius - R.TurnLipRadius
+					for _, side in { -1, 1 } do
+						local lateral = middle.RightVector * side
+						for k = 1, #lip - 1 do
+							local p, q = lip[k], lip[k + 1]
+							local out, up = (p.out + q.out) / 2, (p.up + q.up) / 2
+							local away = (lateral * out + Vector3.yAxis * (up - R.TurnLipRadius)).Unit
+							local far = if side > 0
+								then piece.radius + base + math.max(p.out, q.out) + R.Thickness
+								else piece.radius - base - math.min(p.out, q.out)
+							block(
+								model,
+								"TurnLip",
+								Vector3.new(
+									CurveProfile.sliceLength(far, sliceAngle),
+									R.Thickness,
+									math.sqrt((q.out - p.out) ^ 2 + (q.up - p.up) ^ 2) + 0.4
+								),
+								CFrame.fromMatrix(
+									middle.Position
+										+ lateral * (base + out)
+										+ Vector3.yAxis * (R.EdgeRadius + R.TurnWall - R.TurnLipRadius + up)
+										+ away * R.Thickness / 2,
+									middle.LookVector,
+									away
+								),
+								DECK_COLOR
+							)
+						end
+					end
+				end
 			else
 				block(
 					model,
@@ -409,6 +461,37 @@ function CityRailway.build(folder: Folder, area: MapLayout.Area)
 		end
 		if cutting then
 			table.insert(holes, cutting)
+		end
+	end
+
+	-- Each elevated turn's walls taper down to its curves' tops over
+	-- TurnWallRun along the straights either side, as a triangle each side.
+	for index, piece in pieces do
+		if piece.kind ~= "arc" or piece.fromY <= R.FillBelow then
+			continue
+		end
+		local before = pieces[(index - 2) % #pieces + 1]
+		local after = pieces[index % #pieces + 1]
+		for _, finish in
+			{ { t = 0, neighbor = before, from = 1, toward = -1 }, { t = 1, neighbor = after, from = 0, toward = 1 } }
+		do
+			local here = frameAt(area, piece, finish.t)
+			local run = R.TurnWallRun / Tunnel.length(finish.neighbor)
+			local there = frameAt(area, finish.neighbor, finish.from + finish.toward * run)
+			for _, side in { -1, 1 } do
+				local function face(frame: CFrame, up: number): Vector3
+					return frame.Position + frame.RightVector * side * (half - R.Thickness) + Vector3.new(0, up, 0)
+				end
+				Triangle.make(
+					model,
+					face(here, R.EdgeRadius - 1),
+					face(here, R.EdgeRadius + R.TurnWall),
+					face(there, R.EdgeRadius - 1),
+					-here.RightVector * side,
+					R.Thickness,
+					DECK_COLOR
+				)
+			end
 		end
 	end
 

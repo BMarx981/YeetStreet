@@ -64,6 +64,17 @@ function CurveProfile.curl(radius: number, endAngle: number, steps: number, curl
 	return points
 end
 
+-- The part of the curve from `fromAngle` to `toAngle` degrees, as the
+-- corners of its `steps` planks, measured from the whole curve's base line.
+function CurveProfile.arc(radius: number, fromAngle: number, toAngle: number, steps: number): { Point }
+	local points: { Point } = {}
+	for i = 0, steps do
+		local out, up = point(radius, math.rad(fromAngle + (toAngle - fromAngle) * i / steps))
+		table.insert(points, { out = out, up = up })
+	end
+	return points
+end
+
 -- The curve cut off where it reaches `height`, then running flat at that
 -- height out to `reach`, for a curve that must not stick up past the
 -- ground around a hole: its `steps` planks' corners, spread over what is

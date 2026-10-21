@@ -706,6 +706,17 @@ Tuning.City = {
 		Width = 100,
 		Z = { 1000, 200, -600, -1400 }, -- each one's middle, running across the park
 	},
+	-- Along both edges of the avenue and every cross street, Every apart and
+	-- Inset in from the edge, with an arm Reach out over the road. Knocked
+	-- flying by a car (PropService), back up after ResetTime.
+	StreetLights = {
+		Every = 100,
+		Inset = 4,
+		Height = 22,
+		Reach = 8,
+		ResetTime = 3,
+		CarSpeedShare = 1, -- a knocked light flies off at the car's speed
+	},
 	Buildings = {
 		Seed = 7, -- the same seed builds the same skyline every time
 		TopZ = 1500, -- the first block starts here; the arrival plaza is ahead of it
@@ -804,6 +815,12 @@ Tuning.City = {
 		RoofClear = 22, -- the cutting stays open until the deck is this far under the ground
 		CurlLength = 40,
 		CurlRows = 8,
+		TurnWall = 30, -- on the elevated turns, a wall this high above each curve's top
+		-- then curving on to TurnLipAngle degrees, leaning in over the track like the map's edge wall
+		TurnLipRadius = 30,
+		TurnLipAngle = 120,
+		TurnLipSteps = 6,
+		TurnWallRun = 60, -- along the straights either side, where it tapers down to the curve
 		LightEvery = 60, -- along the subway's roof
 		-- Each player's client moves the trains from the server's clock
 		-- (TrainSet), so everyone sees them in the same place. They never

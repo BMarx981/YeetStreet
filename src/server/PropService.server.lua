@@ -1,7 +1,9 @@
 --!strict
 -- PropService (Script) -> ServerScriptService.PropService
 -- Parts tagged Knockable (the distance boards) get knocked flying when a car
--- passes through them, then snap back after Tuning.Props.ResetTime.
+-- passes through them, then snap back after Tuning.Props.ResetTime. A part's
+-- own ResetTime and CarSpeedShare attributes override Tuning.Props. A prop
+-- can have other parts welded to it, which fly with it.
 --
 -- Props never touch cars: they are in the Props collision group, which does
 -- not collide with cars or drivers, and car raycasts skip them (CarSensor). So
@@ -56,7 +58,9 @@ local function knock(prop: Prop, carVelocity: Vector3)
 	local part = prop.part
 	prop.down = true
 	part.Anchored = false
-	part.AssemblyLinearVelocity = carVelocity * P.CarSpeedShare + Vector3.new(0, P.Pop, 0)
+	local share = part:GetAttribute("CarSpeedShare")
+	part.AssemblyLinearVelocity = carVelocity * (if typeof(share) == "number" then share else P.CarSpeedShare)
+		+ Vector3.new(0, P.Pop, 0)
 	local flat = Vector3.new(carVelocity.X, 0, carVelocity.Z)
 	if flat.Magnitude > 1e-3 then
 		-- About the level axis across the car's path (up cross travel), so the
@@ -64,7 +68,8 @@ local function knock(prop: Prop, carVelocity: Vector3)
 		part.AssemblyAngularVelocity = Vector3.new(flat.Z, 0, -flat.X).Unit * P.Spin
 	end
 
-	task.delay(P.ResetTime, function()
+	local resetTime = part:GetAttribute("ResetTime")
+	task.delay(if typeof(resetTime) == "number" then resetTime else P.ResetTime, function()
 		if props[part] ~= prop then
 			return
 		end

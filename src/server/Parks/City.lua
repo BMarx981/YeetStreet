@@ -11,6 +11,7 @@
 -- overhead. A train line loops round, elevated and underground
 -- (CityRailway). Numbers are in Tuning.City.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -22,6 +23,7 @@ local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 local CityRailway = require(script.Parent.CityRailway)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 
 local C = Tuning.City
 local FLOOR = Tuning.Map.FloorTop
@@ -35,6 +37,8 @@ local BARRIER_COLOR = Color3.fromRGB(225, 225, 220)
 local PILLAR_COLOR = Color3.fromRGB(150, 150, 150)
 local LIGHT_COLOR = Color3.fromRGB(255, 214, 160)
 local TUBE_COLOR = Color3.fromRGB(150, 156, 166)
+local POLE_COLOR = Color3.fromRGB(60, 64, 70)
+local LAMP_COLOR = Color3.fromRGB(255, 236, 190)
 -- Planks are this much wider than their chord so the seams stay closed.
 local OVERLAP = 0.4
 local BUILDING_COLORS = {
@@ -704,10 +708,102 @@ local function buildOverpass(parent: Instance, area: MapLayout.Area)
 	LaunchPad.top(kicker, O.KickSteps, O.LaunchSpeed, respawn)
 end
 
+-- A street light standing at (x, z), its arm reaching out over the road
+-- toward `facing` (level). The pole is the prop PropService knocks flying;
+-- the arm and lamp are welded to it and fly with it. No part of it ever
+-- touches a car.
+local function streetLight(parent: Instance, area: MapLayout.Area, x: number, z: number, facing: Vector3)
+	local L = C.StreetLights
+	local model = Instance.new("Model")
+	model.Name = "StreetLight"
+	local base = at(area, x, 0, z).Position
+	local pole = block(
+		model,
+		"Pole",
+		Vector3.new(L.Height, 1, 1),
+		CFrame.new(base + Vector3.new(0, L.Height / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		POLE_COLOR
+	)
+	pole.Shape = Enum.PartType.Cylinder
+	pole.Material = Enum.Material.Metal
+	pole:SetAttribute("ResetTime", L.ResetTime)
+	pole:SetAttribute("CarSpeedShare", L.CarSpeedShare)
+	local top = base + Vector3.new(0, L.Height - 0.3, 0)
+	local arm = block(
+		model,
+		"Arm",
+		Vector3.new(0.6, 0.6, L.Reach),
+		CFrame.lookAt(top + facing * L.Reach / 2, top + facing * L.Reach),
+		POLE_COLOR
+	)
+	arm.Material = Enum.Material.Metal
+	local lamp = block(
+		model,
+		"Lamp",
+		Vector3.new(2.5, 0.8, 4),
+		CFrame.lookAt(
+			top + facing * (L.Reach - 1) - Vector3.new(0, 0.7, 0),
+			top + facing * L.Reach * 2 - Vector3.new(0, 0.7, 0)
+		),
+		LAMP_COLOR
+	)
+	lamp.Material = Enum.Material.Neon
+	for _, part in { pole, arm, lamp } do
+		part.CollisionGroup = CollisionGroups.Props
+	end
+	for _, part in { arm, lamp } do
+		part.Anchored = false
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = pole
+		weld.Part1 = part
+		weld.Parent = part
+	end
+	CollectionService:AddTag(pole, "Knockable")
+	model.Parent = parent
+end
+
+-- Street lights along both edges of the avenue and of every cross street,
+-- leaving the crossings clear.
+local function buildStreetLights(parent: Instance, area: MapLayout.Area)
+	local L = C.StreetLights
+	local model = Instance.new("Model")
+	model.Name = "StreetLights"
+	local halfWidth, halfDepth = area.Width / 2, area.Depth / 2
+	local avenue, street = C.Avenue.Width / 2, C.Streets.Width / 2
+	local function crossing(z: number): boolean
+		for _, middle in C.Streets.Z do
+			if math.abs(z - middle) < street + L.Inset then
+				return true
+			end
+		end
+		return false
+	end
+	for _, side in { -1, 1 } do
+		local z = halfDepth - L.Every / 2
+		while z > -halfDepth do
+			if not crossing(z) then
+				streetLight(model, area, side * (avenue - L.Inset), z, Vector3.new(-side, 0, 0))
+			end
+			z -= L.Every
+		end
+		for _, middle in C.Streets.Z do
+			for _, edge in { -1, 1 } do
+				local x = avenue + L.Every / 2
+				while x < halfWidth do
+					streetLight(model, area, side * x, middle + edge * (street - L.Inset), Vector3.new(0, 0, -edge))
+					x += L.Every
+				end
+			end
+		end
+	end
+	model.Parent = parent
+end
+
 function City.build(folder: Folder, area: MapLayout.Area)
 	buildStreets(folder, area)
 	buildBuildings(folder, area)
 	buildOverpass(folder, area)
+	buildStreetLights(folder, area)
 	CityRailway.build(folder, area)
 end
 
