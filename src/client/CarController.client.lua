@@ -123,7 +123,7 @@ local resetHeld = false
 local exitHeld = false
 local frogCooldown = 0
 local righting = false
--- Which way is up for the car: world up, or inside a city tube, toward its
+-- Which way is up for the car: world up, or inside a tube, toward its
 -- middle line.
 local up = Vector3.yAxis
 local run = RunTracker.new()
@@ -312,16 +312,33 @@ for _, spiral in Tunnel.spirals(Tuning.City :: any, Tuning.City.Spirals :: any) 
 	table.insert(tubes, spiral.pieces)
 end
 
--- Which way a city tunnel pulls a car at `position`, or nil outside them all.
+-- Dino Valley's volcano tube (Tunnel.volcano), in the volcano's own space,
+-- which sits at its middle on the floor, turned to face its Heading.
+local dinoArea = MapLayout.find(Tuning.Map.Areas :: any, "Dino")
+local volcanoTuning = Tuning.Dino.Volcano
+local volcanoTurn = CFrame.Angles(0, math.rad(volcanoTuning.Heading), 0)
+local volcanoBase = if dinoArea
+	then CFrame.new(dinoArea.X + volcanoTuning.X, Tuning.Map.FloorTop, dinoArea.Z + volcanoTuning.Z) * volcanoTurn
+	else nil
+local volcanoTube = Tunnel.volcano(volcanoTuning.Climb :: any, Tuning.City.Tunnels :: any).pieces
+
+-- Which way a tube pulls a car at `position`, or nil outside them all.
 local function tubePull(position: Vector3): Vector3?
-	if not cityArea then
-		return nil
+	local radius = Tuning.City.Tunnels.Radius
+	if cityArea then
+		local x, y, z = position.X - cityArea.X, position.Y - Tuning.Map.FloorTop, position.Z - cityArea.Z
+		for _, pieces in tubes do
+			local px, py, pz = Tunnel.pull(pieces, radius, x, y, z)
+			if px and py and pz then
+				return Vector3.new(px, py, pz)
+			end
+		end
 	end
-	local x, y, z = position.X - cityArea.X, position.Y - Tuning.Map.FloorTop, position.Z - cityArea.Z
-	for _, pieces in tubes do
-		local px, py, pz = Tunnel.pull(pieces, Tuning.City.Tunnels.Radius, x, y, z)
+	if volcanoBase then
+		local at = volcanoBase:PointToObjectSpace(position)
+		local px, py, pz = Tunnel.pull(volcanoTube, radius, at.X, at.Y, at.Z)
 		if px and py and pz then
-			return Vector3.new(px, py, pz)
+			return volcanoBase:VectorToWorldSpace(Vector3.new(px, py, pz))
 		end
 	end
 	return nil
@@ -331,8 +348,9 @@ end
 -- its BreakSpeed and the time it turns solid again (0 while it is solid).
 -- A car faster than that is let through the boulders near it, on this
 -- client only, so it smashes through; the server sees it pass, knocks them
--- and damages the car (PropService). Each stays passable for Hold seconds
--- after the car was last fast and near it.
+-- and damages the car (PropService). A burning car is let through at any
+-- speed, so it can drive out of the lava. Each stays passable for Hold
+-- seconds after the car was last fast (or burning) and near it.
 local boulders: { [BasePart]: { breakSpeed: number, solidAt: number } } = {}
 local function trackBoulder(instance: Instance)
 	local breakSpeed = instance:GetAttribute("BreakSpeed")
@@ -348,13 +366,13 @@ for _, instance in CollectionService:GetTagged("Knockable") do
 	trackBoulder(instance)
 end
 
-local function passBoulders(position: Vector3, velocity: Vector3)
+local function passBoulders(position: Vector3, velocity: Vector3, inLava: boolean)
 	local B = Tuning.Props.Boulders
 	local now = os.clock()
 	local speed = velocity.Magnitude
 	local reach = speed * B.LookAhead + B.Margin
 	for part, boulder in boulders do
-		if speed > boulder.breakSpeed and (part.Position - position).Magnitude < reach then
+		if (speed > boulder.breakSpeed or inLava) and (part.Position - position).Magnitude < reach then
 			if boulder.solidAt == 0 then
 				part.CanCollide = false
 			end
@@ -372,7 +390,7 @@ local function step(r: Rig, dt: number)
 	local velocity = r.hull.AssemblyLinearVelocity
 	local forwardSpeed = velocity:Dot(cf.LookVector)
 
-	-- Inside a city tube the car is pulled toward the nearest wall instead of
+	-- Inside a tube the car is pulled toward the nearest wall instead of
 	-- down, so it can drive round the walls and along the roof.
 	local pull = tubePull(cf.Position)
 	up = if pull then -pull else Vector3.yAxis
@@ -387,7 +405,7 @@ local function step(r: Rig, dt: number)
 	if pushed then
 		setVelocity(r, pushed)
 	end
-	passBoulders(cf.Position, velocity)
+	passBoulders(cf.Position, velocity, r.model:GetAttribute("Burning") == true)
 
 	local reading = CarSensor.read(r.sensor, dt, up)
 	local airborne = reading.airborne

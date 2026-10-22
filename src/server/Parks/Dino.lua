@@ -14,10 +14,12 @@
 -- above them shows it.
 --
 -- The volcano in the southwest corner is a hollow cone of rocky blocks
--- (Volcano) with lava running down its sides and filling its crater, on a
--- lava lake crossed by a causeway to a slot at its foot, ringed by boulders
--- that only a fast car smashes through. Lava is tagged Lava; it burns cars
--- (ScoreService).
+-- (Volcano) with lava running down its sides, on a lava lake ringed by
+-- boulders that only a fast car smashes through. A causeway crosses the
+-- lake to the mouth of a round tube (Tunnel.volcano, Pieces.Tube) set into
+-- the foot, which climbs round inside the cone and comes up through the
+-- crater floor under a stepped rock dome, out onto a rock path across the
+-- crater's lava. Lava is tagged Lava; it burns cars (ScoreService).
 --
 -- Palm trees stand about the park (Scatter), clear of the brontosaurus and
 -- the volcano.
@@ -35,10 +37,12 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Scatter = require(ReplicatedStorage.Scatter)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Tunnel = require(ReplicatedStorage.Tunnel)
 local Volcano = require(ReplicatedStorage.Volcano)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
+local Tube = require(ServerScriptService.Pieces.Tube)
 
 local D = Tuning.Dino
 local FLOOR = Tuning.Map.FloorTop
@@ -337,17 +341,301 @@ local function lava(part: BasePart)
 	CollectionService:AddTag(part, "Lava")
 end
 
--- A disc `radius` across lying flat with its top at `top`.
-local function disc(parent: Instance, name: string, center: CFrame, radius: number, top: number): Part
-	local part = block(
+-- A rock box in `base`'s space, from x1 to x2, y1 to y2 and z1 to z2.
+local function slab(
+	parent: Instance,
+	name: string,
+	base: CFrame,
+	x1: number,
+	x2: number,
+	y1: number,
+	y2: number,
+	z1: number,
+	z2: number
+)
+	block(
 		parent,
 		name,
-		Vector3.new(D.Thickness, 2 * radius, 2 * radius),
-		center * CFrame.new(0, top - D.Thickness / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
-		LAVA_COLOR
+		Vector3.new(x2 - x1, y2 - y1, z2 - z1),
+		base * CFrame.new((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2),
+		ROCK_COLORS[1]
 	)
-	part.Shape = Enum.PartType.Cylinder
-	return part
+end
+
+-- How far a rock face or ledge stays from a tube's outline.
+local CLEAR = 0.5
+-- How high each row of a face round a tube is, and how deep each step of a
+-- ledge round one.
+local ROW = 2
+
+-- The widest a tube's outline reaches either side of its middle between
+-- y1 and y2 up from its ground, or nil when it misses those heights.
+local function widest(section: Tunnel.Section, y1: number, y2: number): number?
+	return Tunnel.halfWidth(section, math.clamp(section.middle, y1, y2))
+end
+
+-- How far either side of its middle the tube whose outline at z is
+-- `sectionAt(z)` reaches, from z1 to z2 and y1 to y2 up from `ground`, plus
+-- CLEAR, or nil when it is not there.
+local function reachOf(
+	sectionAt: (number) -> Tunnel.Section,
+	ground: number,
+	y1: number,
+	y2: number,
+	z1: number,
+	z2: number
+): number?
+	local most: number? = nil
+	for _, z in { z1, z2 } do
+		local half = widest(sectionAt(z), y1 - ground, y2 - ground)
+		if half and (most == nil or half > most) then
+			most = half
+		end
+	end
+	return if most then most + CLEAR else nil
+end
+
+-- A rock box from x1 to x2, left out round the tube whose middle is at x =
+-- `holeX` and reaches `half` either side, if it is there.
+local function slabRound(
+	parent: Instance,
+	name: string,
+	base: CFrame,
+	x1: number,
+	x2: number,
+	y1: number,
+	y2: number,
+	z1: number,
+	z2: number,
+	holeX: number,
+	half: number?
+)
+	if not half then
+		slab(parent, name, base, x1, x2, y1, y2, z1, z2)
+		return
+	end
+	if holeX - half > x1 then
+		slab(parent, name, base, x1, holeX - half, y1, y2, z1, z2)
+	end
+	if holeX + half < x2 then
+		slab(parent, name, base, holeX + half, x2, y1, y2, z1, z2)
+	end
+end
+
+-- A rock face in `base`'s space facing -Z, from x1 to x2 and y1 to y2, its
+-- front at z, in rows ROW high, each stopping short of the tube through it
+-- (its outline at z is `sectionAt(z)`, its ground at `ground`).
+local function faceRound(
+	parent: Instance,
+	name: string,
+	base: CFrame,
+	x1: number,
+	x2: number,
+	y1: number,
+	y2: number,
+	z: number,
+	holeX: number,
+	sectionAt: (number) -> Tunnel.Section,
+	ground: number
+)
+	local y = y1
+	while y < y2 - 1e-6 do
+		local top = math.min(y + ROW, y2)
+		local half = reachOf(sectionAt, ground, y, top, z, z + D.Thickness)
+		slabRound(parent, name, base, x1, x2, y, top, z, z + D.Thickness, holeX, half)
+		y = top
+	end
+end
+
+-- A rock ledge in `base`'s space, from x1 to x2 and y1 to y2, from z1 back
+-- to z2, in steps ROW deep, each stopping short of the tube through it.
+local function ledgeRound(
+	parent: Instance,
+	name: string,
+	base: CFrame,
+	x1: number,
+	x2: number,
+	y1: number,
+	y2: number,
+	z1: number,
+	z2: number,
+	holeX: number,
+	sectionAt: (number) -> Tunnel.Section,
+	ground: number
+)
+	local steps = math.max(1, math.ceil((z2 - z1) / ROW))
+	for i = 1, steps do
+		local from, to = z1 + (z2 - z1) * (i - 1) / steps, z1 + (z2 - z1) * i / steps
+		slabRound(parent, name, base, x1, x2, y1, y2, from, to, holeX, reachOf(sectionAt, ground, y1, y2, from, to))
+	end
+end
+
+-- The tube's mouth set into the cone's foot. On each tier the slot was cut
+-- through (from spans[i].x1 to spans[i].x2), the blocks beside the slot
+-- are rebuilt as columns at most Slot.Column wide, out to the tier's
+-- outside and in to its inside. The slot itself gets a face on the tier's
+-- step, where the slot's far edge meets its outside (the first tier's at
+-- the mouth), fitting round the tube, and over the tier a ledge round the
+-- tube back to the next tier's face, or into the uncut tier above, so
+-- nothing gets in beside the tube.
+local function buildCaveMouth(
+	parent: Instance,
+	base: CFrame,
+	tiers: { Volcano.Tier },
+	spans: { [number]: { x1: number, x2: number } },
+	random: Random
+)
+	local V = D.Volcano
+	local R, W = V.Climb.Radius, V.Slot.Half
+	local mouth = -V.Climb.Inset
+	local function sectionAt(z: number): Tunnel.Section
+		return Tunnel.section(Tuning.City.Tunnels :: any, z - mouth)
+	end
+	local cut: { number } = {}
+	for i in tiers do
+		if spans[i] then
+			table.insert(cut, i)
+		end
+	end
+	table.sort(cut)
+	local faces: { number } = {}
+	for n, i in cut do
+		faces[n] = if n == 1 then mouth else -math.sqrt(math.max(tiers[i].outer ^ 2 - (R + W) ^ 2, 0))
+	end
+	for n, i in cut do
+		local tier = tiers[i]
+		local top = tier.bottom + tier.height
+		local span = spans[i]
+		for _, side in { { span.x1, R - W }, { R + W, span.x2 } } do
+			for _, column in Volcano.columns(side[1], side[2], V.Slot.Column) do
+				local x = (column.x1 + column.x2) / 2
+				local front = -math.sqrt(math.max(tier.outer ^ 2 - x ^ 2, 0))
+				local back = -math.sqrt(math.max(tier.inner ^ 2 - x ^ 2, 0))
+				local height = tier.height + random:NextNumber(0, V.Cone.Jitter)
+				block(
+					parent,
+					"Rock",
+					Vector3.new(column.x2 - column.x1, height, back - front),
+					base * CFrame.new(x, tier.bottom + height / 2, (front + back) / 2),
+					ROCK_COLORS[random:NextInteger(1, #ROCK_COLORS)]
+				)
+			end
+		end
+		faceRound(parent, "Cave", base, R - W, R + W, tier.bottom, top, faces[n], R, sectionAt, 0)
+		local ledgeTo = faces[n + 1] or faces[n] + V.Cone.Shell
+		ledgeRound(
+			parent,
+			"Cave",
+			base,
+			R - W,
+			R + W,
+			top - D.Thickness,
+			top,
+			faces[n] + D.Thickness,
+			ledgeTo,
+			R,
+			sectionAt,
+			0
+		)
+	end
+end
+
+-- The dome over the hatch where the tube comes up through the crater floor:
+-- hollow, in steps DomeStep high, each as wide and deep as the tube inside
+-- reaches above its bottom (Tunnel.above), the first the whole hatch. Each
+-- step has a front face round the tube where it comes out, sides, a back,
+-- and a ledge over the part the next step leaves; the last has a roof just
+-- over the tube.
+local function buildDome(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTube)
+	local V = D.Volcano
+	local T = Tuning.City.Tunnels
+	local floor, hatch = climb.floor, climb.hatch
+	local rise = climb.pieces[#climb.pieces - 1]
+	local round = Tunnel.section(T :: any, math.huge)
+	local function sectionAt(_: number): Tunnel.Section
+		return round
+	end
+	local top = floor + round.middle + round.outside + CLEAR + D.Thickness
+	local function stepAt(y: number, first: boolean): Volcano.Rect?
+		if first then
+			return hatch
+		end
+		local reach = Tunnel.above(rise, V.Climb.Outside, y - D.Thickness - CLEAR)
+		if not reach then
+			return nil
+		end
+		return {
+			x1 = math.max(reach.x1, hatch.x1),
+			x2 = math.min(reach.x2, hatch.x2),
+			z1 = hatch.z1,
+			z2 = math.min(reach.z2, hatch.z2),
+		}
+	end
+	local z1 = hatch.z1
+	local y = floor
+	local step = stepAt(y, true)
+	while step and y < top - 1e-6 do
+		local to = math.min(y + V.Crater.DomeStep, top)
+		local nextStep = if to < top - 1e-6 then stepAt(to, false) else nil
+		local x1, x2, z2 = step.x1 - 2, step.x2 + 2, step.z2 + 2
+		faceRound(parent, "Dome", base, x1, x2, y, to, z1 - 2, climb.exit.x, sectionAt, floor)
+		slab(parent, "Dome", base, x1, step.x1, y, to, z1, z2)
+		slab(parent, "Dome", base, step.x2, x2, y, to, z1, z2)
+		slab(parent, "Dome", base, step.x1, step.x2, y, to, step.z2, z2)
+		-- Over this step, all but where the next one stands.
+		local ledge = to - D.Thickness
+		if nextStep then
+			local nx1, nx2, nz2 = nextStep.x1 - 2, nextStep.x2 + 2, nextStep.z2 + 2
+			if nx1 > x1 then
+				slab(parent, "Dome", base, x1, nx1, ledge, to, z1 - 2, z2)
+			end
+			if nx2 < x2 then
+				slab(parent, "Dome", base, nx2, x2, ledge, to, z1 - 2, z2)
+			end
+			if nz2 < z2 then
+				slab(parent, "Dome", base, math.max(nx1, x1), math.min(nx2, x2), ledge, to, nz2, z2)
+			end
+		else
+			slab(parent, "Dome", base, x1, x2, ledge, to, z1 - 2, z2)
+		end
+		y, step = to, nextStep
+	end
+end
+
+-- The crater floor at the tube's floor: lava strips, a rock path from the
+-- tube's exit to the front wall, and the dome over the hatch where the tube
+-- comes up. The floor reaches into the tier it is level with.
+local function buildCrater(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTube, tiers: { Volcano.Tier })
+	local V = D.Volcano
+	local C = V.Crater
+	local floor = climb.floor
+	local radius = tiers[1].inner
+	for _, tier in tiers do
+		if tier.bottom <= floor then
+			radius = tier.inner
+		end
+	end
+	local hatch = climb.hatch
+	local path: Volcano.Rect = {
+		x1 = climb.exit.x - C.PathWidth / 2,
+		x2 = climb.exit.x + C.PathWidth / 2,
+		z1 = -radius - 1,
+		z2 = climb.exit.z,
+	}
+	for _, piece in Volcano.floor(radius, C.StripWidth, hatch, path) do
+		local part = block(
+			parent,
+			if piece.rock then "Path" else "CraterLava",
+			Vector3.new(piece.x2 - piece.x1, D.Thickness, piece.z2 - piece.z1),
+			base * CFrame.new((piece.x1 + piece.x2) / 2, floor - D.Thickness / 2, (piece.z1 + piece.z2) / 2),
+			CAUSEWAY_COLOR
+		)
+		if not piece.rock then
+			lava(part)
+		end
+	end
+
+	buildDome(parent, base, climb)
 end
 
 -- Boulders round the lake's outside edge, each a knockable prop that only a
@@ -363,7 +651,7 @@ local function buildBoulders(parent: Instance, base: CFrame, random: Random)
 	local half = math.pi / count
 	local width = 2 * inner * math.sin(half) - 0.05
 	local middle = inner * math.cos(half) + B.Depth / 2
-	local causeway: Volcano.Slot = { X = V.Helix, Half = V.Causeway.Width / 2, Top = 1 }
+	local causeway: Volcano.Slot = { X = V.Climb.Radius, Half = V.Causeway.Width / 2, Top = 1 }
 	local ground: Volcano.Tier = { bottom = 0, height = 0, outer = inner + B.Depth, inner = inner }
 	for k = 1, count do
 		local yaw = (k - 1) * 2 * half
@@ -398,7 +686,13 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 
 	local base = at(area, V.X, 0, V.Z) * CFrame.Angles(0, math.rad(V.Heading), 0)
 	local random = Random.new(V.Seed)
-	local slot: Volcano.Slot = { X = V.Helix, Half = V.Slot.Half, Top = V.Slot.Top }
+	local climb = Tunnel.volcano(V.Climb :: any, Tuning.City.Tunnels :: any)
+	if climb.warning then
+		warn(`Dino: {climb.warning}`)
+	end
+	local slot: Volcano.Slot = { X = V.Climb.Radius, Half = V.Slot.Half, Top = V.Slot.Top }
+	-- How far across the blocks left out for the slot reach, on each tier.
+	local spans: { [number]: { x1: number, x2: number } } = {}
 	local tiers = Volcano.tiers(V.Cone)
 	for i, tier in tiers do
 		local blocks = Volcano.ring(tier.outer, tier.inner, V.Cone.BlockWidth)
@@ -410,7 +704,12 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 			end
 		end
 		for k, b in blocks do
-			if not Volcano.inSlot(b, tier, slot) then
+			if Volcano.inSlot(b, tier, slot) then
+				local from, to = Volcano.spanX(b)
+				local span = spans[i] or { x1 = math.huge, x2 = -math.huge }
+				span.x1, span.x2 = math.min(span.x1, from), math.max(span.x2, to)
+				spans[i] = span
+			else
 				local height = tier.height + random:NextNumber(0, V.Cone.Jitter)
 				local rock = block(
 					model,
@@ -426,38 +725,52 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 		end
 	end
 
-	-- The crater's floor, under the tier it is level with.
-	local floor = V.Cone.Height - V.CraterDepth
-	local around = tiers[1].inner
-	for _, tier in tiers do
-		if tier.bottom <= floor then
-			around = tier.inner
-		end
+	local R = V.Climb.Radius
+	if V.Climb.Inset > math.sqrt(V.Cone.BaseRadius ^ 2 - (R + V.Slot.Half) ^ 2) + 0.5 then
+		warn("Dino: the volcano's mouth stands out in front of the cone; lower Climb.Inset")
 	end
-	lava(disc(model, "CraterLava", base, around + 2, floor))
+	Tube.build(model, base, climb.pieces, V.Climb.SliceAngle, Tuning.City.Tunnels)
+	buildCaveMouth(model, base, tiers, spans, random)
+	buildCrater(model, base, climb, tiers)
 
 	-- The lake round the foot, tucked under the bottom tier, and the
-	-- causeway across it to the slot. Both lie on the floor: cars drive on
-	-- the floor under them, but CarSensor's rays find them, the causeway
-	-- before the lava under it.
-	for _, b in Volcano.ring(V.Lake.Radius, V.Cone.BaseRadius - V.Cone.Shell / 2, V.Lake.BlockWidth) do
-		local part = decoration(
-			model,
-			"LakeLava",
-			Vector3.new(b.width, 0.4, b.depth),
-			base * CFrame.new(b.x, 0.1, b.z) * CFrame.Angles(0, b.yaw, 0),
-			LAVA_COLOR
-		)
+	-- causeway across it to the mouth. Both lie on the floor: cars drive on
+	-- the floor under them, but CarSensor's rays find them. No lava lies
+	-- under the causeway or the mouth: the lake's pieces across it are left
+	-- out, and strips of lava fill in either side of it.
+	local inner = V.Cone.BaseRadius - V.Cone.Shell / 2
+	local half = V.Causeway.Width / 2
+	local band: Volcano.Slot = { X = R, Half = half, Top = 1 }
+	local ground: Volcano.Tier = { bottom = 0, height = 0, outer = V.Lake.Radius, inner = inner }
+	local gapX1, gapX2 = math.huge, -math.huge
+	local function lakePiece(size: Vector3, cframe: CFrame)
+		local part = decoration(model, "LakeLava", size, cframe, LAVA_COLOR)
 		lava(part)
 		part.CanQuery = true
 	end
-	local near = math.sqrt(V.Cone.BaseRadius ^ 2 - V.Helix ^ 2) - V.Cone.Shell / 2
+	for _, b in Volcano.ring(V.Lake.Radius, inner, V.Lake.BlockWidth) do
+		if Volcano.inSlot(b, ground, band) then
+			local from, to = Volcano.spanX(b)
+			gapX1, gapX2 = math.min(gapX1, from), math.max(gapX2, to)
+		else
+			lakePiece(Vector3.new(b.width, 0.4, b.depth), base * CFrame.new(b.x, 0.1, b.z) * CFrame.Angles(0, b.yaw, 0))
+		end
+	end
+	for _, side in { { gapX1, R - half }, { R + half, gapX2 } } do
+		for _, column in Volcano.columns(side[1], side[2], V.Slot.Column) do
+			local x = (column.x1 + column.x2) / 2
+			local near = -math.sqrt(math.max(inner ^ 2 - x ^ 2, 0))
+			local far = -math.sqrt(math.max(V.Lake.Radius ^ 2 - x ^ 2, 0))
+			lakePiece(Vector3.new(column.x2 - column.x1, 0.4, near - far), base * CFrame.new(x, 0.1, (near + far) / 2))
+		end
+	end
+	local near = V.Climb.Inset
 	local far = V.Lake.Radius + 20
 	local causeway = decoration(
 		model,
 		"Causeway",
 		Vector3.new(V.Causeway.Width, 0.4, far - near),
-		base * CFrame.new(V.Helix, 0.2, -(near + far) / 2),
+		base * CFrame.new(R, 0.2, -(near + far) / 2),
 		CAUSEWAY_COLOR
 	)
 	causeway.CanQuery = true

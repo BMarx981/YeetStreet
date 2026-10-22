@@ -524,6 +524,10 @@ Tuning.Toughness = {
 	-- parts as it goes, then the car wrecks. Run or not.
 	LavaBurnTime = 3,
 	LavaFireSize = 10, -- the fire on a burning car (CarVisuals)
+	-- A car still counts as burning this long after it last touched lava,
+	-- so a bounce does not put its fire out, and it can pass the boulders
+	-- at the lake's edge on its way out. It only takes damage on the lava.
+	LavaFireHold = 0.5,
 	-- Smashing through a boulder faster than its BreakSpeed costs this much
 	-- toughness per stud per second over it, run or not.
 	BoulderDamagePerSpeed = 1,
@@ -1285,13 +1289,20 @@ Tuning.Dino = {
 	-- thick, stepping in from BaseRadius at the foot to TopRadius at the rim,
 	-- Height up. Tops stand up to Jitter higher, so the ledges look rocky.
 	-- Its middle is at X, Z in the park, its front facing Heading (degrees,
-	-- 0 faces -Z, positive turns left), toward the park's middle. The tube
-	-- that climbs inside comes in at the foot in front on the line Helix to
-	-- the right of the middle, through a Slot Half each side and Top high
-	-- where the cone's blocks are left out, along a rock Causeway over the
-	-- lava lake that rings the foot out to Lake.Radius. The crater's floor
-	-- is CraterDepth under the rim. Rivers run lava down the outside from
-	-- the rim, Down tiers, at Yaw degrees round from the back.
+	-- 0 faces -Z, positive turns left), toward the park's middle. A round
+	-- tube shaped like Tuning.City.Tunnels climbs inside (Tunnel.volcano,
+	-- Climb; SliceAngle degrees of turn per ring of planks). Its mouth is
+	-- set into the foot in front, Climb.Inset from the middle, on the line
+	-- Climb.Radius to the right of it, at the end of a rock Causeway across
+	-- the lava lake that rings the foot out to Lake.Radius. Round the tube
+	-- the cone's blocks are left out Slot.Half each side, on the tiers
+	-- below Slot.Top, and rebuilt in blocks at most Slot.Column wide, with a
+	-- face on each tier's step that fits round the tube. The tube comes up
+	-- through the crater floor under a rock dome that steps in DomeStep at
+	-- a time as the tube inside sinks, and out level along a rock path
+	-- PathWidth wide; the rest of the floor is lava, in strips StripWidth
+	-- wide. Rivers run lava down the outside from the rim, Down tiers, at
+	-- Yaw degrees round from the back.
 	Volcano = {
 		X = -520,
 		Z = -620,
@@ -1300,15 +1311,24 @@ Tuning.Dino = {
 		Cone = {
 			BaseRadius = 400,
 			TopRadius = 230,
-			Height = 270,
+			Height = 285,
 			TierHeight = 18,
 			Shell = 40,
 			BlockWidth = 50,
 			Jitter = 5,
 		},
-		CraterDepth = 60,
-		Helix = 80,
-		Slot = { Half = 56, Top = 72 },
+		Climb = {
+			Radius = 100,
+			Pitch = 72,
+			Loops = 2,
+			Inset = 368, -- the foot, where the slot's far side meets it
+			LevelRun = 80, -- just the mouth on the crater floor
+			Outside = 33,
+			FloorThickness = 2,
+			SliceAngle = 7.5,
+		},
+		Crater = { PathWidth = 80, StripWidth = 12, DomeStep = 12 },
+		Slot = { Half = 56, Top = 63, Column = 10 },
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },
 		-- A ring of boulders round the lake's outside edge, Depth deep and

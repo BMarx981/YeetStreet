@@ -95,4 +95,67 @@ Check.test("a block whose corner just reaches the slot's edge is in it", functio
 	Check.eq(Volcano.inSlot(clear, tier, slot), false, "corner 0.1 past the edge")
 end)
 
+Check.test("columns split a span evenly, none wider than asked", function()
+	local columns = Volcano.columns(10, 45, 10)
+	Check.eq(#columns, 4)
+	Check.near(columns[1].x1, 10)
+	Check.near(columns[4].x2, 45)
+	for i, column in columns do
+		Check.near(column.x2 - column.x1, 8.75, `column {i}`)
+		if i > 1 then
+			Check.near(column.x1, columns[i - 1].x2, `column {i} meets the last`)
+		end
+	end
+	Check.eq(#Volcano.columns(5, 5, 10), 0, "an empty span")
+	Check.eq(#Volcano.columns(6, 5, 10), 0, "a backward span")
+end)
+
+local HATCH: Volcano.Rect = { x1 = -133, x2 = 133, z1 = 0, z2 = 133 }
+local PATH: Volcano.Rect = { x1 = -140, x2 = -60, z1 = -300, z2 = 0 }
+
+local function inRect(rect: Volcano.Rect, x: number, z: number): boolean
+	return x > rect.x1 and x < rect.x2 and z > rect.z1 and z < rect.z2
+end
+
+Check.test("the crater floor is strips no wider than asked, none in the hatch", function()
+	for k, piece in Volcano.floor(238, 12, HATCH, PATH) do
+		Check.eq(piece.x2 - piece.x1 <= 12 + 1e-9, true, `piece {k} width {piece.x2 - piece.x1}`)
+		local overlapX = piece.x1 < HATCH.x2 and piece.x2 > HATCH.x1
+		local overlapZ = piece.z1 < HATCH.z2 and piece.z2 > HATCH.z1
+		Check.eq(overlapX and overlapZ, false, `piece {k} in the hatch`)
+	end
+end)
+
+Check.test(
+	"every spot on the crater floor but the hatch is covered once, rock on the path and lava elsewhere",
+	function()
+		local pieces = Volcano.floor(238, 12, HATCH, PATH)
+		for x = -235.5, 235.5, 7 do
+			for z = -235.5, 235.5, 7 do
+				if x * x + z * z < 238 * 238 and not inRect(HATCH, x, z) then
+					local found = {}
+					for _, piece in pieces do
+						if x > piece.x1 and x < piece.x2 and z > piece.z1 and z < piece.z2 then
+							table.insert(found, piece)
+						end
+					end
+					Check.eq(#found, 1, `pieces over {x}, {z}`)
+					Check.eq(found[1].rock, inRect(PATH, x, z), `rock at {x}, {z}`)
+				end
+			end
+		end
+	end
+)
+
+Check.test("the crater floor reaches only a little past its circle", function()
+	for k, piece in Volcano.floor(238, 12, HATCH, PATH) do
+		for _, x in { piece.x1, piece.x2 } do
+			for _, z in { piece.z1, piece.z2 } do
+				local r = math.sqrt(x * x + z * z)
+				Check.eq(r < 238 + 12, true, `piece {k} corner at {r}`)
+			end
+		end
+	end
+end)
+
 Check.finish("Volcano")

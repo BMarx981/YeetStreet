@@ -75,7 +75,8 @@ type Watch = {
 	payScale: number,
 	wrecked: boolean,
 	respawning: boolean, -- a respawn was asked for; the car is about to go
-	burning: boolean, -- in lava, as the car's Burning attribute shows
+	burning: boolean, -- as the car's Burning attribute shows
+	burnedAt: number, -- os.clock() when lava last burned it
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -158,6 +159,7 @@ local function watchFor(car: Model): Watch?
 		wrecked = false,
 		respawning = false,
 		burning = false,
+		burnedAt = -math.huge,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -423,7 +425,13 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if reading.lava and watch.run.phase == "flying" then
 					splash(watch)
 				end
-				local burning = reading.lava and burn(watch, dt)
+				-- Still burning for LavaFireHold after it last touched lava, so a
+				-- bounce does not put the fire out, and the boulders at the
+				-- lake's edge let it out (PropService, CarController).
+				if reading.lava and burn(watch, dt) then
+					watch.burnedAt = os.clock()
+				end
+				local burning = os.clock() - watch.burnedAt < T.LavaFireHold
 				if burning ~= watch.burning then
 					watch.burning = burning
 					car:SetAttribute("Burning", burning)

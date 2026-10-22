@@ -44,6 +44,18 @@ export type Slot = {
 	Top: number,
 }
 
+-- A footprint seen from above (x1 < x2, z1 < z2).
+export type Rect = { x1: number, x2: number, z1: number, z2: number }
+
+-- A piece of the crater floor, rock or lava.
+export type FloorPiece = {
+	x1: number,
+	x2: number,
+	z1: number,
+	z2: number,
+	rock: boolean,
+}
+
 -- The tiers from the ground up, all the same height, at most TierHeight.
 function Volcano.tiers(cone: Cone): { Tier }
 	local count = math.ceil(cone.Height / cone.TierHeight)
@@ -80,14 +92,85 @@ function Volcano.ring(outer: number, inner: number, blockWidth: number): { Block
 	return blocks
 end
 
+-- How far across (along X) a block reaches, from and to.
+function Volcano.spanX(block: Block): (number, number)
+	local c, s = math.cos(block.yaw), math.sin(block.yaw)
+	local reach = math.abs(block.width / 2 * c) + math.abs(block.depth / 2 * s)
+	return block.x - reach, block.x + reach
+end
+
 -- Whether a block of `tier` reaches into the slot, so it is left out.
 function Volcano.inSlot(block: Block, tier: Tier, slot: Slot): boolean
 	if tier.bottom >= slot.Top or block.z >= 0 then
 		return false
 	end
-	local c, s = math.cos(block.yaw), math.sin(block.yaw)
-	local reach = math.abs(block.width / 2 * c) + math.abs(block.depth / 2 * s)
-	return block.x + reach > slot.X - slot.Half and block.x - reach < slot.X + slot.Half
+	local from, to = Volcano.spanX(block)
+	return to > slot.X - slot.Half and from < slot.X + slot.Half
+end
+
+-- From x1 to x2 in equal columns at most `width` wide, left to right.
+function Volcano.columns(x1: number, x2: number, width: number): { { x1: number, x2: number } }
+	local columns = {}
+	if x2 - x1 <= 1e-9 then
+		return columns
+	end
+	local count = math.ceil((x2 - x1) / width - 1e-9)
+	for i = 1, count do
+		table.insert(columns, { x1 = x1 + (x2 - x1) * (i - 1) / count, x2 = x1 + (x2 - x1) * i / count })
+	end
+	return columns
+end
+
+-- The crater floor inside the circle `radius` round the middle: strips
+-- along Z at most `stripWidth` wide, each out to where the circle crosses
+-- its edge nearer the middle, so none leaves a gap at the wall, split where
+-- they meet `hatch` (left open for the tube) and `path` (rock; the rest is
+-- lava).
+function Volcano.floor(radius: number, stripWidth: number, hatch: Rect, path: Rect): { FloorPiece }
+	-- Strip edges: the circle's sides, and the hatch's and path's sides.
+	local edges = { -radius, radius }
+	for _, x in { hatch.x1, hatch.x2, path.x1, path.x2 } do
+		if x > -radius and x < radius then
+			table.insert(edges, x)
+		end
+	end
+	table.sort(edges)
+	local pieces: { FloorPiece } = {}
+	for i = 1, #edges - 1 do
+		local from, to = edges[i], edges[i + 1]
+		local count = math.ceil((to - from) / stripWidth - 1e-9)
+		for j = 1, count do
+			local x1 = from + (to - from) * (j - 1) / count
+			local x2 = from + (to - from) * j / count
+			local x = (x1 + x2) / 2
+			local nearest = if x1 < 0 and x2 > 0 then 0 else math.min(math.abs(x1), math.abs(x2))
+			local reach = math.sqrt(radius * radius - nearest * nearest)
+			local inHatch = x > hatch.x1 and x < hatch.x2
+			local inPath = x > path.x1 and x < path.x2
+			-- Cuts along the strip, from front to back.
+			local cuts = { -reach, reach }
+			for _, z in { inHatch and hatch.z1, inHatch and hatch.z2, inPath and path.z1, inPath and path.z2 } do
+				if z and z > -reach and z < reach then
+					table.insert(cuts, z)
+				end
+			end
+			table.sort(cuts)
+			for k = 1, #cuts - 1 do
+				local z1, z2 = cuts[k], cuts[k + 1]
+				local z = (z1 + z2) / 2
+				if z2 - z1 > 1e-9 and not (inHatch and z > hatch.z1 and z < hatch.z2) then
+					table.insert(pieces, {
+						x1 = x1,
+						x2 = x2,
+						z1 = z1,
+						z2 = z2,
+						rock = inPath and z > path.z1 and z < path.z2,
+					})
+				end
+			end
+		end
+	end
+	return pieces
 end
 
 return Volcano

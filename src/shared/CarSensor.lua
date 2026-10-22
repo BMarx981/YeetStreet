@@ -134,7 +134,7 @@ local function impact(last: CFrame?, lastVelocity: Vector3?, cf: CFrame, velocit
 end
 
 -- `up` is which way the car should be the right way up: world up, or inside
--- a city tube, toward its middle line.
+-- a tube, toward its middle line.
 function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	local cf = sensor.hull.CFrame
 	local velocity = sensor.hull.AssemblyLinearVelocity

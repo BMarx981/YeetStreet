@@ -25,9 +25,11 @@
 --
 -- A prop with a BreakSpeed attribute is a boulder: it keeps its collision
 -- group while standing, so it stops a car, and only a car faster than that
--- knocks it. The driving client lets its own car through a boulder at that
--- speed (CarController); here the server sees the car pass, knocks the
--- boulder, which flies in the Props group until it is back, and fires the
+-- knocks it. A burning car (ScoreService) passes through any boulder at
+-- any speed and knocks none, so it can always drive out of the lava. The
+-- driving client lets its own car through a boulder at that speed, or
+-- while it burns (CarController); here the server sees the car pass, knocks
+-- the boulder, which flies in the Props group until it is back, and fires the
 -- car and its speed on ServerStorage.BoulderSmashed for ScoreService to
 -- damage it.
 
@@ -165,9 +167,10 @@ end
 -- BreakSpeed: a slower car bumped off it.
 local function sweep(car: Model, from: Vector3, to: Vector3, carVelocity: Vector3)
 	local speed = carVelocity.Magnitude
+	local burning = car:GetAttribute("Burning") == true
 	for _, prop in props do
 		local breakSpeed = prop.breakSpeed
-		if not prop.down and (breakSpeed == nil or speed > breakSpeed) then
+		if not prop.down and (breakSpeed == nil or (speed > breakSpeed and not burning)) then
 			local r = if breakSpeed then 0 else P.HitRadius
 			local a = prop.home:PointToObjectSpace(from)
 			local b = prop.home:PointToObjectSpace(to)

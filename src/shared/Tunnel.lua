@@ -464,6 +464,122 @@ function Tunnel.spirals(city: City, spirals: Spirals): { Spiral }
 	return list
 end
 
+-- Dino Valley's volcano tube (Tuning.Dino.Volcano.Climb), in the volcano's
+-- own space: from its middle on the ground, its front toward -Z, heights
+-- from the floor. The tube comes in on the ground from a mouth Inset in
+-- front of the middle, on the line Radius to the right (+X), straight in to
+-- where it meets the circle Radius round the middle, then climbs Loops times
+-- round it, Pitch up each loop, turning toward the middle. The last half
+-- loop climbs gently up through the crater floor at the hatch, on the back
+-- half, and comes out level on the floor heading for the front, on the line
+-- Radius to the left, and the tube ends LevelRun on. Outside is from the
+-- tube's middle line to its outside; the floor is FloorThickness thick,
+-- just over the last whole loop.
+export type VolcanoClimb = {
+	Radius: number,
+	Pitch: number,
+	Loops: number,
+	Inset: number,
+	LevelRun: number,
+	Outside: number,
+	FloorThickness: number,
+}
+
+export type VolcanoTube = {
+	pieces: { Piece },
+	floor: number, -- the crater floor's top, from the ground
+	hatch: Rect, -- where the tube comes up through the floor
+	exit: Crossing, -- where the tube leaves the hatch, level on the floor
+	mouth: Crossing, -- the tube's end on the floor
+	warning: string?,
+}
+
+function Tunnel.volcano(climb: VolcanoClimb, tunnels: Tunnels): VolcanoTube
+	local R, outside = climb.Radius, climb.Outside
+	local ground = Tunnel.groundHeight(tunnels)
+	local segments: { Segment } = { { Straight = climb.Inset } }
+	for _ = 1, climb.Loops do
+		table.insert(segments, { Turn = -360, Radius = R, Rise = climb.Pitch })
+	end
+	local top = ground + climb.Loops * climb.Pitch
+	local floor = top + outside + climb.FloorThickness
+	table.insert(segments, { Turn = -180, Radius = R, Rise = floor + ground - top })
+	table.insert(segments, { Straight = climb.LevelRun })
+	local pieces = Tunnel.path(R, -climb.Inset, 0, 1, segments, ground)
+	return {
+		pieces = pieces,
+		floor = floor,
+		hatch = { x1 = -R - outside, x2 = R + outside, z1 = 0, z2 = R + outside },
+		exit = { x = -R, z = 0 },
+		mouth = { x = -R, z = -climb.LevelRun },
+		warning = if climb.Pitch < 2 * outside then "the volcano's Pitch lets its loops meet" else nil,
+	}
+end
+
+-- How thick a tube's planks are (Pieces.Tube).
+Tunnel.THICKNESS = 2
+
+-- A tube's shape, as in Tuning.City.Tunnels.
+export type Shape = {
+	Radius: number,
+	Sides: number,
+	MouthFloor: number,
+	MouthCurve: number,
+	FlareLength: number,
+}
+
+-- A tube's outline across it, outside its planks: a flat floor and roof
+-- `flat` either side of the middle, `middle` up from the ground, with
+-- curves whose outside corners are `outside` round.
+export type Section = {
+	flat: number,
+	outside: number,
+	middle: number,
+}
+
+-- The outline `t` studs in from a mouth on the ground, as Pieces.Tube
+-- flares it: the mouth's flat floor and MouthCurve curves easing into the
+-- round tube over FlareLength.
+function Tunnel.section(shape: Shape, t: number): Section
+	local ease = Tunnel.ease(1 - math.clamp(t / shape.FlareLength, 0, 1))
+	local radius = shape.Radius + (shape.MouthCurve - shape.Radius) * ease
+	local c = math.cos(math.pi / shape.Sides)
+	return {
+		flat = shape.MouthFloor / 2 * ease,
+		outside = (radius * c + Tunnel.THICKNESS) / c,
+		middle = radius * c + Tunnel.LIFT,
+	}
+end
+
+-- How far either side of its middle the outline reaches at `y` up from the
+-- ground, or nil when it is all above or below.
+function Tunnel.halfWidth(section: Section, y: number): number?
+	local d = y - section.middle
+	if math.abs(d) > section.outside then
+		return nil
+	end
+	return section.flat + math.sqrt(section.outside * section.outside - d * d)
+end
+
+-- Seen from above, the box round the part of the tube along `piece`, its
+-- outside `outside` from the middle line, whose top is higher than `y`, or
+-- nil when none is.
+function Tunnel.above(piece: Piece, outside: number, y: number): Rect?
+	local x1, x2, z1, z2 = math.huge, -math.huge, math.huge, -math.huge
+	local steps = math.max(1, math.ceil(Tunnel.length(piece) / 2))
+	for i = 0, steps do
+		local px, py, pz = Tunnel.pointAt(piece, i / steps)
+		if py + outside > y then
+			x1, x2 = math.min(x1, px - outside), math.max(x2, px + outside)
+			z1, z2 = math.min(z1, pz - outside), math.max(z2, pz + outside)
+		end
+	end
+	if x1 > x2 then
+		return nil
+	end
+	return { x1 = x1, x2 = x2, z1 = z1, z2 = z2 }
+end
+
 -- The way a tube of `radius` around the middle line `pieces` pulls a car at
 -- (x, y, z): straight out from the nearest point on the middle line through
 -- the car, toward the nearest wall, as a unit vector. Nil outside the tube,

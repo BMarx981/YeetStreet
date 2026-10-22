@@ -403,4 +403,166 @@ Check.test("a spiral in a block that does not exist is skipped", function()
 	Check.eq(#spiralsAt({ Side = 1, Block = 9, Column = 1, Street = "Bottom" }), 0)
 end)
 
+local CLIMB: Tunnel.VolcanoClimb = {
+	Radius = 100,
+	Pitch = 72,
+	Loops = 2,
+	Inset = 340,
+	LevelRun = 80,
+	Outside = 33,
+	FloorThickness = 2,
+}
+
+local function volcanoPoints(tube: Tunnel.VolcanoTube): { { x: number, y: number, z: number, s: number } }
+	return samples({ pieces = tube.pieces } :: any)
+end
+
+Check.test("the volcano's tube comes in on the ground in front, right of the middle, heading in", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	Check.eq(tube.warning, nil)
+	local first = tube.pieces[1]
+	Check.near(first.fromX, 100, "the helix radius to the right")
+	Check.near(first.fromZ, -340, "Inset in front of the middle")
+	Check.near(first.fromY, ground, "on the ground")
+	Check.near(first.toX, 100)
+	Check.near(first.toZ, 0, "straight in to where the helix starts")
+end)
+
+Check.test("the volcano's tube ends level on the crater floor, left of the middle, heading for the front", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	Check.near(tube.floor, ground + 2 * 72 + 33 + 2, "the floor just over the last whole loop")
+	local last = tube.pieces[#tube.pieces]
+	Check.near(last.fromY, tube.floor + ground, "level on the floor")
+	Check.near(last.toY, tube.floor + ground)
+	Check.near(last.fromX, -100, "out on the other side of the middle")
+	Check.near(last.fromZ, 0)
+	Check.near(last.toX, -100)
+	Check.near(last.toZ, -80, "LevelRun on toward the front")
+	Check.near(tube.exit.x, -100)
+	Check.near(tube.exit.z, 0)
+	Check.near(tube.mouth.x, -100)
+	Check.near(tube.mouth.z, -80)
+end)
+
+Check.test("the volcano's helix circles the middle at its radius", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	for i = 2, #tube.pieces - 1 do
+		local piece = tube.pieces[i]
+		Check.eq(piece.kind, "arc", `piece {i}`)
+		Check.near(piece.centerX, 0, `piece {i} center x`)
+		Check.near(piece.centerZ, 0, `piece {i} center z`)
+		Check.near(piece.radius, 100, `piece {i} radius`)
+	end
+end)
+
+Check.test("the volcano's tube never meets itself", function()
+	local points = volcanoPoints(Tunnel.volcano(CLIMB, city({}).Tunnels))
+	for i, a in points do
+		for j = i + 1, #points do
+			local b = points[j]
+			if b.s - a.s > 3 * CLIMB.Outside then
+				local apart = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2)
+				if apart < 2 * CLIMB.Outside then
+					error(`tube at {a.s} and {b.s} overlap: middles {apart} apart`)
+				end
+			end
+		end
+	end
+end)
+
+Check.test("the volcano's tube never climbs steeper than 20 degrees", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	for index, piece in tube.pieces do
+		local length = Tunnel.length(piece)
+		for i = 0, 99 do
+			local _, y0 = Tunnel.pointAt(piece, i / 100)
+			local _, y1 = Tunnel.pointAt(piece, (i + 1) / 100)
+			local slope = math.abs(y1 - y0) / (length / 100)
+			Check.eq(slope <= math.tan(math.rad(20)), true, `piece {index} climbs {math.deg(math.atan(slope))} degrees`)
+		end
+	end
+end)
+
+Check.test("the crater floor clears the tube but at the hatch on the back half", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	Check.near(tube.hatch.x1, -133)
+	Check.near(tube.hatch.x2, 133)
+	Check.near(tube.hatch.z1, 0)
+	Check.near(tube.hatch.z2, 133)
+	local bottom = tube.floor - CLIMB.FloorThickness
+	for _, p in volcanoPoints(tube) do
+		local inHatch = p.x >= tube.hatch.x1 and p.x <= tube.hatch.x2 and p.z >= tube.hatch.z1 and p.z <= tube.hatch.z2
+		local onFloor = p.z <= 0 and math.abs(p.x + 100) < 1e-6 and p.y > bottom
+		if not inHatch and not onFloor then
+			Check.eq(
+				p.y + CLIMB.Outside <= bottom + 1e-6,
+				true,
+				`tube top {p.y + CLIMB.Outside} at {p.x}, {p.z} through the floor`
+			)
+		end
+	end
+end)
+
+local SHAPE: Tunnel.Shape = { Radius = 30, Sides = 24, MouthFloor = 68, MouthCurve = 18, FlareLength = 80 }
+
+local function outsideOf(radius: number): number
+	local c = math.cos(math.pi / 24)
+	return (radius * c + 2) / c
+end
+
+Check.test("a tube's section at its mouth is the mouth's flat floor and small curves", function()
+	local section = Tunnel.section(SHAPE, 0)
+	Check.near(section.flat, 34)
+	Check.near(section.outside, outsideOf(18))
+	Check.near(section.middle, 18 * math.cos(math.pi / 24) + Tunnel.LIFT)
+end)
+
+Check.test("past the flare a tube's section is round, its middle a ground height up", function()
+	for _, t in { 80, 200 } do
+		local section = Tunnel.section(SHAPE, t)
+		Check.near(section.flat, 0, `flat at {t}`)
+		Check.near(section.outside, outsideOf(30), `outside at {t}`)
+		Check.near(section.middle, Tunnel.groundHeight(city({}).Tunnels), `middle at {t}`)
+	end
+end)
+
+Check.test("half way through the flare the section is half way, eased", function()
+	local section = Tunnel.section(SHAPE, 40)
+	Check.near(section.flat, 17)
+	Check.near(section.outside, outsideOf(24))
+end)
+
+Check.test("a section is widest at its middle and nothing above or below its outline", function()
+	local section = Tunnel.section(SHAPE, 0)
+	Check.near(Tunnel.halfWidth(section, section.middle) :: number, section.flat + section.outside)
+	Check.near(
+		Tunnel.halfWidth(section, section.middle + 5) :: number,
+		Tunnel.halfWidth(section, section.middle - 5) :: number
+	)
+	Check.eq(Tunnel.halfWidth(section, section.middle + section.outside + 0.1), nil, "above")
+	Check.eq(Tunnel.halfWidth(section, section.middle - section.outside - 0.1), nil, "below")
+end)
+
+Check.test("the volcano's last half loop covers less of the crater the higher it is", function()
+	local tube = Tunnel.volcano(CLIMB, city({}).Tunnels)
+	local climb = tube.pieces[#tube.pieces - 1]
+	local low = Tunnel.above(climb, CLIMB.Outside, tube.floor - 1) :: Tunnel.Rect
+	local high = Tunnel.above(climb, CLIMB.Outside, tube.floor + 40) :: Tunnel.Rect
+	Check.eq(low ~= nil and high ~= nil, true, "both found")
+	Check.near(low.x1, -133, "low: the whole half loop", 1)
+	Check.eq(low.x2 > 125, true, `low reaches {low.x2}, nearly the whole way, as its start is still under the floor`)
+	Check.near(low.z2, 133, nil, 1)
+	Check.eq(high.x2 < low.x2 - 50, true, `high reaches only {high.x2}`)
+	Check.eq(high.x1 <= -100 - CLIMB.Outside + 1, true, "high still holds the end by the exit")
+	Check.eq(Tunnel.above(climb, CLIMB.Outside, tube.floor + 100), nil, "nothing that high")
+end)
+
+Check.test("a volcano tube whose loops would meet warns", function()
+	local climb = table.clone(CLIMB)
+	climb.Pitch = 60
+	Check.eq(Tunnel.volcano(climb, city({}).Tunnels).warning ~= nil, true)
+end)
+
 Check.finish("Tunnel")

@@ -22,7 +22,6 @@ local Railway = require(ReplicatedStorage.Railway)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
-local Triangle = require(ServerScriptService.Pieces.Triangle)
 local Tube = require(ServerScriptService.Pieces.Tube)
 local CityRailway = require(script.Parent.CityRailway)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
@@ -133,18 +132,7 @@ local function outsideOf(radius: number): number
 	return (radius * math.cos(HALF_STEP) + THICKNESS) / math.cos(HALF_STEP)
 end
 
--- A hole in a building's side for a tube: on the ground, a mouth with a flat
--- floor and roof `flat` either side of its middle and curves beyond; up
--- high, the round tube crossing the alley. `point` is on the floor below
--- its middle, which is `middleY` up, and its outline's corners are
--- `outside` out from its curves' middles.
-type Hole = {
-	point: Vector3,
-	ground: boolean,
-	middleY: number,
-	flat: number,
-	outside: number,
-}
+type Hole = Tube.Hole
 
 -- Every mouth on the ground has the same shape: a flat floor and roof
 -- MouthFloor wide with curves MouthCurve around either side.
@@ -176,75 +164,6 @@ local function outsideCorner(parent: Instance, corner: Vector3, a: Vector3, b: V
 		C.Buildings.CornerSlices,
 		options
 	)
-end
-
--- The building's side around a hole facing `out`: the corners between the
--- hole's outline and the square cut for it, a sill below it when it is up
--- high, and a lintel above it up to `towerBottom`.
-local function holePlate(
-	parent: Instance,
-	hole: Hole,
-	out: Vector3,
-	towerBottom: number,
-	color: Color3,
-	material: Enum.Material
-)
-	local across = Vector3.new(out.Z, 0, -out.X)
-	local function point(t: number, y: number): Vector3
-		return hole.point + across * t + Vector3.new(0, hole.middleY + y, 0)
-	end
-	local function triangle(a: Vector3, b: Vector3, c: Vector3)
-		if (b - a):Cross(c - a).Magnitude < 0.01 then
-			return
-		end
-		for _, wedge in Triangle.make(parent, a, b, c, out, THICKNESS, color) do
-			wedge.Material = material
-		end
-	end
-	local outside, half = hole.outside, hole.flat + hole.outside
-	-- Corner k of the outline, from the bottom round toward +across.
-	local sides = C.Tunnels.Sides
-	local function corner(k: number): Vector3
-		local angle = (2 * k + 1) * HALF_STEP
-		local s = math.sin(angle)
-		return point(outside * s + hole.flat * math.sign(s), -outside * math.cos(angle))
-	end
-	-- Each side's lower and upper quarter of the outline, fanned from the
-	-- square's corner beside it, and between them out to the square's edge.
-	local quarter = sides // 4
-	for _, sign in { 1, -1 } do
-		local function edge(k: number): Vector3
-			return if sign > 0 then corner(k) else corner(sides - 1 - k)
-		end
-		local low = point(sign * half, -outside)
-		local level = point(sign * half, 0)
-		local high = point(sign * half, outside)
-		for k = 0, quarter - 2 do
-			triangle(low, edge(k), edge(k + 1))
-		end
-		triangle(low, edge(quarter - 1), level)
-		triangle(edge(quarter - 1), edge(quarter), level)
-		triangle(high, level, edge(quarter))
-		for k = quarter, 2 * quarter - 2 do
-			triangle(high, edge(k), edge(k + 1))
-		end
-	end
-	local function wall(bottom: number, top: number)
-		if top - bottom > 0.05 then
-			local middle = hole.point - out + Vector3.new(0, (bottom + top) / 2, 0)
-			block(
-				parent,
-				"Wall",
-				Vector3.new(2 * half, top - bottom, THICKNESS),
-				CFrame.lookAt(middle, middle + out),
-				color
-			).Material =
-				material
-		end
-	end
-	local edgeHeight = outside * math.cos(HALF_STEP)
-	wall(0, hole.middleY - edgeHeight)
-	wall(hole.middleY + edgeHeight, towerBottom)
 end
 
 -- A building's sides around `rect` (park coordinates): along the foot of
@@ -295,7 +214,7 @@ local function buildSides(
 					outsideCorner(parent, from + along * (m - half - R), out, along, options)
 					outsideCorner(parent, from + along * (m + half + R), out, -along, options)
 				end
-				holePlate(parent, hole, out, towerBottom, color, material)
+				Tube.holePlate(parent, C.Tunnels, hole, out, towerBottom, color, material)
 			end
 		end
 		for _, stretch in curves do
@@ -462,7 +381,7 @@ local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, 
 		flat = 0,
 		outside = outsideOf(T.Radius),
 	}
-	holePlate(model, exit, out, S.HutHeight, color, material)
+	Tube.holePlate(model, C.Tunnels, exit, out, S.HutHeight, color, material)
 	local width, depth = hut.x2 - hut.x1, hut.z2 - hut.z1
 	local middle = at(area, (hut.x1 + hut.x2) / 2, roof + S.HutHeight / 2, (hut.z1 + hut.z2) / 2).Position
 	for _, sign in { -1, 1 } do
