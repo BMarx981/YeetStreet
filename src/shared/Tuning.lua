@@ -670,6 +670,18 @@ Tuning.Map = {
 			ArriveZ = -1300,
 			Heading = 0,
 		},
+		{
+			Id = "Dino",
+			Name = "Dino Valley",
+			Kind = "Park",
+			X = -1750,
+			Z = -4650,
+			Width = 2300,
+			Depth = 2500,
+			ArriveX = -2400,
+			ArriveZ = -3500, -- behind the brontosaurus's tail, facing up it
+			Heading = 0,
+		},
 	},
 }
 
@@ -1158,6 +1170,41 @@ Tuning.Skate = {
 		Angle = 25,
 		Steps = 8,
 		DeckLength = 30,
+	},
+}
+
+-- Dino Valley (ServerScriptService.Parks.Dino), the prehistoric park. X and
+-- Z are studs from the park's center.
+Tuning.Dino = {
+	Thickness = 2,
+	PayScale = 0.6,
+	-- The brontosaurus (Bronto): drive up its tail from the ground, over its
+	-- back and up its neck, and launch off the top of its head. The path
+	-- heads -Z from the tail tip at X, StartZ. Its planks are its skin; the
+	-- body hangs Depth under them, on legs at Hips and Shoulders (studs
+	-- along the path). Every BoostEvery planks is a booster; the head's
+	-- planks launch.
+	Bronto = {
+		X = -650,
+		StartZ = 1000,
+		Step = 5,
+		Start = { Width = 30, Depth = 2 },
+		Segments = {
+			{ Length = 150, Angle = 15, Width = 40, Depth = 14 }, -- the tail lifts off the ground
+			{ Length = 150, Angle = 15, Width = 50, Depth = 30 },
+			-- Over the hips, easing off 11 degrees over 150, a crest radius of
+			-- about 780, so a car at 200 studs/s stays on.
+			{ Length = 150, Angle = 4, Width = 60, Depth = 50 },
+			{ Length = 250, Angle = 4, Width = 60, Depth = 55 }, -- the back
+			{ Length = 300, Angle = 40, Width = 32, Depth = 22 }, -- the neck curves up
+			{ Length = 36, Angle = 40, Width = 36, Depth = 20 }, -- the top of the head
+		},
+		Hips = 400,
+		Shoulders = 670,
+		LegSize = 24,
+		BoostEvery = 6,
+		BoostSpeed = 200,
+		LaunchSpeed = 320,
 	},
 }
 
