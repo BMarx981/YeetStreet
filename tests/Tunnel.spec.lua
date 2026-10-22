@@ -272,8 +272,7 @@ local SPIRALS: Tunnel.Spirals = {
 	Pitch = 72,
 	Loops = 2,
 	Inset = 225,
-	KickRoom = 40,
-	LevelRun = 85,
+	LevelRun = 80,
 	Outside = 33,
 	RoofThickness = 2,
 	Columns = 2,
@@ -325,10 +324,11 @@ Check.test("a spiral comes in on the ground from its street and ends level on th
 	Check.near(last.fromY, spiral.roof + ground, "level on the roof")
 	Check.near(last.toY, spiral.roof + ground)
 	Check.near(spiral.mouth.x, 285 - 105, "back down the other side")
-	Check.near(spiral.mouth.z, 1110 + 40, "KickRoom in from the roof's street edge")
+	Check.near(spiral.mouth.z, 1110 + 225 - 80, "LevelRun on from where the helix comes out")
+	Check.near(spiral.runway, 225 - 80, "the rest of the roof to its street edge")
 	Check.near(spiral.outX, 0)
 	Check.near(spiral.outZ, -1, "heading out toward the street")
-	Check.near(spiral.roof, ground + 2.5 * 72 + 33 + 2, "the roof just over the top loop")
+	Check.near(spiral.roof, ground + 2 * 72 + 33 + 2, "the roof just over the last whole loop")
 end)
 
 Check.test("a spiral against the top street on the other side is the mirror image", function()
@@ -337,7 +337,7 @@ Check.test("a spiral against the top street on the other side is the mirror imag
 	Check.near(spiral.entry.x, -285 - 105)
 	Check.near(spiral.entry.z, 1480)
 	Check.near(spiral.mouth.x, -285 + 105)
-	Check.near(spiral.mouth.z, 1480 - 40)
+	Check.near(spiral.mouth.z, 1480 - (225 - 80))
 	Check.near(spiral.outZ, 1)
 end)
 
@@ -352,6 +352,19 @@ Check.test("a spiral's tube never meets itself", function()
 					error(`tube at {a.s} and {b.s} overlap: middles {apart} apart`)
 				end
 			end
+		end
+	end
+end)
+
+Check.test("a spiral never climbs steeper than 20 degrees, even up through the roof", function()
+	local spiral = spiralsAt({ Side = 1, Block = 1, Column = 1, Street = "Bottom" })[1]
+	for index, piece in spiral.pieces do
+		local length = Tunnel.length(piece)
+		for i = 0, 99 do
+			local _, y0 = Tunnel.pointAt(piece, i / 100)
+			local _, y1 = Tunnel.pointAt(piece, (i + 1) / 100)
+			local slope = math.abs(y1 - y0) / (length / 100)
+			Check.eq(slope <= math.tan(math.rad(20)), true, `piece {index} climbs {math.deg(math.atan(slope))} degrees`)
 		end
 	end
 end)

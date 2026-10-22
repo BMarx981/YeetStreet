@@ -339,12 +339,11 @@ end
 -- lot Column of its Block on Side of the avenue, against the Street at the
 -- Top or Bottom of the block. A tube comes in on the ground from that
 -- street, Radius out from the building's middle, runs Inset in, and
--- climbs Loops and a half round the middle, Pitch up each loop, coming
--- out heading back toward the street on the other side. Then it climbs up
--- through the roof at the hatch, levels out on the roof, and ends after
--- LevelRun, KickRoom in from the roof's street edge. Outside is from the
--- tube's middle line to its outside; the roof is RoofThickness thick, just
--- over the top loop.
+-- climbs Loops round the middle, Pitch up each loop. The last half loop
+-- climbs on up through the roof at the hatch, gently, and comes out level
+-- on the roof heading back toward the street on the other side, and the
+-- tube ends LevelRun on. Outside is from the tube's middle line to its
+-- outside; the roof is RoofThickness thick, just over the last whole loop.
 export type SpiralPlace = {
 	Side: number,
 	Block: number,
@@ -357,7 +356,6 @@ export type Spirals = {
 	Pitch: number,
 	Loops: number,
 	Inset: number,
-	KickRoom: number,
 	LevelRun: number,
 	Outside: number,
 	RoofThickness: number,
@@ -375,6 +373,7 @@ export type Spiral = {
 	hatch: Rect, -- where the tube comes up through the roof
 	exit: Crossing, -- where the tube leaves the hatch, level on the roof
 	mouth: Crossing, -- the tube's end on the roof
+	runway: number, -- from the mouth to the roof's street edge
 	outX: number, -- the way from the mouth toward the street
 	outZ: number,
 	warning: string?,
@@ -402,34 +401,35 @@ local function layoutSpiral(city: City, spirals: Spirals, place: SpiralPlace, bl
 	local R = spirals.Radius
 
 	-- In on the outer side of the middle, round the middle so the center is
-	-- Radius back toward it, and out on the inner side.
+	-- Radius back toward it, and out on the inner side, level on the roof.
 	local turn = -side * inward
 	local segments: { Segment } = { { Straight = spirals.Inset } }
 	for _ = 1, spirals.Loops do
 		table.insert(segments, { Turn = turn * 360, Radius = R, Rise = spirals.Pitch })
 	end
-	table.insert(segments, { Turn = turn * 180, Radius = R, Rise = spirals.Pitch / 2 })
 	local ground = Tunnel.groundHeight(city.Tunnels)
-	local top = ground + (spirals.Loops + 0.5) * spirals.Pitch
+	local top = ground + spirals.Loops * spirals.Pitch
 	local roof = top + spirals.Outside + spirals.RoofThickness
-	local climb = spirals.Inset - spirals.KickRoom - spirals.LevelRun
-	table.insert(segments, { Straight = climb, Rise = roof + ground - top })
+	table.insert(segments, { Turn = turn * 180, Radius = R, Rise = roof + ground - top })
 	table.insert(segments, { Straight = spirals.LevelRun })
+	local runway = spirals.Inset - spirals.LevelRun
 	local x = middle + side * R
 	local pieces = Tunnel.path(x, wall, 0, inward, segments, ground)
 
 	local warning: string? = nil
-	if climb <= 0 then
-		warning = "a spiral's Inset leaves no room to climb through the roof"
+	if runway <= 0 then
+		warning = "a spiral's LevelRun runs off the roof"
 	elseif spirals.Pitch < 2 * spirals.Outside then
 		warning = "a spiral's Pitch lets its loops meet"
 	elseif R + spirals.Outside > width / 2 or spirals.Inset + R + spirals.Outside > depth then
 		warning = "a spiral does not fit its building"
 	end
 
+	-- The hatch takes in the whole last half loop, on the far side of the
+	-- middle from the street.
 	local outX = middle - side * R
-	local hatchNear = wall + inward * (spirals.KickRoom + spirals.LevelRun)
-	local hatchFar = wall + inward * spirals.Inset
+	local hatchNear = wall + inward * spirals.Inset
+	local hatchFar = wall + inward * (spirals.Inset + R + spirals.Outside)
 	return {
 		place = place,
 		rect = rect,
@@ -437,13 +437,14 @@ local function layoutSpiral(city: City, spirals: Spirals, place: SpiralPlace, bl
 		entry = { x = x, z = wall },
 		roof = roof,
 		hatch = {
-			x1 = outX - spirals.Outside,
-			x2 = outX + spirals.Outside,
+			x1 = middle - R - spirals.Outside,
+			x2 = middle + R + spirals.Outside,
 			z1 = math.min(hatchNear, hatchFar),
 			z2 = math.max(hatchNear, hatchFar),
 		},
 		exit = { x = outX, z = hatchNear },
-		mouth = { x = outX, z = wall + inward * spirals.KickRoom },
+		mouth = { x = outX, z = wall + inward * runway },
+		runway = runway,
 		outX = 0,
 		outZ = -inward,
 		warning = warning,

@@ -30,6 +30,7 @@ local GLOBAL_COMMANDS = {
 	kick = true,
 	global = true,
 	money = true,
+	bones = true,
 }
 
 -- Weather presets
@@ -292,6 +293,7 @@ end
 local COMMAND_INFO = {
 	{ name = "kick",      desc = "Kick a player from all servers",                    usage = ":kick <player> [reason]", optionsType = "player" },
 	{ name = "money",      desc = "Give cash to a player or everyone",                 usage = ":money <username|all> <amount>", optionsType = "player_amount" },
+	{ name = "bones",      desc = "Give BoneCoins to yourself, a player, or everyone",     usage = ":bones [amount] or :bones <username|all> <amount>", optionsType = "player_amount" },
 	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
 	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global <text>",                optionsType = "text" },
@@ -349,6 +351,54 @@ local COMMANDS = {
 
 		Garage.pay(target, amount)
 		return "Gave " .. amount .. " cash to " .. target.Name .. "."
+	end,
+
+	bones = function(adminPlayer, args)
+		local DEFAULT_BONES = 100
+
+		-- Parse: ":bones" (self, default), ":bones <amount>" (self),
+		-- or ":bones <username|all> <amount>"
+		local targetName, amountStr
+		local firstWord = string.match(args, "(%S+)")
+		if not firstWord then
+			-- No arguments: give the admin the default amount
+			targetName = adminPlayer and adminPlayer.Name or nil
+			amountStr = tostring(DEFAULT_BONES)
+		elseif tonumber(firstWord) then
+			-- Just a number: give the admin that amount
+			targetName = adminPlayer and adminPlayer.Name or nil
+			amountStr = firstWord
+		else
+			targetName, amountStr = string.match(args, "(%S+)%s+(%S+)")
+		end
+
+		if not targetName or not amountStr then
+			return "Usage: :bones [amount] or :bones <username|all> <amount>"
+		end
+
+		if not adminPlayer then
+			return "No target player specified."
+		end
+
+		local amount = tonumber(amountStr)
+		if not amount or amount <= 0 then
+			return "Invalid amount. Use a positive number."
+		end
+
+		if string.lower(targetName) == "all" then
+			for _, p in Players:GetPlayers() do
+				Garage.giveBones(p, amount)
+			end
+			return "Gave " .. amount .. " BoneCoins to all players."
+		end
+
+		local target = findPlayer(targetName)
+		if not target then
+			return "Player not found: " .. targetName
+		end
+
+		Garage.giveBones(target, amount)
+		return "Gave " .. amount .. " BoneCoins to " .. target.Name .. "."
 	end,
 
 	weather = function(adminPlayer, args)
@@ -510,6 +560,8 @@ local COMMANDS = {
   bonerain - Dino bones fall from the sky! Collect them for BoneCoins (admin-only)
 :time <0-24> - Set the time of day everywhere
 :money <username|all> <amount> - Give cash to a specific player or everyone
+:bones [amount] - Give yourself BoneCoins (default 100)
+:bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers

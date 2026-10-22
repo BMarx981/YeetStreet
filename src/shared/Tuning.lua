@@ -129,6 +129,57 @@ Tuning.Ladder = {
 		Archetype = "wedge",
 		Tier = "Supercar",
 	},
+	-- Dino cars: only obtainable from the Dino Mystery Box at the Bone Trader.
+	{
+		Id = "Velociraptor",
+		Name = "Velociraptor",
+		Price = 0,
+		Bonus = 8,
+		Caps = { Speed = 34, Jets = 26, Toughness = 26, Grip = 30 },
+		Seed = 11,
+		Archetype = "buggy",
+		Tier = "Dino",
+	},
+	{
+		Id = "Triceratops",
+		Name = "Triceratops",
+		Price = 0,
+		Bonus = 10,
+		Caps = { Speed = 30, Jets = 24, Toughness = 44, Grip = 30 },
+		Seed = 12,
+		Archetype = "pickup",
+		Tier = "Dino",
+	},
+	{
+		Id = "Brachiosaurus",
+		Name = "Brachiosaurus",
+		Price = 0,
+		Bonus = 12,
+		Caps = { Speed = 28, Jets = 32, Toughness = 48, Grip = 28 },
+		Seed = 13,
+		Archetype = "bus",
+		Tier = "Dino",
+	},
+	{
+		Id = "Spinosaurus",
+		Name = "Spinosaurus",
+		Price = 0,
+		Bonus = 14,
+		Caps = { Speed = 44, Jets = 36, Toughness = 40, Grip = 36 },
+		Seed = 14,
+		Archetype = "wedge",
+		Tier = "Dino",
+	},
+	{
+		Id = "TRex",
+		Name = "T-Rex",
+		Price = 0,
+		Bonus = 16,
+		Caps = { Speed = 50, Jets = 40, Toughness = 50, Grip = 40 },
+		Seed = 7,
+		Archetype = "buggy",
+		Tier = "Dino",
+	},
 }
 
 -- Limited edition items, purchasable in the store's Limiteds tab. Each has a
@@ -203,6 +254,30 @@ Tuning.BoneShop = {
 		CashReward = 50000,
 		Description = "Swap 150 bones for $50,000 cash.",
 		Stock = -1,
+	},
+	{
+		Id = "DinoMysteryBox",
+		Name = "Dino Mystery Box",
+		BonePrice = 50,
+		Mystery = true,
+		Description = "A mysterious dino egg. It could hatch into cash, bones... or a Velociraptor, Triceratops, Brachiosaurus, Spinosaurus, or the mighty T-Rex car!",
+		Stock = -1,
+	},
+}
+
+-- Rewards from the Dino Mystery Box. Weight is how likely each reward is
+-- (higher = more common). The five dino cars run from the Velociraptor (most
+-- common) up to the T-Rex, the rare jackpot.
+Tuning.DinoMystery = {
+	Rewards = {
+		{ Weight = 8,  Kind = "Car",   CarId = "Velociraptor", Label = "a VELOCIRAPTOR car! Quick and nimble!" },
+		{ Weight = 6,  Kind = "Car",   CarId = "Triceratops",  Label = "a TRICERATOPS car! Built like a tank!" },
+		{ Weight = 4,  Kind = "Car",   CarId = "Brachiosaurus", Label = "a BRACHIOSAURUS car! The biggest of them all!" },
+		{ Weight = 2,  Kind = "Car",   CarId = "Spinosaurus",  Label = "a SPINOSAURUS car! Fierce and fast!" },
+		{ Weight = 1,  Kind = "Car",   CarId = "TRex",        Label = "the T-REX CAR! The king of the dinosaurs is yours!" },
+		{ Weight = 20, Kind = "Cash",  Amount = 20000, Label = "$20,000 cash" },
+		{ Weight = 30, Kind = "Cash",  Amount = 8000,  Label = "$8,000 cash" },
+		{ Weight = 40, Kind = "Bones", Amount = 25,    Label = "25 bones back" },
 	},
 }
 
@@ -341,6 +416,11 @@ Tuning.Score = {
 	GrindPerSecond = 120, -- per second on a rail
 	GapPoints = 500, -- per gap cleared, such as across the skate park's bowl
 	SwingPoints = 300, -- coming down on a swing seat
+	-- Smashing through a target during a run, by the target's kind (its Target
+	-- attribute, PropService).
+	TargetPoints = {
+		Billboard = 500,
+	},
 }
 
 -- Grinding rails (Grind, GrindRide). A rail is a part tagged GrindRail.
@@ -445,6 +525,9 @@ Tuning.Props = {
 	Pop = 25, -- plus this much straight up, studs per second
 	Spin = 6, -- tumble rate tipping it away from the car, radians per second
 	ResetTime = 2.5, -- seconds until a knocked prop is back in place
+	-- Props in a Model with Shatter set all fly when one is hit, each also
+	-- thrown this fast out from the hit, studs per second.
+	ShatterBurst = 40,
 }
 
 Tuning.Reset = {
@@ -793,24 +876,23 @@ Tuning.City = {
 	-- against the Street at the Top or Bottom of the block. A round tube (like
 	-- the chains', with the same pull) comes in on the ground from that
 	-- street, Radius out from the building's middle, runs Inset in, and
-	-- climbs Loops and a half round the middle, Pitch up each loop. It comes
-	-- out heading back toward the street, climbs up through the roof under a
-	-- hut HutHeight tall, runs LevelRun along the roof and ends in a mouth
-	-- KickRoom in from the roof's street edge, where a kicker throws the car
-	-- off. Outside is from the tube's middle line to its outside.
+	-- climbs Loops round the middle, Pitch up each loop. The last half loop
+	-- climbs gently on up through the roof, under a hut HutHeight tall over
+	-- the roof's far half, and comes out level on the roof heading back toward
+	-- the street. The tube ends in a mouth LevelRun on, and the rest of the
+	-- roof is a runway to a kicker at its street edge that throws the car off.
+	-- Outside is from the tube's middle line to its outside.
 	Spirals = {
 		Radius = 105,
 		Pitch = 72,
 		Loops = 2,
 		Inset = 225,
-		KickRoom = 40,
-		LevelRun = 85,
+		LevelRun = 80, -- just the mouth, so the rest of the roof is runway to settle and line up
 		Outside = 33,
 		RoofThickness = 2,
 		Columns = 2,
 		Rows = 2,
 		SliceAngle = 7.5, -- degrees of turn per ring of planks, coarser than the chains' to save parts
-		StepLength = 5, -- studs per ring where it climbs through the roof, steeply
 		HutHeight = 72,
 		Kick = {
 			Radius = 60,
@@ -898,6 +980,28 @@ Tuning.City = {
 		KickAngle = 25,
 		KickSteps = 8,
 		LaunchSpeed = 320,
+	},
+	-- A YEET STREET billboard across the avenue in the overpass kicker's
+	-- flight path, where a plain launch passes about 234 high. Its face is
+	-- Columns by Rows tiles that all shatter when a car flies through it
+	-- (PropService), paying Tuning.Score.TargetPoints.Billboard on the run.
+	-- It stands on two posts just inside the avenue's edges, past the cross
+	-- street and clear of the street lights.
+	Billboard = {
+		Z = 280,
+		Bottom = 200, -- the face's lower edge above the floor
+		Width = 140,
+		Height = 56,
+		Columns = 10,
+		Rows = 4,
+		Thickness = 2,
+		PostSize = 6,
+		Beam = 2, -- the frame along the top and bottom, which cars pass through
+		ResetTime = 6, -- long enough to watch the pieces land
+		CarSpeedShare = 0.6,
+		-- TextScaled stops at 100 pixel text, so few enough pixels that the
+		-- two lines fill the board.
+		PixelsPerStud = 4,
 	},
 }
 

@@ -56,6 +56,7 @@ export type Result = {
 	endX: number,
 	endZ: number,
 	gaps: { string }?, -- the gaps it cleared, filled in by whoever scores it
+	targets: { string }?, -- the targets it smashed (Scoring), filled in by the server
 }
 
 -- One physics step. Position is the hull's; turn is how far the car rotated

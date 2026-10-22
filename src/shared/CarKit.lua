@@ -251,6 +251,24 @@ CarKit.Tiers = (
 			Trim = { 10, 10, 14 },
 			Glass = { 15, 20, 30 },
 		},
+		-- Prehistoric greens with amber accents.
+		Dino = {
+			Paints = {
+				{ 90, 140, 60 },
+			{ 60, 110, 70 },
+			{ 130, 160, 70 },
+				{ 70, 90, 50 },
+			},
+			Accents = {
+				{ 250, 200, 60 },
+				{ 200, 120, 40 },
+			},
+			Stripes = true,
+			Material = "SmoothPlastic",
+			Gloss = 0.1,
+			Trim = { 40, 50, 35 },
+			Glass = { 30, 45, 40 },
+		},
 	}
 ) :: { [string]: Tier }
 
@@ -270,6 +288,7 @@ CarKit.Names = {
 	Sports = { "Thunderbolt", "Red Line", "Streak", "Burnout", "Fury", "Afterburner" },
 	Supercar = { "Zenith", "Vortex", "Apex", "Nova", "Razor", "Hyperdrive" },
 	Rebirth = { "Phoenix", "Comet", "Eclipse", "Singularity", "Starfall", "Reborn" },
+	Dino = { "T-Rex", "Raptor", "Fossil", "Prehistoric", "Dino Rumble", "Extinction" },
 }
 CarKit.NameSuffixes = { "Mk II", "Mk III", "GT", "X", "Turbo", "Deluxe" }
 

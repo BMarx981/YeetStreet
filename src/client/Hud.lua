@@ -437,6 +437,22 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	if score.swing > 0 then
 		add("Swing landing", withCommas(score.swing), 18)
 	end
+	if score.targets > 0 then
+		local kinds: { string } = {}
+		local smashed: { [string]: number } = {}
+		for _, kind in run.targets or {} do
+			if not smashed[kind] then
+				table.insert(kinds, kind)
+				smashed[kind] = 0
+			end
+			smashed[kind] += 1
+		end
+		local labels: { string } = {}
+		for _, kind in kinds do
+			table.insert(labels, if smashed[kind] > 1 then `{kind} smash x{smashed[kind]}` else `{kind} smash`)
+		end
+		add(table.concat(labels, ", "), withCommas(score.targets), 18)
+	end
 	if score.combo > 1 then
 		add("Combo", multiplier(score.combo), 18)
 	end

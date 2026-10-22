@@ -18,6 +18,10 @@
 -- Tuning.Toughness.ShowImpact go to the driver on ReplicatedStorage.CarImpact
 -- and print to Output, for tuning.
 --
+-- Targets a car smashes through during a run (PropService fires
+-- ServerStorage.PropSmashed, such as for Downtown's billboard) pay their
+-- Target points on that run.
+--
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
 -- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
@@ -59,6 +63,7 @@ type Watch = {
 	-- Running damage per slot since the car was built, for breaking parts.
 	slotDamage: { [string]: number },
 	smashes: number, -- parts broken this run
+	targets: { string }, -- kinds of the targets smashed this run
 	-- The PayScale of the last launch pad touched (1 if it has none), which
 	-- scales the cash the next run pays.
 	payScale: number,
@@ -141,6 +146,7 @@ local function watchFor(car: Model): Watch?
 		toughness = maxToughness,
 		slotDamage = {},
 		smashes = 0,
+		targets = {},
 		payScale = 1,
 		wrecked = false,
 		respawning = false,
@@ -178,6 +184,8 @@ end
 
 local function finish(watch: Watch, result: RunTracker.Result)
 	result.gaps = GapZones.find(result)
+	result.targets = watch.targets
+	watch.targets = {}
 	local score = Scoring.score(result, Tuning.Score, watch.smashes)
 	watch.smashes = 0
 	watch.toughness = watch.maxToughness
@@ -196,6 +204,15 @@ end
 
 local carsFolder = workspace:WaitForChild("Cars")
 local respawnCar = ServerStorage:WaitForChild("RespawnCar") :: BindableEvent
+local propSmashed = ServerStorage:WaitForChild("PropSmashed") :: BindableEvent
+
+-- Only a smash in the air on a run counts.
+propSmashed.Event:Connect(function(car: Model, target: string)
+	local watch = watches[car]
+	if watch and watch.run.phase == "flying" then
+		table.insert(watch.targets, target)
+	end
+end)
 
 -- Where a reset or wreck puts the car: the last launcher's respawn point, in
 -- the next lane over, or the car's own spawn lane before it has launched.

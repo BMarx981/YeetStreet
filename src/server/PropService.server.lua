@@ -10,11 +10,18 @@
 -- a prop never changes where a car goes or when it lands. Hits come from each
 -- car's hull path between Heartbeats (Sweep), so a fast car cannot skip past a
 -- thin board.
+--
+-- A Model with a Shatter attribute is one target: hitting any of its props
+-- knocks all of them, each also thrown out from the hit. A prop with a Target
+-- attribute (such as a billboard tile) is something worth points to smash:
+-- the car and the Target go out on ServerStorage.PropSmashed, once per hit
+-- however many props fly, and ScoreService counts it on the car's run.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Sweep = require(ReplicatedStorage.Sweep)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -33,6 +40,10 @@ type Prop = {
 local props: { [BasePart]: Prop } = {}
 -- Each car hull's position at the last Heartbeat.
 local lastPositions: { [BasePart]: Vector3 } = {}
+
+local propSmashed = Instance.new("BindableEvent")
+propSmashed.Name = "PropSmashed"
+propSmashed.Parent = ServerStorage
 
 local function adopt(instance: Instance)
 	if not instance:IsA("BasePart") or props[instance] then
@@ -54,13 +65,14 @@ end
 CollectionService:GetInstanceAddedSignal(TAG):Connect(adopt)
 CollectionService:GetInstanceRemovedSignal(TAG):Connect(forget)
 
-local function knock(prop: Prop, carVelocity: Vector3)
+local function knock(prop: Prop, carVelocity: Vector3, burst: Vector3)
 	local part = prop.part
 	prop.down = true
 	part.Anchored = false
 	local share = part:GetAttribute("CarSpeedShare")
 	part.AssemblyLinearVelocity = carVelocity * (if typeof(share) == "number" then share else P.CarSpeedShare)
 		+ Vector3.new(0, P.Pop, 0)
+		+ burst
 	local flat = Vector3.new(carVelocity.X, 0, carVelocity.Z)
 	if flat.Magnitude > 1e-3 then
 		-- About the level axis across the car's path (up cross travel), so the
@@ -81,8 +93,27 @@ local function knock(prop: Prop, carVelocity: Vector3)
 	end)
 end
 
+-- Knocks the prop the car hit, and the rest of its Model if that shatters.
+local function hit(car: Model, prop: Prop, carVelocity: Vector3, at: Vector3)
+	local group = prop.part.Parent
+	if group and group:IsA("Model") and group:GetAttribute("Shatter") == true then
+		for _, other in props do
+			if other.part.Parent == group and not other.down then
+				local out = other.part.Position - at
+				knock(other, carVelocity, if out.Magnitude > 1e-3 then out.Unit * P.ShatterBurst else Vector3.zero)
+			end
+		end
+	else
+		knock(prop, carVelocity, Vector3.zero)
+	end
+	local target = prop.part:GetAttribute("Target")
+	if typeof(target) == "string" then
+		propSmashed:Fire(car, target)
+	end
+end
+
 -- Knocks every standing prop the hull passed through since the last step.
-local function sweep(from: Vector3, to: Vector3, carVelocity: Vector3)
+local function sweep(car: Model, from: Vector3, to: Vector3, carVelocity: Vector3)
 	local r = P.HitRadius
 	for _, prop in props do
 		if not prop.down then
@@ -90,7 +121,7 @@ local function sweep(from: Vector3, to: Vector3, carVelocity: Vector3)
 			local b = prop.home:PointToObjectSpace(to)
 			local half = prop.part.Size / 2
 			if Sweep.hitsBox(a.X, a.Y, a.Z, b.X, b.Y, b.Z, half.X + r, half.Y + r, half.Z + r) then
-				knock(prop, carVelocity)
+				hit(car, prop, carVelocity, to)
 			end
 		end
 	end
@@ -106,13 +137,13 @@ RunService.Heartbeat:Connect(function()
 	end
 	for _, car in carsFolder:GetChildren() do
 		local hull = car:FindFirstChild("Hull")
-		if hull and hull:IsA("BasePart") then
+		if car:IsA("Model") and hull and hull:IsA("BasePart") then
 			local to = hull.Position
 			local from = lastPositions[hull] or to
 			lastPositions[hull] = to
 			-- A reset teleports the car; it did not fly through what lies between.
 			if (to - from).Magnitude <= Tuning.Run.TeleportDistance then
-				sweep(from, to, hull.AssemblyLinearVelocity)
+				sweep(car, from, to, hull.AssemblyLinearVelocity)
 			end
 		end
 	end

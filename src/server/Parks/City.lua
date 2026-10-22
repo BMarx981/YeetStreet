@@ -4,7 +4,8 @@
 -- the park's floor. An avenue runs down the middle from the arrival, cross
 -- streets split the rest into blocks of buildings, and open plazas sit at
 -- both ends. The Highway Overpass climbs straight down the avenue to a broken
--- end, a kicker with boosters that throws the car on down the avenue.
+-- end, a kicker with boosters that throws the car on down the avenue,
+-- through a YEET STREET billboard that shatters.
 -- Every building has a curve all around its foot, so a car driven at it
 -- rides up the wall instead of stopping dead. Chains of two buildings have
 -- a twisting round tube through them that crosses the alley between them
@@ -40,6 +41,8 @@ local LIGHT_COLOR = Color3.fromRGB(255, 214, 160)
 local TUBE_COLOR = Color3.fromRGB(150, 156, 166)
 local POLE_COLOR = Color3.fromRGB(60, 64, 70)
 local LAMP_COLOR = Color3.fromRGB(255, 236, 190)
+local BILLBOARD_COLOR = Color3.fromRGB(255, 200, 40)
+local BILLBOARD_TEXT_COLOR = Color3.fromRGB(30, 30, 40)
 -- Planks are this much wider than their chord so the seams stay closed.
 local OVERLAP = 0.4
 local BUILDING_COLORS = {
@@ -394,19 +397,13 @@ end
 
 -- A round tube along the middle line `pieces` (park coordinates): a ring of
 -- Sides planks all the way round every `sliceAngle` degrees of its turns and
--- `stepLength` of its climbs, so a car can drive up its walls and along its
+-- StepLength of its climbs, so a car can drive up its walls and along its
 -- roof, and climb (CarController pulls a car toward the wall inside one).
 -- Over FlareLength at each end the tube opens out into a mouth with a wide
 -- flat floor and curves up each side, like the corkscrew's middle ramp, so
 -- a car can drive in off center or at an angle; each end's floor is a
 -- ground height below its middle line. Dim lights hang along the roof.
-local function buildTube(
-	model: Instance,
-	area: MapLayout.Area,
-	pieces: { Tunnel.Piece },
-	sliceAngle: number,
-	stepLength: number
-)
+local function buildTube(model: Instance, area: MapLayout.Area, pieces: { Tunnel.Piece }, sliceAngle: number)
 	local T = C.Tunnels
 	local face = T.Radius * math.cos(HALF_STEP) -- from the middle line to each plank's inside face
 	local ground = Tunnel.groundHeight(T)
@@ -483,7 +480,7 @@ local function buildTube(
 		local finish = if index == #pieces then 1 - T.FlareLength / length else 1
 		local steps = if piece.kind == "arc"
 			then math.ceil(math.deg(piece.sweep) / sliceAngle)
-			elseif climbs then math.ceil(length / stepLength)
+			elseif climbs then math.ceil(length / T.StepLength)
 			else 1
 		local slice = math.deg(piece.sweep) / steps
 		local center = floorAt(piece.centerX, piece.centerZ)
@@ -560,7 +557,7 @@ local function buildChain(parent: Instance, area: MapLayout.Area, rng: Random, c
 	local function floorAt(x: number, z: number): Vector3
 		return at(area, x, 0, z).Position
 	end
-	buildTube(model, area, chain.pieces, T.SliceAngle, T.StepLength)
+	buildTube(model, area, chain.pieces, T.SliceAngle)
 
 	-- The two buildings, each on the tube, with the holes in their sides.
 	local ground = function(crossing: Tunnel.Crossing): Hole
@@ -617,7 +614,7 @@ local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, 
 	local model = Instance.new("Model")
 	model.Name = "SpiralTower"
 	model.Parent = parent
-	buildTube(model, area, spiral.pieces, S.SliceAngle, S.StepLength)
+	buildTube(model, area, spiral.pieces, S.SliceAngle)
 
 	local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
 	local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
@@ -645,8 +642,8 @@ local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, 
 		)
 	end
 
-	-- The hut over the hatch: the tube leaves through a round hole in its
-	-- street side, level on the roof.
+	-- The hut over the hatch, the whole far half of the roof: the tube leaves
+	-- through a round hole in its street side, level on the roof.
 	local hut = spiral.hatch
 	local exit: Hole = {
 		point = at(area, spiral.exit.x, roof, spiral.exit.z).Position,
@@ -658,18 +655,20 @@ local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, 
 	holePlate(model, exit, out, S.HutHeight, color, material)
 	local width, depth = hut.x2 - hut.x1, hut.z2 - hut.z1
 	local middle = at(area, (hut.x1 + hut.x2) / 2, roof + S.HutHeight / 2, (hut.z1 + hut.z2) / 2).Position
-	local beside = (width / 2 - exit.outside) / 2
 	for _, sign in { -1, 1 } do
 		wall(
 			"Wall",
 			Vector3.new(THICKNESS, S.HutHeight, depth),
 			middle + Vector3.new(sign * (width / 2 - THICKNESS / 2), 0, 0)
 		)
-		if beside > 0 then
+		-- The street side either side of the hole.
+		local from = spiral.exit.x + sign * exit.outside
+		local to = if sign > 0 then hut.x2 else hut.x1
+		if math.abs(to - from) > 0.05 then
 			wall(
 				"Wall",
-				Vector3.new(2 * beside, S.HutHeight, THICKNESS),
-				exit.point + Vector3.new(sign * (exit.outside + beside), S.HutHeight / 2, 0) - out * THICKNESS / 2
+				Vector3.new(math.abs(to - from), S.HutHeight, THICKNESS),
+				at(area, (from + to) / 2, roof + S.HutHeight / 2, spiral.exit.z).Position - out * THICKNESS / 2
 			)
 		end
 	end
@@ -680,11 +679,11 @@ local function buildSpiral(parent: Instance, area: MapLayout.Area, rng: Random, 
 		middle + Vector3.new(0, S.HutHeight / 2 - S.RoofThickness / 2, 0)
 	)
 
-	-- The kicker, from just past the mouth to the roof's edge.
+	-- The kicker at the roof's edge, a runway on from the mouth.
 	local K = S.Kick
 	local respawn = at(area, spiral.mouth.x, roof + HULL_HEIGHT, spiral.mouth.z).Position - out * 15
 	local base = at(area, spiral.mouth.x, roof, spiral.mouth.z).Position
-		+ out * (S.KickRoom - K.Radius * math.sin(math.rad(K.Angle)) - 5)
+		+ out * (spiral.runway - K.Radius * math.sin(math.rad(K.Angle)) - 5)
 	local kicker = CurvedWall.straight(model, CFrame.lookAt(base, base + out), K.Width, {
 		radius = K.Radius,
 		endAngle = K.Angle,
@@ -921,10 +920,97 @@ local function buildStreetLights(parent: Instance, area: MapLayout.Area)
 	model.Parent = parent
 end
 
+-- The slice of the board's text a tile shows on one face. `column` counts
+-- from the left as someone facing that face sees it, `row` from the top. The
+-- whole text is laid out the same on every tile and clipped to its own slice,
+-- so the slices line up into one sign.
+local function billboardSlice(tile: BasePart, face: Enum.NormalId, column: number, row: number)
+	local B = C.Billboard
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = B.PixelsPerStud
+	gui.LightInfluence = 0
+	local clip = Instance.new("Frame")
+	clip.Size = UDim2.fromScale(1, 1)
+	clip.BackgroundTransparency = 1
+	clip.ClipsDescendants = true
+	clip.Parent = gui
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(B.Columns, B.Rows)
+	label.Position = UDim2.fromScale(-column, -row)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.Text = "YEET\nSTREET"
+	label.TextScaled = true
+	label.TextColor3 = BILLBOARD_TEXT_COLOR
+	label.Parent = clip
+	gui.Parent = tile
+end
+
+-- The YEET STREET billboard across the avenue, its face toward the overpass.
+-- The face tiles are knockable props in a Shatter model with Target
+-- Billboard, so flying through any of them sends them all flying and pays
+-- on the run (PropService, ScoreService). The posts stand; the frame along
+-- the top and bottom is in the Props group, so cars pass through it.
+local function buildBillboard(parent: Instance, area: MapLayout.Area)
+	local B = C.Billboard
+	local model = Instance.new("Model")
+	model.Name = "Billboard"
+	model:SetAttribute("Shatter", true)
+	local center = at(area, 0, B.Bottom + B.Height / 2, B.Z).Position
+	-- Facing +Z, toward the overpass, so the Front face meets the cars and
+	-- the board's own +X is the park's -X.
+	local board = CFrame.lookAt(center, center + Vector3.zAxis)
+	local tileWidth, tileHeight = B.Width / B.Columns, B.Height / B.Rows
+	for column = 0, B.Columns - 1 do
+		for row = 0, B.Rows - 1 do
+			local tile = block(
+				model,
+				"Tile",
+				Vector3.new(tileWidth, tileHeight, B.Thickness),
+				board
+					* CFrame.new(-B.Width / 2 + (column + 0.5) * tileWidth, B.Height / 2 - (row + 0.5) * tileHeight, 0),
+				BILLBOARD_COLOR
+			)
+			tile.Material = Enum.Material.SmoothPlastic
+			tile:SetAttribute("Target", "Billboard")
+			tile:SetAttribute("ResetTime", B.ResetTime)
+			tile:SetAttribute("CarSpeedShare", B.CarSpeedShare)
+			-- Facing the Front face, the board's +X is on the left; facing
+			-- the Back, its -X is.
+			billboardSlice(tile, Enum.NormalId.Front, B.Columns - 1 - column, row)
+			billboardSlice(tile, Enum.NormalId.Back, column, row)
+			CollectionService:AddTag(tile, "Knockable")
+		end
+	end
+
+	local top = B.Bottom + B.Height + B.Beam
+	for _, side in { -1, 1 } do
+		local x = side * (B.Width + B.PostSize) / 2
+		local post = block(
+			model,
+			"BillboardPost",
+			Vector3.new(B.PostSize, top, B.PostSize),
+			at(area, x, top / 2, B.Z),
+			POLE_COLOR
+		)
+		post.Material = Enum.Material.Metal
+	end
+	for _, y in { B.Bottom - B.Beam / 2, B.Bottom + B.Height + B.Beam / 2 } do
+		local beam =
+			block(model, "BillboardBeam", Vector3.new(B.Width, B.Beam, B.Thickness), at(area, 0, y, B.Z), POLE_COLOR)
+		beam.Material = Enum.Material.Metal
+		beam.CollisionGroup = CollisionGroups.Props
+	end
+	model.Parent = parent
+end
+
 function City.build(folder: Folder, area: MapLayout.Area)
 	buildStreets(folder, area)
 	buildBuildings(folder, area)
 	buildOverpass(folder, area)
+	buildBillboard(folder, area)
 	buildStreetLights(folder, area)
 	CityRailway.build(folder, area)
 end

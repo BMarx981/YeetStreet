@@ -498,7 +498,7 @@ local function build()
 			if not r.button.Active then
 				return
 			end
-			ask("BuyBoneShop", item.Id, if item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`)
+			ask("BuyBoneShop", item.Id, if item.Mystery then "The egg is hatching... what's inside?" elseif item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`)
 		end)
 	end
 	for _, ladderCar in Tuning.Ladder do

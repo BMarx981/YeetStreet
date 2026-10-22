@@ -188,6 +188,51 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	end
 	boneCoins.Value -= item.BonePrice
 	player:SetAttribute("BoneCoins", boneCoins.Value)
+	if item.Mystery then
+		-- Roll a weighted reward from the Dino Mystery table.
+		local rewards = Tuning.DinoMystery.Rewards
+		local totalWeight = 0
+		for _, reward in rewards do
+			totalWeight += reward.Weight
+		end
+		local roll = math.random() * totalWeight
+		local picked
+		for _, reward in rewards do
+			roll -= reward.Weight
+			if roll <= 0 then
+				picked = reward
+				break
+			end
+		end
+		picked = picked or rewards[#rewards]
+		if picked.Kind == "Car" then
+			if table.find(data.Economy.Cars, picked.CarId) then
+				-- Already owns that dino: reroll once, so a duplicate egg still pays out.
+				local fallback = rewards[#rewards]
+				for _, reward in rewards do
+					if reward.Kind ~= "Car" then
+						fallback = reward
+						break
+					end
+				end
+				local amount = fallback.Amount or 20000
+				data.Economy.Cash += amount
+				publish(player, data.Economy)
+				return true, "You already had that dino, so the egg held $" .. amount .. " cash!"
+			end
+			table.insert(data.Economy.Cars, picked.CarId)
+			publish(player, data.Economy)
+			return true, "The egg hatched... " .. picked.Label
+		elseif picked.Kind == "Bones" then
+			boneCoins.Value += picked.Amount
+			player:SetAttribute("BoneCoins", boneCoins.Value)
+			return true, "The egg held " .. picked.Label .. "!"
+		else
+			data.Economy.Cash += picked.Amount
+			publish(player, data.Economy)
+			return true, "The egg held " .. picked.Label .. "!"
+		end
+	end
 	if item.CarId then
 		if table.find(data.Economy.Cars, item.CarId) then
 			boneCoins.Value += item.BonePrice
@@ -201,6 +246,20 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	publish(player, data.Economy)
 	return true, nil
 end)
+
+-- Adds `amount` bones, the same as collecting that many from bone rain:
+-- both the "Bones" counter (shown on the HUD) and the "BoneCoins" currency
+-- (used in the bone shop) go up. Used by admin commands (e.g. :bones).
+function Garage.giveBones(player: Player, amount: number)
+	if amount <= 0 then
+		return
+	end
+	local bones = Leaderstats.value(player, "Bones")
+	bones.Value += amount
+	local coins = Leaderstats.value(player, "BoneCoins")
+	coins.Value += amount
+	player:SetAttribute("BoneCoins", coins.Value)
+end
 
 -- Grants a limited item without charge. Used by admin commands (e.g. :frog)
 -- to give admin-only limiteds like the Frog Car. Adds the id to the player's

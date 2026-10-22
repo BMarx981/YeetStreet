@@ -18,6 +18,7 @@ local TUNING: Scoring.Tuning = {
 	GrindPerSecond = 80,
 	GapPoints = 500,
 	SwingPoints = 300,
+	TargetPoints = { Billboard = 1000, Gnome = 200 },
 }
 
 local function trick(kind: Scoring.TrickKind, direction: number): Scoring.Trick
@@ -178,6 +179,22 @@ Check.test("landing on a swing pays swing points in the base", function()
 	Check.eq(score.swing, 300)
 	Check.eq(score.base, 350)
 	Check.eq(Scoring.score(run({ airtime = 1, swing = false }), TUNING).swing, 0, "no swing")
+end)
+
+Check.test("each target smashed pays its own points in the base", function()
+	local score = Scoring.score(run({ airtime = 1, targets = { "Billboard" } }), TUNING)
+	Check.eq(score.targets, 1000)
+	Check.eq(score.base, 1050)
+	Check.eq(Scoring.score(run({ targets = { "Billboard", "Gnome", "Gnome" } }), TUNING).targets, 1400, "mixed")
+	Check.eq(Scoring.score(run({ targets = { "Mailbox" } }), TUNING).targets, 0, "unknown target")
+	Check.eq(Scoring.score(run({ airtime = 1 }), TUNING).targets, 0, "none")
+end)
+
+Check.test("target points get the combo and clean landing", function()
+	local tricks = { trick("flip", 1), trick("spin", 1) }
+	local score = Scoring.score(run({ targets = { "Billboard" }, tricks = tricks, clean = true }), TUNING)
+	Check.eq(score.base, 1300)
+	Check.eq(score.total, 2925)
 end)
 
 Check.test("a crash across a gap keeps the gap points but no combo", function()

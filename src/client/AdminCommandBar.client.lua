@@ -736,7 +736,7 @@ local function showOptions(info)
 			for _, c in ipairs(optionsScroll:GetChildren()) do
 				if c:IsA("TextButton") then c:Destroy() end
 			end
-			optionsTitleLabel.Text = "  :money all — Enter amount"
+			optionsTitleLabel.Text = "  :" .. info.name .. " all — Enter amount"
 			local amountInput = Instance.new("TextBox")
 			amountInput.Size = UDim2.new(1, -4, 0, 44)
 			amountInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
@@ -761,7 +761,7 @@ local function showOptions(info)
 			local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
 				local amt = tonumber(amountInput.Text)
 				if amt and amt > 0 then
-					sendCommand("money all " .. amt)
+					sendCommand(info.name .. " all " .. amt)
 					commandListGui.Enabled = false
 				end
 			end)
@@ -769,7 +769,7 @@ local function showOptions(info)
 				if enter then
 					local amt = tonumber(amountInput.Text)
 					if amt and amt > 0 then
-						sendCommand("money all " .. amt)
+						sendCommand(info.name .. " all " .. amt)
 						commandListGui.Enabled = false
 					end
 				end
@@ -780,7 +780,7 @@ local function showOptions(info)
 				for _, c in ipairs(optionsScroll:GetChildren()) do
 					if c:IsA("TextButton") then c:Destroy() end
 				end
-				optionsTitleLabel.Text = "  :money " .. p.Name .. " — Enter amount"
+				optionsTitleLabel.Text = "  :" .. info.name .. " " .. p.Name .. " — Enter amount"
 				local amountInput = Instance.new("TextBox")
 				amountInput.Size = UDim2.new(1, -4, 0, 44)
 				amountInput.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
@@ -805,7 +805,7 @@ local function showOptions(info)
 				local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
 					local amt = tonumber(amountInput.Text)
 					if amt and amt > 0 then
-						sendCommand("money " .. p.Name .. " " .. amt)
+						sendCommand(info.name .. " " .. p.Name .. " " .. amt)
 						commandListGui.Enabled = false
 					end
 				end)
@@ -813,7 +813,7 @@ local function showOptions(info)
 					if enter then
 						local amt = tonumber(amountInput.Text)
 						if amt and amt > 0 then
-							sendCommand("money " .. p.Name .. " " .. amt)
+							sendCommand(info.name .. " " .. p.Name .. " " .. amt)
 							commandListGui.Enabled = false
 						end
 					end
