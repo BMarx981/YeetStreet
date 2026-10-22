@@ -1260,6 +1260,44 @@ Tuning.Dino = {
 		CoconutSize = 3,
 		Hit = 14,
 		ResetTime = 6,
+		VolcanoClear = 30, -- past the volcano's lava lake
+	},
+	-- The volcano in the park's southwest corner (Volcano): a hollow blocky
+	-- cone of Tiers, each a ring of blocks at most BlockWidth across, Shell
+	-- thick, stepping in from BaseRadius at the foot to TopRadius at the rim,
+	-- Height up. Tops stand up to Jitter higher, so the ledges look rocky.
+	-- Its middle is at X, Z in the park, its front facing Heading (degrees,
+	-- 0 faces -Z, positive turns left), toward the park's middle. The tube
+	-- that climbs inside comes in at the foot in front on the line Helix to
+	-- the right of the middle, through a Slot Half each side and Top high
+	-- where the cone's blocks are left out, along a rock Causeway over the
+	-- lava lake that rings the foot out to Lake.Radius. The crater's floor
+	-- is CraterDepth under the rim. Rivers run lava down the outside from
+	-- the rim, Down tiers, at Yaw degrees round from the back.
+	Volcano = {
+		X = -520,
+		Z = -620,
+		Heading = -135,
+		Seed = 7,
+		Cone = {
+			BaseRadius = 400,
+			TopRadius = 230,
+			Height = 270,
+			TierHeight = 18,
+			Shell = 40,
+			BlockWidth = 50,
+			Jitter = 5,
+		},
+		CraterDepth = 60,
+		Helix = 80,
+		Slot = { Half = 56, Top = 72 },
+		Causeway = { Width = 110 },
+		Lake = { Radius = 500, BlockWidth = 60 },
+		Rivers = {
+			{ Yaw = 125, Down = 9 },
+			{ Yaw = 215, Down = 6 },
+			{ Yaw = 290, Down = 11 },
+		},
 	},
 }
 

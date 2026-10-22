@@ -13,7 +13,13 @@
 -- built on each client (DinoTail). Boosters run up the track, and the skin
 -- above them shows it.
 --
--- Palm trees stand about the park (Scatter), clear of the brontosaurus.
+-- The volcano in the southwest corner is a hollow cone of rocky blocks
+-- (Volcano) with lava running down its sides and filling its crater, on a
+-- lava lake crossed by a causeway to a slot at its foot. Lava is tagged
+-- Lava.
+--
+-- Palm trees stand about the park (Scatter), clear of the brontosaurus and
+-- the volcano.
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
@@ -28,6 +34,7 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Scatter = require(ReplicatedStorage.Scatter)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Volcano = require(ReplicatedStorage.Volcano)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
@@ -48,6 +55,9 @@ local DARK_COLOR = Color3.fromRGB(25, 25, 25)
 local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
 local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
 local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
+local ROCK_COLORS = { Color3.fromRGB(62, 56, 54), Color3.fromRGB(78, 68, 62), Color3.fromRGB(92, 74, 60) }
+local CAUSEWAY_COLOR = Color3.fromRGB(110, 96, 84)
+local LAVA_COLOR = Color3.fromRGB(255, 96, 24)
 
 -- Planks are this much longer than their chord so the seams stay closed.
 local OVERLAP = 0.4
@@ -319,6 +329,106 @@ local function buildBronto(parent: Instance, area: MapLayout.Area): Scatter.Line
 	return { AX = tail.X, AZ = tail.Z, BX = head.X, BZ = head.Z, Radius = D.Palms.BrontoClear }
 end
 
+-- Marks `part` as lava.
+local function lava(part: BasePart)
+	part.Color = LAVA_COLOR
+	part.Material = Enum.Material.Neon
+	CollectionService:AddTag(part, "Lava")
+end
+
+-- A disc `radius` across lying flat with its top at `top`.
+local function disc(parent: Instance, name: string, center: CFrame, radius: number, top: number): Part
+	local part = block(
+		parent,
+		name,
+		Vector3.new(D.Thickness, 2 * radius, 2 * radius),
+		center * CFrame.new(0, top - D.Thickness / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		LAVA_COLOR
+	)
+	part.Shape = Enum.PartType.Cylinder
+	return part
+end
+
+-- Returns the circle it stands in, lava lake and all, for keeping trees out.
+local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Line
+	local V = D.Volcano
+	local model = Instance.new("Model")
+	model.Name = "Volcano"
+
+	local base = at(area, V.X, 0, V.Z) * CFrame.Angles(0, math.rad(V.Heading), 0)
+	local random = Random.new(V.Seed)
+	local slot: Volcano.Slot = { X = V.Helix, Half = V.Slot.Half, Top = V.Slot.Top }
+	local tiers = Volcano.tiers(V.Cone)
+	for i, tier in tiers do
+		local blocks = Volcano.ring(tier.outer, tier.inner, V.Cone.BlockWidth)
+		-- The block each river runs down, if it reaches this tier.
+		local rivers: { [number]: boolean } = {}
+		for _, river in V.Rivers do
+			if i > #tiers - river.Down then
+				rivers[math.round(math.rad(river.Yaw) / (2 * math.pi) * #blocks) % #blocks + 1] = true
+			end
+		end
+		for k, b in blocks do
+			if not Volcano.inSlot(b, tier, slot) then
+				local height = tier.height + random:NextNumber(0, V.Cone.Jitter)
+				local rock = block(
+					model,
+					"Rock",
+					Vector3.new(b.width, height, b.depth),
+					base * CFrame.new(b.x, tier.bottom + height / 2, b.z) * CFrame.Angles(0, b.yaw, 0),
+					ROCK_COLORS[random:NextInteger(1, #ROCK_COLORS)]
+				)
+				if rivers[k] then
+					lava(rock)
+				end
+			end
+		end
+	end
+
+	-- The crater's floor, under the tier it is level with.
+	local floor = V.Cone.Height - V.CraterDepth
+	local around = tiers[1].inner
+	for _, tier in tiers do
+		if tier.bottom <= floor then
+			around = tier.inner
+		end
+	end
+	lava(disc(model, "CraterLava", base, around + 2, floor))
+
+	-- The lake round the foot, tucked under the bottom tier, and the
+	-- causeway across it to the slot. Both lie on the floor for looks;
+	-- cars drive on the floor under them.
+	for _, b in Volcano.ring(V.Lake.Radius, V.Cone.BaseRadius - V.Cone.Shell / 2, V.Lake.BlockWidth) do
+		local part = decoration(
+			model,
+			"LakeLava",
+			Vector3.new(b.width, 0.4, b.depth),
+			base * CFrame.new(b.x, 0.1, b.z) * CFrame.Angles(0, b.yaw, 0),
+			LAVA_COLOR
+		)
+		lava(part)
+	end
+	local near = math.sqrt(V.Cone.BaseRadius ^ 2 - V.Helix ^ 2) - V.Cone.Shell / 2
+	local far = V.Lake.Radius + 20
+	decoration(
+		model,
+		"Causeway",
+		Vector3.new(V.Causeway.Width, 0.4, far - near),
+		base * CFrame.new(V.Helix, 0.2, -(near + far) / 2),
+		CAUSEWAY_COLOR
+	)
+	model.Parent = parent
+
+	local middle = base.Position
+	return {
+		AX = middle.X,
+		AZ = middle.Z,
+		BX = middle.X,
+		BZ = middle.Z,
+		Radius = V.Lake.Radius + D.Palms.VolcanoClear,
+	}
+end
+
 -- A knockable part of a palm tree: hitting it shakes down the coconuts.
 local function knockable(part: BasePart)
 	local P = D.Palms
@@ -409,7 +519,7 @@ local function buildPalm(parent: Instance, x: number, z: number, rng: Rng.Rng)
 	model.Parent = parent
 end
 
-local function buildPalms(parent: Instance, area: MapLayout.Area, bronto: Scatter.Line)
+local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line })
 	local P = D.Palms
 	local folder = Instance.new("Folder")
 	folder.Name = "PalmTrees"
@@ -428,7 +538,8 @@ local function buildPalms(parent: Instance, area: MapLayout.Area, bronto: Scatte
 		BZ = area.ArriveZ,
 		Radius = P.ArrivalClear,
 	}
-	for _, spot in Scatter.points(rng, P.Count, rect, P.Gap, { bronto, arrival }) do
+	table.insert(keepOut, arrival)
+	for _, spot in Scatter.points(rng, P.Count, rect, P.Gap, keepOut) do
 		buildPalm(folder, spot.x, spot.z, rng)
 	end
 end
@@ -436,7 +547,8 @@ end
 function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	grassFloor(folder)
 	local bronto = buildBronto(folder, area)
-	buildPalms(folder, area, bronto)
+	local volcano = buildVolcano(folder, area)
+	buildPalms(folder, area, { bronto, volcano })
 end
 
 return DinoPark
