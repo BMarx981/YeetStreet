@@ -11,14 +11,24 @@
 -- blocky body hangs under the skin on four legs. Spots, wrinkles, scales,
 -- eyes and a mouth never touch a car either. The tail's swishing tip is
 -- built on each client (DinoTail). Boosters run up the track, and the skin
--- above them shows it. Numbers are in Tuning.Dino.
+-- above them shows it.
+--
+-- Palm trees stand about the park (Scatter), clear of the brontosaurus.
+-- Their trunks are solid; their coconuts, and invisible boxes round each
+-- trunk and its fronds, are knockable props in one Shatter model, so a car
+-- hitting any of them shakes all the coconuts down, a Palm tree target
+-- (PropService). Numbers are in Tuning.Dino.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Bronto = require(ReplicatedStorage.Bronto)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local Rng = require(ReplicatedStorage.Rng)
+local Scatter = require(ReplicatedStorage.Scatter)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 
@@ -35,6 +45,9 @@ local BODY_COLOR = Color3.fromRGB(88, 128, 74)
 local CLAW_COLOR = Color3.fromRGB(235, 225, 200)
 local EYE_COLOR = Color3.fromRGB(250, 250, 240)
 local DARK_COLOR = Color3.fromRGB(25, 25, 25)
+local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
+local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
+local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
 
 -- Planks are this much longer than their chord so the seams stay closed.
 local OVERLAP = 0.4
@@ -230,7 +243,8 @@ local function buildFace(parent: Instance, base: CFrame, planks: { Bronto.Plank 
 	end
 end
 
-local function buildBronto(parent: Instance, area: MapLayout.Area)
+-- Returns the line it stands on, for keeping trees out of its way.
+local function buildBronto(parent: Instance, area: MapLayout.Area): Scatter.Line
 	local B = D.Bronto
 	local model = Instance.new("Model")
 	model.Name = "Brontosaurus"
@@ -298,11 +312,131 @@ local function buildBronto(parent: Instance, area: MapLayout.Area)
 	buildSpots(model, base, planks)
 	buildScales(model, base, planks, headStart)
 	buildFace(model, base, planks, headStart, headEnd)
+
+	-- Seen from above, from the end of the tail's tip to the head.
+	local tail = base:PointToWorldSpace(Vector3.new(0, 0, B.Tail.Length))
+	local head = base:PointToWorldSpace(Vector3.new(0, 0, -(last.out + last.length / 2 * math.cos(last.tilt))))
+	return { AX = tail.X, AZ = tail.Z, BX = head.X, BZ = head.Z, Radius = D.Palms.BrontoClear }
+end
+
+-- A knockable part of a palm tree: hitting it shakes down the coconuts.
+local function knockable(part: BasePart)
+	local P = D.Palms
+	part:SetAttribute("Target", "Palm tree")
+	part:SetAttribute("ResetTime", P.ResetTime)
+	part:SetAttribute("CarSpeedShare", 0)
+	CollectionService:AddTag(part, "Knockable")
+end
+
+-- An invisible box that counts as hitting the tree.
+local function hitBox(parent: Instance, size: Vector3, cframe: CFrame)
+	local box = block(parent, "HitBox", size, cframe, BODY_COLOR)
+	box.Transparency = 1
+	box.CanCollide = false
+	box.CanQuery = false
+	knockable(box)
+	box:SetAttribute("Trigger", true)
+end
+
+local function buildPalm(parent: Instance, x: number, z: number, rng: Rng.Rng)
+	local P = D.Palms
+	local model = Instance.new("Model")
+	model.Name = "PalmTree"
+	model:SetAttribute("Shatter", true)
+
+	local height = rng.range(P.MinHeight, P.MaxHeight)
+	local heading = rng.range(0, 2 * math.pi)
+	local lean = Vector3.new(math.cos(heading), 0, math.sin(heading)) * P.Lean * rng.range(0.3, 1)
+	local ground = Vector3.new(x, FLOOR, z)
+	-- Up the trunk, bending over more toward the top.
+	local function trunkAt(t: number): Vector3
+		return ground + Vector3.new(0, height * t, 0) + lean * t * t
+	end
+
+	for i = 1, P.TrunkSegments do
+		local from, to = trunkAt((i - 1) / P.TrunkSegments), trunkAt(i / P.TrunkSegments)
+		local size = P.TrunkSize * (1 - 0.3 * i / P.TrunkSegments)
+		local segment = block(
+			model,
+			"Trunk",
+			Vector3.new(size, size, (to - from).Magnitude + 0.6),
+			CFrame.lookAt((from + to) / 2, to),
+			BARK_COLORS[i % 2 + 1]
+		)
+		segment.Material = Enum.Material.Wood
+		segment.CollisionGroup = CollisionGroups.Trunks
+	end
+
+	local top = trunkAt(1)
+	decoration(model, "Tuft", Vector3.new(5, 3, 5), CFrame.new(top), FROND_COLORS[1])
+	for j = 1, P.Fronds do
+		local angle = (j + rng.range(-0.3, 0.3)) * 2 * math.pi / P.Fronds
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local color = FROND_COLORS[rng.int(1, #FROND_COLORS)]
+		-- Out and a little up, then drooping down.
+		local bend = top + out * P.FrondLength * 0.5 + Vector3.new(0, 2, 0)
+		local tip = bend + out * P.FrondLength * 0.5 - Vector3.new(0, P.FrondLength * 0.4, 0)
+		for _, piece in { { top, bend, 4 }, { bend, tip, 3 } } do
+			local from, to, width = piece[1] :: Vector3, piece[2] :: Vector3, piece[3] :: number
+			decoration(
+				model,
+				"Frond",
+				Vector3.new(width, 0.5, (to - from).Magnitude + 0.5),
+				CFrame.lookAt((from + to) / 2, to),
+				color
+			)
+		end
+	end
+
+	-- In a ring round the trunk just under the fronds, clear of the trunk's
+	-- corners, so none starts inside it and gets shoved out when it drops.
+	local hang = trunkAt(1 - 2 / height)
+	local ring = 0.7 * P.TrunkSize * 0.75 + P.CoconutSize / 2 + 0.8
+	for k = 1, P.Coconuts do
+		local angle = k * 2 * math.pi / P.Coconuts
+		local offset = Vector3.new(math.cos(angle) * ring, 0, math.sin(angle) * ring)
+		local coconut = block(model, "Coconut", Vector3.one * P.CoconutSize, CFrame.new(hang + offset), COCONUT_COLOR)
+		coconut.Shape = Enum.PartType.Ball
+		knockable(coconut)
+		-- They land round the car in the same ring they hang in.
+		coconut:SetAttribute("FallOnCar", true)
+		coconut:SetAttribute("FallOffset", offset)
+	end
+
+	local reach = P.FrondLength * 0.9
+	hitBox(model, Vector3.new(P.Hit + lean.Magnitude, height, P.Hit + lean.Magnitude), CFrame.new((ground + top) / 2))
+	hitBox(model, Vector3.new(2 * reach, 14, 2 * reach), CFrame.new(top - Vector3.new(0, 3, 0)))
+	model.Parent = parent
+end
+
+local function buildPalms(parent: Instance, area: MapLayout.Area, bronto: Scatter.Line)
+	local P = D.Palms
+	local folder = Instance.new("Folder")
+	folder.Name = "PalmTrees"
+	folder.Parent = parent
+	local rng = Rng.new(P.Seed)
+	local rect: Scatter.Rect = {
+		MinX = area.X - area.Width / 2 + P.Edge,
+		MaxX = area.X + area.Width / 2 - P.Edge,
+		MinZ = area.Z - area.Depth / 2 + P.Edge,
+		MaxZ = area.Z + area.Depth / 2 - P.Edge,
+	}
+	local arrival: Scatter.Line = {
+		AX = area.ArriveX,
+		AZ = area.ArriveZ,
+		BX = area.ArriveX,
+		BZ = area.ArriveZ,
+		Radius = P.ArrivalClear,
+	}
+	for _, spot in Scatter.points(rng, P.Count, rect, P.Gap, { bronto, arrival }) do
+		buildPalm(folder, spot.x, spot.z, rng)
+	end
 end
 
 function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	grassFloor(folder)
-	buildBronto(folder, area)
+	local bronto = buildBronto(folder, area)
+	buildPalms(folder, area, bronto)
 end
 
 return DinoPark

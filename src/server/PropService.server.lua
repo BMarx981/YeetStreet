@@ -15,7 +15,13 @@
 -- knocks all of them, each also thrown out from the hit. A prop with a Target
 -- attribute (such as a billboard tile) is something worth points to smash:
 -- the car and the Target go out on ServerStorage.PropSmashed, once per hit
--- however many props fly, and ScoreService counts it on the car's run.
+-- however many props fly, and ScoreService counts it on the car's run. A
+-- prop with FallOnCar set (such as a coconut) is not thrown: it drops, with
+-- just enough sideways speed to land where the car was when it hit (Fall),
+-- moved over by its FallOffset (a Vector3) if it has one, so a few dropped
+-- together land around the car instead of on one spot.
+-- A prop with Trigger set (such as an invisible hit box round a tree) only
+-- counts the hit: it stays where it is.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +29,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Fall = require(ReplicatedStorage.Fall)
 local Sweep = require(ReplicatedStorage.Sweep)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
@@ -65,16 +72,28 @@ end
 CollectionService:GetInstanceAddedSignal(TAG):Connect(adopt)
 CollectionService:GetInstanceRemovedSignal(TAG):Connect(forget)
 
-local function knock(prop: Prop, carVelocity: Vector3, burst: Vector3)
+local function knock(prop: Prop, carVelocity: Vector3, burst: Vector3, carAt: Vector3)
 	local part = prop.part
 	prop.down = true
-	part.Anchored = false
-	local share = part:GetAttribute("CarSpeedShare")
-	part.AssemblyLinearVelocity = carVelocity * (if typeof(share) == "number" then share else P.CarSpeedShare)
-		+ Vector3.new(0, P.Pop, 0)
-		+ burst
+	part.Anchored = part:GetAttribute("Trigger") == true
+	local falls = part:GetAttribute("FallOnCar") == true
+	if falls then
+		local from = part.Position
+		local offset = part:GetAttribute("FallOffset")
+		local to = if typeof(offset) == "Vector3" then carAt + offset else carAt
+		local vx, vz = Fall.toward(to.X - from.X, to.Z - from.Z, from.Y - to.Y, workspace.Gravity)
+		-- The server keeps it, or Roblox hands it to the nearest player,
+		-- whose copy can start off a little different and drift wide.
+		part:SetNetworkOwner(nil)
+		part.AssemblyLinearVelocity = Vector3.new(vx, 0, vz)
+	else
+		local share = part:GetAttribute("CarSpeedShare")
+		part.AssemblyLinearVelocity = carVelocity * (if typeof(share) == "number" then share else P.CarSpeedShare)
+			+ Vector3.new(0, P.Pop, 0)
+			+ burst
+	end
 	local flat = Vector3.new(carVelocity.X, 0, carVelocity.Z)
-	if flat.Magnitude > 1e-3 then
+	if flat.Magnitude > 1e-3 and not falls then
 		-- About the level axis across the car's path (up cross travel), so the
 		-- top tips away from the car.
 		part.AssemblyAngularVelocity = Vector3.new(flat.Z, 0, -flat.X).Unit * P.Spin
@@ -100,11 +119,11 @@ local function hit(car: Model, prop: Prop, carVelocity: Vector3, at: Vector3)
 		for _, other in props do
 			if other.part.Parent == group and not other.down then
 				local out = other.part.Position - at
-				knock(other, carVelocity, if out.Magnitude > 1e-3 then out.Unit * P.ShatterBurst else Vector3.zero)
+				knock(other, carVelocity, if out.Magnitude > 1e-3 then out.Unit * P.ShatterBurst else Vector3.zero, at)
 			end
 		end
 	else
-		knock(prop, carVelocity, Vector3.zero)
+		knock(prop, carVelocity, Vector3.zero, at)
 	end
 	local target = prop.part:GetAttribute("Target")
 	if typeof(target) == "string" then

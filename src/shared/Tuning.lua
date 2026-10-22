@@ -420,6 +420,7 @@ Tuning.Score = {
 	-- attribute, PropService).
 	TargetPoints = {
 		Billboard = 500,
+		["Palm tree"] = 200,
 	},
 }
 
@@ -1231,6 +1232,34 @@ Tuning.Dino = {
 		-- over Length studs, narrowing to TipWidth, bending up to Swing
 		-- degrees at the tip, once each way every Period seconds.
 		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 2, Swing = 50, Period = 4 },
+	},
+	-- Palm trees dotted about the park (Scatter): Count of them at least Gap
+	-- apart, Edge in from the park's edges, and clear of the brontosaurus
+	-- (BrontoClear from its line, tail to head) and the arrival point. Each
+	-- trunk is solid, bending over by up to Lean at the top; its fronds are
+	-- only for looks. Driving or flying into a tree drops its coconuts onto
+	-- the car (PropService): an invisible box round the trunk, Hit across so a car
+	-- brushing it counts, and one round the fronds. In the air on a run it
+	-- pays Tuning.Score.TargetPoints["Palm tree"]. Everything is back up
+	-- after ResetTime seconds.
+	Palms = {
+		Count = 45,
+		Seed = 12,
+		Gap = 100,
+		Edge = 80,
+		BrontoClear = 80,
+		ArrivalClear = 120,
+		MinHeight = 40,
+		MaxHeight = 62,
+		Lean = 10,
+		TrunkSize = 4,
+		TrunkSegments = 6,
+		Fronds = 8,
+		FrondLength = 22,
+		Coconuts = 4,
+		CoconutSize = 3,
+		Hit = 14,
+		ResetTime = 6,
 	},
 }
 
