@@ -22,6 +22,14 @@
 -- together land around the car instead of on one spot.
 -- A prop with Trigger set (such as an invisible hit box round a tree) only
 -- counts the hit: it stays where it is.
+--
+-- A prop with a BreakSpeed attribute is a boulder: it keeps its collision
+-- group while standing, so it stops a car, and only a car faster than that
+-- knocks it. The driving client lets its own car through a boulder at that
+-- speed (CarController); here the server sees the car pass, knocks the
+-- boulder, which flies in the Props group until it is back, and fires the
+-- car and its speed on ServerStorage.BoulderSmashed for ScoreService to
+-- damage it.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,6 +50,8 @@ type Prop = {
 	part: BasePart,
 	home: CFrame,
 	down: boolean,
+	breakSpeed: number?, -- a boulder's
+	group: string, -- its collision group while standing
 }
 
 local props: { [BasePart]: Prop } = {}
@@ -52,12 +62,26 @@ local propSmashed = Instance.new("BindableEvent")
 propSmashed.Name = "PropSmashed"
 propSmashed.Parent = ServerStorage
 
+local boulderSmashed = Instance.new("BindableEvent")
+boulderSmashed.Name = "BoulderSmashed"
+boulderSmashed.Parent = ServerStorage
+
 local function adopt(instance: Instance)
 	if not instance:IsA("BasePart") or props[instance] then
 		return
 	end
-	instance.CollisionGroup = CollisionGroups.Props
-	props[instance] = { part = instance, home = instance.CFrame, down = false }
+	local breakSpeed = instance:GetAttribute("BreakSpeed")
+	local boulder = typeof(breakSpeed) == "number"
+	if not boulder then
+		instance.CollisionGroup = CollisionGroups.Props
+	end
+	props[instance] = {
+		part = instance,
+		home = instance.CFrame,
+		down = false,
+		breakSpeed = if boulder then breakSpeed else nil,
+		group = instance.CollisionGroup,
+	}
 end
 
 local function forget(instance: Instance)
@@ -75,6 +99,7 @@ CollectionService:GetInstanceRemovedSignal(TAG):Connect(forget)
 local function knock(prop: Prop, carVelocity: Vector3, burst: Vector3, carAt: Vector3)
 	local part = prop.part
 	prop.down = true
+	part.CollisionGroup = CollisionGroups.Props
 	part.Anchored = part:GetAttribute("Trigger") == true
 	local falls = part:GetAttribute("FallOnCar") == true
 	if falls then
@@ -108,6 +133,7 @@ local function knock(prop: Prop, carVelocity: Vector3, burst: Vector3, carAt: Ve
 		part.AssemblyLinearVelocity = Vector3.zero
 		part.AssemblyAngularVelocity = Vector3.zero
 		part.CFrame = prop.home
+		part.CollisionGroup = prop.group
 		prop.down = false
 	end)
 end
@@ -129,13 +155,20 @@ local function hit(car: Model, prop: Prop, carVelocity: Vector3, at: Vector3)
 	if typeof(target) == "string" then
 		propSmashed:Fire(car, target)
 	end
+	if prop.breakSpeed then
+		boulderSmashed:Fire(car, carVelocity, prop.breakSpeed)
+	end
 end
 
 -- Knocks every standing prop the hull passed through since the last step.
+-- A boulder only counts the hull's own path through it, and only at its
+-- BreakSpeed: a slower car bumped off it.
 local function sweep(car: Model, from: Vector3, to: Vector3, carVelocity: Vector3)
-	local r = P.HitRadius
+	local speed = carVelocity.Magnitude
 	for _, prop in props do
-		if not prop.down then
+		local breakSpeed = prop.breakSpeed
+		if not prop.down and (breakSpeed == nil or speed > breakSpeed) then
+			local r = if breakSpeed then 0 else P.HitRadius
 			local a = prop.home:PointToObjectSpace(from)
 			local b = prop.home:PointToObjectSpace(to)
 			local half = prop.part.Size / 2

@@ -15,8 +15,9 @@
 --
 -- The volcano in the southwest corner is a hollow cone of rocky blocks
 -- (Volcano) with lava running down its sides and filling its crater, on a
--- lava lake crossed by a causeway to a slot at its foot. Lava is tagged
--- Lava.
+-- lava lake crossed by a causeway to a slot at its foot, ringed by boulders
+-- that only a fast car smashes through. Lava is tagged Lava; it burns cars
+-- (ScoreService).
 --
 -- Palm trees stand about the park (Scatter), clear of the brontosaurus and
 -- the volcano.
@@ -349,6 +350,46 @@ local function disc(parent: Instance, name: string, center: CFrame, radius: numb
 	return part
 end
 
+-- Boulders round the lake's outside edge, each a knockable prop that only a
+-- car faster than BreakSpeed smashes (PropService). Side by side with their
+-- inside corners on the edge, so none overlap, as a knocked one would be
+-- shoved out by its neighbours, and the gaps are far too thin for a car.
+-- None across the causeway.
+local function buildBoulders(parent: Instance, base: CFrame, random: Random)
+	local V = D.Volcano
+	local B = V.Boulders
+	local inner = V.Lake.Radius
+	local count = math.ceil(2 * math.pi * inner / B.Width)
+	local half = math.pi / count
+	local width = 2 * inner * math.sin(half) - 0.05
+	local middle = inner * math.cos(half) + B.Depth / 2
+	local causeway: Volcano.Slot = { X = V.Helix, Half = V.Causeway.Width / 2, Top = 1 }
+	local ground: Volcano.Tier = { bottom = 0, height = 0, outer = inner + B.Depth, inner = inner }
+	for k = 1, count do
+		local yaw = (k - 1) * 2 * half
+		local b: Volcano.Block = {
+			yaw = yaw,
+			x = middle * math.sin(yaw),
+			z = middle * math.cos(yaw),
+			width = width,
+			depth = B.Depth,
+		}
+		if not Volcano.inSlot(b, ground, causeway) then
+			local height = random:NextNumber(B.MinHeight, B.MaxHeight)
+			local boulder = block(
+				parent,
+				"Boulder",
+				Vector3.new(width, height, B.Depth),
+				base * CFrame.new(b.x, height / 2, b.z) * CFrame.Angles(0, yaw, 0),
+				ROCK_COLORS[random:NextInteger(1, #ROCK_COLORS)]
+			)
+			boulder:SetAttribute("BreakSpeed", B.BreakSpeed)
+			boulder:SetAttribute("ResetTime", B.ResetTime)
+			CollectionService:AddTag(boulder, "Knockable")
+		end
+	end
+end
+
 -- Returns the circle it stands in, lava lake and all, for keeping trees out.
 local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Line
 	local V = D.Volcano
@@ -396,8 +437,9 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 	lava(disc(model, "CraterLava", base, around + 2, floor))
 
 	-- The lake round the foot, tucked under the bottom tier, and the
-	-- causeway across it to the slot. Both lie on the floor for looks;
-	-- cars drive on the floor under them.
+	-- causeway across it to the slot. Both lie on the floor: cars drive on
+	-- the floor under them, but CarSensor's rays find them, the causeway
+	-- before the lava under it.
 	for _, b in Volcano.ring(V.Lake.Radius, V.Cone.BaseRadius - V.Cone.Shell / 2, V.Lake.BlockWidth) do
 		local part = decoration(
 			model,
@@ -407,16 +449,19 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 			LAVA_COLOR
 		)
 		lava(part)
+		part.CanQuery = true
 	end
 	local near = math.sqrt(V.Cone.BaseRadius ^ 2 - V.Helix ^ 2) - V.Cone.Shell / 2
 	local far = V.Lake.Radius + 20
-	decoration(
+	local causeway = decoration(
 		model,
 		"Causeway",
 		Vector3.new(V.Causeway.Width, 0.4, far - near),
 		base * CFrame.new(V.Helix, 0.2, -(near + far) / 2),
 		CAUSEWAY_COLOR
 	)
+	causeway.CanQuery = true
+	buildBoulders(model, base, random)
 	model.Parent = parent
 
 	local middle = base.Position

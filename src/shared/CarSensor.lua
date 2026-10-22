@@ -1,7 +1,7 @@
 --!strict
 -- CarSensor (ModuleScript) -> ReplicatedStorage.CarSensor
 -- Reads a car's state each physics step: wheels on the ground, any launch pad
--- under them, flying, lying on its roof or side, riding a rail (GrindRails)
+-- or lava (parts tagged Lava) under them, flying, lying on its roof or side, riding a rail (GrindRails)
 -- or a swing seat (Swings), any hit it took, and the RunTracker sample.
 -- The driving client and the server both read cars through this, so the
 -- server scores a run from the same inputs the client's HUD uses.
@@ -9,6 +9,7 @@
 -- Not pure: it raycasts, and keeps the contact state and last hull CFrame and
 -- velocity between steps.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Contact = require(ReplicatedStorage.Contact)
@@ -36,6 +37,7 @@ export type Sensor = {
 export type Reading = {
 	wheelsDown: number,
 	pad: BasePart?,
+	lava: boolean, -- a wheel, or the hull from just above, is on lava
 	airborne: boolean,
 	lying: boolean,
 	-- The change in velocity since the last step that gravity does not
@@ -82,11 +84,17 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 	}
 end
 
--- Counts wheels touching the ground and returns any launch pad under them.
-local function probe(sensor: Sensor, cf: CFrame): (number, BasePart?)
+local function isLava(part: Instance): boolean
+	return CollectionService:HasTag(part, "Lava")
+end
+
+-- Counts wheels touching the ground and returns any launch pad under them,
+-- and whether any of them is on lava.
+local function probe(sensor: Sensor, cf: CFrame): (number, BasePart?, boolean)
 	local down = -cf.UpVector * (sensor.wheelRadius + Tuning.Contact.ProbeMargin)
 	local count = 0
 	local pad: BasePart? = nil
+	local lava = false
 	for _, wheel in sensor.wheels do
 		local hit = workspace:Raycast(wheel.Position, down, sensor.rayParams)
 		if hit then
@@ -95,9 +103,10 @@ local function probe(sensor: Sensor, cf: CFrame): (number, BasePart?)
 			if part:IsA("BasePart") and part:GetAttribute("LaunchSpeed") then
 				pad = part
 			end
+			lava = lava or isLava(part)
 		end
 	end
-	return count, pad
+	return count, pad, lava
 end
 
 -- The hull's rotation since the last step, in its own axes.
@@ -129,14 +138,14 @@ end
 function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	local cf = sensor.hull.CFrame
 	local velocity = sensor.hull.AssemblyLinearVelocity
-	local wheelsDown, pad = probe(sensor, cf)
+	local wheelsDown, pad, wheelsInLava = probe(sensor, cf)
 	local C = Tuning.Contact
 	sensor.contact = Contact.step(sensor.contact, wheelsDown, dt, C.AirDelay, C.LandWheels)
 
 	local RT = Tuning.Righting
 	local upward = up or Vector3.yAxis
-	local groundClose = workspace:Raycast(cf.Position, -upward * RT.GroundProbe, sensor.rayParams) ~= nil
-	local lying = Righting.lying(wheelsDown, cf.UpVector:Dot(upward), groundClose, RT)
+	local ground = workspace:Raycast(cf.Position, -upward * RT.GroundProbe, sensor.rayParams)
+	local lying = Righting.lying(wheelsDown, cf.UpVector:Dot(upward), ground ~= nil, RT)
 
 	local rotation = turn(sensor.lastCFrame, cf)
 	local hit = impact(sensor.lastCFrame, sensor.lastVelocity, cf, velocity, dt)
@@ -145,6 +154,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	return {
 		wheelsDown = wheelsDown,
 		pad = pad,
+		lava = wheelsInLava or (ground ~= nil and isLava(ground.Instance)),
 		airborne = sensor.contact.airborne,
 		lying = lying,
 		impact = hit,

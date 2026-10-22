@@ -42,4 +42,14 @@ Check.test("damage to a slot adds up across hits", function()
 	Check.eq(Toughness.breaks(35, 45, TUNING), 1)
 end)
 
+Check.test("lava burns all of any car's toughness in the same time", function()
+	Check.near(Toughness.burn(60, 1, 3), 20, "a third of it each second")
+	Check.near(Toughness.burn(200, 1, 3), 200 / 3, "a tougher car loses more")
+	local left = 60
+	for _ = 1, 180 do
+		left -= Toughness.burn(60, 1 / 60, 3)
+	end
+	Check.near(left, 0, "gone after 3 seconds of steps", 1e-9)
+end)
+
 Check.finish("Toughness")

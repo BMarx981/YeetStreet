@@ -25,6 +25,7 @@
 -- Stats (top speed, jet power, fuel, recharge, turn rate) come from attributes
 -- the server wrote on the car, never from Tuning.StarterCar directly.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -326,6 +327,45 @@ local function tubePull(position: Vector3): Vector3?
 	return nil
 end
 
+-- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
+-- its BreakSpeed and the time it turns solid again (0 while it is solid).
+-- A car faster than that is let through the boulders near it, on this
+-- client only, so it smashes through; the server sees it pass, knocks them
+-- and damages the car (PropService). Each stays passable for Hold seconds
+-- after the car was last fast and near it.
+local boulders: { [BasePart]: { breakSpeed: number, solidAt: number } } = {}
+local function trackBoulder(instance: Instance)
+	local breakSpeed = instance:GetAttribute("BreakSpeed")
+	if instance:IsA("BasePart") and typeof(breakSpeed) == "number" then
+		boulders[instance] = { breakSpeed = breakSpeed, solidAt = 0 }
+	end
+end
+CollectionService:GetInstanceAddedSignal("Knockable"):Connect(trackBoulder)
+CollectionService:GetInstanceRemovedSignal("Knockable"):Connect(function(instance: Instance)
+	boulders[instance :: BasePart] = nil
+end)
+for _, instance in CollectionService:GetTagged("Knockable") do
+	trackBoulder(instance)
+end
+
+local function passBoulders(position: Vector3, velocity: Vector3)
+	local B = Tuning.Props.Boulders
+	local now = os.clock()
+	local speed = velocity.Magnitude
+	local reach = speed * B.LookAhead + B.Margin
+	for part, boulder in boulders do
+		if speed > boulder.breakSpeed and (part.Position - position).Magnitude < reach then
+			if boulder.solidAt == 0 then
+				part.CanCollide = false
+			end
+			boulder.solidAt = now + B.Hold
+		elseif boulder.solidAt ~= 0 and now > boulder.solidAt then
+			part.CanCollide = true
+			boulder.solidAt = 0
+		end
+	end
+end
+
 local function step(r: Rig, dt: number)
 	local input = Controls.read()
 	local cf = r.hull.CFrame
@@ -347,6 +387,7 @@ local function step(r: Rig, dt: number)
 	if pushed then
 		setVelocity(r, pushed)
 	end
+	passBoulders(cf.Position, velocity)
 
 	local reading = CarSensor.read(r.sensor, dt, up)
 	local airborne = reading.airborne

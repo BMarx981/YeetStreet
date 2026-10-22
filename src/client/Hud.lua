@@ -449,7 +449,8 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 		end
 		local labels: { string } = {}
 		for _, kind in kinds do
-			table.insert(labels, if smashed[kind] > 1 then `{kind} smash x{smashed[kind]}` else `{kind} smash`)
+			local name = (H.TargetLabels :: { [string]: string })[kind] or `{kind} smash`
+			table.insert(labels, if smashed[kind] > 1 then `{name} x{smashed[kind]}` else name)
 		end
 		add(table.concat(labels, ", "), withCommas(score.targets), 18)
 	end

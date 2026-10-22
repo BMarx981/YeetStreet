@@ -26,6 +26,12 @@ function Toughness.damage(strength: number, slot: Slot, tuning: Tuning): number
 	return math.max(strength - tuning.HitThreshold, 0) * tuning.DamagePerSpeed
 end
 
+-- Toughness lost to `dt` seconds in lava: all of `maxToughness` over
+-- `burnTime`, so every car lasts the same time.
+function Toughness.burn(maxToughness: number, dt: number, burnTime: number): number
+	return maxToughness * dt / burnTime
+end
+
 -- Parts to break when a slot's running damage goes from `before` to `after`.
 function Toughness.breaks(before: number, after: number, tuning: Tuning): number
 	return math.floor(after / tuning.BreakDamage) - math.floor(before / tuning.BreakDamage)

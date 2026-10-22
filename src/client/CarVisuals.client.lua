@@ -13,6 +13,8 @@
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.
+--   Fire burns on the hull while the car's Burning attribute is true, set
+--   by the server while lava burns it (ScoreService).
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -232,6 +234,17 @@ local function setUp(car: Model)
 		car:GetAttributeChangedSignal(attribute):Connect(showBroken)
 		showBroken()
 	end
+
+	local fire = Instance.new("Fire")
+	fire.Size = T.LavaFireSize
+	fire.Heat = T.LavaFireSize * 1.5
+	fire.Enabled = false
+	fire.Parent = hull
+	local function showBurning()
+		fire.Enabled = car:GetAttribute("Burning") == true
+	end
+	car:GetAttributeChangedSignal("Burning"):Connect(showBurning)
+	showBurning()
 end
 
 local carsFolder = workspace:WaitForChild("Cars")

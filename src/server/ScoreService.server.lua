@@ -22,6 +22,12 @@
 -- ServerStorage.PropSmashed, such as for Downtown's billboard) pay their
 -- Target points on that run.
 --
+-- A car coming down on lava (CarSensor) banks its run as a landing with a
+-- Lava splash target. Lava, and smashing through a boulder too fast
+-- (PropService fires ServerStorage.BoulderSmashed), damage the car run or
+-- not; lava burns it until it drives out or wrecks, and sets its Burning
+-- attribute while it does. The driver is never hurt.
+--
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
 -- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
@@ -69,6 +75,7 @@ type Watch = {
 	payScale: number,
 	wrecked: boolean,
 	respawning: boolean, -- a respawn was asked for; the car is about to go
+	burning: boolean, -- in lava, as the car's Burning attribute shows
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -150,10 +157,27 @@ local function watchFor(car: Model): Watch?
 		payScale = 1,
 		wrecked = false,
 		respawning = false,
+		burning = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
 	return watch
+end
+
+-- Takes `amount` of the car's toughness and breaks the parts that much
+-- damage is worth in `slot`, or in any slot when nil. Broken parts pay Smash
+-- points only on a run.
+local function damageCar(watch: Watch, amount: number, slot: string?)
+	watch.toughness = math.max(watch.toughness - amount, 0)
+	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
+	local key = slot or "any"
+	local before = watch.slotDamage[key] or 0
+	local after = before + amount
+	watch.slotDamage[key] = after
+	local broken = CarDamage.breakParts(watch.car, slot, Toughness.breaks(before, after, T))
+	if watch.run.phase == "flying" then
+		watch.smashes += broken
+	end
 end
 
 -- Measures a hit. Only body hits during a run (including the touchdown that
@@ -167,12 +191,7 @@ local function hurt(watch: Watch, hit: Vector3)
 	local slot = Impact.slot(hit.X, hit.Y, hit.Z)
 	local damage = if inRun then Toughness.damage(strength, slot, T) else 0
 	if damage > 0 then
-		watch.toughness = math.max(watch.toughness - damage, 0)
-		watch.car:SetAttribute("ToughnessLeft", watch.toughness)
-		local before = watch.slotDamage[slot] or 0
-		local after = before + damage
-		watch.slotDamage[slot] = after
-		watch.smashes += CarDamage.breakParts(watch.car, slot, Toughness.breaks(before, after, T))
+		damageCar(watch, damage, slot)
 	end
 	print(
 		`Hit {math.floor(strength + 0.5)} {slot}{if inRun then "" else " (no run)"}, damage {math.floor(damage + 0.5)}, toughness {math.floor(
@@ -205,6 +224,7 @@ end
 local carsFolder = workspace:WaitForChild("Cars")
 local respawnCar = ServerStorage:WaitForChild("RespawnCar") :: BindableEvent
 local propSmashed = ServerStorage:WaitForChild("PropSmashed") :: BindableEvent
+local boulderSmashed = ServerStorage:WaitForChild("BoulderSmashed") :: BindableEvent
 
 -- Only a smash in the air on a run counts.
 propSmashed.Event:Connect(function(car: Model, target: string)
@@ -239,12 +259,15 @@ local function respawn(watch: Watch)
 	end
 end
 
--- Every part left flies off and pays Smash points, for up to WreckSmashes of
--- them, sparks burst, the run ends as a wreck, and the car respawns fresh
--- after WreckBeat.
+-- Every part left flies off and pays Smash points on a run, for up to
+-- WreckSmashes of them, sparks burst, the run ends as a wreck, and the car
+-- respawns fresh after WreckBeat.
 local function wreck(watch: Watch)
 	watch.wrecked = true
-	watch.smashes += math.min(CarDamage.breakParts(watch.car, nil, math.huge), T.WreckSmashes)
+	local broken = math.min(CarDamage.breakParts(watch.car, nil, math.huge), T.WreckSmashes)
+	if watch.run.phase == "flying" then
+		watch.smashes += broken
+	end
 	carWrecked:FireAllClients(watch.sensor.hull.Position)
 	local result = RunTracker.abort(watch.run, "wrecked")
 	if result then
@@ -252,6 +275,55 @@ local function wreck(watch: Watch)
 	end
 	task.delay(T.WreckBeat, respawn, watch)
 end
+
+-- Coming down in lava ends the run as a landing, never clean, paying a Lava
+-- splash target on it. Then the lava burns the car (burn).
+local function splash(watch: Watch)
+	table.insert(watch.targets, "Lava")
+	local result = RunTracker.abort(watch.run, "landed")
+	if result then
+		finish(watch, result)
+	end
+end
+
+-- Burns `dt` seconds' worth of the car's toughness, all of it over
+-- LavaBurnTime, breaking parts as it goes. Not before its first launch pad
+-- near where it was built, as its wreck would only bring it back into the
+-- lava. Returns whether it burned.
+local function burn(watch: Watch, dt: number): boolean
+	local spawn = watch.car:GetAttribute("SpawnCFrame")
+	if
+		not lastLaunch[watch.player]
+		and typeof(spawn) == "CFrame"
+		and (spawn.Position - watch.sensor.hull.Position).Magnitude < Tuning.Reset.LavaSpawnClear
+	then
+		return false
+	end
+	damageCar(watch, Toughness.burn(watch.maxToughness, dt, T.LavaBurnTime), nil)
+	return true
+end
+
+-- Smashing through a boulder costs toughness for the speed over its
+-- BreakSpeed, on the side of the car that hit it, run or not.
+boulderSmashed.Event:Connect(function(car: Model, velocity: Vector3, breakSpeed: number)
+	local watch = watches[car]
+	if not watch or watch.wrecked then
+		return
+	end
+	local push = watch.sensor.hull.CFrame:VectorToObjectSpace(-velocity)
+	local slot = Impact.slot(push.X, push.Y, push.Z)
+	local strength = velocity.Magnitude
+	local amount = Toughness.damage(strength, slot, {
+		HitThreshold = breakSpeed,
+		DamagePerSpeed = T.BoulderDamagePerSpeed,
+		BreakDamage = T.BreakDamage,
+	})
+	if amount > 0 then
+		damageCar(watch, amount, slot)
+	end
+	print(`Boulder {math.floor(strength + 0.5)} {slot}, damage {math.floor(amount + 0.5)}, {watch.player.Name}`)
+	carImpact:FireClient(watch.player, strength, slot, watch.run.phase == "flying", amount, watch.toughness)
+end)
 
 -- Ends the player's run, if any, and respawns their car.
 local function reset(player: Player)
@@ -347,6 +419,14 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if reading.pad then
 					local payScale = reading.pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
+				end
+				if reading.lava and watch.run.phase == "flying" then
+					splash(watch)
+				end
+				local burning = reading.lava and burn(watch, dt)
+				if burning ~= watch.burning then
+					watch.burning = burning
+					car:SetAttribute("Burning", burning)
 				end
 				hurt(watch, reading.impact)
 				if watch.toughness <= 0 and not watch.wrecked then

@@ -197,6 +197,16 @@ Check.test("abort can end the run as a wreck", function()
 	Check.eq(state.phase, "idle")
 end)
 
+Check.test("abort can end the run as a landing that is never clean, for lava", function()
+	local state = launched()
+	step(state, { airborne = true, z = -70, y = 30 })
+	local result = RunTracker.abort(state, "landed") :: RunTracker.Result
+	Check.eq(result.ending, "landed")
+	Check.near(result.distance, 70)
+	Check.eq(result.clean, false)
+	Check.eq(state.phase, "idle")
+end)
+
 Check.test("abort without a run returns nothing and disarms", function()
 	local state = RunTracker.new()
 	Check.eq(RunTracker.abort(state), nil)

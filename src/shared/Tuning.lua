@@ -421,6 +421,7 @@ Tuning.Score = {
 	TargetPoints = {
 		Billboard = 500,
 		["Palm tree"] = 200,
+		Lava = 300, -- coming down in lava (ScoreService)
 	},
 }
 
@@ -489,6 +490,8 @@ Tuning.Hud = {
 	OfficialHold = 1,
 	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
 	CashEarnedTime = 3, -- seconds the "+N" under the cash stays on screen
+	-- How the run card names a target, if not "<kind> smash".
+	TargetLabels = { Lava = "Lava splash" },
 }
 
 Tuning.Righting = {
@@ -517,6 +520,13 @@ Tuning.Toughness = {
 	PartLifetime = 5, -- seconds a broken part lies around before it is removed
 	WreckSparks = 120, -- sparks in the burst when a car wrecks
 	WreckBeat = 1, -- seconds a wreck stays on screen before the fresh car appears
+	-- Lava burns all of a car's toughness in this many seconds, breaking
+	-- parts as it goes, then the car wrecks. Run or not.
+	LavaBurnTime = 3,
+	LavaFireSize = 10, -- the fire on a burning car (CarVisuals)
+	-- Smashing through a boulder faster than its BreakSpeed costs this much
+	-- toughness per stud per second over it, run or not.
+	BoulderDamagePerSpeed = 1,
 }
 
 -- Knockable props, like the distance boards. They never touch cars.
@@ -529,6 +539,10 @@ Tuning.Props = {
 	-- Props in a Model with Shatter set all fly when one is hit, each also
 	-- thrown this fast out from the hit, studs per second.
 	ShatterBurst = 40,
+	-- A car faster than a boulder's BreakSpeed is let through boulders
+	-- within LookAhead seconds of its speed plus Margin studs, until Hold
+	-- seconds after it was last (CarController).
+	Boulders = { LookAhead = 0.25, Margin = 20, Hold = 1 },
 }
 
 Tuning.Reset = {
@@ -544,6 +558,10 @@ Tuning.Reset = {
 	StuckUpY = 0.3, -- up vector Y below this counts as on its roof or side
 	StuckSpeed = 4,
 	StuckTime = 2.5,
+	-- Before its first launch pad a car respawns where it was built, so lava
+	-- within this far of that spot does not burn it, or a wreck would only
+	-- bring it back into the lava.
+	LavaSpawnClear = 40,
 }
 
 Tuning.Input = {
@@ -1293,6 +1311,20 @@ Tuning.Dino = {
 		Slot = { Half = 56, Top = 72 },
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },
+		-- A ring of boulders round the lake's outside edge, Depth deep and
+		-- MinHeight to MaxHeight tall, at most Width across, with no gaps a
+		-- car fits through, open at the causeway. A car slower than BreakSpeed
+		-- bumps off; a faster one smashes through (PropService), taking
+		-- Tuning.Toughness.BoulderDamagePerSpeed over it, and the boulder is
+		-- back after ResetTime.
+		Boulders = {
+			Width = 14,
+			Depth = 10,
+			MinHeight = 5,
+			MaxHeight = 10,
+			BreakSpeed = 120,
+			ResetTime = 5,
+		},
 		Rivers = {
 			{ Yaw = 125, Down = 9 },
 			{ Yaw = 215, Down = 6 },
