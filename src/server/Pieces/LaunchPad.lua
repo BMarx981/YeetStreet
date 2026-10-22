@@ -15,6 +15,12 @@ local LaunchPad = {}
 
 local COLOR = Color3.fromRGB(255, 200, 40)
 
+-- Gives `part` a launch pad's look, without making it one.
+function LaunchPad.paint(part: BasePart)
+	part.Color = COLOR
+	part.Material = Enum.Material.Neon
+end
+
 -- Makes `part` a launch pad.
 function LaunchPad.make(
 	part: BasePart,
@@ -24,8 +30,7 @@ function LaunchPad.make(
 	direction: Vector3?
 )
 	part.Name = "LaunchPad"
-	part.Color = COLOR
-	part.Material = Enum.Material.Neon
+	LaunchPad.paint(part)
 	part:SetAttribute("LaunchSpeed", launchSpeed)
 	part:SetAttribute("RespawnCFrame", respawn)
 	part:SetAttribute("PayScale", payScale)

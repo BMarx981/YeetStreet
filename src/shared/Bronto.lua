@@ -66,6 +66,61 @@ function Bronto.planks(start: Start, segments: { Segment }, step: number): { Pla
 	return planks
 end
 
+export type Section = {
+	along: number,
+	out: number,
+	up: number,
+	tilt: number, -- radians above flat, halfway between the planks either side
+	width: number,
+}
+
+-- Where each plank ends and the next starts, from the tail tip to the head:
+-- the lines a rounded back's sides are built between.
+function Bronto.sections(planks: { Plank }): { Section }
+	local first = planks[1]
+	local sections: { Section } = {
+		{
+			along = 0,
+			out = first.out - first.length / 2 * math.cos(first.tilt),
+			up = first.up - first.length / 2 * math.sin(first.tilt),
+			tilt = first.tilt,
+			width = first.width,
+		},
+	}
+	for i, p in planks do
+		local nextPlank = planks[i + 1] or p
+		table.insert(sections, {
+			along = p.along + p.length / 2,
+			out = p.out + p.length / 2 * math.cos(p.tilt),
+			up = p.up + p.length / 2 * math.sin(p.tilt),
+			tilt = (p.tilt + nextPlank.tilt) / 2,
+			width = (p.width + nextPlank.width) / 2,
+		})
+	end
+	return sections
+end
+
+export type CrownPoint = {
+	x: number, -- studs out from the middle of the path
+	y: number, -- studs above the flat middle
+}
+
+-- One side of a rounded back's cross section, `width` across: flat over the
+-- middle `flat` of it, then rolling down over `strips` strips to `drop` times
+-- the width below at the outer edge. Its slope starts flat and grows evenly,
+-- so the roll has no fold at the middle's edge. The other side mirrors it.
+-- A negative drop curls the edge up instead, into a lip.
+function Bronto.crown(width: number, flat: number, drop: number, strips: number): { CrownPoint }
+	local inner = width * flat / 2
+	local shoulder = width / 2 - inner
+	local points: { CrownPoint } = {}
+	for i = 0, strips do
+		local u = i / strips
+		table.insert(points, { x = inner + shoulder * u, y = -drop * width * u * u })
+	end
+	return points
+end
+
 -- The plank under the point `along` studs from the tail tip: the first or
 -- last plank for a point past either end.
 function Bronto.plankAt(planks: { Plank }, along: number): Plank

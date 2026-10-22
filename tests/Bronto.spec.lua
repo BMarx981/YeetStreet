@@ -104,6 +104,67 @@ Check.test("plankAt finds the plank a point lies on, and the end ones past eithe
 	Check.eq(Bronto.plankAt(planks, 2000), planks[#planks], "past the head")
 end)
 
+Check.test("a section at every plank end, between its neighbours", function()
+	local planks = Bronto.planks(START, SEGMENTS, 5)
+	local sections = Bronto.sections(planks)
+	Check.eq(#sections, #planks + 1)
+	Check.near(sections[1].out, 0, "first at the tail tip")
+	Check.near(sections[1].up, 0, "first on the ground")
+	Check.near(sections[1].tilt, planks[1].tilt, "first tilts like the first plank")
+	for i = 1, #planks - 1 do
+		local s = sections[i + 1]
+		local endOut, endUp = endOf(planks[i])
+		Check.near(s.out, endOut, `out of section {i + 1}`)
+		Check.near(s.up, endUp, `up of section {i + 1}`)
+		Check.near(s.tilt, (planks[i].tilt + planks[i + 1].tilt) / 2, `tilt of section {i + 1}`)
+		Check.near(s.width, (planks[i].width + planks[i + 1].width) / 2, `width of section {i + 1}`)
+	end
+	local last = sections[#sections]
+	local endOut, endUp = endOf(planks[#planks])
+	Check.near(last.out, endOut, "last out")
+	Check.near(last.up, endUp, "last up")
+	Check.near(last.width, planks[#planks].width, "last width")
+end)
+
+Check.test("the crown runs from the flat middle's edge down to the outer edge", function()
+	local points = Bronto.crown(60, 0.5, 0.1, 3)
+	Check.eq(#points, 4)
+	Check.near(points[1].x, 15, "starts at the flat middle's edge")
+	Check.near(points[1].y, 0, "level with the middle")
+	Check.near(points[4].x, 30, "ends at the outer edge")
+	Check.near(points[4].y, -6, "drop times width below")
+	for i = 1, #points - 1 do
+		Check.eq(points[i + 1].x > points[i].x, true, `point {i + 1} is farther out`)
+		Check.eq(points[i + 1].y < points[i].y, true, `point {i + 1} is lower`)
+	end
+end)
+
+Check.test("the crown rolls over: each strip steeper than the one inside it, the first nearly flat", function()
+	local points = Bronto.crown(60, 0.5, 0.1, 4)
+	local last = 0
+	for i = 1, #points - 1 do
+		local slope = (points[i].y - points[i + 1].y) / (points[i + 1].x - points[i].x)
+		Check.eq(slope > last, true, `strip {i} is steeper`)
+		last = slope
+	end
+	local first = (points[1].y - points[2].y) / (points[2].x - points[1].x)
+	Check.eq(first < 0.15, true, `first strip slopes {first}`)
+end)
+
+Check.test("a negative drop curls the edges up into a lip, steepest at the edge", function()
+	local points = Bronto.crown(40, 0.6, -0.15, 3)
+	Check.near(points[1].x, 12, "starts at the flat middle's edge")
+	Check.near(points[1].y, 0, "level with the middle")
+	Check.near(points[4].x, 20, "ends at the outer edge")
+	Check.near(points[4].y, 6, "drop times width above")
+	local last = 0
+	for i = 1, #points - 1 do
+		local slope = (points[i + 1].y - points[i].y) / (points[i + 1].x - points[i].x)
+		Check.eq(slope > last, true, `strip {i} climbs steeper`)
+		last = slope
+	end
+end)
+
 Check.test("pointAt follows the planks", function()
 	local planks = Bronto.planks(START, SEGMENTS, 5)
 	local out, up = Bronto.pointAt(planks, 0)

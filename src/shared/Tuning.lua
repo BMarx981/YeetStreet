@@ -678,9 +678,9 @@ Tuning.Map = {
 			Z = -4650,
 			Width = 2300,
 			Depth = 2500,
-			ArriveX = -2400,
-			ArriveZ = -3500, -- behind the brontosaurus's tail, facing up it
-			Heading = 0,
+			ArriveX = -2800,
+			ArriveZ = -3490, -- behind the brontosaurus's tail, facing up it
+			Heading = -42,
 		},
 	},
 }
@@ -1180,13 +1180,16 @@ Tuning.Dino = {
 	PayScale = 0.6,
 	-- The brontosaurus (Bronto): drive up its tail from the ground, over its
 	-- back and up its neck, and launch off the top of its head. The path
-	-- heads -Z from the tail tip at X, StartZ. Its planks are its skin; the
-	-- body hangs Depth under them, on legs at Hips and Shoulders (studs
+	-- leaves the tail tip at X, StartZ facing Heading degrees (0 faces -Z,
+	-- positive turns left), from the park's northwest corner across to its
+	-- southeast corner, the longest way to land. Its planks are its skin;
+	-- the body hangs Depth under them, on legs at Hips and Shoulders (studs
 	-- along the path). Every BoostEvery planks is a booster; the head's
 	-- planks launch.
 	Bronto = {
-		X = -650,
-		StartZ = 1000,
+		X = -950,
+		StartZ = 1050,
+		Heading = -42,
 		Step = 5,
 		Start = { Width = 30, Depth = 2 },
 		Segments = {
@@ -1205,6 +1208,29 @@ Tuning.Dino = {
 		BoostEvery = 6,
 		BoostSpeed = 200,
 		LaunchSpeed = 320,
+		-- The back is rounded (Bronto.crown): flat over the middle Flat of
+		-- its width, rolling down over Strips strips each side to Drop times
+		-- the width below at the edges, so 6 down on the 60-wide back.
+		Crown = { Flat = 0.5, Drop = 0.1, Strips = 3 },
+		-- Cars pass through that skin and drive on an invisible track: flat
+		-- over the middle Flat of the width, then a straight lip up each edge
+		-- like the corkscrew track's, Height times the width high: 9 up on
+		-- the back and about 5 on the neck, 37 degrees (the corkscrew's are
+		-- 28), so it pushes a drifting car back in. More Strips curve it.
+		Lip = { Flat = 0.6, Height = 0.15, Strips = 1 },
+		-- Only for looks. Spots on the back from the tail tip to the neck,
+		-- wrinkle bands across the neck from WrinklesFrom (studs along the
+		-- path) every WrinkleEvery planks, and round scales along both edges
+		-- every ScaleEvery studs.
+		Spots = { Count = 70, From = 30, To = 700, MinSize = 3, MaxSize = 9, Seed = 65 },
+		WrinklesFrom = 700,
+		WrinkleEvery = 3,
+		ScaleEvery = 12,
+		-- The tail's tip, past the path's start, lying on the ground and
+		-- swishing side to side (DinoTail, on each client): Segments blocks
+		-- over Length studs, narrowing to TipWidth, bending up to Swing
+		-- degrees at the tip, once each way every Period seconds.
+		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 2, Swing = 50, Period = 4 },
 	},
 }
 
