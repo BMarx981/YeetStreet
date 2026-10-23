@@ -121,6 +121,12 @@ function Bronto.crown(width: number, flat: number, drop: number, strips: number)
 	return points
 end
 
+-- How much of something there is `along` studs from the tail tip, from 0 to
+-- 1: none up to `from`, then growing evenly to all of it `length` past that.
+function Bronto.growIn(along: number, from: number, length: number): number
+	return math.clamp((along - from) / length, 0, 1)
+end
+
 -- The plank under the point `along` studs from the tail tip: the first or
 -- last plank for a point past either end.
 function Bronto.plankAt(planks: { Plank }, along: number): Plank

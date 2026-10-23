@@ -1240,7 +1240,10 @@ Tuning.Dino = {
 		-- like the corkscrew track's, Height times the width high: 9 up on
 		-- the back and about 5 on the neck, 37 degrees (the corkscrew's are
 		-- 28), so it pushes a drifting car back in. More Strips curve it.
-		Lip = { Flat = 0.6, Height = 0.15, Strips = 1 },
+		-- The lips start flat at From studs along the path, where the tail
+		-- starts to lift, and grow to full height over Grow, so a car still
+		-- on the ground never meets them.
+		Lip = { Flat = 0.6, Height = 0.15, Strips = 1, From = 30, Grow = 60 },
 		-- Only for looks. Spots on the back from the tail tip to the neck,
 		-- wrinkle bands across the neck from WrinklesFrom (studs along the
 		-- path) every WrinkleEvery planks, and round scales along both edges
@@ -1251,9 +1254,11 @@ Tuning.Dino = {
 		ScaleEvery = 12,
 		-- The tail's tip, past the path's start, lying on the ground and
 		-- swishing side to side (DinoTail, on each client): Segments blocks
-		-- over Length studs, narrowing to TipWidth, bending up to Swing
-		-- degrees at the tip, once each way every Period seconds.
-		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 2, Swing = 50, Period = 4 },
+		-- over Length studs, narrowing from the skin's flat middle where the
+		-- path starts to TipWidth, bending up to Swing degrees at the tip,
+		-- once each way every Period seconds. Spots of the back's dark spots
+		-- lie on it, and the back's booster stripes carry on along it.
+		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 2, Swing = 50, Period = 4, Spots = 6 },
 	},
 	-- Palm trees dotted about the park (Scatter): Count of them at least Gap
 	-- apart, Edge in from the park's edges, and clear of the brontosaurus

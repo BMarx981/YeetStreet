@@ -158,8 +158,10 @@ end
 local function buildLips(parent: Instance, base: CFrame, back: Bronto.Section, front: Bronto.Section): { BasePart }
 	local L = D.Bronto.Lip
 	local backFrame, frontFrame = sectionFrame(base, back), sectionFrame(base, front)
-	local backPoints = Bronto.crown(back.width, L.Flat, -L.Height, L.Strips)
-	local frontPoints = Bronto.crown(front.width, L.Flat, -L.Height, L.Strips)
+	local backHeight = L.Height * Bronto.growIn(back.along, L.From, L.Grow)
+	local frontHeight = L.Height * Bronto.growIn(front.along, L.From, L.Grow)
+	local backPoints = Bronto.crown(back.width, L.Flat, -backHeight, L.Strips)
+	local frontPoints = Bronto.crown(front.width, L.Flat, -frontHeight, L.Strips)
 	local up = backFrame.UpVector + frontFrame.UpVector
 	local parts: { BasePart } = {}
 	for _, side in { -1, 1 } do

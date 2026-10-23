@@ -165,6 +165,14 @@ Check.test("a negative drop curls the edges up into a lip, steepest at the edge"
 	end
 end)
 
+Check.test("growIn is none before From, then grows evenly to full over Length", function()
+	Check.near(Bronto.growIn(0, 30, 60), 0, "at the tail tip")
+	Check.near(Bronto.growIn(30, 30, 60), 0, "at From")
+	Check.near(Bronto.growIn(45, 30, 60), 0.25, "a quarter in")
+	Check.near(Bronto.growIn(90, 30, 60), 1, "at From plus Length")
+	Check.near(Bronto.growIn(500, 30, 60), 1, "past it")
+end)
+
 Check.test("pointAt follows the planks", function()
 	local planks = Bronto.planks(START, SEGMENTS, 5)
 	local out, up = Bronto.pointAt(planks, 0)
