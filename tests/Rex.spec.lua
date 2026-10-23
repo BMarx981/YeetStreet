@@ -24,6 +24,7 @@ local TUNING: Rex.Tuning = {
 	Snap = 0.2,
 	Recover = 1,
 	Rest = 4,
+	Chew = 2.5,
 	Bite = 14,
 	AirHeight = 8,
 	Gravity = 130,
@@ -236,6 +237,21 @@ Check.test("after a catch it rests for Rest seconds, ignoring cars, then hunts a
 	Check.eq(again, nil, "caught while resting")
 	run(s, cars, 0.2)
 	Check.eq(s.mode ~= "rest", true, "hunting again")
+end)
+
+Check.test("it stands still for Chew seconds after a catch, then walks on", function()
+	local s = Rex.new(0, 0, 0)
+	local cars = { car("parked", 0, GROUND, -80) }
+	local _, at = run(s, cars, TUNING.WindUp + TUNING.Snap + 0.1)
+	cars[1].y = 500 -- held up in its jaws, out of the way
+	local x, z = s.x, s.z
+	run(s, cars, TUNING.Chew - (TUNING.WindUp + TUNING.Snap + 0.1 - (at :: number)) - 0.05, nil, function()
+		Check.eq(s.x, x, "x while chewing")
+		Check.eq(s.z, z, "z while chewing")
+		Check.eq(s.speed, 0, "speed while chewing")
+	end)
+	run(s, cars, 1)
+	Check.eq(s.x ~= x or s.z ~= z, true, "walks on")
 end)
 
 Check.test("chasing a car past a keep-out, it goes round, never in, and catches it", function()

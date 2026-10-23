@@ -17,7 +17,8 @@
 --            that spot, and a car within Bite of it then is caught.
 --   recover  missed: Recover seconds walking after its car before it hunts
 --            again
---   rest     caught one: Rest seconds roaming, ignoring every car
+--   rest     caught one: Rest seconds ignoring every car, the first Chew of
+--            them standing still while it chews
 --
 -- A car more than AirHeight above the floor is in the air: never chased,
 -- only snapped at. Its territory is a rectangle less keep-out lines
@@ -111,6 +112,7 @@ export type Tuning = {
 	Snap: number,
 	Recover: number,
 	Rest: number,
+	Chew: number,
 	Bite: number,
 	AirHeight: number,
 	Gravity: number,
@@ -397,6 +399,11 @@ function Rex.step(s: State, cars: { Car }, territory: Territory, rng: Rng, dt: n
 			setMode(s, "recover")
 		end
 		return caught
+	end
+
+	if s.mode == "rest" and s.timer < tuning.Chew then
+		s.speed = 0
+		return nil
 	end
 
 	if s.mode == "rest" and s.timer >= tuning.Rest then

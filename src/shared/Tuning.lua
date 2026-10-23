@@ -422,6 +422,7 @@ Tuning.Score = {
 		Billboard = 500,
 		["Palm tree"] = 200,
 		Lava = 300, -- coming down in lava (ScoreService)
+		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
 	},
 }
 
@@ -491,7 +492,7 @@ Tuning.Hud = {
 	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
 	CashEarnedTime = 3, -- seconds the "+N" under the cash stays on screen
 	-- How the run card names a target, if not "<kind> smash".
-	TargetLabels = { Lava = "Lava splash" },
+	TargetLabels = { Lava = "Lava splash", ["T-Rex"] = "T-Rex snack" },
 }
 
 Tuning.Righting = {
@@ -1420,7 +1421,9 @@ Tuning.Dino = {
 	-- speed (80 at the bottom of the ladder), so a car that keeps going gets
 	-- away. Body is how far its middle stays from the trees' edges and
 	-- keep-outs. Reach and BiteHeight are how far ahead of its hips and how
-	-- high its jaws snap.
+	-- high its jaws snap. A car it catches is chewed for Chew seconds, its
+	-- toughness draining evenly to a wreck (ScoreService), then it rests
+	-- till Rest.
 	Rex = {
 		X = 550,
 		Z = 650,
@@ -1445,6 +1448,7 @@ Tuning.Dino = {
 		Snap = 0.2,
 		Recover = 1.2,
 		Rest = 5,
+		Chew = 2.5,
 		Bite = 16,
 		AirHeight = 8,
 		Gravity = Tuning.World.Gravity,
