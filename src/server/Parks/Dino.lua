@@ -23,7 +23,7 @@
 -- pads erupt the car out over the rim. Lava is tagged Lava; it burns cars (ScoreService).
 --
 -- Palm trees stand about the park (Scatter), clear of the brontosaurus and
--- the volcano.
+-- the volcano. A T-Rex roams among them hunting cars (DinoRex).
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
@@ -45,6 +45,7 @@ local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 local Tube = require(ServerScriptService.Pieces.Tube)
+local DinoRex = require(script.Parent.DinoRex)
 
 local D = Tuning.Dino
 local FLOOR = Tuning.Map.FloorTop
@@ -919,7 +920,9 @@ local function buildPalm(parent: Instance, x: number, z: number, rng: Rng.Rng)
 	model.Parent = parent
 end
 
-local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line })
+-- Adds the arrival point to `keepOut` and returns the rectangle the trees
+-- stand in.
+local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line }): Scatter.Rect
 	local P = D.Palms
 	local folder = Instance.new("Folder")
 	folder.Name = "PalmTrees"
@@ -942,13 +945,28 @@ local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 	for _, spot in Scatter.points(rng, P.Count, rect, P.Gap, keepOut) do
 		buildPalm(folder, spot.x, spot.z, rng)
 	end
+	return rect
+end
+
+-- The T-Rex roams wherever the trees may stand (DinoRex runs it).
+local function buildRex(parent: Instance, area: MapLayout.Area, rect: Scatter.Rect, keepOut: { Scatter.Line })
+	local R = D.Rex
+	local model = Instance.new("Model")
+	model.Name = "TRex"
+	-- Persistent, so streaming never takes it from a client.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	model.Parent = parent
+	local territory = { rect = rect, keepOut = keepOut, floor = FLOOR }
+	DinoRex.start(model, territory, area.X + R.X, area.Z + R.Z, math.rad(R.Heading))
 end
 
 function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	grassFloor(folder)
 	local bronto = buildBronto(folder, area)
 	local volcano = buildVolcano(folder, area)
-	buildPalms(folder, area, { bronto, volcano })
+	local keepOut = { bronto, volcano }
+	local trees = buildPalms(folder, area, keepOut)
+	buildRex(folder, area, trees, keepOut)
 end
 
 return DinoPark

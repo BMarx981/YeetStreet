@@ -1413,6 +1413,42 @@ Tuning.Dino = {
 			{ Yaw = 290, Down = 11 },
 		},
 	},
+	-- The T-Rex (Rex, run by Parks.DinoRex on the server): roams wherever
+	-- the palm trees may stand, starting at X, Z facing Heading, picking
+	-- spots to walk to from Seed, and hunts cars. Rex says what each number
+	-- does. Speeds are studs per second; RunSpeed is under every car's top
+	-- speed (80 at the bottom of the ladder), so a car that keeps going gets
+	-- away. Body is how far its middle stays from the trees' edges and
+	-- keep-outs. Reach and BiteHeight are how far ahead of its hips and how
+	-- high its jaws snap.
+	Rex = {
+		X = 550,
+		Z = 650,
+		Heading = 45,
+		Seed = 3,
+		WalkSpeed = 20,
+		RunSpeed = 70,
+		Accel = 40,
+		TurnRate = 50,
+		Sight = 300,
+		Lose = 500,
+		RoamRadius = 500,
+		GoalReach = 30,
+		GoalTime = 40,
+		Body = 60,
+		Neck = 40,
+		Reach = 120,
+		BiteHeight = 110,
+		Cone = 40,
+		WindUp = 0.6,
+		AirWindUp = 0.25,
+		Snap = 0.2,
+		Recover = 1.2,
+		Rest = 5,
+		Bite = 16,
+		AirHeight = 8,
+		Gravity = Tuning.World.Gravity,
+	},
 }
 
 return Tuning
