@@ -13,10 +13,12 @@
 -- to reach the feet. The neck stretches from the chest to wherever the head
 -- is. The jaw opens wide for a lunge and snaps shut on the bite, grips a
 -- held car and chomps while Chewing. The tail sways and swings out on turns.
--- While the T-Rex holds a car (HeldCar), the head is drawn where the car's
--- spot in its jaws is, so the car never drifts from them on screen.
+-- While the T-Rex holds a car (HeldCar) or a player on foot (HeldPlayer),
+-- the head is drawn where their spot in its jaws is, so they never drift
+-- from them on screen.
 -- Numbers are in Tuning.Dino.Rex (Head, Look).
 
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -36,6 +38,8 @@ local DARK_COLOR = Color3.fromRGB(20, 20, 20)
 
 -- The held car's middle in the head's frame, as the server holds it.
 local HELD_AT = CFrame.new(0, -H.CarDrop, -(H.Size.Z / 2 + Tuning.Chassis.HullSize.Z / 2 - H.CarIn))
+-- A held player's root: where a car's middle goes, turned across the jaws.
+local HELD_PERSON = HELD_AT * CFrame.Angles(0, math.pi / 2, 0)
 
 -- The body hangs from its hips HIP_HEIGHT over the ground. Points below are
 -- in the body's frame (facing -Z) unless they say otherwise.
@@ -258,8 +262,16 @@ RunService.RenderStepped:Connect(function(dt: number)
 	root = root:Lerp(serverRoot.CFrame, smooth)
 	local heldName = rex:GetAttribute("HeldCar")
 	local held = if typeof(heldName) == "string" and heldName ~= "" then carsFolder:FindFirstChild(heldName) else nil
+	local playerName = rex:GetAttribute("HeldPlayer")
+	local person = if typeof(playerName) == "string" and playerName ~= ""
+		then Players:FindFirstChild(playerName)
+		else nil
+	local character = if person and person:IsA("Player") then person.Character else nil
+	local personRoot = character and character:FindFirstChild("HumanoidRootPart")
 	if held and held:IsA("Model") and held.PrimaryPart and held.PrimaryPart.Anchored then
 		head = held:GetPivot() * HELD_AT:Inverse()
+	elseif personRoot and personRoot:IsA("BasePart") and personRoot.Anchored then
+		head = personRoot.CFrame * HELD_PERSON:Inverse()
 	else
 		head = head:Lerp(serverHead.CFrame, if mode == "lunge" then 1 - math.exp(-2 * L.Smooth * dt) else smooth)
 	end

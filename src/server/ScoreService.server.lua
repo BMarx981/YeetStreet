@@ -33,7 +33,10 @@
 -- air: base points kept, combo and clean bonus lost. While held it takes no
 -- hits and starts no run. If it slips free ("dropped") it carries on
 -- untouched; if it is chewed ("chewed") its toughness drains evenly over
--- Tuning.Dino.Rex.Chew seconds, then it wrecks.
+-- Tuning.Dino.Rex.Chew seconds, then it wrecks. A player it swallows on
+-- foot (ServerStorage.PlayerEaten) comes back in a fresh car at their last
+-- launcher, or at the hub before their first, through CarService's
+-- ServerStorage.GiveCar.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
@@ -236,6 +239,7 @@ end
 
 local carsFolder = workspace:WaitForChild("Cars")
 local respawnCar = ServerStorage:WaitForChild("RespawnCar") :: BindableEvent
+local giveCar = ServerStorage:WaitForChild("GiveCar") :: BindableEvent
 local propSmashed = ServerStorage:WaitForChild("PropSmashed") :: BindableEvent
 local boulderSmashed = ServerStorage:WaitForChild("BoulderSmashed") :: BindableEvent
 
@@ -249,16 +253,24 @@ end)
 
 -- Where a reset or wreck puts the car: the last launcher's respawn point, in
 -- the next lane over, or the car's own spawn lane before it has launched.
-local function respawnPoint(watch: Watch): CFrame?
-	local base = lastLaunch[watch.player]
+local function launcherPoint(player: Player): CFrame?
+	local base = lastLaunch[player]
 	if not base then
-		local spawn = watch.car:GetAttribute("SpawnCFrame")
-		return if typeof(spawn) == "CFrame" then spawn else nil
+		return nil
 	end
 	local R = Tuning.Reset
 	respawns += 1
 	local lane = respawns % R.RespawnLanes
 	return base * CFrame.new((lane - (R.RespawnLanes - 1) / 2) * R.RespawnLaneSpacing, 0, 0)
+end
+
+local function respawnPoint(watch: Watch): CFrame?
+	local point = launcherPoint(watch.player)
+	if point then
+		return point
+	end
+	local spawn = watch.car:GetAttribute("SpawnCFrame")
+	return if typeof(spawn) == "CFrame" then spawn else nil
 end
 
 local function respawn(watch: Watch)
@@ -364,6 +376,13 @@ carEaten.Event:Connect(function(car: Model, moment: "caught" | "chewed" | "dropp
 	end
 end)
 carEaten.Parent = ServerStorage
+
+local playerEaten = Instance.new("BindableEvent")
+playerEaten.Name = "PlayerEaten"
+playerEaten.Event:Connect(function(player: Player)
+	giveCar:Fire(player, launcherPoint(player))
+end)
+playerEaten.Parent = ServerStorage
 
 -- Ends the player's run, if any, and respawns their car.
 local function reset(player: Player)

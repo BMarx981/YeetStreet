@@ -203,6 +203,28 @@ respawnCar.Event:Connect(function(player: Player, cframe: CFrame)
 end)
 respawnCar.Parent = ServerStorage
 
+-- Builds a fresh car at `cframe` for a player on foot and seats them in it,
+-- as pressing Z does; with no cframe, in a spawn lane at the hub. ScoreService
+-- sends a player here when the T-Rex swallows them.
+local giveCar = Instance.new("BindableEvent")
+giveCar.Name = "GiveCar"
+giveCar.Event:Connect(function(player: Player, cframe: CFrame?)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not (character and humanoid and humanoid.Health > 0) then
+		return
+	end
+	for _, desc in character:GetDescendants() do
+		ghostPart(desc)
+	end
+	exited[player] = nil
+	if not cframe then
+		lanesUsed += 1
+	end
+	placeCar(player, humanoid, cframe or TestPark.spawnCFrame(lanesUsed))
+end)
+giveCar.Parent = ServerStorage
+
 -- Admin command: give a player the Frog Car.
 local giveFrogCar = Instance.new("BindableEvent")
 giveFrogCar.Name = "GiveFrogCar"

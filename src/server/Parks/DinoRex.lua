@@ -2,8 +2,8 @@
 -- DinoRex (ModuleScript) -> ServerScriptService.Parks.DinoRex
 -- Runs Dino Valley's T-Rex on the server, which owns where it is and every
 -- catch. Each Heartbeat it steps the brain (Rex) with every car in
--- workspace.Cars as the server sees them, and moves the T-Rex there, with
--- its Mode attribute set to the brain's mode.
+-- workspace.Cars and every player on foot as the server sees them, and
+-- moves the T-Rex there, with its Mode attribute set to the brain's mode.
 --
 -- A car it catches is anchored and held by its back end in the head, nose
 -- and driver out in the open, lifted up and shaken. ScoreService is told on
@@ -14,6 +14,12 @@
 -- chomp while ScoreService chews it to a wreck and respawns it. The brain
 -- never sees a held car, and rests once it is gone.
 --
+-- A player on foot it catches is held the same way, sideways in its jaws,
+-- by anchoring their root part. They are never hurt. Only a rolled slip
+-- drops them free; otherwise it chews them for Chew seconds and swallows,
+-- and ScoreService (told on ServerStorage.PlayerEaten) brings them back in a
+-- fresh car at their last launcher.
+--
 -- The driver's client says on ReplicatedStorage.HeldJets when its jets start
 -- and stop burning while its car is held. Only the held car's driver counts,
 -- and only the time it is held, so the most a false report does is free that
@@ -22,8 +28,9 @@
 -- The server moves only two invisible parts: Root, on the ground under its
 -- hips facing its heading, and Head, which rears back over a wind-up,
 -- snaps its mouth to the spot it bites, and shakes a held car. It also sets
--- the model's Chewing attribute and its HeldCar attribute (the held car's
--- name, or ""). Each client draws the T-Rex itself from those (TRexLook).
+-- the model's Chewing attribute, its HeldCar attribute (the held car's name,
+-- or "") and its HeldPlayer attribute (the held player's name, or ""). Each
+-- client draws the T-Rex itself from those (TRexLook).
 -- Numbers are in Tuning.Dino.Rex.
 
 local Players = game:GetService("Players")
@@ -48,6 +55,9 @@ local SHAKE = math.rad(15)
 local SHAKE_RATE = 1.5
 -- The held car's middle, in the head's frame (Tuning.Dino.Rex.Head).
 local HELD_AT = CFrame.new(0, -H.CarDrop, -(H.Size.Z / 2 + Tuning.Chassis.HullSize.Z / 2 - H.CarIn))
+-- A held player's root, in the head's frame: where a car's middle goes,
+-- turned across the jaws.
+local HELD_PERSON = HELD_AT * CFrame.Angles(0, math.pi / 2, 0)
 -- A held car never dips lower than a car standing on the floor.
 local HELD_LOWEST = Tuning.TestPark.SpawnHeight
 -- Seconds past chewing and the wreck's beat before a car still held is let
@@ -106,6 +116,29 @@ local function drop(car: Model)
 	end
 end
 
+local function rootOf(character: Model): BasePart?
+	local part = character:FindFirstChild("HumanoidRootPart")
+	return if part and part:IsA("BasePart") then part else nil
+end
+
+-- Lets a player it held fall from where they are, upright, and gives their
+-- character back to their game.
+local function dropPerson(character: Model, player: Player)
+	local rootPart = rootOf(character)
+	if not rootPart then
+		return
+	end
+	local at = character:GetPivot()
+	local look = at.LookVector * Vector3.new(1, 0, 1)
+	if look.Magnitude > 1e-3 then
+		character:PivotTo(CFrame.lookAt(at.Position, at.Position + look))
+	end
+	rootPart.Anchored = false
+	if rootPart:CanSetNetworkOwnership() then
+		rootPart:SetNetworkOwner(player)
+	end
+end
+
 -- Where the head goes this step: rearing back over the wind-up, snapping
 -- its mouth to the bite over Snap, shaking a held car, chomping too while it
 -- chews, and easing back to rest otherwise.
@@ -151,10 +184,13 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 	model:SetAttribute("Mode", s.mode)
 	model:SetAttribute("Chewing", false)
 	model:SetAttribute("HeldCar", "")
+	model:SetAttribute("HeldPlayer", "")
 
-	-- The car in its jaws, how long it has been held and its jets burned
-	-- there, whether it rolled a slip, and whether it is being chewed.
+	-- The car or character in its jaws (and whose character, if one), how
+	-- long it has been held and its jets burned there, whether it rolled a
+	-- slip, and whether it is being chewed.
 	local held: Model? = nil
+	local heldPlayer: Player? = nil
 	local heldFor, jetsFor = 0, 0
 	local slips = false
 	local chewing = false
@@ -175,6 +211,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 
 	local function letGo(seconds: number)
 		held = nil
+		heldPlayer = nil
 		Rex.letGo(s, seconds)
 	end
 
@@ -187,53 +224,99 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 				table.insert(cars, { id = car, x = p.X, y = p.Y, z = p.Z, vx = v.X, vy = v.Y, vz = v.Z })
 			end
 		end
+		for _, player in Players:GetPlayers() do
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local rootPart = character and rootOf(character)
+			if character ~= held and humanoid and humanoid.Health > 0 and humanoid.SeatPart == nil and rootPart then
+				local p, v = rootPart.Position, rootPart.AssemblyLinearVelocity
+				table.insert(cars, { id = character, x = p.X, y = p.Y, z = p.Z, vx = v.X, vy = v.Y, vz = v.Z })
+			end
+		end
 		local caught = Rex.step(s, cars, territory, rng, dt, R)
 		if caught then
-			local driver = driverOf(caught)
+			local person = Players:GetPlayerFromCharacter(caught)
+			local driver = person or driverOf(caught)
 			slips = Rex.slips(slipRolls:NextNumber(), R)
-			print(`T-Rex caught {if driver then driver.Name else caught.Name}{if slips then ", will slip" else ""}`)
-			held = caught
+			print(
+				`T-Rex caught {if driver then driver.Name else caught.Name}{if person then " on foot" else ""}{if slips
+					then ", will slip"
+					else ""}`
+			)
+			held, heldPlayer = caught, person
 			heldFor, jetsFor = 0, 0
 			chewing = false
-			setAnchored(caught, true)
-			tell(caught, "caught")
+			if person then
+				local rootPart = rootOf(caught)
+				if rootPart then
+					rootPart.Anchored = true
+				end
+			else
+				setAnchored(caught, true)
+				tell(caught, "caught")
+			end
 		end
 
 		local car = held
 		if car then
-			local driver = driverOf(car)
-			if car.Parent ~= carsFolder then
+			local person = heldPlayer
+			local driver = person or driverOf(car)
+			local gone = if person then person.Character ~= car or car.Parent == nil else car.Parent ~= carsFolder
+			if gone then
 				letGo(if chewing then R.Rest else R.Stun)
 			elseif chewing then
 				if os.clock() >= letGoAt then
-					drop(car)
-					tell(car, "dropped")
+					if person then
+						local rootPart = rootOf(car)
+						if rootPart then
+							rootPart.Anchored = false
+						end
+						local playerEaten = ServerStorage:FindFirstChild("PlayerEaten")
+						if playerEaten and playerEaten:IsA("BindableEvent") then
+							playerEaten:Fire(person)
+						end
+					else
+						drop(car)
+						tell(car, "dropped")
+					end
 					letGo(R.Rest)
 				end
 			else
 				heldFor += dt
-				if driver and jetting[driver] then
+				if not person and driver and jetting[driver] then
 					jetsFor += dt
 				end
 				local grip = Rex.grip(heldFor, jetsFor, slips, R)
 				if grip == "slip" then
 					print(`T-Rex dropped {if driver then driver.Name else car.Name}`)
-					drop(car)
-					tell(car, "dropped")
+					if person then
+						dropPerson(car, person)
+					else
+						drop(car)
+						tell(car, "dropped")
+					end
 					letGo(R.Stun)
 				elseif grip == "chew" then
 					chewing = true
-					letGoAt = os.clock() + R.Chew + Tuning.Toughness.WreckBeat + HOLD_SPARE
-					tell(car, "chewed")
+					if person then
+						letGoAt = os.clock() + R.Chew
+					else
+						letGoAt = os.clock() + R.Chew + Tuning.Toughness.WreckBeat + HOLD_SPARE
+						tell(car, "chewed")
+					end
 				end
 			end
 		end
 		if model:GetAttribute("Mode") ~= s.mode then
 			model:SetAttribute("Mode", s.mode)
 		end
-		local heldName = if held then held.Name else ""
+		local heldName = if held and not heldPlayer then held.Name else ""
 		if model:GetAttribute("HeldCar") ~= heldName then
 			model:SetAttribute("HeldCar", heldName)
+		end
+		local heldPlayerName = if heldPlayer then heldPlayer.Name else ""
+		if model:GetAttribute("HeldPlayer") ~= heldPlayerName then
+			model:SetAttribute("HeldPlayer", heldPlayerName)
 		end
 		local chewingNow = held ~= nil and chewing
 		if model:GetAttribute("Chewing") ~= chewingNow then
@@ -245,7 +328,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 		head.CFrame = headFrame(s, chewing, hips, head.CFrame, dt)
 
 		if held then
-			local frame = head.CFrame * HELD_AT
+			local frame = head.CFrame * (if heldPlayer then HELD_PERSON else HELD_AT)
 			local lift = math.max(territory.floor + HELD_LOWEST - frame.Y, 0)
 			held:PivotTo(frame + Vector3.new(0, lift, 0))
 		end
