@@ -50,6 +50,17 @@ local folder = Instance.new("Folder")
 folder.Name = "DinoTail"
 folder.Parent = workspace
 
+-- The :dino admin command puts the park away; the tail hides with it.
+local enabled = ReplicatedStorage:WaitForChild("DinoValleyEnabled", 30)
+if enabled then
+	if not enabled.Value then
+		folder.Parent = nil
+	end
+	enabled.Changed:Connect(function(value)
+		folder.Parent = if value then workspace else nil
+	end)
+end
+
 local function block(name: string, size: Vector3, color: Color3): Part
 	local part = Instance.new("Part")
 	part.Name = name

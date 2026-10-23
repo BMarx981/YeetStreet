@@ -33,8 +33,10 @@
 -- air: base points kept, combo and clean bonus lost. While held it takes no
 -- hits and starts no run. If it slips free ("dropped") it carries on
 -- untouched; if it is chewed ("chewed") its toughness drains evenly over
--- Tuning.Dino.Rex.Chew seconds, then it wrecks. A player it swallows on
--- foot (ServerStorage.PlayerEaten) comes back in a fresh car at their last
+-- Tuning.Dino.Rex.Chew seconds, then it wrecks. The pterodactyl carrying a
+-- car (ServerStorage.CarCarried) holds it the same way, with no chewing,
+-- until it drops it. A player the T-Rex swallows on foot
+-- (ServerStorage.PlayerEaten) comes back in a fresh car at their last
 -- launcher, or at the hub before their first, through CarService's
 -- ServerStorage.GiveCar.
 --
@@ -87,7 +89,7 @@ type Watch = {
 	respawning: boolean, -- a respawn was asked for; the car is about to go
 	burning: boolean, -- as the car's Burning attribute shows
 	burnedAt: number, -- os.clock() when lava last burned it
-	held: boolean, -- in the T-Rex's jaws
+	held: boolean, -- in the T-Rex's jaws or the pterodactyl's talons
 	chewed: boolean, -- and being chewed
 }
 
@@ -376,6 +378,28 @@ carEaten.Event:Connect(function(car: Model, moment: "caught" | "chewed" | "dropp
 	end
 end)
 carEaten.Parent = ServerStorage
+
+-- The pterodactyl carrying a car (Parks.DinoPtero fires
+-- ServerStorage.CarCarried) ends any run it had, and while carried it takes
+-- no hits and starts no run, until it is "dropped".
+local carCarried = Instance.new("BindableEvent")
+carCarried.Name = "CarCarried"
+carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped")
+	local watch = watches[car]
+	if not watch or watch.wrecked then
+		return
+	end
+	if moment == "dropped" then
+		watch.held = false
+		return
+	end
+	watch.held = true
+	local result = RunTracker.abort(watch.run)
+	if result then
+		finish(watch, result)
+	end
+end)
+carCarried.Parent = ServerStorage
 
 local playerEaten = Instance.new("BindableEvent")
 playerEaten.Name = "PlayerEaten"

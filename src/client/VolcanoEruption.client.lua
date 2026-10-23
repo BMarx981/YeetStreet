@@ -99,6 +99,17 @@ crater.Size = Vector3.new(rim * 1.4, 1, rim * 1.4)
 crater.CFrame = base * CFrame.new(0, tube.floor + 5, 0)
 crater.Parent = workspace
 
+-- The :dino admin command puts the park away; the volcano hides with it.
+local enabled = ReplicatedStorage:WaitForChild("DinoValleyEnabled", 30)
+if enabled then
+	local function setShown(shown: boolean)
+		anchor.Parent = if shown then workspace else nil
+		crater.Parent = if shown then workspace else nil
+	end
+	setShown(enabled.Value)
+	enabled.Changed:Connect(setShown)
+end
+
 local plume = Instance.new("ParticleEmitter")
 plume.Rate = S.Rate
 plume.Texture = "rbxasset://textures/particles/smoke_main.dds"
@@ -176,6 +187,9 @@ local carsFolder = workspace:WaitForChild("Cars")
 local lastErupted: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 RunService.Heartbeat:Connect(function()
+	if not (enabled and enabled.Value) then
+		return
+	end
 	local now = os.clock()
 	for _, car in carsFolder:GetChildren() do
 		local hull = car:FindFirstChild("Hull")

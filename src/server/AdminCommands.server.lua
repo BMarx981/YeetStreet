@@ -31,6 +31,7 @@ local GLOBAL_COMMANDS = {
 	global = true,
 	money = true,
 	bones = true,
+	dino = true,
 }
 
 -- Weather presets
@@ -301,7 +302,12 @@ local COMMAND_INFO = {
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
+	{ name = "dino",       desc = "Toggle Dino Valley on/off",                        usage = ":dino",                         optionsType = "none" },
 }
+
+-- Dino Valley's park folder, kept by the :dino command so the park can be
+-- brought back after it is put away.
+local dinoPark: Instance? = nil
 
 -- Commands table: each command takes (adminPlayer, argsString)
 local COMMANDS = {
@@ -539,6 +545,29 @@ local COMMANDS = {
 		return target.Name .. " has been promoted to admin."
 	end,
 
+	dino = function(adminPlayer, args)
+		local parks = workspace:FindFirstChild("Parks")
+		if not dinoPark and parks then
+			dinoPark = parks:FindFirstChild("Dino")
+		end
+		if not dinoPark or not parks then
+			return "Dino Valley not found."
+		end
+		local enabledValue = ReplicatedStorage:FindFirstChild("DinoValleyEnabled")
+		if dinoPark.Parent == parks then
+			dinoPark.Parent = nil
+			if enabledValue then
+				enabledValue.Value = false
+			end
+			return "Dino Valley disabled."
+		end
+		dinoPark.Parent = parks
+		if enabledValue then
+			enabledValue.Value = true
+		end
+		return "Dino Valley enabled."
+	end,
+
 	cmd = function(adminPlayer, args)
 		-- Send the live command list to the admin's client
 		commandListEvent:FireClient(adminPlayer, COMMAND_INFO)
@@ -563,6 +592,7 @@ local COMMANDS = {
 :bones [amount] - Give yourself BoneCoins (default 100)
 :bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
+:dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers
 :cmd - Show the interactive command list

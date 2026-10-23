@@ -460,8 +460,9 @@ local function step(r: Rig, dt: number)
 		if r.model:GetAttribute("JetsBurning") ~= burning then
 			r.model:SetAttribute("JetsBurning", burning)
 		end
-		-- The T-Rex holds a car by anchoring it, and jets help it break free,
-		-- so the server hears when they start and stop burning there.
+		-- The T-Rex and the pterodactyl hold a car by anchoring it, and jets
+		-- help it break free, so the server hears when they start and stop
+		-- burning there.
 		local heldJets = burning and r.hull.Anchored
 		if heldJets ~= heldJetsSent then
 			heldJetsSent = heldJets

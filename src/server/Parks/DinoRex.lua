@@ -216,10 +216,26 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 	end
 
 	RunService.Heartbeat:Connect(function(dt: number)
+		-- While the park is put away (the :dino admin command) the T-Rex
+		-- rests: anything in its jaws is let go, and nothing else runs.
+		if not model:IsDescendantOf(workspace) then
+			local car = held
+			if car then
+				if heldPlayer then
+					dropPerson(car, heldPlayer)
+				else
+					drop(car)
+					tell(car, "dropped")
+				end
+				letGo(R.Rest)
+			end
+			return
+		end
 		local cars: { Rex.Car } = {}
 		for _, car in carsFolder:GetChildren() do
 			local hull = if car:IsA("Model") and car ~= held then car.PrimaryPart else nil
-			if hull then
+			-- An anchored car is held by something else (the pterodactyl).
+			if hull and not hull.Anchored then
 				local p, v = hull.Position, hull.AssemblyLinearVelocity
 				table.insert(cars, { id = car, x = p.X, y = p.Y, z = p.Z, vx = v.X, vy = v.Y, vz = v.Z })
 			end
