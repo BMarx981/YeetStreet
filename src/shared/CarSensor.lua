@@ -133,6 +133,15 @@ local function impact(last: CFrame?, lastVelocity: Vector3?, cf: CFrame, velocit
 	return cf:VectorToObjectSpace(change)
 end
 
+-- The car was just let go in the air after being held still (the
+-- pterodactyl): it is flying, and the jump from where it was last read to
+-- its speed now is not a hit or a turn.
+function CarSensor.dropped(sensor: Sensor)
+	sensor.contact = { airborne = true, airtime = 0 }
+	sensor.lastCFrame = nil
+	sensor.lastVelocity = nil
+end
+
 -- `up` is which way the car should be the right way up: world up, or inside
 -- a tube, toward its middle line.
 function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading

@@ -727,6 +727,26 @@ task.spawn(function()
 	end)
 end)
 
+-- The pterodactyl let the car go: a run starts there, as on the server, its
+-- height counted from the ground below.
+task.spawn(function()
+	local dropRun = ReplicatedStorage:WaitForChild("DropRun")
+	if not dropRun:IsA("RemoteEvent") then
+		warn("CarController: ReplicatedStorage.DropRun is not a RemoteEvent; drops show no live score")
+		return
+	end
+	dropRun.OnClientEvent:Connect(function(groundY: number)
+		local r = rig
+		if not r then
+			return
+		end
+		local at = r.hull.Position
+		CarSensor.dropped(r.sensor)
+		RunTracker.drop(run, at.X, at.Y, at.Z, groundY)
+		tricksShown = 0
+	end)
+end)
+
 task.spawn(function()
 	local remote = ReplicatedStorage:WaitForChild("ResetCar")
 	if remote:IsA("RemoteEvent") then

@@ -1509,7 +1509,10 @@ Tuning.Dino = {
 	-- inside the park, at CarrySpeed, climbing CarryClimb studs a second to
 	-- CarryHeight above the floor, and dropped there. EscapeJets seconds of
 	-- jets drop it sooner, and FumbleChance of grabs fumble it somewhere
-	-- between FumbleFrom and FumbleTo up. Then it flies home and perches.
+	-- between FumbleFrom and FumbleTo up. The drop starts a run, its height
+	-- counted from the ground, paying PayScale of its cash, and no hits count
+	-- for DropGrace seconds while the driver's game takes the car back. Then
+	-- it flies home and perches.
 	-- The spire stands Spire.Height, in Tiers of rock blocks from
 	-- BaseWidth to TopWidth across, a nest NestWidth across on top; the
 	-- T-Rex and the palms keep Clear past its foot.
@@ -1558,6 +1561,8 @@ Tuning.Dino = {
 		FumbleTo = 650,
 		PerchTime = 10,
 		PerchReach = 20,
+		PayScale = 0.6,
+		DropGrace = 1,
 	},
 }
 

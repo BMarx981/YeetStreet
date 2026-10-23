@@ -35,8 +35,9 @@
 -- untouched; if it is chewed ("chewed") its toughness drains evenly over
 -- Tuning.Dino.Rex.Chew seconds, then it wrecks. The pterodactyl carrying a
 -- car (ServerStorage.CarCarried) holds it the same way, with no chewing,
--- until it drops it. A player the T-Rex swallows on foot
--- (ServerStorage.PlayerEaten) comes back in a fresh car at their last
+-- until it drops it, which starts a run counting the whole fall. A player
+-- the T-Rex swallows on foot (ServerStorage.PlayerEaten) comes back in a
+-- fresh car at their last
 -- launcher, or at the hub before their first, through CarService's
 -- ServerStorage.GiveCar.
 --
@@ -91,6 +92,9 @@ type Watch = {
 	burnedAt: number, -- os.clock() when lava last burned it
 	held: boolean, -- in the T-Rex's jaws or the pterodactyl's talons
 	chewed: boolean, -- and being chewed
+	-- os.clock() until which hits are not measured: a dropped car's speed
+	-- jumps when its driver's game takes it back, which is not a hit.
+	hitsFrom: number,
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -176,6 +180,7 @@ local function watchFor(car: Model): Watch?
 		burnedAt = -math.huge,
 		held = false,
 		chewed = false,
+		hitsFrom = -math.huge,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -381,16 +386,30 @@ carEaten.Parent = ServerStorage
 
 -- The pterodactyl carrying a car (Parks.DinoPtero fires
 -- ServerStorage.CarCarried) ends any run it had, and while carried it takes
--- no hits and starts no run, until it is "dropped".
+-- no hits and starts no run. When it is "dropped" a run starts there, its
+-- height counted from the ground below (`groundY`) and its cash scaled by
+-- Tuning.Dino.Ptero.PayScale, and the driver's client is told on
+-- ReplicatedStorage.DropRun so its live score starts too.
+local dropRun = Instance.new("RemoteEvent")
+dropRun.Name = "DropRun"
+dropRun.Parent = ReplicatedStorage
+
 local carCarried = Instance.new("BindableEvent")
 carCarried.Name = "CarCarried"
-carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped")
+carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", groundY: number?)
 	local watch = watches[car]
 	if not watch or watch.wrecked then
 		return
 	end
 	if moment == "dropped" then
 		watch.held = false
+		local at = watch.sensor.hull.Position
+		local ground = groundY or 0
+		CarSensor.dropped(watch.sensor)
+		RunTracker.drop(watch.run, at.X, at.Y, at.Z, ground)
+		watch.payScale = Tuning.Dino.Ptero.PayScale
+		watch.hitsFrom = os.clock() + Tuning.Dino.Ptero.DropGrace
+		dropRun:FireClient(watch.player, ground)
 		return
 	end
 	watch.held = true
@@ -524,7 +543,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 					watch.burning = burning
 					car:SetAttribute("Burning", burning)
 				end
-				hurt(watch, reading.impact)
+				if os.clock() >= watch.hitsFrom then
+					hurt(watch, reading.impact)
+				end
 				if watch.toughness <= 0 and not watch.wrecked then
 					wreck(watch)
 				else

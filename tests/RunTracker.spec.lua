@@ -372,4 +372,36 @@ Check.test("a plain landing has no swing bonus", function()
 	Check.eq(result.swing, false)
 end)
 
+Check.test("a drop starts a run in the air, its height counted from the ground below", function()
+	local state = RunTracker.new()
+	RunTracker.drop(state, 10, 60, -20, 0.5)
+	Check.eq(state.phase, "flying", "phase")
+	Check.eq(step(state, { airborne = true, x = 10, y = 50, z = -25 }), nil, "still falling")
+	local result = step(state, { airborne = false, x = 10, y = 2, z = -60 }) :: RunTracker.Result
+	Check.eq(result.ending, "landed", "ending")
+	Check.near(result.height, 59.5, "height")
+	Check.near(result.distance, 40, "distance from the drop")
+	Check.near(result.airtime, DT, "airtime")
+	Check.eq(result.launchX, 10, "launch x")
+	Check.eq(result.launchZ, -20, "launch z")
+end)
+
+Check.test("a drop's peak counts any rise after it is let go", function()
+	local state = RunTracker.new()
+	RunTracker.drop(state, 0, 30, 0, 0)
+	step(state, { airborne = true, y = 50 })
+	step(state, { airborne = true, y = 20 })
+	local result = step(state, { airborne = false, y = 2 }) :: RunTracker.Result
+	Check.near(result.height, 50, "height")
+end)
+
+Check.test("a drop replaces whatever run there was, tricks and all", function()
+	local state = launched()
+	step(state, { airborne = true, turnX = 7 })
+	RunTracker.drop(state, 0, 40, 0, 0)
+	local result = step(state, { airborne = false, y = 2 }) :: RunTracker.Result
+	Check.eq(#result.tricks, 0, "tricks")
+	Check.near(result.height, 40, "height")
+end)
+
 Check.finish("RunTracker")

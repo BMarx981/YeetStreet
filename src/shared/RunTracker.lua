@@ -16,6 +16,9 @@
 -- pad. Time on the rail counts as grind time instead of airtime, and wheels
 -- touching or a slow car never end the run while it lasts.
 --
+-- Being let go in the air (drop) starts a run there, its height counted from
+-- the ground below.
+--
 -- A swing seat (Swing) is a launcher like a pad: riding it arms a run, and
 -- leaving it into the air starts one. Coming down on a seat ends a run as a
 -- landing, with the swing bonus unless it is the seat the run launched from.
@@ -250,6 +253,18 @@ function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
 		end
 	end
 	return nil
+end
+
+-- Starts a fresh run in the air at x, y, z, as if launched from the ground
+-- below at `groundY`, so the whole fall counts as its height: something
+-- carried the car up and let it go there (the pterodactyl). Whatever run
+-- there was is dropped.
+function RunTracker.drop(state: State, x: number, y: number, z: number, groundY: number)
+	reset(state)
+	state.phase = "flying"
+	state.launchX, state.launchY, state.launchZ = x, groundY, z
+	state.lastX, state.lastY, state.lastZ = x, y, z
+	state.peakY = y
 end
 
 -- The flying run so far, as if it landed (not clean) where the car is now, for

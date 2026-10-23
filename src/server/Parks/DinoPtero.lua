@@ -9,7 +9,7 @@
 -- A car it grabs is anchored and carried level under its talons, roof up
 -- and facing the way it flies, driver seated in the open, up its spiral.
 -- ScoreService is told on ServerStorage.CarCarried: "grabbed", then
--- "dropped". It lets go (Ptero.releases) when the car's jets have burned
+-- "dropped", which starts a run from there. It lets go (Ptero.releases) when the car's jets have burned
 -- EscapeJets seconds, at a fumble's height if the grab rolled one
 -- (Ptero.fumble), or at the top: the car falls from there at the speed it
 -- was carried, level and untouched, back in its driver's hands.
@@ -81,10 +81,11 @@ local function setAnchored(car: Model, anchored: boolean)
 	end
 end
 
-local function tell(car: Model, moment: string)
+-- `groundY` is the height of the ground under a dropped car.
+local function tell(car: Model, moment: string, groundY: number?)
 	local carCarried = ServerStorage:FindFirstChild("CarCarried")
 	if carCarried and carCarried:IsA("BindableEvent") then
-		carCarried:Fire(car, moment)
+		carCarried:Fire(car, moment, groundY)
 	end
 end
 
@@ -146,7 +147,7 @@ function DinoPtero.start(model: Model, territory: Ptero.Territory, perch: CFrame
 		if car and car.Parent == carsFolder then
 			local fx, fz = Ptero.forward(s.heading)
 			drop(car, Vector3.new(fx * s.speed, s.vy, fz * s.speed))
-			tell(car, "dropped")
+			tell(car, "dropped", territory.floor)
 		end
 		carried, fumbleAt = nil, nil
 		Ptero.letGo(s)
