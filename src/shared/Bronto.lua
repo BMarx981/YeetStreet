@@ -121,6 +121,29 @@ function Bronto.crown(width: number, flat: number, drop: number, strips: number)
 	return points
 end
 
+-- How wide the rounded back of `Bronto.crown` is down to `below` studs under
+-- its flat middle.
+function Bronto.crownWidth(width: number, flat: number, drop: number, below: number): number
+	local u = math.min(math.sqrt(below / (drop * width)), 1)
+	return width * flat + width * (1 - flat) * u
+end
+
+-- How far along the path it first reaches `up` studs above the ground, or
+-- its end if it never does.
+function Bronto.alongAt(planks: { Plank }, up: number): number
+	for _, p in planks do
+		local startUp = p.up - p.length / 2 * math.sin(p.tilt)
+		local endUp = p.up + p.length / 2 * math.sin(p.tilt)
+		if up <= startUp then
+			return p.along - p.length / 2
+		elseif up <= endUp then
+			return p.along - p.length / 2 + (up - startUp) / math.sin(p.tilt)
+		end
+	end
+	local last = planks[#planks]
+	return last.along + last.length / 2
+end
+
 -- How much of something there is `along` studs from the tail tip, from 0 to
 -- 1: none up to `from`, then growing evenly to all of it `length` past that.
 function Bronto.growIn(along: number, from: number, length: number): number

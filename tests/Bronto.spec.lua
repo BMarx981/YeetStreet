@@ -173,6 +173,23 @@ Check.test("growIn is none before From, then grows evenly to full over Length", 
 	Check.near(Bronto.growIn(500, 30, 60), 1, "past it")
 end)
 
+Check.test("crownWidth is the flat middle at the top and widens down to the full width", function()
+	Check.near(Bronto.crownWidth(40, 0.5, 0.1, 0), 20, "just the flat middle")
+	Check.near(Bronto.crownWidth(40, 0.5, 0.1, 1), 30, "a quarter of the drop is halfway out")
+	Check.near(Bronto.crownWidth(40, 0.5, 0.1, 4), 40, "the whole drop is the full width")
+	Check.near(Bronto.crownWidth(40, 0.5, 0.1, 10), 40, "never wider than the full width")
+end)
+
+Check.test("alongAt finds where the path first reaches a height", function()
+	local planks = Bronto.planks(START, SEGMENTS, 5)
+	Check.near(Bronto.alongAt(planks, 0), 0, "the ground is the tail tip")
+	for _, up in { 0.5, 2, 30 } do
+		local _, reached = Bronto.pointAt(planks, Bronto.alongAt(planks, up))
+		Check.near(reached, up, `reaches {up}`)
+	end
+	Check.near(Bronto.alongAt(planks, 10000), 1036, "past the head is the head's end")
+end)
+
 Check.test("pointAt follows the planks", function()
 	local planks = Bronto.planks(START, SEGMENTS, 5)
 	local out, up = Bronto.pointAt(planks, 0)

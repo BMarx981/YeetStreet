@@ -1252,13 +1252,14 @@ Tuning.Dino = {
 		WrinklesFrom = 700,
 		WrinkleEvery = 3,
 		ScaleEvery = 12,
-		-- The tail's tip, past the path's start, lying on the ground and
-		-- swishing side to side (DinoTail, on each client): Segments blocks
-		-- over Length studs, narrowing from the skin's flat middle where the
-		-- path starts to TipWidth, bending up to Swing degrees at the tip,
-		-- once each way every Period seconds. Spots of the back's dark spots
-		-- lie on it, and the back's booster stripes carry on along it.
-		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 2, Swing = 50, Period = 4, Spots = 6 },
+		-- The tail's tip, lying on the ground Height tall and swishing side to
+		-- side (DinoTail, on each client). It starts where the path has risen
+		-- to Height, as wide as the back there, and runs Length past the
+		-- path's start in blocks about Length / Segments long, narrowing to
+		-- TipWidth. Past the path's start it bends up to Swing degrees at the
+		-- tip, once each way every Period seconds. Spots of the back's dark
+		-- spots lie on it, and the back's booster stripes carry on along it.
+		Tail = { Length = 90, Segments = 9, TipWidth = 4, Height = 1, Swing = 50, Period = 4, Spots = 6 },
 	},
 	-- Palm trees dotted about the park (Scatter): Count of them at least Gap
 	-- apart, Edge in from the park's edges, and clear of the brontosaurus
