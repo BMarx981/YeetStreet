@@ -28,10 +28,12 @@
 -- not; lava burns it until it drives out or wrecks, and sets its Burning
 -- attribute while it does. The driver is never hurt.
 --
--- The T-Rex catching a car (Parks.DinoRex fires ServerStorage.CarEaten) ends
--- its run as a wreck, paying a T-Rex target if it was in the air: base
--- points kept, combo and clean bonus lost. Run or not, it is chewed: its
--- toughness drains evenly over Tuning.Dino.Rex.Chew seconds, then it wrecks.
+-- The T-Rex catching a car (Parks.DinoRex fires ServerStorage.CarEaten with
+-- "caught") ends its run as a wreck, paying a T-Rex target if it was in the
+-- air: base points kept, combo and clean bonus lost. While held it takes no
+-- hits and starts no run. If it slips free ("dropped") it carries on
+-- untouched; if it is chewed ("chewed") its toughness drains evenly over
+-- Tuning.Dino.Rex.Chew seconds, then it wrecks.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
@@ -82,7 +84,8 @@ type Watch = {
 	respawning: boolean, -- a respawn was asked for; the car is about to go
 	burning: boolean, -- as the car's Burning attribute shows
 	burnedAt: number, -- os.clock() when lava last burned it
-	eaten: boolean, -- in the T-Rex's jaws
+	held: boolean, -- in the T-Rex's jaws
+	chewed: boolean, -- and being chewed
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -166,7 +169,8 @@ local function watchFor(car: Model): Watch?
 		respawning = false,
 		burning = false,
 		burnedAt = -math.huge,
-		eaten = false,
+		held = false,
+		chewed = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -336,12 +340,21 @@ end)
 
 local carEaten = Instance.new("BindableEvent")
 carEaten.Name = "CarEaten"
-carEaten.Event:Connect(function(car: Model)
+carEaten.Event:Connect(function(car: Model, moment: "caught" | "chewed" | "dropped")
 	local watch = watches[car]
-	if not watch or watch.wrecked or watch.eaten then
+	if not watch or watch.wrecked then
 		return
 	end
-	watch.eaten = true
+	if moment == "chewed" then
+		watch.chewed = watch.held
+		return
+	elseif moment == "dropped" then
+		watch.held = false
+		return
+	elseif watch.held then
+		return
+	end
+	watch.held = true
 	if watch.run.phase == "flying" then
 		table.insert(watch.targets, "T-Rex")
 	end
@@ -437,8 +450,8 @@ RunService.Heartbeat:Connect(function(dt: number)
 	for _, car in carsFolder:GetChildren() do
 		if car:IsA("Model") then
 			local watch = watchFor(car)
-			if watch and watch.eaten then
-				if not watch.wrecked then
+			if watch and watch.held then
+				if watch.chewed and not watch.wrecked then
 					damageCar(watch, Toughness.burn(watch.maxToughness, dt, Tuning.Dino.Rex.Chew), nil)
 					if watch.toughness <= 0 then
 						wreck(watch)

@@ -118,6 +118,8 @@ local rig: Rig? = nil
 local defaultControls: any = nil
 local fuel = 0
 local burning = false
+-- What the server was last told about the jets burning in the T-Rex's jaws.
+local heldJetsSent = false
 local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
@@ -458,6 +460,16 @@ local function step(r: Rig, dt: number)
 		if r.model:GetAttribute("JetsBurning") ~= burning then
 			r.model:SetAttribute("JetsBurning", burning)
 		end
+		-- The T-Rex holds a car by anchoring it, and jets help it break free,
+		-- so the server hears when they start and stop burning there.
+		local heldJets = burning and r.hull.Anchored
+		if heldJets ~= heldJetsSent then
+			heldJetsSent = heldJets
+			local remote = ReplicatedStorage:FindFirstChild("HeldJets")
+			if remote and remote:IsA("RemoteEvent") then
+				remote:FireServer(heldJets)
+			end
+		end
 	end
 
 	-- In the air, gas and brake only pitch the car, and the wheels free roll so
@@ -555,6 +567,13 @@ local function enter(r: Rig)
 	burning = false
 	stuckTime = 0
 	resetHeld = false
+	if heldJetsSent then
+		heldJetsSent = false
+		local remote = ReplicatedStorage:FindFirstChild("HeldJets")
+		if remote and remote:IsA("RemoteEvent") then
+			remote:FireServer(false)
+		end
+	end
 	righting = false
 	run = RunTracker.new()
 	tricksShown = 0

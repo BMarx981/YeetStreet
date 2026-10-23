@@ -17,8 +17,13 @@
 --            that spot, and a car within Bite of it then is caught.
 --   recover  missed: Recover seconds walking after its car before it hunts
 --            again
---   rest     caught one: Rest seconds ignoring every car, the first Chew of
---            them standing still while it chews
+--   hold     caught one: stands still holding it, ignoring every car, until
+--            the server lets go (letGo). Held, a car slips free with
+--            EscapeJets seconds of jets in the first Grip seconds, or at the
+--            end of them if it rolled a slip (slips, SlipChance); otherwise it
+--            is chewed (grip).
+--   rest     let go: the seconds the server gives, roaming and ignoring
+--            every car
 --
 -- A car more than AirHeight above the floor is in the air: never chased,
 -- only snapped at. Its territory is a rectangle less keep-out lines
@@ -72,7 +77,7 @@ export type Car = {
 	vz: number,
 }
 
-export type Mode = "roam" | "chase" | "lunge" | "recover" | "rest"
+export type Mode = "roam" | "chase" | "lunge" | "recover" | "hold" | "rest"
 
 export type State = {
 	mode: Mode,
@@ -90,6 +95,7 @@ export type State = {
 	jawY: number,
 	jawZ: number,
 	air: boolean,
+	restFor: number, -- seconds it rests once let go
 }
 
 export type Tuning = {
@@ -111,8 +117,9 @@ export type Tuning = {
 	AirWindUp: number,
 	Snap: number,
 	Recover: number,
-	Rest: number,
-	Chew: number,
+	Grip: number,
+	EscapeJets: number,
+	SlipChance: number,
 	Bite: number,
 	AirHeight: number,
 	Gravity: number,
@@ -148,6 +155,7 @@ function Rex.new(x: number, z: number, heading: number): State
 		jawY = 0,
 		jawZ = z,
 		air = false,
+		restFor = 0,
 	}
 end
 
@@ -394,19 +402,19 @@ function Rex.step(s: State, cars: { Car }, territory: Territory, rng: Rng, dt: n
 		local caught = bitten(s, cars, tuning)
 		if caught ~= nil then
 			s.target = nil
-			setMode(s, "rest")
+			setMode(s, "hold")
 		else
 			setMode(s, "recover")
 		end
 		return caught
 	end
 
-	if s.mode == "rest" and s.timer < tuning.Chew then
+	if s.mode == "hold" then
 		s.speed = 0
 		return nil
 	end
 
-	if s.mode == "rest" and s.timer >= tuning.Rest then
+	if s.mode == "rest" and s.timer >= s.restFor then
 		setMode(s, "roam")
 	elseif s.mode == "recover" and s.timer >= tuning.Recover then
 		setMode(s, "chase")
@@ -436,6 +444,30 @@ function Rex.step(s: State, cars: { Car }, territory: Territory, rng: Rng, dt: n
 		roam(s, territory, rng, dt, tuning)
 	end
 	return nil
+end
+
+-- Lets go of the car it holds and rests for `seconds`.
+function Rex.letGo(s: State, seconds: number)
+	s.restFor = seconds
+	setMode(s, "rest")
+end
+
+-- Whether a catch rolled a slip, from a roll from 0 up to 1.
+function Rex.slips(roll: number, tuning: Tuning): boolean
+	return roll < tuning.SlipChance
+end
+
+-- What becomes of a car held `held` seconds, with `jets` seconds of its jets
+-- burning so far, that did or did not roll a slip: still in the grip, slips
+-- free, or chewed.
+function Rex.grip(held: number, jets: number, slips: boolean, tuning: Tuning): "hold" | "slip" | "chew"
+	if jets >= tuning.EscapeJets then
+		return "slip"
+	end
+	if held < tuning.Grip then
+		return "hold"
+	end
+	return if slips then "slip" else "chew"
 end
 
 return Rex

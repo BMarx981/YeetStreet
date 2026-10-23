@@ -97,12 +97,16 @@ type Archetype = {
 	Bed: boolean?,
 	Open: boolean?,
 	OpenChance: number?,
+	Neck: boolean?,
+	Sail: boolean?,
+	Face: boolean?,
 	Hover: boolean?,
 	FlatNose: boolean?,
 	Upright: boolean?,
 	Walls: boolean?,
 	Spare: boolean?,
 	SchoolBus: boolean?,
+	Horns: boolean?,
 	Paint: Color?,
 }
 type Tier = {
@@ -133,6 +137,10 @@ local HOVER_GLOW: Color = { 80, 200, 255 }
 local TIRE: Color = { 30, 30, 32 }
 local BUS_BLACK: Color = { 20, 20, 20 }
 local STOP_RED: Color = { 200, 20, 20 }
+local HORN: Color = { 235, 225, 195 }
+local EYE_GLOW: Color = { 255, 230, 60 }
+local MOUTH_DARK: Color = { 25, 20, 20 }
+local TOOTH: Color = { 245, 240, 225 }
 
 local ROOF_THICKNESS = 0.2
 
@@ -467,6 +475,60 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		local signPaint: Paint = { color = STOP_RED, material = "SmoothPlastic", reflectance = 0, role = "trim" }
 		local signPosition = vec(-(width / 2 + 0.1), cabinBase + 0.35, sliceZ(cabinFirst))
 		add("cylinder", "StopSign", "sides", vec(0.1, 0.8, 0.8), signPosition, signPaint)
+	end
+	if shape.Horns then
+		-- Three horns on the nose: a pair of long brow horns and a short nose
+		-- horn, all pointing forward.
+		local hornPaint: Paint = { color = HORN, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local h = heights[1]
+		local noseZ = -length / 2
+		for _, side in { -1, 1 } do
+			local x = side * (width / 2 - 0.6)
+			add("cylinder", "Horn", "nose", vec(1.5, 0.5, 0.5), vec(x, bottom + h * 0.85, noseZ - 0.45), hornPaint, 90)
+		end
+		add("cylinder", "Horn", "nose", vec(0.9, 0.45, 0.45), vec(0, bottom + h * 0.45, noseZ - 0.15), hornPaint, 90)
+	end
+	if shape.Neck then
+		-- A long neck rising from the nose: stacked blocks stepping up and
+		-- forward, with a head on top.
+		local neckPaint = bodyPaint(sliceColors[1])
+		local y = bottom + heights[1]
+		local z = -length / 2
+		for _ = 1, 3 do
+			add("block", "Neck", "nose", vec(1.2, 1.3, 1.2), vec(0, y + 0.65, z - 0.55), neckPaint)
+			y += 1.3
+			z -= 0.8
+		end
+		add("block", "Head", "nose", vec(1.1, 0.9, 1.8), vec(0, y + 0.45, z - 0.6), neckPaint)
+	end
+	if shape.Sail then
+		-- A tall fin along the back, tallest at the middle.
+		local sailPaint = bodyPaint(sliceColors[cabinFirst])
+		local first = noseCount + 1
+		for i = first, count do
+			local t = (i - first) / math.max(1, count - first)
+			local height = 0.6 + 3.2 * math.sin(t * math.pi)
+			local size = vec(0.35, height, sliceLength * 0.95)
+			add("block", "Sail", "roof", size, vec(0, topAt(i) + height / 2, sliceZ(i)), sailPaint)
+		end
+	end
+	if shape.Face then
+		-- A face on the front of the nose: two glowing eyes above a dark
+		-- mouth with a row of white teeth.
+		local eyePaint: Paint = { color = EYE_GLOW, material = "Neon", reflectance = 0, role = "trim" }
+		local mouthPaint: Paint = { color = MOUTH_DARK, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local toothPaint: Paint = { color = TOOTH, material = "SmoothPlastic", reflectance = 0, role = "trim" }
+		local h = heights[1]
+		local noseZ = -length / 2
+		for _, side in { -1, 1 } do
+			local x = side * (width / 4)
+			add("block", "Eye", "nose", vec(0.4, 0.4, 0.12), vec(x, bottom + h * 0.8, noseZ - 0.05), eyePaint)
+		end
+		add("block", "Mouth", "nose", vec(width * 0.55, 0.45, 0.1), vec(0, bottom + h * 0.35, noseZ - 0.04), mouthPaint)
+		local toothStep = width * 0.11
+		for i = -2, 2 do
+			add("block", "Tooth", "nose", vec(0.18, 0.24, 0.12), vec(i * toothStep, bottom + h * 0.27, noseZ - 0.07), toothPaint)
+		end
 	end
 	if shape.Hover then
 		local padPaint: Paint = { color = glow, material = "Neon", reflectance = 0, role = "trim" }

@@ -120,6 +120,56 @@ local function knockOff(part: BasePart, hull: BasePart)
 	Debris:AddItem(part, T.PartLifetime)
 end
 
+-- A tiny blocky velociraptor that rides along one side of the Velociraptor
+-- car, welded to the hull like the rest of its looks. `side` is -1 or 1 and
+-- `zOffset` staggers the pair so they don't sit level with each other.
+local function addRaptor(car: Model, hull: BasePart, side: number, zOffset: number)
+	local GREEN = Color3.fromRGB(90, 140, 60)
+	local BELLY = Color3.fromRGB(130, 160, 70)
+	local AMBER = Color3.fromRGB(200, 120, 40)
+	local base = hull.CFrame
+		* CFrame.new(side * (hull.Size.X / 2 - 0.5), hull.Size.Y / 2, zOffset)
+
+	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3): Part
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Size = size
+		part.CFrame = base * offset
+		part.Color = color
+		part.Material = Enum.Material.SmoothPlastic
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Massless = true
+		part.Anchored = false
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = hull
+		weld.Part1 = part
+		weld.Parent = part
+		part.Parent = car
+		return part
+	end
+
+	-- Body, leaning forward like a sprinting raptor.
+	piece("RaptorBody", Vector3.new(0.9, 0.8, 1.7), CFrame.new(0, 1.05, 0) * CFrame.Angles(math.rad(12), 0, 0), GREEN)
+	-- Head with a snout and an amber jaw.
+	piece("RaptorHead", Vector3.new(0.7, 0.55, 1.1), CFrame.new(0, 1.85, -1.05) * CFrame.Angles(math.rad(18), 0, 0), GREEN)
+	piece("RaptorJaw", Vector3.new(0.5, 0.18, 0.6), CFrame.new(0, 1.62, -1.45), AMBER)
+	-- Tail, lifted behind.
+	piece("RaptorTail", Vector3.new(0.45, 0.45, 1.6), CFrame.new(0, 1.25, 1.35) * CFrame.Angles(math.rad(-14), 0, 0), GREEN)
+	-- Legs.
+	piece("RaptorLegLeft", Vector3.new(0.25, 0.85, 0.4), CFrame.new(-0.28, 0.42, 0.1), BELLY)
+	piece("RaptorLegRight", Vector3.new(0.25, 0.85, 0.4), CFrame.new(0.28, 0.42, 0.1), BELLY)
+	-- Little arms, tucked forward.
+	piece("RaptorArmLeft", Vector3.new(0.14, 0.4, 0.14), CFrame.new(-0.5, 1.15, -0.45) * CFrame.Angles(math.rad(30), 0, 0), GREEN)
+	piece("RaptorArmRight", Vector3.new(0.14, 0.4, 0.14), CFrame.new(0.5, 1.15, -0.45) * CFrame.Angles(math.rad(30), 0, 0), GREEN)
+	-- Eyes.
+	local eyeLeft = piece("RaptorEyeLeft", Vector3.new(0.18, 0.18, 0.18), CFrame.new(-0.26, 1.98, -1.32), AMBER)
+	eyeLeft.Shape = Enum.PartType.Ball
+	local eyeRight = piece("RaptorEyeRight", Vector3.new(0.18, 0.18, 0.18), CFrame.new(0.26, 1.98, -1.32), AMBER)
+	eyeRight.Shape = Enum.PartType.Ball
+end
+
 local function setUp(car: Model)
 	local hull = car:WaitForChild("Hull", HULL_WAIT)
 	if not (hull and hull:IsA("BasePart")) then
@@ -196,6 +246,12 @@ local function setUp(car: Model)
 		end
 	end
 	folder.Parent = car
+
+	-- The Velociraptor car carries two little raptors along its sides.
+	if car:GetAttribute("CarId") == "Velociraptor" then
+		addRaptor(car, hull, -1, -2.5)
+		addRaptor(car, hull, 1, 1.5)
+	end
 
 	if design.hideWheels then
 		for _, name in WHEEL_NAMES do

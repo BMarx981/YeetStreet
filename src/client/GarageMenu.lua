@@ -210,10 +210,10 @@ local function build()
 		return b
 	end
 	local upgradesTab = tabButton("Upgrades", 0)
-	local carsTab = tabButton("Cars", 108)
-	local limitedsTab = tabButton("Limiteds", 216)
-	local bonesTab = tabButton("Bones", 324)
-	local eventTab = tabButton("Event", 432)
+	local carsTab = tabButton("Cars", 100)
+	local limitedsTab = tabButton("Limiteds", 200)
+	local bonesTab = tabButton("Bones", 300)
+	local eventTab = tabButton("Event", 400)
 
 	local status = text("Status", panel, 16, Enum.Font.GothamBold)
 	status.AnchorPoint = Vector2.new(0, 1)

@@ -147,7 +147,7 @@ Tuning.Ladder = {
 		Bonus = 10,
 		Caps = { Speed = 30, Jets = 24, Toughness = 44, Grip = 30 },
 		Seed = 12,
-		Archetype = "pickup",
+		Archetype = "triceratops",
 		Tier = "Dino",
 	},
 	{
@@ -157,7 +157,7 @@ Tuning.Ladder = {
 		Bonus = 12,
 		Caps = { Speed = 28, Jets = 32, Toughness = 48, Grip = 28 },
 		Seed = 13,
-		Archetype = "bus",
+		Archetype = "brachiosaurus",
 		Tier = "Dino",
 	},
 	{
@@ -167,7 +167,7 @@ Tuning.Ladder = {
 		Bonus = 14,
 		Caps = { Speed = 44, Jets = 36, Toughness = 40, Grip = 36 },
 		Seed = 14,
-		Archetype = "wedge",
+		Archetype = "spinosaurus",
 		Tier = "Dino",
 	},
 	{
@@ -177,7 +177,7 @@ Tuning.Ladder = {
 		Bonus = 16,
 		Caps = { Speed = 50, Jets = 40, Toughness = 50, Grip = 40 },
 		Seed = 7,
-		Archetype = "buggy",
+		Archetype = "trex",
 		Tier = "Dino",
 	},
 }
@@ -1421,9 +1421,12 @@ Tuning.Dino = {
 	-- speed (80 at the bottom of the ladder), so a car that keeps going gets
 	-- away. Body is how far its middle stays from the trees' edges and
 	-- keep-outs. Reach and BiteHeight are how far ahead of its hips and how
-	-- high its jaws snap. A car it catches is chewed for Chew seconds, its
-	-- toughness draining evenly to a wreck (ScoreService), then it rests
-	-- till Rest.
+	-- high its jaws snap. A car it catches is lifted and shaken for Grip
+	-- seconds with no harm done: EscapeJets seconds of jets in that time, or
+	-- a SlipChance roll at its end, drop it free and level, and the T-Rex
+	-- rests Stun seconds. Otherwise it is chewed for Chew seconds, its
+	-- toughness draining evenly to a wreck (ScoreService), and the T-Rex
+	-- rests Rest seconds once it is gone.
 	Rex = {
 		X = 550,
 		Z = 650,
@@ -1447,11 +1450,52 @@ Tuning.Dino = {
 		AirWindUp = 0.25,
 		Snap = 0.2,
 		Recover = 1.2,
-		Rest = 5,
-		Chew = 2.5,
+		Rest = 2,
+		Grip = 1.5,
+		EscapeJets = 0.6,
+		SlipChance = 0.3,
+		Stun = 3,
+		Chew = 2,
 		Bite = 16,
 		AirHeight = 8,
 		Gravity = Tuning.World.Gravity,
+		-- Where its head goes, in the frame of its hips on the ground facing
+		-- -Z (Parks.DinoRex moves it; TRexLook draws it). It stands at Rest,
+		-- looking away from Shoulders; pulls Back over a lunge's wind-up; and
+		-- holds a car lower, at Hold, tipped HoldTip degrees nose down. A
+		-- held car's middle is CarDrop under the head and as far out its
+		-- front as leaves the back CarIn studs of the car in its mouth; a
+		-- snap brings that spot to the bite.
+		Head = {
+			Size = Vector3.new(20, 17, 36),
+			Rest = Vector3.new(0, 90, -76),
+			Back = Vector3.new(0, 102, -58),
+			Shoulders = Vector3.new(0, 86, -44),
+			Hold = Vector3.new(0, 78, -80),
+			HoldTip = -20,
+			CarDrop = 4,
+			CarIn = 2,
+		},
+		-- How it is drawn on each client (TRexLook), only for looks. It
+		-- glides after the server's T-Rex, Smooth per second. Each foot
+		-- steps Stride studs (MinStride standing, growing StridePerSpeed for
+		-- each stud per second to MaxStride), lifting Lift high. The jaw
+		-- opens JawOpen degrees for a lunge, Grip holding a car and ChompOpen
+		-- at the top of each chomp, ChompRate times a second. The tail
+		-- sways TailSway degrees each way TailRate times a second.
+		Look = {
+			Smooth = 15,
+			MinStride = 16,
+			MaxStride = 50,
+			StridePerSpeed = 0.6,
+			Lift = 10,
+			JawOpen = 35,
+			Grip = 8,
+			ChompOpen = 25,
+			ChompRate = 3,
+			TailSway = 8,
+			TailRate = 0.5,
+		},
 	},
 }
 

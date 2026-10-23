@@ -23,8 +23,9 @@ local TUNING: Rex.Tuning = {
 	AirWindUp = 0.2,
 	Snap = 0.2,
 	Recover = 1,
-	Rest = 4,
-	Chew = 2.5,
+	Grip = 1.5,
+	EscapeJets = 0.6,
+	SlipChance = 0.3,
 	Bite = 14,
 	AirHeight = 8,
 	Gravity = 130,
@@ -182,7 +183,7 @@ Check.test("a parked car in front of its jaws is caught after WindUp + Snap", fu
 	local caught, at = run(s, { car("parked", 0, GROUND, -80) }, 1.5)
 	Check.eq(caught, "parked", "caught")
 	Check.near(at :: number, TUNING.WindUp + TUNING.Snap, "when", 3 * DT)
-	Check.eq(s.mode, "rest", "rests after a catch")
+	Check.eq(s.mode, "hold", "holds it after a catch")
 	Check.near(s.jawX, 0, "jaw x")
 	Check.near(s.jawY, GROUND, "jaw y")
 	Check.near(s.jawZ, -80, "jaw z")
@@ -226,12 +227,28 @@ Check.test("a car flying high over its head is safe", function()
 	Check.eq(s.mode, "roam", "mode")
 end)
 
-Check.test("after a catch it rests for Rest seconds, ignoring cars, then hunts again", function()
+Check.test("after a catch it holds still, ignoring cars, until let go", function()
+	local s = Rex.new(0, 0, 0)
+	local cars = { car("parked", 0, GROUND, -80), car("another", 0, GROUND, -60) }
+	run(s, cars, TUNING.WindUp + TUNING.Snap + 0.1)
+	Check.eq(s.mode, "hold", "holds")
+	local x, z = s.x, s.z
+	local again = run(s, cars, 10, nil, function()
+		Check.eq(s.mode, "hold", "still holding")
+		Check.eq(s.x, x, "x while holding")
+		Check.eq(s.z, z, "z while holding")
+		Check.eq(s.speed, 0, "speed while holding")
+	end)
+	Check.eq(again, nil, "caught while holding")
+end)
+
+Check.test("let go, it rests for the seconds given, ignoring cars, then hunts again", function()
 	local s = Rex.new(0, 0, 0)
 	local cars = { car("parked", 0, GROUND, -80) }
-	local _, at = run(s, cars, 1.5)
-	local resting = TUNING.Rest - (1.5 - (at :: number)) - 0.05
-	local again = run(s, cars, resting, nil, function()
+	run(s, cars, TUNING.WindUp + TUNING.Snap + 0.1)
+	Rex.letGo(s, 3)
+	Check.eq(s.mode, "rest", "rests")
+	local again = run(s, cars, 3 - 0.05, nil, function()
 		Check.eq(s.mode, "rest", "still resting")
 	end)
 	Check.eq(again, nil, "caught while resting")
@@ -239,19 +256,22 @@ Check.test("after a catch it rests for Rest seconds, ignoring cars, then hunts a
 	Check.eq(s.mode ~= "rest", true, "hunting again")
 end)
 
-Check.test("it stands still for Chew seconds after a catch, then walks on", function()
-	local s = Rex.new(0, 0, 0)
-	local cars = { car("parked", 0, GROUND, -80) }
-	local _, at = run(s, cars, TUNING.WindUp + TUNING.Snap + 0.1)
-	cars[1].y = 500 -- held up in its jaws, out of the way
-	local x, z = s.x, s.z
-	run(s, cars, TUNING.Chew - (TUNING.WindUp + TUNING.Snap + 0.1 - (at :: number)) - 0.05, nil, function()
-		Check.eq(s.x, x, "x while chewing")
-		Check.eq(s.z, z, "z while chewing")
-		Check.eq(s.speed, 0, "speed while chewing")
-	end)
-	run(s, cars, 1)
-	Check.eq(s.x ~= x or s.z ~= z, true, "walks on")
+Check.test("held, a car slips free with EscapeJets seconds of jets in the grip", function()
+	Check.eq(Rex.grip(0.5, 0.2, false, TUNING), "hold", "too few jets yet")
+	Check.eq(Rex.grip(0.9, TUNING.EscapeJets, false, TUNING), "slip", "enough jets")
+	Check.eq(Rex.grip(TUNING.Grip, TUNING.EscapeJets - 0.01, false, TUNING), "chew", "jets too late")
+end)
+
+Check.test("held, a car that rolled a slip drops at the end of the grip, otherwise it is chewed", function()
+	Check.eq(Rex.grip(TUNING.Grip - 0.01, 0, true, TUNING), "hold", "slipping, still in the grip")
+	Check.eq(Rex.grip(TUNING.Grip, 0, true, TUNING), "slip", "slips")
+	Check.eq(Rex.grip(TUNING.Grip, 0, false, TUNING), "chew", "chewed")
+end)
+
+Check.test("a roll under SlipChance slips", function()
+	Check.eq(Rex.slips(TUNING.SlipChance - 0.01, TUNING), true, "under")
+	Check.eq(Rex.slips(TUNING.SlipChance, TUNING), false, "at")
+	Check.eq(Rex.slips(0.99, TUNING), false, "over")
 end)
 
 Check.test("chasing a car past a keep-out, it goes round, never in, and catches it", function()

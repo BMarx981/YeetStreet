@@ -33,6 +33,10 @@ export type Archetype = {
 	Walls: boolean?, -- the cabin is painted walls with windows, not glass
 	Spare: boolean?, -- a spare tire on the back
 	SchoolBus: boolean?, -- black side stripes and a stop sign
+	Horns: boolean?, -- three horns on the nose, triceratops style
+	Neck: boolean?, -- a long neck rising from the nose, brachiosaurus style
+	Sail: boolean?, -- a tall fin along the back, spinosaurus style
+	Face: boolean?, -- eyes and a toothy mouth on the nose
 	Paint: Color?, -- one body color on every tier, instead of the tier's paints
 }
 
@@ -62,6 +66,20 @@ CarKit.Archetypes = (
 			CabinHeight = { 1.5, 1.9 },
 			RearSlope = false,
 		},
+		-- The Spinosaurus: a wedge body with a neck and a sail on its back.
+		spinosaurus = {
+			Length = { 12, 12.8 },
+			Slices = { 6, 8 },
+			Width = { 5.9, 6 },
+			Nose = { 0.35, 0.45 },
+			CabinEnd = { 0.7, 0.8 },
+			NoseHeight = { 0.9, 1.1 },
+			BodyHeight = { 1.2, 1.4 },
+			CabinHeight = { 0.9, 1.2 },
+			RearSlope = true,
+			Sail = true,
+			Face = true,
+		},
 		-- Tall hood and cab, then an open bed with low walls.
 		pickup = {
 			Length = { 12.4, 13.2 },
@@ -75,7 +93,21 @@ CarKit.Archetypes = (
 			RearSlope = false,
 			Bed = true,
 		},
-		-- Long hood, low roof, sloped fastback.
+		-- The Triceratops: a pickup body with three horns on the nose.
+	triceratops = {
+		Length = { 12.4, 13.2 },
+		Slices = { 6, 8 },
+		Width = { 5.8, 6 },
+		Nose = { 0.25, 0.32 },
+		CabinEnd = { 0.5, 0.58 },
+		NoseHeight = { 1.7, 2 },
+		BodyHeight = { 1.7, 2 },
+		CabinHeight = { 1.6, 1.9 },
+		RearSlope = false,
+		Bed = true,
+		Horns = true,
+	},
+	-- Long hood, low roof, sloped fastback.
 		muscle = {
 			Length = { 12.4, 13 },
 			Slices = { 6, 8 },
@@ -99,6 +131,20 @@ CarKit.Archetypes = (
 			CabinHeight = { 1.8, 2.2 }, -- height of the cage
 			RearSlope = false,
 			Open = true,
+		},
+		-- The T-Rex: a buggy body with eyes and a toothy mouth on the nose.
+		trex = {
+			Length = { 10.8, 11.6 },
+			Slices = { 5, 6 },
+			Width = { 5, 5.6 },
+			Nose = { 0.2, 0.28 },
+			CabinEnd = { 0.8, 0.9 },
+			NoseHeight = { 0.9, 1.2 },
+			BodyHeight = { 0.7, 0.9 },
+			CabinHeight = { 1.8, 2.2 }, -- height of the cage
+			RearSlope = false,
+			Open = true,
+			Face = true,
 		},
 		-- Very low and wide, with a long nose and a short glass canopy.
 		wedge = {
@@ -158,6 +204,23 @@ CarKit.Archetypes = (
 			Walls = true,
 			SchoolBus = true,
 			Paint = { 245, 185, 20 },
+		},
+	-- The Brachiosaurus: a bus body with a long neck rising from the nose.
+	brachiosaurus = {
+		Length = { 12.6, 13.2 },
+		Slices = { 6, 8 },
+		Width = { 5.8, 6 },
+		Nose = { 0.14, 0.2 },
+		CabinEnd = { 0.98, 1 },
+		NoseHeight = { 1.5, 1.7 },
+		BodyHeight = { 1.6, 1.8 },
+		CabinHeight = { 2.4, 2.7 },
+		RearSlope = false,
+		Upright = true,
+		Walls = true,
+		SchoolBus = true,
+		Paint = { 245, 185, 20 },
+		Neck = true,
 		},
 	}
 ) :: { [string]: Archetype }
