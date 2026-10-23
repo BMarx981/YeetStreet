@@ -3,10 +3,11 @@
 -- Dino Valley's volcano erupts whenever a car flies up off its vent
 -- (Parks.Dino), anyone's car this client can see: lava spray and smoke
 -- burst out of the vent, a glow flashes and fades, and glowing lava rocks
--- are thrown up out of the crater and fall back. Only for looks, built on
--- each client: the rocks are in the Props collision group, so they never
--- touch a car, and cars' rays skip them. Numbers are in
--- Tuning.Dino.Volcano.Eruption.
+-- are thrown up out of the crater and fall back. In between, smoke rises
+-- from the whole crater all the time. Only for looks, built on each
+-- client: the rocks are in the Props collision group, so they never touch
+-- a car, and cars' rays skip them. Numbers are in
+-- Tuning.Dino.Volcano.Eruption and Tuning.Dino.Volcano.Smoke.
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -82,6 +83,40 @@ glow.Brightness = 0
 glow.Range = 60
 glow.Color = GLOW_COLOR
 glow.Parent = anchor
+
+-- Smoke rising from the whole crater floor, all the time, from an
+-- invisible slab across the crater.
+local S = V.Smoke
+local rim = V.Cone.TopRadius - V.Cone.Shell
+local crater = Instance.new("Part")
+crater.Name = "VolcanoCrater"
+crater.Anchored = true
+crater.CanCollide = false
+crater.CanQuery = false
+crater.CanTouch = false
+crater.Transparency = 1
+crater.Size = Vector3.new(rim * 1.4, 1, rim * 1.4)
+crater.CFrame = base * CFrame.new(0, tube.floor + 5, 0)
+crater.Parent = workspace
+
+local plume = Instance.new("ParticleEmitter")
+plume.Rate = S.Rate
+plume.Texture = "rbxasset://textures/particles/smoke_main.dds"
+plume.Color = ColorSequence.new(Color3.fromRGB(96, 86, 80), Color3.fromRGB(60, 54, 50))
+plume.Size = NumberSequence.new(S.MinSize, S.MaxSize)
+plume.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 1),
+	NumberSequenceKeypoint.new(0.15, S.Thickness),
+	NumberSequenceKeypoint.new(1, 1),
+})
+plume.Lifetime = NumberRange.new(S.Lifetime * 0.8, S.Lifetime * 1.2)
+plume.Speed = NumberRange.new(S.MinRise, S.MaxRise)
+plume.SpreadAngle = Vector2.new(10, 10)
+plume.RotSpeed = NumberRange.new(-15, 15)
+plume.Rotation = NumberRange.new(0, 360)
+plume.Acceleration = Vector3.new(S.Drift, 1, 0)
+plume.LightInfluence = 1
+plume.Parent = crater
 
 local random = Random.new()
 

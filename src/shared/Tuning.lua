@@ -1354,6 +1354,22 @@ Tuning.Dino = {
 		-- within Spread degrees of straight up, and are gone after
 		-- RockTime seconds. Each car erupts it at most every Cooldown
 		-- seconds.
+		-- Smoke rising from the whole crater all the time (VolcanoEruption,
+		-- on each client): Rate puffs a second, MinSize to MaxSize across as
+		-- they grow, rising at MinRise to MaxRise studs a second, drifting
+		-- Drift studs a second faster each second toward +X, lasting about
+		-- Lifetime seconds. Thickness is how see-through they are at their
+		-- thickest, 0 solid to 1 gone.
+		Smoke = {
+			Rate = 3,
+			MinSize = 30,
+			MaxSize = 90,
+			MinRise = 8,
+			MaxRise = 18,
+			Drift = 1.5,
+			Lifetime = 12,
+			Thickness = 0.45,
+		},
 		Eruption = {
 			UpSpeed = 120,
 			Spray = 120,
