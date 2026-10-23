@@ -1300,9 +1300,10 @@ Tuning.Dino = {
 	-- face on each tier's step that fits round the tube. The tube comes up
 	-- through the crater floor under a rock dome that steps in DomeStep at
 	-- a time as the tube inside sinks, and out level along a rock path
-	-- PathWidth wide; the rest of the floor is lava, in strips StripWidth
-	-- wide. Rivers run lava down the outside from the rim, Down tiers, at
-	-- Yaw degrees round from the back.
+	-- PathWidth wide to the vent, which erupts the car out of the crater;
+	-- the rest of the floor is lava, in strips StripWidth wide. Rivers run
+	-- lava down the outside from the rim, Down tiers, at Yaw degrees round
+	-- from the back.
 	Volcano = {
 		X = -520,
 		Z = -620,
@@ -1327,7 +1328,19 @@ Tuning.Dino = {
 			FloorThickness = 2,
 			SliceAngle = 7.5,
 		},
-		Crater = { PathWidth = 80, StripWidth = 12, DomeStep = 12 },
+		Crater = {
+			PathWidth = 80,
+			StripWidth = 12,
+			DomeStep = 12,
+			-- The vent: a ramp on the path Run past the tube's mouth, curving
+			-- up to Angle degrees round Radius in Steps planks. Its planks
+			-- steeper than PadFrom degrees are pads pushing the car up the
+			-- curve to LaunchSpeed, so it leaves the lip Angle degrees up
+			-- however fast it came, out over the rim and the lake (at 80 it
+			-- comes down in the lake). The lip must stay inside the rim
+			-- (Cone.TopRadius less Cone.Shell from the middle).
+			Vent = { Run = 15, Radius = 30, Angle = 70, Steps = 12, PadFrom = 30, LaunchSpeed = 320 },
+		},
 		Slot = { Half = 56, Top = 63, Column = 10 },
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },

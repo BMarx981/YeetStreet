@@ -19,7 +19,8 @@
 -- lake to the mouth of a round tube (Tunnel.volcano, Pieces.Tube) set into
 -- the foot, which climbs round inside the cone and comes up through the
 -- crater floor under a stepped rock dome, out onto a rock path across the
--- crater's lava. Lava is tagged Lava; it burns cars (ScoreService).
+-- crater's lava to the vent, a ramp curving up to nearly straight up whose
+-- pads erupt the car out over the rim. Lava is tagged Lava; it burns cars (ScoreService).
 --
 -- Palm trees stand about the park (Scatter), clear of the brontosaurus and
 -- the volcano.
@@ -40,6 +41,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local Volcano = require(ReplicatedStorage.Volcano)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
+local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 local Tube = require(ServerScriptService.Pieces.Tube)
@@ -602,9 +604,33 @@ local function buildDome(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTu
 	end
 end
 
+-- The vent: a ramp on the path Run past the tube's mouth, as wide as the
+-- path, curving up to Angle degrees. Its planks steeper than PadFrom are
+-- pads pushing the car up the curve to LaunchSpeed, so it leaves the lip
+-- nearly straight up and out over the rim like an eruption. A wreck after
+-- it comes back on the causeway, facing the mouth.
+local function buildVent(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTube)
+	local V = D.Volcano
+	local E = V.Crater.Vent
+	local front = base.LookVector
+	local foot = base:PointToWorldSpace(Vector3.new(climb.mouth.x, climb.floor, climb.mouth.z - E.Run))
+	local ramp = CurvedWall.straight(parent, CFrame.lookAt(foot, foot + front), V.Crater.PathWidth, {
+		radius = E.Radius,
+		endAngle = E.Angle,
+		steps = E.Steps,
+		thickness = D.Thickness,
+		color = CAUSEWAY_COLOR,
+	})
+	ramp.Name = "Vent"
+	local respawn = base * CFrame.new(V.Climb.Radius, HULL_HEIGHT, -V.Climb.Inset - 60) * CFrame.Angles(0, math.pi, 0)
+	local pads = math.ceil(E.Steps * (E.Angle - E.PadFrom) / E.Angle)
+	LaunchPad.top(ramp, pads, E.LaunchSpeed, respawn, D.PayScale)
+end
+
 -- The crater floor at the tube's floor: lava strips, a rock path from the
--- tube's exit to the front wall, and the dome over the hatch where the tube
--- comes up. The floor reaches into the tier it is level with.
+-- tube's exit to the front wall with the vent on it, and the dome over the
+-- hatch where the tube comes up. The floor reaches into the tier it is
+-- level with.
 local function buildCrater(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTube, tiers: { Volcano.Tier })
 	local V = D.Volcano
 	local C = V.Crater
@@ -636,6 +662,7 @@ local function buildCrater(parent: Instance, base: CFrame, climb: Tunnel.Volcano
 	end
 
 	buildDome(parent, base, climb)
+	buildVent(parent, base, climb)
 end
 
 -- Boulders round the lake's outside edge, each a knockable prop that only a
