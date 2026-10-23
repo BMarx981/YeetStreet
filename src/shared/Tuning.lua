@@ -1342,6 +1342,33 @@ Tuning.Dino = {
 			Vent = { Run = 15, Radius = 30, Angle = 70, Steps = 12, PadFrom = 30, LaunchSpeed = 320 },
 		},
 		Slot = { Half = 56, Top = 63, Column = 10 },
+		-- In front of the vent the crater wall above the floor is only Shell
+		-- thick (Cone.Shell elsewhere), Half degrees either side of where the
+		-- vent's line meets the rim, so it stands back from an eruption.
+		Breach = { Half = 30, Shell = 15 },
+		-- Only for looks, on each client (VolcanoEruption): when a car flies
+		-- up off the vent faster than UpSpeed, the crater erupts. Spray
+		-- drops of lava and Smoke puffs burst out of the vent, a light
+		-- flashes Glow bright and fades over GlowTime, and Rocks glowing
+		-- lumps MinRock to MaxRock across fly up at MinSpeed to MaxSpeed,
+		-- within Spread degrees of straight up, and are gone after
+		-- RockTime seconds. Each car erupts it at most every Cooldown
+		-- seconds.
+		Eruption = {
+			UpSpeed = 120,
+			Spray = 120,
+			Smoke = 30,
+			Glow = 8,
+			GlowTime = 2,
+			Rocks = 14,
+			MinRock = 2,
+			MaxRock = 6,
+			MinSpeed = 120,
+			MaxSpeed = 280,
+			Spread = 25,
+			RockTime = 5,
+			Cooldown = 2,
+		},
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },
 		-- A ring of boulders round the lake's outside edge, Depth deep and

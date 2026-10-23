@@ -110,6 +110,29 @@ Check.test("columns split a span evenly, none wider than asked", function()
 	Check.eq(#Volcano.columns(6, 5, 10), 0, "a backward span")
 end)
 
+Check.test("a vent's lip is its radius's arc on from its foot, toward the front", function()
+	local z, up = Volcano.lip(-95, 30, 70)
+	Check.near(z, -95 - 30 * math.sin(math.rad(70)))
+	Check.near(up, 30 * (1 - math.cos(math.rad(70))))
+	local flatZ, flatUp = Volcano.lip(-95, 30, 0)
+	Check.near(flatZ, -95, "no curve stays at the foot")
+	Check.near(flatUp, 0)
+end)
+
+Check.test("a block is in a wedge when its yaw is within half the wedge of the middle, either way round", function()
+	local function at(degrees: number): Volcano.Block
+		return { yaw = math.rad(degrees), x = 0, z = 0, width = 10, depth = 10 }
+	end
+	local middle, half = math.rad(212), math.rad(30)
+	Check.eq(Volcano.inWedge(at(212), middle, half), true, "the middle")
+	Check.eq(Volcano.inWedge(at(240), middle, half), true, "near one edge")
+	Check.eq(Volcano.inWedge(at(184), middle, half), true, "near the other")
+	Check.eq(Volcano.inWedge(at(245), middle, half), false, "past an edge")
+	Check.eq(Volcano.inWedge(at(10), math.rad(350), half), true, "across the turn from 360 to 0")
+	Check.eq(Volcano.inWedge(at(-10), math.rad(10), half), true, "a negative yaw")
+	Check.eq(Volcano.inWedge(at(90), math.rad(10), half), false, "far round")
+end)
+
 local HATCH: Volcano.Rect = { x1 = -133, x2 = 133, z1 = 0, z2 = 133 }
 local PATH: Volcano.Rect = { x1 = -140, x2 = -60, z1 = -300, z2 = 0 }
 

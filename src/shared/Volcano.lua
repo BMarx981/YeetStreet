@@ -108,6 +108,20 @@ function Volcano.inSlot(block: Block, tier: Tier, slot: Slot): boolean
 	return to > slot.X - slot.Half and from < slot.X + slot.Half
 end
 
+-- Whether a block's yaw is within `half` radians of `middle`, either way.
+function Volcano.inWedge(block: Block, middle: number, half: number): boolean
+	local off = (block.yaw - middle + math.pi) % (2 * math.pi) - math.pi
+	return math.abs(off) <= half
+end
+
+-- The lip of a vent: a ramp rising toward the front (-Z) from its foot at
+-- `footZ`, round `radius` up to `angle` degrees. Returns the lip's z and
+-- how far it is above the foot.
+function Volcano.lip(footZ: number, radius: number, angle: number): (number, number)
+	local a = math.rad(angle)
+	return footZ - radius * math.sin(a), radius * (1 - math.cos(a))
+end
+
 -- From x1 to x2 in equal columns at most `width` wide, left to right.
 function Volcano.columns(x1: number, x2: number, width: number): { { x1: number, x2: number } }
 	local columns = {}

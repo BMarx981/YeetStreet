@@ -720,9 +720,19 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 	local slot: Volcano.Slot = { X = V.Climb.Radius, Half = V.Slot.Half, Top = V.Slot.Top }
 	-- How far across the blocks left out for the slot reach, on each tier.
 	local spans: { [number]: { x1: number, x2: number } } = {}
+	-- In front of the vent, the crater wall above the floor is only
+	-- Breach.Shell thick, so it stands back from a car erupting off it: a
+	-- wedge Breach.Half degrees either side of where the vent's line meets
+	-- the rim.
+	local rim = V.Cone.TopRadius - V.Cone.Shell
+	local ventX = climb.mouth.x
+	local breach = math.atan2(ventX, -math.sqrt(math.max(rim ^ 2 - ventX ^ 2, 0)))
 	local tiers = Volcano.tiers(V.Cone)
 	for i, tier in tiers do
 		local blocks = Volcano.ring(tier.outer, tier.inner, V.Cone.BlockWidth)
+		local thin = if tier.bottom >= climb.floor
+			then Volcano.ring(tier.outer, tier.outer - V.Breach.Shell, V.Cone.BlockWidth)
+			else nil
 		-- The block each river runs down, if it reaches this tier.
 		local rivers: { [number]: boolean } = {}
 		for _, river in V.Rivers do
@@ -731,6 +741,9 @@ local function buildVolcano(parent: Instance, area: MapLayout.Area): Scatter.Lin
 			end
 		end
 		for k, b in blocks do
+			if thin and Volcano.inWedge(b, breach, math.rad(V.Breach.Half)) then
+				b = thin[k]
+			end
 			if Volcano.inSlot(b, tier, slot) then
 				local from, to = Volcano.spanX(b)
 				local span = spans[i] or { x1 = math.huge, x2 = -math.huge }
