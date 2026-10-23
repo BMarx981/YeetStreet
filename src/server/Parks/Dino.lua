@@ -23,7 +23,8 @@
 -- pads erupt the car out over the rim. Lava is tagged Lava; it burns cars (ScoreService).
 --
 -- Palm trees stand about the park (Scatter), clear of the brontosaurus and
--- the volcano. A T-Rex roams among them hunting cars (DinoRex).
+-- the volcano. A T-Rex roams among them hunting cars (DinoRex), and a
+-- pterodactyl nesting on a rock spire swoops on them from above (DinoPtero).
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
@@ -45,6 +46,7 @@ local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 local Tube = require(ServerScriptService.Pieces.Tube)
+local DinoPtero = require(script.Parent.DinoPtero)
 local DinoRex = require(script.Parent.DinoRex)
 
 local D = Tuning.Dino
@@ -960,13 +962,74 @@ local function buildRex(parent: Instance, area: MapLayout.Area, rect: Scatter.Re
 	DinoRex.start(model, territory, area.X + R.X, area.Z + R.Z, math.rad(R.Heading))
 end
 
+-- The pterodactyl's rock spire, tiers of turned blocks narrowing to a nest
+-- of sticks. Adds the circle round its foot to `keepOut`, and returns where
+-- the pterodactyl stands on it, facing Heading.
+local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line }): CFrame
+	local P = D.Ptero
+	local S = P.Spire
+	local model = Instance.new("Model")
+	model.Name = "Spire"
+	local random = Random.new(P.Seed)
+	local base = at(area, P.X, 0, P.Z)
+	local tierHeight = S.Height / S.Tiers
+	for k = 0, S.Tiers - 1 do
+		local width = S.BaseWidth + (S.TopWidth - S.BaseWidth) * k / (S.Tiers - 1)
+		local yaw = math.rad(random:NextNumber(-S.Twist, S.Twist))
+		block(
+			model,
+			"Rock",
+			Vector3.new(width, tierHeight + OVERLAP, width),
+			base * CFrame.new(0, (k + 0.5) * tierHeight, 0) * CFrame.Angles(0, yaw, 0),
+			ROCK_COLORS[random:NextInteger(1, #ROCK_COLORS)]
+		)
+	end
+	local top = S.Height + OVERLAP / 2
+	for k = 1, S.NestSticks do
+		local yaw = k * math.pi / S.NestSticks
+		local tilt = math.rad(if k % 2 == 0 then 6 else -6)
+		decoration(
+			model,
+			"Stick",
+			Vector3.new(3, 3, S.NestWidth),
+			base * CFrame.new(0, top + 1.5, 0) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(tilt, 0, 0),
+			BARK_COLORS[k % #BARK_COLORS + 1]
+		)
+	end
+	model.Parent = parent
+	local foot = base.Position
+	table.insert(keepOut, {
+		AX = foot.X,
+		AZ = foot.Z,
+		BX = foot.X,
+		BZ = foot.Z,
+		Radius = S.BaseWidth / 2 * math.sqrt(2) + S.Clear,
+	})
+	return CFrame.new(base.Position + Vector3.new(0, top, 0)) * CFrame.Angles(0, math.rad(P.Heading), 0)
+end
+
+-- The pterodactyl hunts over the same ground as the T-Rex (DinoPtero runs
+-- it).
+local function buildPtero(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, perch: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Pterodactyl"
+	-- Persistent, so streaming never takes it from a client.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	model.Parent = parent
+	local territory = { rect = rect, keepOut = keepOut, floor = FLOOR }
+	DinoPtero.start(model, territory, perch)
+end
+
 function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	grassFloor(folder)
 	local bronto = buildBronto(folder, area)
 	local volcano = buildVolcano(folder, area)
 	local keepOut = { bronto, volcano }
 	local trees = buildPalms(folder, area, keepOut)
+	-- After the palms, so the spire stands in a gap without moving a tree.
+	local perch = buildSpire(folder, area, keepOut)
 	buildRex(folder, area, trees, keepOut)
+	buildPtero(folder, trees, keepOut, perch)
 end
 
 return DinoPark

@@ -1497,6 +1497,68 @@ Tuning.Dino = {
 			TailRate = 0.5,
 		},
 	},
+	-- The pterodactyl (Ptero; Parks.DinoPtero runs it). It perches on a
+	-- rock spire at X, Z in the park facing Heading degrees, takes off after
+	-- PerchTime and circles CruiseHeight up at CruiseSpeed, over the same
+	-- ground as the T-Rex. It swoops on a car on the ground within Sight:
+	-- Warn seconds of warning, then a dive up to DiveSpeed that drops up to
+	-- DiveDrop studs a second; its talons within Grab of the car's top grab
+	-- it. A car that takes off, gets past Lose or lasts SwoopTime of diving
+	-- gets away, and it flies Recover seconds before hunting again. A grabbed
+	-- car is carried round a spiral CarryRadius across, kept CarryEdge
+	-- inside the park, at CarrySpeed, climbing CarryClimb studs a second to
+	-- CarryHeight above the floor, and dropped there. EscapeJets seconds of
+	-- jets drop it sooner, and FumbleChance of grabs fumble it somewhere
+	-- between FumbleFrom and FumbleTo up. Then it flies home and perches.
+	-- The spire stands Spire.Height, in Tiers of rock blocks from
+	-- BaseWidth to TopWidth across, a nest NestWidth across on top; the
+	-- T-Rex and the palms keep Clear past its foot.
+	Ptero = {
+		X = 950,
+		Z = 700,
+		Heading = 55,
+		Seed = 4,
+		Spire = {
+			Height = 250,
+			Tiers = 10,
+			BaseWidth = 90,
+			TopWidth = 40,
+			Twist = 25, -- most degrees a tier turns from the one below
+			NestWidth = 50,
+			NestSticks = 10,
+			Clear = 40,
+		},
+		CruiseHeight = 300,
+		CruiseSpeed = 70,
+		TurnRate = 40,
+		Accel = 60,
+		ClimbRate = 40,
+		Edge = 250,
+		GoalReach = 60,
+		GoalTime = 30,
+		Sight = 400,
+		AirHeight = 8,
+		Warn = 1.5,
+		DiveSpeed = 150,
+		DiveTurnRate = 90,
+		DiveDrop = 150,
+		SwoopTime = 6,
+		Lose = 600,
+		Grab = 14,
+		CarTop = Tuning.Chassis.HullSize.Y / 2,
+		Recover = 5,
+		CarryHeight = 800,
+		CarryClimb = 110,
+		CarrySpeed = 90,
+		CarryRadius = 150,
+		CarryEdge = 450,
+		EscapeJets = 0.6,
+		FumbleChance = 0.3,
+		FumbleFrom = 250,
+		FumbleTo = 650,
+		PerchTime = 10,
+		PerchReach = 20,
+	},
 }
 
 return Tuning
