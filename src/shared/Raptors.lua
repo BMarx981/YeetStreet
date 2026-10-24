@@ -177,6 +177,10 @@ local ORBIT_STEP = math.rad(30)
 -- How much further than its hiding spot a pack may be from its cover and
 -- still be at it.
 local AT_COVER = 15
+-- How near its hiding place a raptor is when it settles there.
+local SETTLED = 2
+-- Within this of where it runs to, it steps straight there.
+local STEP_IN = 6
 
 local function wrap(angle: number): number
 	return (angle + math.pi) % TAU - math.pi
@@ -308,9 +312,18 @@ local function runTo(r: Raptor, x: number, z: number, speed: number, territory: 
 		r.heading = wrap(r.heading + math.clamp(turn, -most, most))
 	end
 	r.speed = approach(r.speed, math.min(speed, distance / dt), tuning.Accel * dt)
-	local fx, fz = forward(r.heading)
-	r.x += fx * r.speed * dt
-	r.z += fz * r.speed * dt
+	if distance < STEP_IN then
+		-- Close by, it steps straight there rather than circling it.
+		local step = math.min(r.speed * dt, distance)
+		if distance > 1e-9 then
+			r.x += dx / distance * step
+			r.z += dz / distance * step
+		end
+	else
+		local fx, fz = forward(r.heading)
+		r.x += fx * r.speed * dt
+		r.z += fz * r.speed * dt
+	end
 	keepIn(r, territory, tuning)
 end
 
@@ -554,6 +567,12 @@ local function stepRaptor(
 			speed = tuning.SneakSpeed
 		end
 		runTo(r, x, z, speed, territory, dt, tuning)
+		-- In its place, it turns to face the way the car is, over the mound.
+		if (x - r.x) ^ 2 + (z - r.z) ^ 2 < SETTLED * SETTLED then
+			local turn = wrap(math.atan2(pack.awayX, pack.awayZ) - r.heading)
+			local most = math.rad(tuning.TurnRate) * dt
+			r.heading = wrap(r.heading + math.clamp(turn, -most, most))
+		end
 	end
 end
 

@@ -11,8 +11,11 @@
 -- each that survived one ("survived"). A player on foot a raptor pins is
 -- held still, unhurt, by anchoring their root part until it lets go.
 --
--- Each raptor is a blocky stand-in, a Model named Raptor<pack>_<raptor>
--- with Mode and Slot attributes, that never touches a car.
+-- The server moves only one invisible part per raptor, Raptor<pack>_<raptor>,
+-- at the middle of its body, facing its way. Its Mode and Slot attributes
+-- say what it is doing and where it rides, its Bites attribute counts its
+-- bites, and its Target ObjectValue points at the car or character it has
+-- latched onto. Each client draws the raptors from those (RaptorLook).
 -- Numbers are in Tuning.Dino.Raptors.
 
 local Players = game:GetService("Players")
@@ -26,9 +29,6 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local R = Tuning.Dino.Raptors
 
-local BODY_COLOR = Color3.fromRGB(150, 112, 62)
-local HEAD_COLOR = Color3.fromRGB(120, 86, 46)
-
 local SLOTS: { [string]: Vector3 } = {
 	roof = R.Slots.Roof,
 	hood = R.Slots.Hood,
@@ -40,31 +40,24 @@ local SLOTS: { [string]: Vector3 } = {
 
 local DinoRaptors = {}
 
-local function block(parent: Instance, name: string, size: Vector3, color: Color3): Part
+-- A raptor's invisible marker, which never touches anything.
+local function marker(parent: Instance, name: string): Part
 	local part = Instance.new("Part")
 	part.Name = name
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
-	part.Size = size
-	part.Color = color
-	part.Material = Enum.Material.SmoothPlastic
+	part.Transparency = 1
+	part.Size = Vector3.one
+	part:SetAttribute("Mode", "hide")
+	part:SetAttribute("Slot", "")
+	part:SetAttribute("Bites", 0)
+	local target = Instance.new("ObjectValue")
+	target.Name = "Target"
+	target.Parent = part
 	part.Parent = parent
 	return part
-end
-
--- A raptor stand-in: a body with its head out front, pivoting at its
--- middle.
-local function standIn(parent: Instance, name: string): Model
-	local model = Instance.new("Model")
-	model.Name = name
-	local body = block(model, "Body", Vector3.new(3, 4, 9), BODY_COLOR)
-	local head = block(model, "Head", Vector3.new(2.5, 2.5, 4), HEAD_COLOR)
-	head.CFrame = body.CFrame * CFrame.new(0, 2, -6)
-	model.PrimaryPart = body
-	model.Parent = parent
-	return model
 end
 
 local function rootOf(character: Model): BasePart?
@@ -93,15 +86,15 @@ function DinoRaptors.start(
 	floor: number
 )
 	local packs: { Raptors.Pack } = {}
-	local looks: { { Model } } = {}
+	local markers: { { Part } } = {}
 	for p, start in starts do
 		local pack = Raptors.newPack(start.X, start.Z, 0)
 		table.insert(packs, pack)
 		local row = {}
 		for i in pack.raptors do
-			table.insert(row, standIn(model, `Raptor{p}_{i}`))
+			table.insert(row, marker(model, `Raptor{p}_{i}`))
 		end
-		table.insert(looks, row)
+		table.insert(markers, row)
 	end
 	local rng = Rng.new(R.Seed)
 	local carsFolder = workspace:WaitForChild("Cars")
@@ -220,6 +213,8 @@ function DinoRaptors.start(
 					pin(thing :: Model, -1)
 				end
 			elseif event.kind == "bite" then
+				local biter = markers[event.pack][event.raptor]
+				biter:SetAttribute("Bites", (biter:GetAttribute("Bites") or 0) + 1)
 				tell(thing, "bite", event.slot)
 			elseif event.kind == "shakeOff" or event.kind == "survived" then
 				tell(thing, event.kind)
@@ -230,24 +225,24 @@ function DinoRaptors.start(
 		local cframes: { CFrame } = {}
 		for p, pack in packs do
 			for i, r in pack.raptors do
-				local look = looks[p][i]
+				local mark = markers[p][i]
 				local frame = if r.mode == "latch" and r.slot then frames[r.target] else nil
 				local at = if frame and r.slot
 					then frame * CFrame.new(SLOTS[r.slot])
 					else CFrame.new(r.x, groundUnder(r.x, r.z) + R.Stand, r.z) * CFrame.Angles(0, r.heading, 0)
-				local body = look.PrimaryPart :: BasePart
-				for _, part in look:GetChildren() do
-					if part:IsA("BasePart") then
-						table.insert(parts, part)
-						table.insert(cframes, at * body.CFrame:ToObjectSpace(part.CFrame))
-					end
-				end
-				if look:GetAttribute("Mode") ~= r.mode then
-					look:SetAttribute("Mode", r.mode)
+				table.insert(parts, mark)
+				table.insert(cframes, at)
+				if mark:GetAttribute("Mode") ~= r.mode then
+					mark:SetAttribute("Mode", r.mode)
 				end
 				local slot = if r.mode == "latch" then r.slot or "" else ""
-				if look:GetAttribute("Slot") ~= slot then
-					look:SetAttribute("Slot", slot)
+				if mark:GetAttribute("Slot") ~= slot then
+					mark:SetAttribute("Slot", slot)
+				end
+				local target = mark:FindFirstChild("Target") :: ObjectValue
+				local holding = if r.mode == "latch" and typeof(r.target) == "Instance" then r.target else nil
+				if target.Value ~= holding then
+					target.Value = holding
 				end
 			end
 		end

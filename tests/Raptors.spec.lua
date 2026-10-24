@@ -118,6 +118,17 @@ Check.test("a hidden pack keeps the mound between it and the closest car", funct
 	Check.eq(z < -52, true, `round to the other end, at z {z}`)
 end)
 
+Check.test("hiding behind a mound, they face it, toward the car", function()
+	local packs = { Raptors.newPack(0, 70, math.pi) }
+	run(packs, { car("a", 0, -300) }, { MOUND }, 4)
+	for i, r in packs[1].raptors do
+		local fx, fz = -math.sin(r.heading), -math.cos(r.heading)
+		local dx, dz = -r.x, -r.z
+		local d = math.sqrt(dx * dx + dz * dz)
+		Check.eq((fx * dx + fz * dz) / d > 0.9, true, `raptor {i} faces the mound`)
+	end
+end)
+
 Check.test("a car out past Ambush is only watched", function()
 	local packs = { Raptors.newPack(0, 70, 0) }
 	run(packs, { car("a", 0, -200) }, { MOUND }, 3)

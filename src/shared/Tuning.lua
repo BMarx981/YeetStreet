@@ -1657,7 +1657,7 @@ Tuning.Dino = {
 		Watch = 400,
 		Ambush = 120,
 		HideGap = 8,
-		Spacing = 6,
+		Spacing = 9,
 		Wide = 12,
 		ViaReach = 8,
 		Lead = 0.3,
@@ -1684,6 +1684,29 @@ Tuning.Dino = {
 			Left = Vector3.new(-7, 0.5, 0),
 			Right = Vector3.new(7, 0.5, 0),
 			Pin = Vector3.new(0, 0, -3),
+		},
+		-- How each client draws them (RaptorLook): the riding raptors' blocks
+		-- (CarVisuals) Scale times bigger, gliding after the server's part
+		-- Smooth per second, and onto a car over LatchBlend seconds. Running,
+		-- a stride is Stride studs, the legs swing LegSwing degrees and the
+		-- body bobs Bob studs, both full by FullSpeed. The tail sways TailSway
+		-- degrees TailRate times a second, more running. Crouching drops the
+		-- body Crouch studs. A bite opens the jaw JawOpen degrees for BiteOpen
+		-- seconds, then snaps it shut over BiteSnap.
+		Look = {
+			Scale = 3.2,
+			Smooth = 15,
+			LatchBlend = 0.2,
+			Stride = 10,
+			LegSwing = 40,
+			Bob = 0.5,
+			FullSpeed = 60,
+			TailSway = 12,
+			TailRate = 1.2,
+			Crouch = 0.9,
+			JawOpen = 40,
+			BiteOpen = 0.15,
+			BiteSnap = 0.1,
 		},
 	},
 }
