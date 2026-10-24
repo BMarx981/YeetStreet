@@ -1350,6 +1350,33 @@ Tuning.City = {
 		-- DrawRange of its camera (PedestrianLook).
 		DrawCount = 10,
 		DrawRange = 300,
+		-- How they are drawn (PedestrianLook): angles in degrees.
+		Look = {
+			Stride = 4, -- studs walked per step with each foot
+			LegSwing = 30,
+			ArmSwing = 25,
+			Bob = 0.15,
+			DiveHop = 1.5, -- how high a dive arcs
+			FlopHop = 3, -- how high being knocked flat throws it
+			-- What it carries flies FlyFurther on past where it lands, FlyHeight
+			-- up at the top, and lands FlyExtra seconds after it does.
+			FlyFurther = 6,
+			FlyHeight = 8,
+			FlyExtra = 0.35,
+			DogSide = 1.8, -- to its right
+			DogAhead = 1,
+			BubbleDistance = 150,
+			-- Said getting up from a dive, picked by when it dived.
+			Lines = { "WATCH IT!", "I'M WALKING HERE!", "HEY!", "LEARN TO DRIVE!", "ROAD HOG!", "SLOW DOWN!" },
+			-- Said getting up after being knocked flat, about what it carried.
+			PropLines = {
+				Coffee = "MY COFFEE!",
+				Briefcase = "MY PAPERS!",
+				Phone = "I'M ON A CALL!",
+				Newspaper = "I WAS READING THAT!",
+				Dog = "WATCH THE DOG!",
+			},
+		},
 	},
 }
 
