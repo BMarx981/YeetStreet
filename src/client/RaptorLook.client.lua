@@ -252,6 +252,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 		local bites = marker:GetAttribute("Bites")
 		if typeof(bites) == "number" and bites > look.bites then
 			look.biteAt = now
+			look.snap.PlaybackSpeed = random:NextNumber(L.SnapMinPitch, L.SnapMaxPitch)
 			look.snap:Play()
 		end
 		look.bites = if typeof(bites) == "number" then bites else look.bites

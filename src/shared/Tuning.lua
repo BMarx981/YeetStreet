@@ -1707,8 +1707,9 @@ Tuning.Dino = {
 		-- body Crouch studs. A bite opens the jaw JawOpen degrees for BiteOpen
 		-- seconds, then snaps it shut over BiteSnap. Springing an ambush, each
 		-- screeches (Screech, played MinPitch to MaxPitch times as fast, up to
-		-- ScreechDelay seconds apart); each bite snaps (Snap). Both are Pro
-		-- Sound Effects sounds, heard out to Hearing studs.
+		-- ScreechDelay seconds apart); each bite snaps (Snap, played
+		-- SnapMinPitch to SnapMaxPitch times as fast). Both are Pro Sound
+		-- Effects sounds, heard out to Hearing studs.
 		Look = {
 			Scale = 3.2,
 			Smooth = 15,
@@ -1729,7 +1730,9 @@ Tuning.Dino = {
 			MaxPitch = 1.45,
 			ScreechDelay = 0.3,
 			Snap = "rbxassetid://9119056795",
-			SnapVolume = 0.7,
+			SnapVolume = 0.35,
+			SnapMinPitch = 0.75,
+			SnapMaxPitch = 0.9,
 			Hearing = 300,
 		},
 	},
