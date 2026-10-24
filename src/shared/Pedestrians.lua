@@ -39,6 +39,13 @@ export type Layout = {
 	Alley: number,
 }
 
+-- The parts of Tuning.City the layout comes from.
+export type City = {
+	Avenue: { Width: number },
+	Streets: { Width: number, Z: { number } },
+	Buildings: { TopZ: number, Setback: number, Lot: number, Alley: number },
+}
+
 export type Tuning = {
 	Lanes: { number }, -- in from the road's edge, one per way round
 	FarAlley: number, -- street loops cross back at this alley out from the avenue
@@ -88,6 +95,18 @@ type Rng = {
 	range: (low: number, high: number) -> number,
 	int: (low: number, high: number) -> number,
 }
+
+function Pedestrians.layout(city: City): Layout
+	return {
+		AvenueWidth = city.Avenue.Width,
+		StreetWidth = city.Streets.Width,
+		StreetZ = city.Streets.Z,
+		TopZ = city.Buildings.TopZ,
+		Setback = city.Buildings.Setback,
+		Lot = city.Buildings.Lot,
+		Alley = city.Buildings.Alley,
+	}
+end
 
 type Corner = { x: number, z: number, crossing: boolean }
 

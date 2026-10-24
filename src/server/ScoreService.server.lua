@@ -591,6 +591,23 @@ carBitten.Event:Connect(function(car: Model, moment: "bite" | "shakeOff" | "surv
 end)
 carBitten.Parent = ServerStorage
 
+-- A Downtown walker diving clear of a car (Parks.CityPedestrians fires
+-- ServerStorage.PedestrianNearMiss) pays its driver at once, run or not.
+-- Hitting one pays nothing and costs nothing.
+local pedestrianNearMiss = Instance.new("BindableEvent")
+pedestrianNearMiss.Name = "PedestrianNearMiss"
+pedestrianNearMiss.Event:Connect(function(car: Model)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	local amount = Tuning.City.Pedestrians.NearMissBonus
+	Garage.pay(watch.player, amount)
+	print(`Near miss, paid {amount}, {watch.player.Name}`)
+	cashBonus:FireClient(watch.player, "Near miss", amount)
+end)
+pedestrianNearMiss.Parent = ServerStorage
+
 local playerEaten = Instance.new("BindableEvent")
 playerEaten.Name = "PlayerEaten"
 playerEaten.Event:Connect(function(player: Player)

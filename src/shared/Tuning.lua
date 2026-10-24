@@ -1321,6 +1321,35 @@ Tuning.City = {
 		Seed = 23,
 		MinSpeed = 5,
 		MaxSpeed = 7,
+		Rate = 10, -- server steps a second
+		EyeHeight = 5, -- what a walker sees past the buildings from
+		AirHeight = 8, -- a car's middle higher than this above the floor is in the air, unseen
+		NearMissBonus = 50, -- cash, paid at once (ScoreService)
+		-- What each walker does about a car (Pedestrian): times in seconds,
+		-- distances in studs.
+		Dodge = {
+			SeeDistance = 80,
+			SeeTime = 1.2,
+			SeeSpeed = 15,
+			DiveRadius = 12,
+			NearMiss = 12,
+			HitRadius = 5,
+			HitHeight = 10,
+			DiveTime = 0.35,
+			DiveDistance = 7,
+			DiveDown = 0.6,
+			FlopTime = 0.4,
+			FlopDistance = 10,
+			FlopDown = 1.2,
+			GetUp = 0.6,
+			Fist = 1.4,
+			ReturnSpeed = 6,
+			Cooldown = 10,
+		},
+		-- Each client draws only the nearest DrawCount walkers within
+		-- DrawRange of its camera (PedestrianLook).
+		DrawCount = 10,
+		DrawRange = 300,
 	},
 }
 

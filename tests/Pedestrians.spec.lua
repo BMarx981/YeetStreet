@@ -234,4 +234,15 @@ Check.test("a walker moves along its loop at its speed from the server clock", f
 	Check.eq(at.z, pose.z, "at is the pose at that distance")
 end)
 
+Check.test("the layout comes from the city's own numbers", function()
+	local layout = Pedestrians.layout({
+		Avenue = { Width = 160 },
+		Streets = { Width = 100, Z = LAYOUT.StreetZ },
+		Buildings = { TopZ = 1500, Setback = 20, Lot = 160, Alley = 50 },
+	})
+	for key, value in LAYOUT do
+		Check.eq((layout :: any)[key], value, key)
+	end
+end)
+
 Check.finish("Pedestrians")

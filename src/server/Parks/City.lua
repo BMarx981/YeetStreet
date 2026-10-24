@@ -11,7 +11,8 @@
 -- rides up the wall instead of stopping dead. Chains of two buildings have
 -- a twisting round tube through them that crosses the alley between them
 -- overhead. A train line loops round, elevated and underground
--- (CityRailway). A kaiju walks the streets hunting cars (CityKaiju).
+-- (CityRailway). A kaiju walks the streets hunting cars (CityKaiju), and
+-- walkers on the curbs dive out of cars' way (CityPedestrians).
 -- Numbers are in Tuning.City.
 
 local CollectionService = game:GetService("CollectionService")
@@ -29,6 +30,7 @@ local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Tube = require(ServerScriptService.Pieces.Tube)
 local CityKaiju = require(script.Parent.CityKaiju)
+local CityPedestrians = require(script.Parent.CityPedestrians)
 local CityRailway = require(script.Parent.CityRailway)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 
@@ -846,6 +848,7 @@ end
 -- client.)
 function City.start(folder: Folder, area: MapLayout.Area)
 	CityKaiju.build(folder, area)
+	CityPedestrians.start(folder, area)
 end
 
 -- The tuning the parts are built from: all of Tuning.City but the numbers
