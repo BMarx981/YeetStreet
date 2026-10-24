@@ -42,6 +42,10 @@
 -- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
 -- toughness, and shaking off or surviving a pack pays cash at once.
 --
+-- A wrecking ball smacking a car (the driver's client pushes it,
+-- WreckingBalls) does no damage. It pays a Wrecking ball target on a run,
+-- or arms one like a launch pad and pays the target once it takes off.
+--
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
 -- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
@@ -66,6 +70,7 @@ local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
 local Tuning = require(ReplicatedStorage.Tuning)
+local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local CarDamage = require(ServerScriptService.CarDamage)
 local Garage = require(ServerScriptService.Garage)
 local Leaderstats = require(ServerScriptService.Leaderstats)
@@ -96,6 +101,8 @@ type Watch = {
 	-- os.clock() until which hits are not measured: a dropped car's speed
 	-- jumps when its driver's game takes it back, which is not a hit.
 	hitsFrom: number,
+	ballAt: number, -- os.clock() when a wrecking ball last smacked it
+	ballRun: boolean, -- smacked on the ground: the run it armed pays the target
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -182,6 +189,8 @@ local function watchFor(car: Model): Watch?
 		held = false,
 		chewed = false,
 		hitsFrom = -math.huge,
+		ballAt = -math.huge,
+		ballRun = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -357,6 +366,31 @@ boulderSmashed.Event:Connect(function(car: Model, velocity: Vector3, breakSpeed:
 	print(`Boulder {math.floor(strength + 0.5)} {slot}, damage {math.floor(amount + 0.5)}, {watch.player.Name}`)
 	carImpact:FireClient(watch.player, strength, slot, watch.run.phase == "flying", amount, watch.toughness)
 end)
+
+-- Whether a wrecking ball smacked the car this step: its speed jumped by at
+-- least Kick with a ball in reach of it lately. Then no hit is measured for
+-- a moment, and the smack pays a Wrecking ball target on the run, or arms a
+-- run like a launch pad.
+local function smack(watch: Watch, reading: CarSensor.Reading)
+	local S = Tuning.City.Cranes.Server
+	local now = os.clock()
+	if reading.impact.Magnitude < S.Kick or now - watch.ballAt < S.Cooldown then
+		return
+	end
+	local time = workspace:GetServerTimeNow()
+	if not WreckingBalls.smacked(watch.sensor.hull.Position, time - S.Lag, time, S.Slack) then
+		return
+	end
+	watch.ballAt = now
+	watch.hitsFrom = math.max(watch.hitsFrom, now + S.HitGrace)
+	print(`Wrecking ball smack, {watch.player.Name}`)
+	if watch.run.phase == "flying" then
+		table.insert(watch.targets, "Wrecking ball")
+	else
+		watch.ballRun = true
+		reading.sample.onPad = true
+	end
+end
 
 local carEaten = Instance.new("BindableEvent")
 carEaten.Name = "CarEaten"
@@ -586,6 +620,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 					watch.burning = burning
 					car:SetAttribute("Burning", burning)
 				end
+				smack(watch, reading)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end
@@ -595,6 +630,12 @@ RunService.Heartbeat:Connect(function(dt: number)
 					local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
 					if result then
 						finish(watch, result)
+					end
+				end
+				if watch.ballRun and watch.run.phase ~= "armed" then
+					watch.ballRun = false
+					if watch.run.phase == "flying" then
+						table.insert(watch.targets, "Wrecking ball")
 					end
 				end
 			end

@@ -425,6 +425,7 @@ Tuning.Score = {
 		["Palm tree"] = 200,
 		Lava = 300, -- coming down in lava (ScoreService)
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
+		["Wrecking ball"] = 300, -- smacked by one of Downtown's (ScoreService)
 	},
 }
 
@@ -494,7 +495,7 @@ Tuning.Hud = {
 	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
 	CashEarnedTime = 3, -- seconds the "+N" under the cash stays on screen
 	-- How the run card names a target, if not "<kind> smash".
-	TargetLabels = { Lava = "Lava splash", ["T-Rex"] = "T-Rex snack" },
+	TargetLabels = { Lava = "Lava splash", ["T-Rex"] = "T-Rex snack", ["Wrecking ball"] = "Wrecking ball" },
 }
 
 Tuning.Righting = {
@@ -1040,6 +1041,51 @@ Tuning.City = {
 		-- TextScaled stops at 100 pixel text, so few enough pixels that the
 		-- two lines fill the board.
 		PixelsPerStud = 4,
+	},
+	-- Tower cranes on roofs by the streets, each with a wrecking ball
+	-- swinging from its jib's tip across the street (WreckingBall). Each
+	-- player's client moves the balls from the server's clock
+	-- (WreckingBallSet). They never touch anything, but a ball that reaches a
+	-- car smacks it across the street and up: that starts a run like a launch
+	-- pad, and pays Tuning.Score.TargetPoints["Wrecking ball"] on the run
+	-- (ScoreService). A crane stands on the building nearest each Spot
+	-- (WreckingBall.Spot), no more than MaxShift along from it, with its
+	-- ball Phase (a share of a whole swing) along its swing at time 0.
+	Cranes = {
+		MastHeight = 60, -- above the roof
+		MastSize = 6,
+		MastBack = 25, -- in from the roof's street edge
+		JibSize = 4,
+		CounterJib = 40,
+		CounterweightSize = 10,
+		MaxShift = 220,
+		Margin = 6, -- from the ball to the street's edge at the end of its swing
+		Gap = 1.5, -- under the ball at the bottom of its swing
+		Spots = {
+			{ Along = -370, Side = -1, Phase = 0 }, -- over the avenue
+			{ Along = -1170, Side = 1, Phase = 0.5 },
+			{ Street = -600, Along = -600, Side = -1, Phase = 0.25 },
+			{ Street = -1400, Along = 600, Side = 1, Phase = 0.75 },
+		},
+		Ball = {
+			Gravity = Tuning.World.Gravity,
+			Radius = 8,
+			Reach = 5,
+			Smack = 140,
+			Lift = 110,
+			MinShare = 0.5,
+		},
+		-- The car's motion reaches the server late, so the server checks a
+		-- smack against where the ball was over the last Lag seconds, Slack
+		-- further out. Only a jump in the car's speed of at least Kick counts,
+		-- once every Cooldown, and no hit is measured for HitGrace after.
+		Server = {
+			Lag = 0.5,
+			Slack = 4,
+			Kick = 40,
+			Cooldown = 1,
+			HitGrace = 0.4,
+		},
 	},
 }
 

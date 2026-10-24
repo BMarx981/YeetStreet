@@ -5,7 +5,8 @@
 -- streets split the rest into blocks of buildings, and open plazas sit at
 -- both ends. The Highway Overpass climbs straight down the avenue to a broken
 -- end, a kicker with boosters that throws the car on down the avenue,
--- through a YEET STREET billboard that shatters.
+-- through a YEET STREET billboard that shatters. Cranes on roofs swing
+-- wrecking balls across the streets.
 -- Every building has a curve all around its foot, so a car driven at it
 -- rides up the wall instead of stopping dead. Chains of two buildings have
 -- a twisting round tube through them that crosses the alley between them
@@ -20,6 +21,8 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Railway = require(ReplicatedStorage.Railway)
 local Tunnel = require(ReplicatedStorage.Tunnel)
+local WreckingBall = require(ReplicatedStorage.WreckingBall)
+local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Tube = require(ServerScriptService.Pieces.Tube)
@@ -40,6 +43,8 @@ local POLE_COLOR = Color3.fromRGB(60, 64, 70)
 local LAMP_COLOR = Color3.fromRGB(255, 236, 190)
 local BILLBOARD_COLOR = Color3.fromRGB(255, 200, 40)
 local BILLBOARD_TEXT_COLOR = Color3.fromRGB(30, 30, 40)
+local CRANE_COLOR = Color3.fromRGB(245, 185, 30)
+local COUNTERWEIGHT_COLOR = Color3.fromRGB(150, 150, 145)
 local BUILDING_COLORS = {
 	Color3.fromRGB(150, 160, 175),
 	Color3.fromRGB(120, 90, 80),
@@ -425,14 +430,15 @@ end
 
 -- Fills the block from z1 down to z2 on both sides of the avenue with
 -- buildings in a grid, each a random height, some lots left empty and none
--- where a tunnel building already stands.
+-- where a tunnel building already stands. Each building goes in `plain`.
 local function buildBlock(
 	parent: Instance,
 	area: MapLayout.Area,
 	rng: Random,
 	z1: number,
 	z2: number,
-	taken: { Tunnel.Rect }
+	taken: { Tunnel.Rect },
+	plain: { WreckingBall.Building }
 )
 	local B = C.Buildings
 	local inner = C.Avenue.Width / 2 + B.Setback
@@ -455,6 +461,7 @@ local function buildBlock(
 					local color = BUILDING_COLORS[rng:NextInteger(1, #BUILDING_COLORS)]
 					local material = BUILDING_MATERIALS[rng:NextInteger(1, #BUILDING_MATERIALS)]
 					buildBuilding(parent, area, side * (x + B.Lot / 2), z - B.Lot / 2, height, color, material)
+					table.insert(plain, { x = side * (x + B.Lot / 2), z = z - B.Lot / 2, height = height })
 				end
 				z -= B.Lot + B.Alley
 			end
@@ -463,11 +470,13 @@ local function buildBlock(
 	end
 end
 
-local function buildBuildings(parent: Instance, area: MapLayout.Area)
+-- Returns the plain buildings, without tunnels.
+local function buildBuildings(parent: Instance, area: MapLayout.Area): { WreckingBall.Building }
 	local model = Instance.new("Model")
 	model.Name = "Buildings"
 	model.Parent = parent
 
+	local plain: { WreckingBall.Building } = {}
 	local rng = Random.new(C.Buildings.Seed)
 	local city: Tunnel.City = C :: any
 	local chains = Tunnel.layout(city)
@@ -488,8 +497,9 @@ local function buildBuildings(parent: Instance, area: MapLayout.Area)
 				table.insert(taken, spiral.rect)
 			end
 		end
-		buildBlock(model, area, rng, lots.top, lots.bottom, taken)
+		buildBlock(model, area, rng, lots.top, lots.bottom, taken, plain)
 	end
+	return plain
 end
 
 local function buildOverpass(parent: Instance, area: MapLayout.Area)
@@ -735,12 +745,96 @@ local function buildBillboard(parent: Instance, area: MapLayout.Area)
 	model.Parent = parent
 end
 
+-- A tower crane on the roof of the building nearest each of
+-- Tuning.City.Cranes' Spots (WreckingBall.site): a mast MastBack in from
+-- the roof's street edge, and a jib from a counterweight behind it out over
+-- the street's middle. The trolley at the jib's tip is tagged WreckingBall
+-- with its ball's Length, Amplitude and Phase, and each client draws the
+-- ball swinging from it (WreckingBallLook), skimming the road at the bottom
+-- and out to Margin from the street's edges.
+local function buildCranes(parent: Instance, area: MapLayout.Area, buildings: { WreckingBall.Building })
+	local K, B = C.Cranes, C.Buildings
+	local model = Instance.new("Model")
+	model.Name = "Cranes"
+	local layout: WreckingBall.Layout = {
+		AvenueWidth = C.Avenue.Width,
+		StreetWidth = C.Streets.Width,
+		Lot = B.Lot,
+		Alley = B.Alley,
+		Setback = B.Setback,
+	}
+	for index, spot in K.Spots :: { any } do
+		local site = WreckingBall.site(buildings, spot, layout, K.MaxShift)
+		if not site then
+			warn(`City: no building for crane {index}`)
+			continue
+		end
+		local crane = Instance.new("Model")
+		crane.Name = "Crane"
+		local roof = site.building.height
+		local top = roof + K.MastHeight
+		local out = Vector3.new(site.outX, 0, site.outZ)
+		local mast = Vector3.new(site.building.x, 0, site.building.z) + out * (B.Lot / 2 - K.MastBack)
+		local tip = Vector3.new(site.pivotX, 0, site.pivotZ)
+		local back = mast - out * K.CounterJib
+		local function point(x: Vector3, y: number): Vector3
+			return at(area, x.X, y, x.Z).Position
+		end
+
+		block(
+			crane,
+			"Mast",
+			Vector3.new(K.MastSize, K.MastHeight, K.MastSize),
+			CFrame.new(point(mast, roof + K.MastHeight / 2)),
+			CRANE_COLOR
+		).Material =
+			Enum.Material.Metal
+		local jibY = top + K.JibSize / 2
+		block(
+			crane,
+			"Jib",
+			Vector3.new(K.JibSize, K.JibSize, (tip - back).Magnitude),
+			CFrame.lookAt(point((back + tip) / 2, jibY), point(tip, jibY)),
+			CRANE_COLOR
+		).Material =
+			Enum.Material.Metal
+		block(
+			crane,
+			"Counterweight",
+			Vector3.one * K.CounterweightSize,
+			CFrame.new(point(back + out * K.CounterweightSize / 2, top - K.CounterweightSize / 2)),
+			COUNTERWEIGHT_COLOR
+		)
+
+		-- The trolley's X is across the street, the way the ball swings.
+		local trolley = block(
+			crane,
+			"Trolley",
+			Vector3.new(4, 2, 4),
+			CFrame.fromMatrix(point(tip, top - 1), out, Vector3.yAxis),
+			CRANE_COLOR
+		)
+		trolley.Material = Enum.Material.Metal
+		trolley.CanCollide = false
+		trolley.CanQuery = false
+		trolley.CanTouch = false
+		local length = top - 1 - (K.Gap + K.Ball.Radius)
+		trolley:SetAttribute("Length", length)
+		trolley:SetAttribute("Amplitude", WreckingBall.amplitude(length, site.halfStreet - K.Ball.Radius - K.Margin))
+		trolley:SetAttribute("Phase", (spot.Phase or 0) * 2 * math.pi)
+		CollectionService:AddTag(trolley, WreckingBalls.TAG)
+		crane.Parent = model
+	end
+	model.Parent = parent
+end
+
 function City.build(folder: Folder, area: MapLayout.Area)
 	buildStreets(folder, area)
-	buildBuildings(folder, area)
+	local plain = buildBuildings(folder, area)
 	buildOverpass(folder, area)
 	buildBillboard(folder, area)
 	buildStreetLights(folder, area)
+	buildCranes(folder, area, plain)
 	CityRailway.build(folder, area)
 end
 

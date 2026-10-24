@@ -46,6 +46,7 @@ local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
+local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
@@ -416,9 +417,18 @@ local function step(r: Rig, dt: number)
 	if pushed then
 		setVelocity(r, pushed)
 	end
+	-- A wrecking ball that reaches the car smacks it across the street and
+	-- up, and that starts a run like a launch pad.
+	local smacked = WreckingBalls.push(cf.Position, r.hull.AssemblyLinearVelocity, workspace:GetServerTimeNow())
+	if smacked then
+		setVelocity(r, smacked)
+	end
 	passBoulders(cf.Position, velocity, r.model:GetAttribute("Burning") == true)
 
 	local reading = CarSensor.read(r.sensor, dt, up)
+	if smacked then
+		reading.sample.onPad = true
+	end
 	local airborne = reading.airborne
 
 	-- On a rail or a swing seat, GrindRide or SwingRide moves the car: no
