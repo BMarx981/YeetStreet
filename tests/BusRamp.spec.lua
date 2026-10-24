@@ -1,0 +1,35 @@
+--!strict
+local Check = require("./Check")
+local BusRamp = require("../src/shared/BusRamp")
+
+Check.test("a tipped bus rests on the lower corner of its tail", function()
+	local angle = math.rad(20)
+	local shape = BusRamp.shape(44, 13, angle)
+	Check.near(shape.run * math.sin(angle) - 13 * math.cos(angle), 0, "tail corner on the ground")
+	Check.near(shape.run + shape.buried, 44, "run and buried nose make the whole bus")
+	Check.near(shape.top, shape.run * math.sin(angle), "top is the end of the run")
+	Check.near(shape.top, 13 * math.cos(angle), "as high as the bus is thick, tipped")
+end)
+
+Check.test("a steeper bus is a shorter, higher ramp with more of its nose buried", function()
+	local gentle = BusRamp.shape(44, 13, math.rad(18))
+	local steep = BusRamp.shape(44, 13, math.rad(26))
+	Check.eq(steep.run < gentle.run, true, "shorter")
+	Check.eq(steep.buried > gentle.buried, true, "more buried")
+	Check.eq(steep.top < gentle.top, true, "top drops as it tips, the bus lying more on its end")
+end)
+
+Check.test("a bus too short to reach the ground from its tail is all ramp, nothing buried", function()
+	local shape = BusRamp.shape(20, 13, math.rad(15))
+	Check.near(shape.run, 20, "whole length")
+	Check.near(shape.buried, 0, "nothing buried")
+	Check.near(shape.top, 20 * math.sin(math.rad(15)), "top")
+end)
+
+Check.test("its run seen from above", function()
+	local angle = math.rad(20)
+	local shape = BusRamp.shape(44, 13, angle)
+	Check.near(BusRamp.across(shape, angle), shape.run * math.cos(angle), "flat length")
+end)
+
+Check.finish("BusRamp")

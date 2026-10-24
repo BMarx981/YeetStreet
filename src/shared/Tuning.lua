@@ -1312,6 +1312,30 @@ Tuning.Dino = {
 			Rate = 2.5,
 		},
 	},
+	-- Old safari buses tipped onto their sides, nose down in the grass, the
+	-- upturned side a ramp (BusRamp): Count of them scattered with their own
+	-- Seed over the palms' ground, Gap apart, facing any way. Each tips
+	-- MinAngle to MaxAngle degrees, and the top PadLength of its side is a
+	-- launch pad. Nothing else stands within Reach of its middle (its run-up
+	-- included), and no palm within Reach + PalmClear. A wreck or reset puts
+	-- the car Approach studs in front of its foot. Bushes and dinos keep
+	-- Clear from the line down its middle and its run-up.
+	Buses = {
+		Count = 6,
+		Seed = 47,
+		Gap = 400,
+		Length = 44,
+		Width = 13, -- its thickness, lying on its side
+		Height = 14, -- across its upturned side
+		MinAngle = 18,
+		MaxAngle = 24,
+		PadLength = 8,
+		LaunchSpeed = 200,
+		Approach = 50,
+		Reach = 80,
+		PalmClear = 10,
+		Clear = 25,
+	},
 	-- The volcano in the park's southwest corner (Volcano): a hollow blocky
 	-- cone of Tiers, each a ring of blocks at most BlockWidth across, Shell
 	-- thick, stepping in from BaseRadius at the foot to TopRadius at the rim,

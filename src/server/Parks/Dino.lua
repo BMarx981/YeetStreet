@@ -28,7 +28,9 @@
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
--- (PropService). Bushes are scattered over the same ground on their own;
+-- (PropService). Old safari buses lie tipped on their sides about the park
+-- as ramps, a launch pad at the top of each. Bushes are scattered over the
+-- same ground on their own;
 -- cars drive through them and each client rustles them (BushRustle).
 -- Numbers are in Tuning.Dino.
 
@@ -37,6 +39,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Bronto = require(ReplicatedStorage.Bronto)
+local BusRamp = require(ReplicatedStorage.BusRamp)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Scatter = require(ReplicatedStorage.Scatter)
@@ -67,6 +70,13 @@ local DARK_COLOR = Color3.fromRGB(25, 25, 25)
 local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
 local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
 local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
+local BUS_COLOR = Color3.fromRGB(112, 118, 66)
+local BAND_COLOR = Color3.fromRGB(222, 210, 170)
+local WINDOW_COLOR = Color3.fromRGB(34, 40, 44)
+local RAIL_COLOR = Color3.fromRGB(90, 90, 86)
+local RUST_COLOR = Color3.fromRGB(140, 78, 40)
+local TAIL_LIGHT_COLOR = Color3.fromRGB(200, 40, 30)
+local DIRT_COLOR = Color3.fromRGB(110, 82, 52)
 local BUSH_COLORS = { Color3.fromRGB(52, 98, 44), Color3.fromRGB(64, 112, 50), Color3.fromRGB(44, 84, 38) }
 local ROCK_COLORS = { Color3.fromRGB(62, 56, 54), Color3.fromRGB(78, 68, 62), Color3.fromRGB(92, 74, 60) }
 local CAUSEWAY_COLOR = Color3.fromRGB(110, 96, 84)
@@ -926,8 +936,12 @@ local function buildPalm(parent: Instance, x: number, z: number, rng: Rng.Rng)
 end
 
 -- Adds the arrival point to `keepOut` and returns the rectangle the trees
--- stand in.
-local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line }): Scatter.Rect
+-- stand in, and where they stand.
+local function buildPalms(
+	parent: Instance,
+	area: MapLayout.Area,
+	keepOut: { Scatter.Line }
+): (Scatter.Rect, { Scatter.Point })
 	local P = D.Palms
 	local folder = Instance.new("Folder")
 	folder.Name = "PalmTrees"
@@ -947,10 +961,141 @@ local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 		Radius = P.ArrivalClear,
 	}
 	table.insert(keepOut, arrival)
-	for _, spot in Scatter.points(rng, P.Count, rect, P.Gap, keepOut) do
+	local spots = Scatter.points(rng, P.Count, rect, P.Gap, keepOut)
+	for _, spot in spots do
 		buildPalm(folder, spot.x, spot.z, rng)
 	end
-	return rect
+	return rect, spots
+end
+
+-- An old safari bus on its side, nose down in the grass (BusRamp), in a
+-- frame on the grass at its foot, where its side comes up out of the grass,
+-- tipped up the slope: across it is x (its roof toward -x, its wheels toward
+-- +x), y is out of its upturned side, and -z runs up the slope to its tail.
+-- Returns the line down its middle from its run-up to its tail.
+local function buildBus(parent: Instance, x: number, z: number, heading: number, angle: number): Scatter.Line
+	local B = D.Buses
+	local model = Instance.new("Model")
+	model.Name = "SafariBus"
+	local shape = BusRamp.shape(B.Length, B.Width, angle)
+	local across = BusRamp.across(shape, angle)
+	local flat = CFrame.new(x, FLOOR, z) * CFrame.Angles(0, heading, 0)
+	local foot = flat * CFrame.new(0, 0, across / 2)
+	local side = foot * CFrame.Angles(angle, 0, 0)
+	local half = B.Height / 2
+	local thick = B.Width
+
+	local shell = block(
+		model,
+		"Shell",
+		Vector3.new(B.Height, thick, B.Length),
+		side * CFrame.new(0, -thick / 2, (shape.buried - shape.run) / 2),
+		BUS_COLOR
+	)
+	shell.Material = Enum.Material.Metal
+	local respawn = flat * CFrame.new(0, HULL_HEIGHT, across / 2 + B.Approach)
+	-- Just proud of the side, so the wheels find it before the shell.
+	LaunchPad.flat(
+		model,
+		side * CFrame.new(0, 0.05, -shape.run + B.PadLength / 2),
+		B.Height - 2,
+		B.PadLength,
+		B.LaunchSpeed,
+		respawn,
+		D.PayScale
+	)
+
+	-- A row of windows up the roof half of its side, a cream band along the
+	-- floor half, rails on its roof, wheels sticking out of its floor, and a
+	-- back window and lights on its tail.
+	local windows = math.floor((shape.run - B.PadLength - 2) / 5.5)
+	for k = 1, windows do
+		decoration(
+			model,
+			"Window",
+			Vector3.new(half * 0.7, 0.1, 4.5),
+			side * CFrame.new(-half + 1 + half * 0.35, 0.05, -1 - (k - 0.5) * 5.5),
+			WINDOW_COLOR
+		)
+	end
+	decoration(
+		model,
+		"Band",
+		Vector3.new(2, 0.1, shape.run - B.PadLength),
+		side * CFrame.new(half - 3, 0.04, -(shape.run - B.PadLength) / 2),
+		BAND_COLOR
+	)
+	for _, y in { -2.5, -thick + 2.5 } do
+		decoration(
+			model,
+			"Rail",
+			Vector3.new(1, 0.6, B.Length - 6),
+			side * CFrame.new(-half - 0.5, y, (shape.buried - shape.run) / 2),
+			RAIL_COLOR
+		)
+		for _, along in { -shape.run + 7, shape.buried - 7 } do
+			local wheel = decoration(
+				model,
+				"Wheel",
+				Vector3.new(2.5, 6, 6),
+				side * CFrame.new(half + 1.5, y, along) * CFrame.Angles(0, 0, math.pi / 2),
+				DARK_COLOR
+			)
+			wheel.Shape = Enum.PartType.Cylinder
+		end
+	end
+	local tail = side * CFrame.new(0, 0, -shape.run - 0.05)
+	decoration(
+		model,
+		"BackWindow",
+		Vector3.new(half * 0.8, thick * 0.6, 0.1),
+		tail * CFrame.new(-half + 1 + half * 0.4, -thick / 2, 0),
+		WINDOW_COLOR
+	)
+	for _, y in { -1.5, -thick + 1.5 } do
+		decoration(model, "TailLight", Vector3.new(1.5, 1.5, 0.1), tail * CFrame.new(half - 2, y, 0), TAIL_LIGHT_COLOR)
+	end
+	for k = 1, 3 do
+		local rust = decoration(
+			model,
+			"Rust",
+			Vector3.new(0.1, thick * 0.4, 5),
+			side * CFrame.new(-half - 0.05, -thick * k / 4, -shape.run + k * 9),
+			RUST_COLOR
+		)
+		rust.Material = Enum.Material.CorrodedMetal
+	end
+	-- Dirt heaped up either side of its nose where it dug in.
+	for _, s in { -1, 1 } do
+		decoration(model, "Dirt", Vector3.new(4, 3, 10), foot * CFrame.new(s * (half + 2), 0.5, 2), DIRT_COLOR)
+	end
+	model.Parent = parent
+
+	local runUp = respawn.Position
+	local back = (side * CFrame.new(0, 0, -shape.run)).Position
+	return { AX = runUp.X, AZ = runUp.Z, BX = back.X, BZ = back.Z, Radius = B.Clear }
+end
+
+-- The safari buses, scattered with their own seed clear of everything built
+-- so far and of the palms. Adds each to `keepOut`.
+local function buildBuses(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, palms: { Scatter.Point })
+	local B = D.Buses
+	local folder = Instance.new("Folder")
+	folder.Name = "SafariBuses"
+	folder.Parent = parent
+	local clear: { Scatter.Line } = {}
+	for _, line in keepOut do
+		table.insert(clear, { AX = line.AX, AZ = line.AZ, BX = line.BX, BZ = line.BZ, Radius = line.Radius + B.Reach })
+	end
+	for _, palm in palms do
+		table.insert(clear, { AX = palm.x, AZ = palm.z, BX = palm.x, BZ = palm.z, Radius = B.Reach + B.PalmClear })
+	end
+	local random = Random.new(B.Seed)
+	for _, spot in Scatter.points(Rng.new(B.Seed), B.Count, rect, B.Gap, clear) do
+		local heading = random:NextNumber(0, 2 * math.pi)
+		local angle = math.rad(random:NextNumber(B.MinAngle, B.MaxAngle))
+		table.insert(keepOut, buildBus(folder, spot.x, spot.z, heading, angle))
+	end
 end
 
 -- A bush of leafy balls: a big one in the middle and a ring round it, all
@@ -1074,9 +1219,10 @@ function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	local bronto = buildBronto(folder, area)
 	local volcano = buildVolcano(folder, area)
 	local keepOut = { bronto, volcano }
-	local trees = buildPalms(folder, area, keepOut)
+	local trees, palms = buildPalms(folder, area, keepOut)
 	-- After the palms, so the spire stands in a gap without moving a tree.
 	local perch = buildSpire(folder, area, keepOut)
+	buildBuses(folder, trees, keepOut, palms)
 	buildBushes(folder, trees, keepOut)
 	buildRex(folder, area, trees, keepOut)
 	buildPtero(folder, trees, keepOut, perch)
