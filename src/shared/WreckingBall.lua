@@ -5,10 +5,11 @@
 -- street, skimming the road at the bottom of its swing. Pure, see InputAxes.
 --
 -- Points are in the pivot's space, the jib's tip: X across the street (the
--- way the ball swings), Y up, Z along the street. The ball swings like a
--- pendulum its length long: its angle from straight down is
--- amplitude * sin(rate * time + phase), with time the server's clock, so
--- every machine has it in the same place without sending anything.
+-- way the ball swings), Y up, Z along the street. Every ball swings there
+-- and back once a Period, quicker than a real pendulum would: its angle
+-- from straight down is amplitude * sin(rate * time + phase), with time the
+-- server's clock, so every machine has it in the same place without
+-- sending anything.
 --
 -- A ball that reaches a car smacks it away across the street and up, harder
 -- the faster the ball swings into it (push). It never slows the car along
@@ -19,7 +20,7 @@
 local WreckingBall = {}
 
 export type Tuning = {
-	Gravity: number,
+	Period: number, -- seconds for a whole swing there and back
 	Radius: number,
 	Reach: number, -- a hull's middle this far from the ball's surface is touching it
 	Smack: number, -- studs per second across, from a ball at full swing
@@ -72,14 +73,14 @@ export type Site = {
 local MAX_SINE = 0.9 -- no ball swings out past about 64 degrees
 local SAMPLE = 1 / 60
 
--- How fast its cycle turns, in radians per second.
-function WreckingBall.rate(ball: Ball, gravity: number): number
-	return math.sqrt(gravity / ball.length)
+-- How fast a ball's cycle turns, in radians per second.
+function WreckingBall.rate(period: number): number
+	return 2 * math.pi / period
 end
 
 -- The ball's middle at `time`, as (x, y), and how fast it moves, as (x, y).
-function WreckingBall.center(ball: Ball, time: number, gravity: number): (number, number, number, number)
-	local rate = WreckingBall.rate(ball, gravity)
+function WreckingBall.center(ball: Ball, time: number, period: number): (number, number, number, number)
+	local rate = WreckingBall.rate(period)
 	local cycle = rate * time + ball.phase
 	local angle = ball.amplitude * math.sin(cycle)
 	local turning = ball.amplitude * rate * math.cos(cycle)
@@ -103,14 +104,14 @@ function WreckingBall.push(
 	vz: number,
 	tuning: Tuning
 ): (number?, number?, number?)
-	local bx, by, sx = WreckingBall.center(ball, time, tuning.Gravity)
+	local bx, by, sx = WreckingBall.center(ball, time, tuning.Period)
 	local dx, dy = x - bx, y - by
 	local reach = tuning.Radius + tuning.Reach
 	if dx * dx + dy * dy + z * z > reach * reach then
 		return nil, nil, nil
 	end
 	local away = if dx > 0 or (dx == 0 and sx >= 0) then 1 else -1
-	local fastest = ball.amplitude * WreckingBall.rate(ball, tuning.Gravity) * ball.length
+	local fastest = ball.amplitude * WreckingBall.rate(tuning.Period) * ball.length
 	local share = if fastest > 0 then math.clamp(sx * away / fastest, tuning.MinShare, 1) else tuning.MinShare
 	return away * math.max(tuning.Smack * share, vx * away), math.max(vy, tuning.Lift * share), vz
 end
@@ -125,11 +126,11 @@ function WreckingBall.reaches(
 	y: number,
 	z: number,
 	reach: number,
-	gravity: number
+	period: number
 ): boolean
 	local steps = math.max(math.ceil((to - from) / SAMPLE), 1)
 	for i = 0, steps do
-		local bx, by = WreckingBall.center(ball, from + (to - from) * i / steps, gravity)
+		local bx, by = WreckingBall.center(ball, from + (to - from) * i / steps, period)
 		local dx, dy = x - bx, y - by
 		if dx * dx + dy * dy + z * z <= reach * reach then
 			return true

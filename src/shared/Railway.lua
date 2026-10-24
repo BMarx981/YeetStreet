@@ -101,6 +101,25 @@ function Railway.carriages(total: number, time: number, trains: Trains): { Span 
 	return spans
 end
 
+-- Whether a car whose middle is at (along, across, up) from a lead
+-- carriage's middle, `half` its size each way (length, width, height), is
+-- where its nose pushes (see push), with `slack` more room every way.
+function Railway.touches(
+	along: number,
+	across: number,
+	up: number,
+	halfLength: number,
+	halfWidth: number,
+	halfHeight: number,
+	push: Push,
+	slack: number
+): boolean
+	return along <= halfLength + push.Margin + slack
+		and along >= halfLength - push.Depth - slack
+		and math.abs(across) <= halfWidth + push.Margin + slack
+		and math.abs(up) <= halfHeight + push.Margin + slack
+end
+
 -- How a train's lead carriage, `half` its size each way (length, width,
 -- height), going at `speed`, pushes a car whose middle is at (along,
 -- across, up) from the carriage's middle, going (va, vc, vu) the same ways.
@@ -122,12 +141,7 @@ function Railway.push(
 	speed: number,
 	push: Push
 ): (number?, number?, number?)
-	if
-		along > halfLength + push.Margin
-		or along < halfLength - push.Depth
-		or math.abs(across) > halfWidth + push.Margin
-		or math.abs(up) > halfHeight + push.Margin
-	then
+	if not Railway.touches(along, across, up, halfLength, halfWidth, halfHeight, push, 0) then
 		return nil, nil, nil
 	end
 	local side = if across >= 0 then math.max(vc, push.Side) else math.min(vc, -push.Side)

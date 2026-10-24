@@ -42,9 +42,10 @@
 -- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
 -- toughness, and shaking off or surviving a pack pays cash at once.
 --
--- A wrecking ball smacking a car (the driver's client pushes it,
--- WreckingBalls) does no damage. It pays a Wrecking ball target on a run,
--- or arms one like a launch pad and pays the target once it takes off.
+-- A train's nose pushing a car (Trains) does no damage. Nor does a
+-- wrecking ball smacking a car (the driver's client pushes it,
+-- WreckingBalls): that pays a Wrecking ball target on a run, or arms one
+-- like a launch pad and pays the target once it takes off.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
@@ -69,6 +70,7 @@ local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
+local Trains = require(ReplicatedStorage.Trains)
 local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local CarDamage = require(ServerScriptService.CarDamage)
@@ -392,6 +394,19 @@ local function smack(watch: Watch, reading: CarSensor.Reading)
 	end
 end
 
+-- A hit with a train's nose where it pushes the car lately is the train
+-- pushing it (CarController), so no hit is measured for a moment.
+local function trainPush(watch: Watch, reading: CarSensor.Reading)
+	if reading.impact.Magnitude < T.ShowImpact then
+		return
+	end
+	local S = Tuning.City.Railway.Server
+	local time = workspace:GetServerTimeNow()
+	if Trains.touching(watch.sensor.hull.Position, time - S.Lag, time, S.Slack) then
+		watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + S.HitGrace)
+	end
+end
+
 local carEaten = Instance.new("BindableEvent")
 carEaten.Name = "CarEaten"
 carEaten.Event:Connect(function(car: Model, moment: "caught" | "chewed" | "dropped")
@@ -621,6 +636,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 					car:SetAttribute("Burning", burning)
 				end
 				smack(watch, reading)
+				trainPush(watch, reading)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end

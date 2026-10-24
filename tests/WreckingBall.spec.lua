@@ -3,7 +3,7 @@ local Check = require("./Check")
 local WreckingBall = require("../src/shared/WreckingBall")
 
 local TUNING: WreckingBall.Tuning = {
-	Gravity = 130,
+	Period = 4,
 	Radius = 8,
 	Reach = 5,
 	Smack = 140,
@@ -20,21 +20,21 @@ local LAYOUT: WreckingBall.Layout = {
 }
 
 local BALL: WreckingBall.Ball = { length = 200, amplitude = math.rad(20), phase = 0 }
-local RATE = math.sqrt(130 / 200)
-local PERIOD = 2 * math.pi / RATE
+local PERIOD = 4
+local RATE = 2 * math.pi / PERIOD
 
-Check.test("a ball swings like a pendulum its length long", function()
-	Check.near(WreckingBall.rate(BALL, 130), RATE)
-	local x, y = WreckingBall.center(BALL, 0, 130)
+Check.test("a ball swings back and forth once a Period", function()
+	Check.near(WreckingBall.rate(PERIOD), RATE)
+	local x, y = WreckingBall.center(BALL, 0, PERIOD)
 	Check.near(x, 0, "straight down at the start")
 	Check.near(y, -200, "a length below the pivot")
-	local x2, y2 = WreckingBall.center(BALL, PERIOD, 130)
+	local x2, y2 = WreckingBall.center(BALL, PERIOD, PERIOD)
 	Check.near(x2, x, "back after a period", 1e-6)
 	Check.near(y2, y, "back after a period", 1e-6)
 end)
 
 Check.test("it reaches its amplitude a quarter period in, still for a moment", function()
-	local x, y, sx, sy = WreckingBall.center(BALL, PERIOD / 4, 130)
+	local x, y, sx, sy = WreckingBall.center(BALL, PERIOD / 4, PERIOD)
 	Check.near(x, 200 * math.sin(math.rad(20)), "out across", 1e-6)
 	Check.near(y, -200 * math.cos(math.rad(20)), "and up a little", 1e-6)
 	Check.near(sx, 0, "stopped", 1e-6)
@@ -42,14 +42,14 @@ Check.test("it reaches its amplitude a quarter period in, still for a moment", f
 end)
 
 Check.test("it is fastest at the bottom, moving across", function()
-	local _, _, sx, sy = WreckingBall.center(BALL, 0, 130)
+	local _, _, sx, sy = WreckingBall.center(BALL, 0, PERIOD)
 	Check.near(sx, math.rad(20) * RATE * 200, "full speed across", 1e-6)
 	Check.near(sy, 0, "level", 1e-6)
 end)
 
 Check.test("the phase shifts the swing along its cycle", function()
 	local shifted: WreckingBall.Ball = { length = 200, amplitude = math.rad(20), phase = math.pi / 2 }
-	local x = WreckingBall.center(shifted, 0, 130)
+	local x = WreckingBall.center(shifted, 0, PERIOD)
 	Check.near(x, 200 * math.sin(math.rad(20)), "starts at the end of its swing", 1e-6)
 end)
 
@@ -75,7 +75,7 @@ Check.test("a car the ball swings away from is pushed off it at the least", func
 end)
 
 Check.test("a ball at the end of its swing still pushes at the least", function()
-	local x, y = WreckingBall.center(BALL, PERIOD / 4, 130)
+	local x, y = WreckingBall.center(BALL, PERIOD / 4, PERIOD)
 	local vx, vy = WreckingBall.push(BALL, PERIOD / 4, x - 9, y, 0, 0, 0, 0, TUNING)
 	Check.near(vx :: number, -70, "pushed away")
 	Check.near(vy :: number, 55)
@@ -89,9 +89,9 @@ end)
 
 Check.test("reaches finds the ball passing a point within the time window", function()
 	-- The ball is at the bottom at times 0 and PERIOD / 2.
-	Check.eq(WreckingBall.reaches(BALL, -0.1, 0.1, 0, -200, 0, 10, 130), true)
-	Check.eq(WreckingBall.reaches(BALL, PERIOD / 4 - 0.1, PERIOD / 4 + 0.1, 0, -200, 0, 10, 130), false)
-	Check.eq(WreckingBall.reaches(BALL, -0.1, 0.1, 0, -200, 30, 10, 130), false, "too far along the street")
+	Check.eq(WreckingBall.reaches(BALL, -0.1, 0.1, 0, -200, 0, 10, PERIOD), true)
+	Check.eq(WreckingBall.reaches(BALL, PERIOD / 4 - 0.1, PERIOD / 4 + 0.1, 0, -200, 0, 10, PERIOD), false)
+	Check.eq(WreckingBall.reaches(BALL, -0.1, 0.1, 0, -200, 30, 10, PERIOD), false, "too far along the street")
 end)
 
 Check.test("amplitude sweeps the ball out to the given distance", function()

@@ -64,7 +64,7 @@ end
 
 -- The ball's middle at `time`, its down vector pointing away from the pivot.
 function WreckingBalls.center(entry: Entry, time: number): CFrame
-	local x, y = WreckingBall.center(entry.ball, time, Tuning.City.Cranes.Ball.Gravity)
+	local x, y = WreckingBall.center(entry.ball, time, Tuning.City.Cranes.Ball.Period)
 	return entry.pivot * CFrame.Angles(0, 0, math.atan2(x, -y)) * CFrame.new(0, -entry.ball.length, 0)
 end
 
@@ -95,7 +95,7 @@ function WreckingBalls.smacked(position: Vector3, from: number, to: number, slac
 		local p = entry.pivot:PointToObjectSpace(position)
 		if
 			p.Magnitude <= entry.ball.length + reach
-			and WreckingBall.reaches(entry.ball, from, to, p.X, p.Y, p.Z, reach, B.Gravity)
+			and WreckingBall.reaches(entry.ball, from, to, p.X, p.Y, p.Z, reach, B.Period)
 		then
 			return true
 		end

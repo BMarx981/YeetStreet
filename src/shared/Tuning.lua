@@ -1000,6 +1000,15 @@ Tuning.City = {
 			Ahead = 1.25, -- times the train's speed
 			Side = 8,
 		},
+		-- A push is never a hit (ScoreService). The car's motion reaches the
+		-- server late, so a hit counts as a push when a train's nose was
+		-- where it pushes the car any time in the last Lag seconds, Slack
+		-- further out, and no hit is measured for HitGrace after.
+		Server = {
+			Lag = 0.5,
+			Slack = 4,
+			HitGrace = 0.3,
+		},
 	},
 	Overpass = {
 		StartZ = 1550, -- where it leaves the ground, 150 ahead of the arrival
@@ -1067,9 +1076,11 @@ Tuning.City = {
 			{ Street = -600, Along = -600, Side = -1, Phase = 0.25 },
 			{ Street = -1400, Along = 600, Side = 1, Phase = 0.75 },
 		},
+		-- At Period 3 the avenue's balls cross the middle at about 130
+		-- studs/s and the cross streets' at about 67, as they swing less far.
 		Ball = {
-			Gravity = Tuning.World.Gravity,
-			Radius = 8,
+			Period = 3,
+			Radius = 12,
 			Reach = 5,
 			Smack = 140,
 			Lift = 110,
