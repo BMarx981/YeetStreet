@@ -1164,8 +1164,32 @@ Tuning.City = {
 			CarDrop = 4,
 			CarIn = 2,
 		},
+		-- How it is drawn on each client (KaijuLook), only for looks, as in
+		-- Tuning.Dino.Rex.Look. It roars as it spots a car (the raptors'
+		-- screech at RoarPitch, deeper still), its jaw open for RoarJaw
+		-- seconds. Its eyes hum Charge as a laser charges and Shot plays as
+		-- it fires, heard out to LaserHearing.
 		Look = {
 			ChompRate = 3,
+			Smooth = 15,
+			MinStride = 18,
+			MaxStride = 56,
+			StridePerSpeed = 0.7,
+			Lift = 12,
+			JawOpen = 35,
+			Grip = 8,
+			ChompOpen = 25,
+			TailSway = 6,
+			TailRate = 0.4,
+			Roar = "rbxassetid://9125474229",
+			RoarPitch = 0.35,
+			RoarVolume = 1,
+			RoarHearing = 900,
+			RoarJaw = 1.2,
+			Charge = "rbxassetid://9125973984",
+			Shot = "rbxassetid://9116227010",
+			LaserVolume = 1,
+			LaserHearing = 700,
 		},
 		-- Its eye lasers (Laser, run by Parks.CityKaiju), at cars too far
 		-- to bite that its eyes can see past the buildings, ground or air.
@@ -1189,7 +1213,7 @@ Tuning.City = {
 			Push = 60,
 			Keep = 0.5,
 			Gravity = Tuning.World.Gravity,
-			Eyes = Vector3.new(0, 4, -17),
+			Eyes = Vector3.new(0, 7, -4),
 			BeamTime = 0.35,
 			Grace = 1.5,
 		},
