@@ -28,7 +28,9 @@
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
--- (PropService). Numbers are in Tuning.Dino.
+-- (PropService). Bushes are scattered over the same ground on their own;
+-- cars drive through them and each client rustles them (BushRustle).
+-- Numbers are in Tuning.Dino.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -65,6 +67,7 @@ local DARK_COLOR = Color3.fromRGB(25, 25, 25)
 local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
 local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
 local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
+local BUSH_COLORS = { Color3.fromRGB(52, 98, 44), Color3.fromRGB(64, 112, 50), Color3.fromRGB(44, 84, 38) }
 local ROCK_COLORS = { Color3.fromRGB(62, 56, 54), Color3.fromRGB(78, 68, 62), Color3.fromRGB(92, 74, 60) }
 local CAUSEWAY_COLOR = Color3.fromRGB(110, 96, 84)
 local LAVA_COLOR = Color3.fromRGB(255, 96, 24)
@@ -950,6 +953,52 @@ local function buildPalms(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 	return rect
 end
 
+-- A bush of leafy balls: a big one in the middle and a ring round it, all
+-- sunk into the grass so the top is `height` up and the ring reaches `width`
+-- across. Pivots at its foot; Radius says how far out it reaches.
+local function buildBush(parent: Instance, x: number, z: number, random: Random)
+	local B = D.Bushes
+	local model = Instance.new("Model")
+	model.Name = "Bush"
+	-- Streams in whole, so a client never rustles half a bush.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	local width = random:NextNumber(B.MinWidth, B.MaxWidth)
+	local height = random:NextNumber(B.MinHeight, B.MaxHeight)
+	local foot = CFrame.new(x, FLOOR, z) * CFrame.Angles(0, random:NextNumber(0, 2 * math.pi), 0)
+	local function blob(size: number, out: number, angle: number, top: number)
+		local ball = decoration(
+			model,
+			"Leaves",
+			Vector3.one * size,
+			foot * CFrame.Angles(0, angle, 0) * CFrame.new(out, top - size / 2, 0),
+			BUSH_COLORS[random:NextInteger(1, #BUSH_COLORS)]
+		)
+		ball.Shape = Enum.PartType.Ball
+		ball.Material = Enum.Material.LeafyGrass
+	end
+	blob(height * 1.3, 0, 0, height)
+	local ring = B.Blobs - 1
+	for k = 1, ring do
+		local size = height * random:NextNumber(0.8, 1)
+		blob(size, (width - size) / 2, (k + random:NextNumber(-0.2, 0.2)) * 2 * math.pi / ring, height * 0.8)
+	end
+	model.WorldPivot = foot
+	model:SetAttribute("Radius", width / 2)
+	model.Parent = parent
+end
+
+-- As many bushes as palm trees, over the same ground with their own seed.
+local function buildBushes(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line })
+	local B = D.Bushes
+	local folder = Instance.new("Folder")
+	folder.Name = "Bushes"
+	folder.Parent = parent
+	local random = Random.new(B.Seed)
+	for _, spot in Scatter.points(Rng.new(B.Seed), D.Palms.Count, rect, B.Gap, keepOut) do
+		buildBush(folder, spot.x, spot.z, random)
+	end
+end
+
 -- The T-Rex roams wherever the trees may stand (DinoRex runs it).
 local function buildRex(parent: Instance, area: MapLayout.Area, rect: Scatter.Rect, keepOut: { Scatter.Line })
 	local R = D.Rex
@@ -1028,6 +1077,7 @@ function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	local trees = buildPalms(folder, area, keepOut)
 	-- After the palms, so the spire stands in a gap without moving a tree.
 	local perch = buildSpire(folder, area, keepOut)
+	buildBushes(folder, trees, keepOut)
 	buildRex(folder, area, trees, keepOut)
 	buildPtero(folder, trees, keepOut, perch)
 end

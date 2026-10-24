@@ -256,6 +256,15 @@ RunService.RenderStepped:Connect(function(dt: number)
 	if dt <= 0 then
 		return
 	end
+	-- The :dino command can put the park away; while it is gone the
+	-- drawing goes with it, and comes back when the park does.
+	local shown = rex:IsDescendantOf(workspace)
+	if (model.Parent ~= nil) ~= shown then
+		model.Parent = if shown then workspace else nil
+	end
+	if not shown then
+		return
+	end
 	local mode = rex:GetAttribute("Mode")
 	local smooth = 1 - math.exp(-L.Smooth * dt)
 	local lastRoot = root

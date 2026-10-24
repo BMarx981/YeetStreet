@@ -23,8 +23,9 @@
 -- car and does nothing.
 --
 -- The server moves one invisible part, Talons, at the brain's position
--- facing its heading, and a block stand-in (body and wings) above it.
--- Numbers are in Tuning.Dino.Ptero.
+-- facing its heading, and sets the model's CarriedCar attribute (the
+-- carried car's name, or ""). Each client draws the pterodactyl itself from
+-- those (PteroLook). Numbers are in Tuning.Dino.Ptero.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,11 +38,6 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local P = Tuning.Dino.Ptero
 
--- The stand-in's body and wings, above the talons.
-local BODY_SIZE = Vector3.new(6, 6, 24)
-local WING_SIZE = Vector3.new(40, 1, 10)
-local BODY_UP = 6
-local STAND_IN_COLOR = Color3.fromRGB(150, 96, 64)
 -- A carried car's middle, in the talons' frame: its roof at the talons.
 local CARRIED_AT = CFrame.new(0, -P.CarTop, 0)
 
@@ -57,14 +53,6 @@ local function marker(parent: Instance, name: string, size: Vector3): Part
 	part.Transparency = 1
 	part.Size = size
 	part.Parent = parent
-	return part
-end
-
-local function standIn(parent: Instance, name: string, size: Vector3): Part
-	local part = marker(parent, name, size)
-	part.Transparency = 0
-	part.Color = STAND_IN_COLOR
-	part.Material = Enum.Material.SmoothPlastic
 	return part
 end
 
@@ -110,9 +98,6 @@ end
 -- hunting over `territory`.
 function DinoPtero.start(model: Model, territory: Ptero.Territory, perch: CFrame)
 	local talons = marker(model, "Talons", Vector3.one)
-	local body = standIn(model, "StandInBody", BODY_SIZE)
-	local leftWing = standIn(model, "StandInLeftWing", WING_SIZE)
-	local rightWing = standIn(model, "StandInRightWing", WING_SIZE)
 	local _, heading, _ = perch:ToOrientation()
 	local s = Ptero.new(perch.X, perch.Y, perch.Z, heading)
 	local rng = Rng.new(P.Seed)
@@ -207,9 +192,6 @@ function DinoPtero.start(model: Model, territory: Ptero.Territory, perch: CFrame
 		local at = Vector3.new(s.x, s.y, s.z)
 		local frame = CFrame.lookAt(at, at + Vector3.new(fx, 0, fz))
 		talons.CFrame = frame
-		body.CFrame = frame * CFrame.new(0, BODY_UP, 0)
-		leftWing.CFrame = frame * CFrame.new(-(BODY_SIZE.X + WING_SIZE.X) / 2, BODY_UP, 0)
-		rightWing.CFrame = frame * CFrame.new((BODY_SIZE.X + WING_SIZE.X) / 2, BODY_UP, 0)
 		if carried then
 			carried:PivotTo(frame * CARRIED_AT)
 		end

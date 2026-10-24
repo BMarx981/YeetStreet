@@ -1291,6 +1291,27 @@ Tuning.Dino = {
 		ResetTime = 6,
 		VolcanoClear = 30, -- past the volcano's lava lake
 	},
+	-- Bushes the raptors hide in, as many as Palms.Count, scattered with
+	-- their own Seed over the same ground as the palms, so they fall near a
+	-- tree only by chance. Each is Blobs leafy balls, MinWidth to MaxWidth
+	-- across and MinHeight to MaxHeight tall. Cars drive straight through,
+	-- and each client rustles a bush a car moves through (Bush).
+	Bushes = {
+		Seed = 31,
+		Gap = 60,
+		MinWidth = 18,
+		MaxWidth = 26,
+		MinHeight = 9,
+		MaxHeight = 13,
+		Blobs = 6,
+		Rustle = {
+			MinSpeed = 4,
+			Rise = 5,
+			Fade = 1.5,
+			Tilt = 12,
+			Rate = 2.5,
+		},
+	},
 	-- The volcano in the park's southwest corner (Volcano): a hollow blocky
 	-- cone of Tiers, each a ring of blocks at most BlockWidth across, Shell
 	-- thick, stepping in from BaseRadius at the foot to TopRadius at the rim,
@@ -1563,6 +1584,23 @@ Tuning.Dino = {
 		PerchReach = 20,
 		PayScale = 0.6,
 		DropGrace = 1,
+		-- How it is drawn on each client (PteroLook), only for looks. It
+		-- glides after the server's pterodactyl, Smooth per second, banks
+		-- into turns up to MostBank degrees and tips up or down with its
+		-- climb up to MostPitch. Its wings beat FlapRate times a second,
+		-- FlapAngle degrees each way, faster and harder carrying a car, swept
+		-- back in a dive and folded on its perch. Its shadow, ShadowSize
+		-- across, lies on the ground under it, darker the lower it flies.
+		Look = {
+			Smooth = 12,
+			MostBank = 40,
+			MostPitch = 35,
+			FlapRate = 0.9,
+			FlapAngle = 22,
+			CarryFlapRate = 1.8,
+			CarryFlapAngle = 35,
+			ShadowSize = 36,
+		},
 	},
 }
 
