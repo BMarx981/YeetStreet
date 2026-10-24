@@ -79,6 +79,7 @@ export type Pose = {
 	headingX: number, -- a unit, level
 	headingZ: number,
 	road: boolean, -- out in the road, crossing
+	toCurb: number, -- crossing, 1 if the nearer curb is ahead, -1 if behind; 0 off the road
 }
 
 -- Same as Rng.Rng, declared here so this module needs no require.
@@ -220,12 +221,14 @@ function Pedestrians.pose(route: Route, distance: number): Pose
 	local along = d - leg.start
 	local headingX, headingZ = (leg.toX - leg.fromX) / leg.length, (leg.toZ - leg.fromZ) / leg.length
 	local curb = leg.curb
+	local road = curb ~= nil and along > curb and along < leg.length - curb
 	return {
 		x = leg.fromX + headingX * along,
 		z = leg.fromZ + headingZ * along,
 		headingX = headingX,
 		headingZ = headingZ,
-		road = curb ~= nil and along > curb and along < leg.length - curb,
+		road = road,
+		toCurb = if not road then 0 elseif along * 2 > leg.length then 1 else -1,
 	}
 end
 

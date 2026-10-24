@@ -129,6 +129,30 @@ Check.test("walkers are only ever on the road while crossing, and otherwise at t
 	end
 end)
 
+Check.test("crossing, toCurb says whether the nearer curb is ahead or behind", function()
+	for i, route in routes do
+		for _, pose in samples(route) do
+			if not pose.road then
+				Check.eq(pose.toCurb, 0, `route {i} off the road`)
+			else
+				-- Step toward the curb it names until off the road; the other
+				-- way must be at least as far.
+				local function stepsOff(sign: number): number
+					local x, z, n = pose.x, pose.z, 0
+					while onRoad(x, z) do
+						x += sign * pose.headingX
+						z += sign * pose.headingZ
+						n += 1
+					end
+					return n
+				end
+				assert(pose.toCurb == 1 or pose.toCurb == -1, `route {i} toCurb on the road`)
+				assert(stepsOff(pose.toCurb) <= stepsOff(-pose.toCurb), `route {i} nearer curb at ({pose.x}, {pose.z})`)
+			end
+		end
+	end
+end)
+
 Check.test("the two lanes of a loop go opposite ways", function()
 	local outer, inner = routes[1], routes[2]
 	local a = Pedestrians.pose(outer, 10)
