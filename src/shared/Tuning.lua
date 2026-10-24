@@ -1306,6 +1306,22 @@ Tuning.City = {
 			Grace = 1.5,
 		},
 	},
+	-- Walkers on the curbs who dive out of a car's way (Pedestrians, run by
+	-- Parks.CityPedestrians). Each goes round a loop at the bottom of the
+	-- curve in front of the buildings, a lane in from the road, crossing the
+	-- road at corners: round each cross street out to the FarAlley-th alley,
+	-- and round the avenue beside each of AvenueBlocks (not block 1, where
+	-- the overpass is low over the avenue).
+	Pedestrians = {
+		Lanes = { 2, 6 },
+		FarAlley = 3,
+		CornerIn = 10, -- clear of the railway's and overpass's pillars
+		AvenueBlocks = { 2, 3, 4 },
+		Count = 80,
+		Seed = 23,
+		MinSpeed = 5,
+		MaxSpeed = 7,
+	},
 }
 
 -- The skate park (ServerScriptService.Parks.Skate). X and Z are studs from

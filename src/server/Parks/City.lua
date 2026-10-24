@@ -853,7 +853,7 @@ end
 function City.fingerprint(): string
 	return Fingerprint.of(
 		C :: any,
-		{ "Kaiju", "Cranes.Ball", "Cranes.Server", "Railway.Trains", "Railway.Push", "Railway.Server" }
+		{ "Kaiju", "Pedestrians", "Cranes.Ball", "Cranes.Server", "Railway.Trains", "Railway.Push", "Railway.Server" }
 	)
 end
 
