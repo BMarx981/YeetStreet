@@ -46,7 +46,9 @@
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
 -- WreckingBalls): that pays a Wrecking ball target on a run, or arms one
--- like a launch pad and pays the target once it takes off.
+-- like a launch pad and pays the target once it takes off. The kaiju's
+-- laser blasting a car (ServerStorage.CarZapped) is the same, paying a
+-- Zapped target.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
@@ -106,7 +108,11 @@ type Watch = {
 	-- jumps when its driver's game takes it back, which is not a hit.
 	hitsFrom: number,
 	ballAt: number, -- os.clock() when a wrecking ball last smacked it
-	ballRun: boolean, -- smacked on the ground: the run it armed pays the target
+	-- Launched off the ground by something other than a launch pad (a
+	-- wrecking ball, the kaiju's laser): the run it arms pays this target
+	-- once it takes off, and it stays armed until armUntil (os.clock()).
+	armTarget: string?,
+	armUntil: number,
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -195,7 +201,8 @@ local function watchFor(car: Model): Watch?
 		chewFor = Tuning.Dino.Rex.Chew,
 		hitsFrom = -math.huge,
 		ballAt = -math.huge,
-		ballRun = false,
+		armTarget = nil,
+		armUntil = -math.huge,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -396,7 +403,7 @@ local function smack(watch: Watch, reading: CarSensor.Reading)
 	if watch.run.phase == "flying" then
 		table.insert(watch.targets, "Wrecking ball")
 	else
-		watch.ballRun = true
+		watch.armTarget, watch.armUntil = "Wrecking ball", now
 		reading.sample.onPad = true
 	end
 end
@@ -413,6 +420,36 @@ local function trainPush(watch: Watch, reading: CarSensor.Reading)
 		watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + S.HitGrace)
 	end
 end
+
+-- The kaiju's laser striking a car (Parks.CityKaiju fires
+-- ServerStorage.CarZapped with the velocity it blasts it to): its driver's
+-- game is told on ReplicatedStorage.Zapped and blasts it. That is no hit,
+-- so for Grace no hit is measured and the run stays armed while the blast
+-- reaches that game. It pays a Zapped target on the run, or on the run it
+-- arms once it takes off.
+local zapped = Instance.new("RemoteEvent")
+zapped.Name = "Zapped"
+zapped.Parent = ReplicatedStorage
+
+local carZapped = Instance.new("BindableEvent")
+carZapped.Name = "CarZapped"
+carZapped.Event:Connect(function(car: Model, velocity: Vector3)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	local now = os.clock()
+	local grace = Tuning.City.Kaiju.Laser.Grace
+	watch.hitsFrom = math.max(watch.hitsFrom, now + grace)
+	if watch.run.phase == "flying" then
+		table.insert(watch.targets, "Zapped")
+	else
+		watch.armTarget, watch.armUntil = "Zapped", now + grace
+	end
+	print(`Zapped {watch.player.Name}`)
+	zapped:FireClient(watch.player, velocity)
+end)
+carZapped.Parent = ServerStorage
 
 local carEaten = Instance.new("BindableEvent")
 carEaten.Name = "CarEaten"
@@ -648,6 +685,12 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end
+				-- Armed until it leaves the ground, so the run counts from
+				-- there; in the air already, armed once, and it flies.
+				local waiting = not reading.airborne or watch.run.phase == "idle"
+				if watch.armTarget and os.clock() < watch.armUntil and watch.run.phase ~= "flying" and waiting then
+					reading.sample.onPad = true
+				end
 				if watch.toughness <= 0 and not watch.wrecked then
 					wreck(watch)
 				else
@@ -656,11 +699,12 @@ RunService.Heartbeat:Connect(function(dt: number)
 						finish(watch, result)
 					end
 				end
-				if watch.ballRun and watch.run.phase ~= "armed" then
-					watch.ballRun = false
-					if watch.run.phase == "flying" then
-						table.insert(watch.targets, "Wrecking ball")
-					end
+				local armTarget = watch.armTarget
+				if armTarget and watch.run.phase == "flying" then
+					watch.armTarget = nil
+					table.insert(watch.targets, armTarget)
+				elseif armTarget and watch.run.phase == "idle" and os.clock() >= watch.armUntil then
+					watch.armTarget = nil
 				end
 			end
 		end

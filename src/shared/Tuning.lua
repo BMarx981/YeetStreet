@@ -427,6 +427,7 @@ Tuning.Score = {
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
 		["Wrecking ball"] = 300, -- smacked by one of Downtown's (ScoreService)
 		Kaiju = 500, -- caught by Downtown's kaiju in the air (ScoreService)
+		Zapped = 300, -- blasted by the kaiju's laser (ScoreService)
 	},
 }
 
@@ -501,6 +502,7 @@ Tuning.Hud = {
 		["T-Rex"] = "T-Rex snack",
 		["Wrecking ball"] = "Wrecking ball",
 		Kaiju = "Kaiju snack",
+		Zapped = "Zapped",
 	},
 }
 
@@ -1164,6 +1166,32 @@ Tuning.City = {
 		},
 		Look = {
 			ChompRate = 3,
+		},
+		-- Its eye lasers (Laser, run by Parks.CityKaiju), at cars too far
+		-- to bite that its eyes can see past the buildings, ground or air.
+		-- The eyes glow over Charge; the aim locks Lock before the shot, so
+		-- a swerve dodges it. A struck car is blasted up and away, which
+		-- starts a run like a launch pad and pays
+		-- Tuning.Score.TargetPoints.Zapped on it (ScoreService), with no
+		-- damage: the server keeps the run armed and measures no hit for
+		-- Grace while the blast reaches the driver's game. Eyes is the spot
+		-- between the eyes in the head's frame; the beam shows for BeamTime
+		-- (KaijuLook).
+		Laser = {
+			MinRange = 140,
+			MaxRange = 500,
+			Charge = 1.5,
+			Lock = 0.4,
+			Cooldown = 5,
+			Cancel = 1.5,
+			BeamRadius = 10,
+			Lift = 200,
+			Push = 60,
+			Keep = 0.5,
+			Gravity = Tuning.World.Gravity,
+			Eyes = Vector3.new(0, 4, -17),
+			BeamTime = 0.35,
+			Grace = 1.5,
 		},
 	},
 }

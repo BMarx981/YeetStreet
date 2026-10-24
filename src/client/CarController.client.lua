@@ -131,6 +131,8 @@ local righting = false
 -- middle line.
 local up = Vector3.yAxis
 local run = RunTracker.new()
+-- The kaiju's laser blasted the car since the last step, which arms a run.
+local zapped = false
 local tricksShown = 0
 local resetAskedAt = -math.huge
 -- When the car was removed out from under the driver, for respawns.
@@ -426,8 +428,9 @@ local function step(r: Rig, dt: number)
 	passBoulders(cf.Position, velocity, r.model:GetAttribute("Burning") == true)
 
 	local reading = CarSensor.read(r.sensor, dt, up)
-	if smacked then
+	if smacked or zapped then
 		reading.sample.onPad = true
+		zapped = false
 	end
 	local airborne = reading.airborne
 
@@ -763,6 +766,23 @@ task.spawn(function()
 		CarSensor.dropped(r.sensor)
 		RunTracker.drop(run, at.X, at.Y, at.Z, groundY)
 		tricksShown = 0
+	end)
+end)
+
+-- The kaiju's laser struck the car (ScoreService): the server says how fast
+-- it is blasted, and that arms a run like a launch pad.
+task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("Zapped")
+	if not remote:IsA("RemoteEvent") then
+		warn("CarController: ReplicatedStorage.Zapped is not a RemoteEvent; lasers do nothing")
+		return
+	end
+	remote.OnClientEvent:Connect(function(velocity: any)
+		local r = rig
+		if r and typeof(velocity) == "Vector3" then
+			setVelocity(r, velocity)
+			zapped = true
+		end
 	end)
 end)
 
