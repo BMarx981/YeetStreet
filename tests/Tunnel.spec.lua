@@ -1,5 +1,6 @@
 --!strict
 local Check = require("./Check")
+local Gravitron = require("../src/shared/Gravitron")
 local Tunnel = require("../src/shared/Tunnel")
 
 Check.test("a straight runs along the heading", function()
@@ -210,13 +211,34 @@ Check.test("outside the tube there is no pull", function()
 	Check.eq(Tunnel.pull(straight, 30, 31, 30, -50), nil, "beyond the wall")
 end)
 
-Check.test("in a climbing tube the pull is out from the middle line where it has climbed to", function()
+Check.test("in a climbing tube the pull is square out from the middle line where it has climbed to", function()
 	local climbing = Tunnel.path(0, 0, 0, -1, { { Straight = 100, Rise = 20 } }, 30)
+	-- Halfway up it climbs 0.3 a stud toward -Z, so square up from it leans
+	-- back toward +Z.
+	local n = math.sqrt(1 + 0.3 ^ 2)
 	local x, y, z = Tunnel.pull(climbing, 30, 0, 40 + 10, -50)
-	vec("above the middle halfway up", x, y, z, 0, 1, 0)
+	Check.near(x :: number, 0, "above the middle halfway up x", 1e-6)
+	Check.near(y :: number, 1 / n, "y", 0.01)
+	Check.near(z :: number, 0.3 / n, "z", 0.01)
 	x, y, z = Tunnel.pull(climbing, 30, 0, 40 - 10, -50)
-	vec("below it", x, y, z, 0, -1, 0)
+	Check.near(y :: number, -1 / n, "below it y", 0.01)
+	Check.near(z :: number, -0.3 / n, "z", 0.01)
 	Check.eq(Tunnel.pull(climbing, 30, 0, 5, -100), nil, "under the floor at the top")
+end)
+
+Check.test("in a steep dive a car on the floor is still in the tube, pulled square to it", function()
+	local dive = Tunnel.path(0, 0, 0, -1, { { Straight = 300, Rise = -300 } }, 30)
+	-- Halfway down it drops 1.5 a stud. A car 27 square under the middle
+	-- line there is 27 * sqrt(1 + 1.5^2), about 49, straight under it.
+	local slope = 1.5
+	local n = math.sqrt(1 + slope ^ 2)
+	local _, my, mz = Tunnel.pointAt(dive[1], 0.5)
+	-- Square down from the line, which runs toward -Z and down.
+	local dy, dz = -1 / n, slope / n
+	local x, y, z = Tunnel.pull(dive, 30, 0, my + 27 * dy, mz + 27 * dz)
+	Check.eq(x ~= nil, true, "inside")
+	Check.near(y :: number, dy, "y", 0.01)
+	Check.near(z :: number, dz, "z", 0.01)
 end)
 
 -- Facing -Z, a quarter turn left around (-80, 0).
@@ -251,10 +273,18 @@ Check.test("in a spiral the pull is out from the loop the car is in", function()
 	local spiral = Tunnel.path(0, 0, 0, -1, { { Turn = 720, Radius = 80, Rise = 200 } }, 30)
 	local high = 30 + 200 * Tunnel.ease(5 / 8)
 	local x, y, z = Tunnel.pull(spiral, 30, -80, high + 10, -80)
-	vec("above the second loop", x, y, z, 0, 1, 0)
+	-- Heading -X there and climbing, so square up from it leans toward +X.
+	local slope = 200 * 6 * (5 / 8) * (3 / 8) / (2 * math.pi * 80 * 2)
+	local n = math.sqrt(1 + slope * slope)
+	Check.near(x :: number, slope / n, "above the second loop x", 0.01)
+	Check.near(y :: number, 1 / n, "y", 0.01)
+	Check.near(z :: number, 0, "z", 0.01)
 	local low = 30 + 200 * Tunnel.ease(1 / 8)
 	x, y, z = Tunnel.pull(spiral, 30, -80, low - 10, -80)
-	vec("below the first loop", x, y, z, 0, -1, 0)
+	local lowSlope = 200 * 6 * (1 / 8) * (7 / 8) / (2 * math.pi * 80 * 2)
+	local m = math.sqrt(1 + lowSlope * lowSlope)
+	Check.near(x :: number, -lowSlope / m, "below the first loop x", 0.01)
+	Check.near(y :: number, -1 / m, "y", 0.01)
 	Check.eq(Tunnel.pull(spiral, 30, -80, (low + high) / 2, -80), nil, "between the loops")
 end)
 
@@ -264,7 +294,10 @@ Check.test("in a right-hand spiral the pull is out from the loop the car is in",
 	local spiral = Tunnel.path(0, 0, 0, -1, { { Turn = -720, Radius = 80, Rise = 200 } }, 30)
 	local high = 30 + 200 * Tunnel.ease(5 / 8)
 	local x, y, z = Tunnel.pull(spiral, 30, 80, high + 10, -80)
-	vec("above the second loop", x, y, z, 0, 1, 0)
+	local slope = 200 * 6 * (5 / 8) * (3 / 8) / (2 * math.pi * 80 * 2)
+	local n = math.sqrt(1 + slope * slope)
+	Check.near(x :: number, -slope / n, "above the second loop x", 0.01)
+	Check.near(y :: number, 1 / n, "y", 0.01)
 end)
 
 local SPIRALS: Tunnel.Spirals = {
@@ -563,6 +596,196 @@ Check.test("a volcano tube whose loops would meet warns", function()
 	local climb = table.clone(CLIMB)
 	climb.Pitch = 60
 	Check.eq(Tunnel.volcano(climb, city({}).Tunnels).warning ~= nil, true)
+end)
+
+Check.test("easeEnds climbs evenly in the middle and eases in and out over its share", function()
+	Check.near(Tunnel.easeEnds(0, 0.1), 0)
+	Check.near(Tunnel.easeEnds(1, 0.1), 1)
+	Check.near(Tunnel.easeEnds(0.5, 0.1), 0.5)
+	local step = 1e-4
+	local function slope(t: number): number
+		return (Tunnel.easeEnds(t + step, 0.1) - Tunnel.easeEnds(t - step, 0.1)) / (2 * step)
+	end
+	Check.near(slope(0.3), 1 / 0.9, "even in the middle", 1e-6)
+	Check.near(slope(0.7), 1 / 0.9, nil, 1e-6)
+	Check.near(slope(step), 0, "level at the start", 0.01)
+	Check.near(slope(1 - step), 0, "and at the end", 0.01)
+	Check.near(Tunnel.easeEnds(0.3, 0), 0.3, "no share climbs evenly all the way")
+end)
+
+Check.test("a segment with an Ease climbs evenly", function()
+	local pieces = Tunnel.path(0, 0, 0, -1, { { Straight = 100, Rise = 50, Ease = 0.2 } })
+	local _, y = Tunnel.pointAt(pieces[1], 0.5)
+	Check.near(y, 25)
+	local _, a = Tunnel.pointAt(pieces[1], 0.3)
+	Check.near(a, 50 * Tunnel.easeEnds(0.3, 0.2))
+end)
+
+local GRAVITRON_SHAPE: Gravitron.Shape = {
+	FloorRadius = 200,
+	CurveRadius = 40,
+	Lean = 15,
+	Height = 300,
+	Tilt = 20,
+	Thickness = 2,
+	Clearance = 1,
+}
+
+local BOWL: Tunnel.GravitronBowl = {
+	Tilt = 20,
+	CenterHeight = Gravitron.centerHeight(GRAVITRON_SHAPE),
+	FloorThickness = 2,
+}
+
+local TUBES: Tunnel.GravitronTubes = {
+	TwistRadius = 80,
+	Pitch = 180,
+	Loops = 2,
+	TwistEase = 0.1,
+	TopGap = 6,
+	ExitAngle = 45,
+	DiveSlope = 40,
+	Level = 120,
+	Dip = 30,
+	DipLength = 120,
+	Outside = 33,
+}
+
+local FACE = 30 * math.cos(math.pi / 24)
+
+-- Every few studs along both of a strand's tubes, in the bowl's space, up
+-- to where the twist comes up through the floor, with how far along.
+local function strandPoints(strand: Tunnel.GravitronStrand): { { x: number, y: number, z: number, s: number } }
+	local points = {}
+	local travelled = 0
+	local function add(pieces: { Tunnel.Piece }, ground: boolean)
+		for _, piece in pieces do
+			local length = Tunnel.length(piece)
+			local steps = math.ceil(length / 4)
+			for i = 0, steps - 1 do
+				local x, y, z = Tunnel.pointAt(piece, i / steps)
+				if ground then
+					x, y, z = Gravitron.toLocal(GRAVITRON_SHAPE, x, y, z)
+				end
+				if y < 0 then
+					table.insert(points, { x = x, y = y, z = z, s = travelled + length * i / steps })
+				end
+			end
+			travelled += length
+		end
+	end
+	add(strand.approach, true)
+	add(strand.twist, false)
+	return points
+end
+
+Check.test("two strands start opposite each other under the bowl, heading along X", function()
+	local strands, warning = Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels)
+	Check.eq(warning, nil)
+	Check.eq(#strands, 2)
+	local top = -(2 + 6 + 33)
+	for _, strand in strands do
+		local first = strand.twist[1]
+		Check.near(first.fromX, 0, "on the Z axis")
+		Check.near(first.fromZ, strand.side * 80, "TwistRadius out")
+		Check.near(first.fromY, top - 2 * 180, "Loops of Pitch under the top")
+		Check.eq(strand.heading, strand.side)
+		Check.near(strand.top, top, "the top loop's outside TopGap under the floor")
+	end
+	Check.eq(strands[1].side, -strands[2].side)
+end)
+
+Check.test("each twists Loops times round the bowl's axis to the left, climbing evenly", function()
+	for _, strand in Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels) do
+		Check.eq(#strand.twist, 2, "the twist, then the exit")
+		local piece = strand.twist[1]
+		Check.eq(piece.kind, "arc")
+		Check.eq(piece.left, true, "counterclockwise from above")
+		Check.near(piece.centerX, 0)
+		Check.near(piece.centerZ, 0)
+		Check.near(piece.radius, 80)
+		Check.near(math.deg(piece.sweep), 720)
+		Check.near(piece.toY - piece.fromY, 360)
+		Check.eq(piece.ease, 0.1)
+	end
+end)
+
+Check.test("each comes up through the floor at ExitAngle, its bottom on the floor at its steepest", function()
+	for _, strand in Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels) do
+		local exit = strand.twist[#strand.twist]
+		Check.eq(exit.kind, "straight")
+		Check.near(exit.fromY, strand.top)
+		local _, y = Tunnel.pointAt(exit, 0.5)
+		Check.near(y, FACE / math.cos(math.rad(45)), "the bottom plank meets the floor", 1e-6)
+		local _, y0 = Tunnel.pointAt(exit, 0.499)
+		local _, y1 = Tunnel.pointAt(exit, 0.501)
+		local slope = (y1 - y0) / (Tunnel.length(exit) * 0.002)
+		Check.near(math.deg(math.atan(slope)), 45, "at ExitAngle", 0.01)
+		Check.near(exit.toZ, strand.side * 80, "straight on from the twist")
+		Check.eq((exit.toX - exit.fromX) * strand.side > 0, true)
+	end
+end)
+
+Check.test("each comes in level on the ground from its mouth, dives under its twist, and climbs to meet it", function()
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	for _, strand in Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels) do
+		local level, dive, dip = strand.approach[1], strand.approach[2], strand.approach[3]
+		Check.near(level.fromX, strand.mouth.x)
+		Check.near(level.fromZ, strand.mouth.z)
+		Check.near(level.fromY, ground, "on the ground")
+		Check.near(level.toY, ground, "level")
+		Check.near(Tunnel.length(level), 120, "for Level")
+		Check.eq((level.toX - level.fromX) * strand.heading > 0, true, "heading in")
+		local first = strand.twist[1]
+		local x, y, z = Gravitron.fromLocal(GRAVITRON_SHAPE, first.fromX, first.fromY, first.fromZ)
+		Check.near(dive.toY, y - 30, "Dip under the twist's start", 1e-6)
+		Check.near(Tunnel.length(dip), 120, "climbing back over DipLength")
+		Check.near(dip.toX, x, "to meet the twist", 1e-6)
+		Check.near(dip.toY, y, nil, 1e-6)
+		Check.near(dip.toZ, z, nil, 1e-6)
+		for i = 0, 99 do
+			local _, a = Tunnel.pointAt(dive, i / 100)
+			local _, b = Tunnel.pointAt(dive, (i + 1) / 100)
+			local slope = math.abs(b - a) / (Tunnel.length(dive) / 100)
+			Check.eq(slope <= math.tan(math.rad(40)) + 1e-6, true, `dives {math.deg(math.atan(slope))} degrees`)
+		end
+	end
+end)
+
+Check.test("the twist's rings roll by the tilt to meet the approach's", function()
+	for _, strand in Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels) do
+		Check.near(strand.roll, strand.side * math.rad(20))
+	end
+end)
+
+Check.test("no tube meets another, or itself", function()
+	local strands = Tunnel.gravitron(TUBES, BOWL, city({}).Tunnels)
+	local a, b = strandPoints(strands[1]), strandPoints(strands[2])
+	local closest = math.huge
+	for _, p in a do
+		for _, q in b do
+			closest = math.min(closest, math.sqrt((p.x - q.x) ^ 2 + (p.y - q.y) ^ 2 + (p.z - q.z) ^ 2))
+		end
+	end
+	Check.eq(closest >= 2 * 33, true, `the two strands come {closest} apart`)
+	for _, points in { a, b } do
+		for i, p in points do
+			for j = i + 1, #points do
+				local q = points[j]
+				if q.s - p.s > 3 * 33 then
+					local apart = math.sqrt((p.x - q.x) ^ 2 + (p.y - q.y) ^ 2 + (p.z - q.z) ^ 2)
+					Check.eq(apart >= 2 * 33, true, `a strand at {p.s} and {q.s} comes {apart} apart`)
+				end
+			end
+		end
+	end
+end)
+
+Check.test("a Pitch that lets the strands meet warns", function()
+	local tubes = table.clone(TUBES)
+	tubes.Pitch = 120
+	local _, warning = Tunnel.gravitron(tubes, BOWL, city({}).Tunnels)
+	Check.eq(warning ~= nil, true)
 end)
 
 Check.finish("Tunnel")

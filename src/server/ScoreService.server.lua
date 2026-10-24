@@ -50,6 +50,11 @@
 -- laser blasting a car (ServerStorage.CarZapped) is the same, paying a
 -- Zapped target.
 --
+-- The gravitron (GravitronRide) does no damage either. High up its wall a
+-- car on the surface is armed like on a launch pad, sets its respawn at the
+-- nearest tube's funnel, and a run from there pays a Gravitron target, by
+-- how fast it spins, once the car goes over the rim.
+--
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
 -- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
@@ -69,6 +74,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
+local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -113,6 +119,9 @@ type Watch = {
 	-- once it takes off, and it stays armed until armUntil (os.clock()).
 	armTarget: string?,
 	armUntil: number,
+	-- Armed high on the gravitron's wall: the run pays a Gravitron target
+	-- once it goes over the rim.
+	gravitronArmed: boolean,
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -203,6 +212,7 @@ local function watchFor(car: Model): Watch?
 		ballAt = -math.huge,
 		armTarget = nil,
 		armUntil = -math.huge,
+		gravitronArmed = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -405,6 +415,31 @@ local function smack(watch: Watch, reading: CarSensor.Reading)
 	else
 		watch.armTarget, watch.armUntil = "Wrecking ball", now
 		reading.sample.onPad = true
+	end
+end
+
+-- A car in the gravitron takes no hits, nor for HitGrace after. On the
+-- surface ArmHeight up it is armed like on a launch pad, and the run it
+-- starts pays a Gravitron target, by how fast it spins, once over the rim.
+-- Like a launch pad it also sets where resets and wrecks come back: the
+-- nearest tube's funnel.
+local function gravitron(watch: Watch, reading: CarSensor.Reading)
+	local G = Tuning.Corkscrew.Gravitron
+	local position = watch.sensor.hull.Position
+	local inside = GravitronRide.inside(position)
+	if inside then
+		watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + G.HitGrace)
+	end
+	if inside and not reading.airborne and GravitronRide.arms(position) then
+		reading.sample.onPad = true
+		watch.payScale = G.PayScale
+		watch.gravitronArmed = true
+		lastLaunch[watch.player] = GravitronRide.respawn(position)
+	elseif watch.gravitronArmed and watch.run.phase == "flying" and GravitronRide.overRim(position) then
+		watch.gravitronArmed = false
+		table.insert(watch.targets, GravitronRide.target(workspace:GetServerTimeNow()))
+	elseif watch.run.phase == "idle" then
+		watch.gravitronArmed = false
 	end
 end
 
@@ -682,6 +717,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 				end
 				smack(watch, reading)
 				trainPush(watch, reading)
+				gravitron(watch, reading)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end

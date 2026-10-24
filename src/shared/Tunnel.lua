@@ -8,7 +8,8 @@
 -- degrees, positive to the left, which is counterclockwise seen from above
 -- the way CFrame.Angles(0, angle, 0) turns: facing -Z, left is -X. A
 -- segment's Rise eases in and out (Tunnel.ease), so the line is level where
--- one segment meets the next and never folds.
+-- one segment meets the next and never folds. A segment with an Ease climbs
+-- evenly instead, but over that share of it at each end (Tunnel.easeEnds).
 
 local Tunnel = {}
 
@@ -20,6 +21,7 @@ export type Segment = {
 	Turn: number?,
 	Radius: number?,
 	Rise: number?,
+	Ease: number?,
 }
 
 -- A straight or a turn of the middle line, from where the car enters it to
@@ -41,6 +43,7 @@ export type Piece = {
 	startZ: number,
 	sweep: number, -- radians
 	left: boolean, -- a turn to the left
+	ease: number?, -- the segment's Ease
 }
 
 export type Pose = {
@@ -61,6 +64,24 @@ end
 -- level at both ends.
 function Tunnel.ease(t: number): number
 	return t * t * (3 - 2 * t)
+end
+
+-- How far through a climb the line has risen at `t` of the way along it,
+-- climbing evenly but for `share` of the way at each end, where it eases in
+-- from level and out to level.
+function Tunnel.easeEnds(t: number, share: number): number
+	local e = math.clamp(share, 0, 0.5)
+	if e <= 0 then
+		return t
+	end
+	local area = 1 - e
+	if t < e then
+		return t * t / (2 * e) / area
+	elseif t <= 1 - e then
+		return (t - e / 2) / area
+	end
+	local u = 1 - t
+	return 1 - u * u / (2 * e) / area
 end
 
 function Tunnel.path(
@@ -93,6 +114,7 @@ function Tunnel.path(
 				startZ = z,
 				sweep = 0,
 				left = false,
+				ease = segment.Ease,
 			})
 			x, z = toX, toZ
 		else
@@ -119,6 +141,7 @@ function Tunnel.path(
 				startZ = if angle > 0 then z else toZ,
 				sweep = math.abs(angle),
 				left = angle > 0,
+				ease = segment.Ease,
 			})
 			x, z = toX, toZ
 			headingX, headingZ = turned(headingX, headingZ, angle)
@@ -130,7 +153,8 @@ end
 
 -- The point `t` of the way along a piece, the way the car goes: x, y, z.
 function Tunnel.pointAt(piece: Piece, t: number): (number, number, number)
-	local y = piece.fromY + (piece.toY - piece.fromY) * Tunnel.ease(t)
+	local climbed = if piece.ease then Tunnel.easeEnds(t, piece.ease) else Tunnel.ease(t)
+	local y = piece.fromY + (piece.toY - piece.fromY) * climbed
 	if piece.kind == "straight" then
 		return piece.fromX + (piece.toX - piece.fromX) * t, y, piece.fromZ + (piece.toZ - piece.fromZ) * t
 	end
@@ -516,6 +540,106 @@ function Tunnel.volcano(climb: VolcanoClimb, tunnels: Tunnels): VolcanoTube
 	}
 end
 
+-- The Corkscrew park's gravitron tubes (Tuning.Corkscrew.Gravitron.Tubes):
+-- two, from mouths on the ground at opposite ends of the ride, that dive
+-- under it and twist round each other up into its floor (Gravitron).
+--
+-- Each strand's twist is in the bowl's space (Gravitron): it starts on the
+-- Z axis TwistRadius out, `side` 1 at +Z heading +X and -1 at -Z heading
+-- -X, so the two start opposite each other, and climbs Loops whole loops
+-- of Pitch round the axis to the left, its top loop's outside TopGap under
+-- the floor. It climbs evenly, so the strands stay half a Pitch apart, but
+-- for TwistEase of the way at each end, where it eases in from level and
+-- out to level. Then it runs straight on, climbing to come up through the
+-- floor at ExitAngle: its bottom plank meets the floor at the climb's
+-- steepest, halfway along. Pieces.Tube cuts it off at the floor.
+--
+-- Each strand's approach is in the ride's ground space: in on the ground
+-- from its mouth along X, level for Level, then diving no steeper than
+-- DiveSlope to Dip under where its twist starts, and climbing back up over
+-- the last DipLength to meet it, heading the same way. The other strand's
+-- first half loop passes over the end of the approach, so the dip keeps
+-- them apart.
+export type GravitronTubes = {
+	TwistRadius: number,
+	Pitch: number,
+	Loops: number,
+	TwistEase: number,
+	TopGap: number,
+	ExitAngle: number,
+	DiveSlope: number,
+	Level: number,
+	Dip: number,
+	DipLength: number,
+	Outside: number,
+}
+
+-- The bowl's tilt in degrees, and its floor's middle's height (Gravitron).
+export type GravitronBowl = {
+	Tilt: number,
+	CenterHeight: number,
+	FloorThickness: number,
+}
+
+export type GravitronStrand = {
+	side: number,
+	approach: { Piece }, -- ground space
+	twist: { Piece }, -- bowl space
+	mouth: Crossing, -- ground space, where the approach starts
+	heading: number, -- along X, in from the mouth
+	-- Radians to roll the twist's rings round its middle line so they meet
+	-- the approach's: the twist's rings are square to the bowl's axis, the
+	-- approach's to the ground.
+	roll: number,
+	top: number, -- bowl space: the top loop's middle line
+}
+
+function Tunnel.gravitron(tubes: GravitronTubes, bowl: GravitronBowl, tunnels: Tunnels): ({ GravitronStrand }, string?)
+	local R = tubes.TwistRadius
+	local face = tunnels.Radius * math.cos(math.pi / tunnels.Sides)
+	local ground = Tunnel.groundHeight(tunnels)
+	local tilt = math.rad(bowl.Tilt)
+	local c, s = math.cos(tilt), math.sin(tilt)
+	local top = -(bowl.FloorThickness + tubes.TopGap + tubes.Outside)
+	local bottom = top - tubes.Loops * tubes.Pitch
+	local exitAngle = math.rad(tubes.ExitAngle)
+	-- The eased climb is steepest halfway, 1.5 times its average slope.
+	local exitRise = 2 * (face / math.cos(exitAngle) - top)
+	local exitLength = 1.5 * exitRise / math.tan(exitAngle)
+
+	local strands: { GravitronStrand } = {}
+	for _, side in { 1, -1 } do
+		local segments: { Segment } = {
+			{ Turn = 360 * tubes.Loops, Radius = R, Rise = tubes.Loops * tubes.Pitch, Ease = tubes.TwistEase },
+			{ Straight = exitLength, Rise = exitRise },
+		}
+		local twist = Tunnel.path(0, side * R, side, 0, segments, bottom)
+
+		-- Where the twist starts, in the ground space (Gravitron.fromLocal).
+		local startY = bowl.CenterHeight + bottom * c - side * R * s
+		local startZ = bottom * s + side * R * c
+		local drop = ground - startY + tubes.Dip
+		local dive = 1.5 * drop / math.tan(math.rad(tubes.DiveSlope))
+		local mouthX = -side * (tubes.Level + dive + tubes.DipLength)
+		local approach = Tunnel.path(mouthX, startZ, side, 0, {
+			{ Straight = tubes.Level },
+			{ Straight = dive, Rise = -drop },
+			{ Straight = tubes.DipLength, Rise = tubes.Dip },
+		}, ground)
+		table.insert(strands, {
+			side = side,
+			approach = approach,
+			twist = twist,
+			mouth = { x = mouthX, z = startZ },
+			heading = side,
+			roll = side * tilt,
+			top = top,
+		})
+	end
+	local warning = if tubes.Pitch / 2 < 2 * tubes.Outside then "the gravitron's Pitch lets its tubes meet" else nil
+	return strands, warning
+end
+
 -- How thick a tube's planks are (Pieces.Tube).
 Tunnel.THICKNESS = 2
 
@@ -612,7 +736,22 @@ function Tunnel.pull(pieces: { Piece }, radius: number, x: number, y: number, z:
 				end
 			end
 		end
-		for _, t in alongside do
+		for _, seen in alongside do
+			-- Seen from above is not square to a line that climbs steeply, so
+			-- slide along to the nearest point on it.
+			local t = seen
+			for _ = 1, 4 do
+				local t0, t1 = math.max(t - 1e-3, 0), math.min(t + 1e-3, 1)
+				local x0, y0, z0 = Tunnel.pointAt(piece, t0)
+				local x1, y1, z1 = Tunnel.pointAt(piece, t1)
+				local dx, dy, dz = (x1 - x0) / (t1 - t0), (y1 - y0) / (t1 - t0), (z1 - z0) / (t1 - t0)
+				local px, py, pz = Tunnel.pointAt(piece, t)
+				local d2 = dx * dx + dy * dy + dz * dz
+				if d2 < 1e-12 then
+					break
+				end
+				t = math.clamp(t + ((x - px) * dx + (y - py) * dy + (z - pz) * dz) / d2, 0, 1)
+			end
 			local ax, ay, az = Tunnel.pointAt(piece, t)
 			local px, py, pz = x - ax, y - ay, z - az
 			local distance = math.sqrt(px * px + py * py + pz * pz)

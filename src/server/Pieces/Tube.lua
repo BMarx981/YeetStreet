@@ -11,8 +11,15 @@
 -- Downtown's tunnel chains and spiral towers, and Dino Valley's volcano.
 -- Tube.holePlate closes a wall round where a tube goes through it.
 --
--- The middle line's points are in the space of `base`, which may only turn
--- about Y, so up stays up: a park's floor at its middle, say.
+-- The middle line's points are in the space of `base`: a park's floor at
+-- its middle, say. Rings stand square to base's ground, so a tilted base
+-- tilts them. A mouth assumes base only turns about Y, so up stays up.
+--
+-- Ends can leave off either end's mouth, roll the rings round the middle
+-- line, and cut the tube off at a height in base's space, as where it comes
+-- up through a floor: planks over it are left out, and planks across it are
+-- cut off at it (or, for planks facing up, low enough that their outside
+-- stays under it).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -37,6 +44,20 @@ export type Options = {
 	LightRange: number,
 }
 
+export type Ends = {
+	startMouth: boolean?, -- false leaves off the mouth at the first piece's start
+	finishMouth: boolean?, -- and the last piece's end
+	roll: number?, -- radians round the middle line, the way from `up` to `side`
+	cutAbove: number?, -- nothing over this height in base's space
+}
+
+-- Where the planks were cut off, for building a floor round the hole.
+type Cut = {
+	base: CFrame,
+	above: number,
+	points: { Vector3 },
+}
+
 local THICKNESS = 2
 local LIGHT_COLOR = Color3.fromRGB(255, 214, 160)
 local TUBE_COLOR = Color3.fromRGB(150, 156, 166)
@@ -57,11 +78,50 @@ local function block(parent: Instance, name: string, size: Vector3, cframe: CFra
 	return part
 end
 
+-- The plank whose inside face is the rectangle `corners`, facing `out`'s
+-- opposite, cut off where `cut` says: as triangles from what is left under
+-- the cut. The cut's ends on the outside go in cut.points.
+local function cutPlank(parent: Instance, corners: { Vector3 }, out: Vector3, cut: Cut)
+	local function height(p: Vector3): number
+		return cut.base:PointToObjectSpace(p).Y
+	end
+	-- A plank facing up is cut lower, so its outside stays under the cut.
+	local rise = cut.base:VectorToObjectSpace(out).Y
+	local level = cut.above - THICKNESS * math.max(rise, 0)
+	local kept: { Vector3 } = {}
+	local ends: { Vector3 } = {}
+	for i, a in corners do
+		local b = corners[i % #corners + 1]
+		local ha, hb = height(a), height(b)
+		if ha <= level then
+			table.insert(kept, a)
+		end
+		if (ha <= level) ~= (hb <= level) then
+			local p = a:Lerp(b, (level - ha) / (hb - ha))
+			table.insert(kept, p)
+			table.insert(ends, p)
+		end
+	end
+	if #kept < 3 then
+		return
+	end
+	for i = 2, #kept - 1 do
+		if (kept[i] - kept[1]):Cross(kept[i + 1] - kept[1]).Magnitude > 0.01 then
+			for _, wedge in Triangle.make(parent, kept[1], kept[i], kept[i + 1], -out, THICKNESS, TUBE_COLOR) do
+				wedge.Name = "Plank"
+			end
+		end
+	end
+	for _, p in ends do
+		table.insert(cut.points, if rise > 0 then p + out * THICKNESS else p)
+	end
+end
+
 -- One ring of Sides planks around a middle line at `middle`, its cross
 -- section square to the line: `side` level across it and `up` square to
 -- both. The curves are `radius` around, pulled `flat` apart either side into
--- a flat floor and roof. Each plank is `lengthAt` long, given how far out
--- along `side` its middle is.
+-- a flat floor and roof. Each plank is `lengthAt` long, given where its
+-- middle is from the middle line. With a `cut`, planks are cut off at it.
 local function ring(
 	parent: Instance,
 	options: Options,
@@ -70,7 +130,8 @@ local function ring(
 	up: Vector3,
 	flat: number,
 	radius: number,
-	lengthAt: (number) -> number
+	lengthAt: (Vector3) -> number,
+	cut: Cut?
 )
 	local halfStep = math.pi / options.Sides
 	local face = radius * math.cos(halfStep)
@@ -84,13 +145,23 @@ local function ring(
 		local level = math.abs(s) < 1e-6
 		local width = chord + OVERLAP + (if level then 2 * flat else 0)
 		local shift = if level then 0 else flat * math.sign(s)
-		block(
-			parent,
-			"Plank",
-			Vector3.new(width, THICKNESS, lengthAt(face * s + shift)),
-			CFrame.fromMatrix(middle + side * shift + out * (face + THICKNESS / 2), around, -out),
-			TUBE_COLOR
-		)
+		local length = lengthAt(side * shift + out * face)
+		local cframe = CFrame.fromMatrix(middle + side * shift + out * (face + THICKNESS / 2), around, -out)
+		if cut then
+			local inside = cframe.Position - out * (THICKNESS / 2)
+			local a, z = around * (width / 2), cframe.ZVector * (length / 2)
+			local corners = { inside + a + z, inside - a + z, inside - a - z, inside + a - z }
+			local highest = -math.huge
+			for _, p in corners do
+				local inner = cut.base:PointToObjectSpace(p).Y
+				highest = math.max(highest, inner, cut.base:PointToObjectSpace(p + out * THICKNESS).Y)
+			end
+			if highest > cut.above then
+				cutPlank(parent, corners, out, cut)
+				continue
+			end
+		end
+		block(parent, "Plank", Vector3.new(width, THICKNESS, length), cframe, TUBE_COLOR)
 	end
 end
 
@@ -199,17 +270,27 @@ function Tube.holePlate(
 	wall(hole.middleY + edgeHeight, towerBottom)
 end
 
--- Builds the tube along `pieces` into `model`.
-function Tube.build(model: Instance, base: CFrame, pieces: { Tunnel.Piece }, sliceAngle: number, options: Options)
+-- Builds the tube along `pieces` into `model`. With ends.cutAbove, returns
+-- where the planks were cut off on the outside, round the hole.
+function Tube.build(
+	model: Instance,
+	base: CFrame,
+	pieces: { Tunnel.Piece },
+	sliceAngle: number,
+	options: Options,
+	ends: Ends?
+): { Vector3 }
 	local T = options
+	local startMouth = not ends or ends.startMouth ~= false
+	local finishMouth = not ends or ends.finishMouth ~= false
+	local roll = ends and ends.roll or 0
+	local cutAbove = ends and ends.cutAbove
+	local cut: Cut? = if cutAbove then { base = base, above = cutAbove, points = {} } else nil
 	local halfStep = math.pi / T.Sides
 	local face = T.Radius * math.cos(halfStep) -- from the middle line to each plank's inside face
 	local ground = T.Radius * math.cos(halfStep) + Tunnel.LIFT
 	local mouthFlat = T.MouthFloor / 2
 
-	local function floorAt(x: number, z: number): Vector3
-		return base:PointToWorldSpace(Vector3.new(x, 0, z))
-	end
 	local function pointAt(piece: Tunnel.Piece, t: number): Vector3
 		local x, y, z = Tunnel.pointAt(piece, math.clamp(t, 0, 1))
 		return base:PointToWorldSpace(Vector3.new(x, y, z))
@@ -217,6 +298,19 @@ function Tube.build(model: Instance, base: CFrame, pieces: { Tunnel.Piece }, sli
 	-- The way the middle line runs at `t` along a piece.
 	local function tangentAt(piece: Tunnel.Piece, t: number): Vector3
 		return (pointAt(piece, t + 0.001) - pointAt(piece, t - 0.001)).Unit
+	end
+	-- How steeply `along` climbs in base's space.
+	local function rise(along: Vector3): number
+		return base:VectorToObjectSpace(along).Y
+	end
+	-- A ring's `side`, level across the line in base's space, and its `up`,
+	-- rolled by `roll`.
+	local function frameAt(along: Vector3): (Vector3, Vector3)
+		local flat = base:VectorToObjectSpace(along)
+		local side = base:VectorToWorldSpace(Vector3.new(-flat.Z, 0, flat.X).Unit)
+		local up = side:Cross(along)
+		local c, s = math.cos(roll), math.sin(roll)
+		return side * c + up * s, up * c - side * s
 	end
 
 	-- The opening from a mouth on the floor at `mouth` in along `inward` to
@@ -264,8 +358,11 @@ function Tube.build(model: Instance, base: CFrame, pieces: { Tunnel.Piece }, sli
 	for _, piece in pieces do
 		total += Tunnel.length(piece)
 	end
-	if Tunnel.length(pieces[1]) < T.FlareLength or Tunnel.length(pieces[#pieces]) < T.FlareLength then
-		warn("Tube: a tube needs a level straight at least FlareLength long at each end")
+	if
+		(startMouth and Tunnel.length(pieces[1]) < T.FlareLength)
+		or (finishMouth and Tunnel.length(pieces[#pieces]) < T.FlareLength)
+	then
+		warn("Tube: a tube needs a level straight at least FlareLength long at each end with a mouth")
 	end
 	-- Lights every LightEvery of the middle line, but not in the mouths.
 	local travelled = 0
@@ -275,60 +372,66 @@ function Tube.build(model: Instance, base: CFrame, pieces: { Tunnel.Piece }, sli
 		local climbs = math.abs(piece.toY - piece.fromY) > 0.01
 		-- The part of this piece the rings cover: all of it, but the mouths'
 		-- openings at either end of the chain.
-		local start = if index == 1 then T.FlareLength / length else 0
-		local finish = if index == #pieces then 1 - T.FlareLength / length else 1
+		local start = if index == 1 and startMouth then T.FlareLength / length else 0
+		local finish = if index == #pieces and finishMouth then 1 - T.FlareLength / length else 1
 		local steps = if piece.kind == "arc"
 			then math.ceil(math.deg(piece.sweep) / sliceAngle)
 			elseif climbs then math.ceil(length / T.StepLength)
 			else 1
 		local slice = math.deg(piece.sweep) / steps
-		local center = floorAt(piece.centerX, piece.centerZ)
+		local center = Vector3.new(piece.centerX, 0, piece.centerZ)
 		for i = 1, steps do
 			local t0 = start + (finish - start) * (i - 1) / steps
 			local t1 = start + (finish - start) * i / steps
 			local middle = pointAt(piece, (t0 + t1) / 2)
 			local along = tangentAt(piece, (t0 + t1) / 2)
-			local side = Vector3.new(-along.Z, 0, along.X).Unit
-			local up = side:Cross(along)
+			local side, up = frameAt(along)
 			-- Planks are this much longer where the line bends up or down
 			-- between rings, so the seams stay closed.
-			local bend = face * math.abs(math.asin(tangentAt(piece, t1).Y) - math.asin(tangentAt(piece, t0).Y))
-			local lengthAt: (number) -> number
+			local bend = face * math.abs(math.asin(rise(tangentAt(piece, t1))) - math.asin(rise(tangentAt(piece, t0))))
+			local lengthAt: (Vector3) -> number
 			if piece.kind == "arc" then
-				local outward = Vector3.new(middle.X - center.X, 0, middle.Z - center.Z).Unit
-				local level = math.sqrt(1 - along.Y * along.Y)
-				lengthAt = function(out: number): number
-					return CurveProfile.sliceLength(piece.radius + out * side:Dot(outward), slice) / level + bend
+				local spot = base:PointToObjectSpace(middle)
+				local outward = base:VectorToWorldSpace(Vector3.new(spot.X - center.X, 0, spot.Z - center.Z).Unit)
+				local level = math.sqrt(1 - rise(along) ^ 2)
+				lengthAt = function(offset: Vector3): number
+					return CurveProfile.sliceLength(piece.radius + offset:Dot(outward), slice) / level + bend
 				end
 			else
 				local stretch = (pointAt(piece, t1) - pointAt(piece, t0)).Magnitude + bend
-				lengthAt = function(_: number): number
+				lengthAt = function(_: Vector3): number
 					return stretch
 				end
 			end
-			ring(model, T, middle, side, up, 0, T.Radius, lengthAt)
+			ring(model, T, middle, side, up, 0, T.Radius, lengthAt, cut)
 		end
-		if index == 1 then
+		if index == 1 and startMouth then
 			flare(pointAt(piece, 0) - Vector3.new(0, ground, 0), tangentAt(piece, 0))
 		end
-		if index == #pieces then
+		if index == #pieces and finishMouth then
 			flare(pointAt(piece, 1) - Vector3.new(0, ground, 0), -tangentAt(piece, 1))
 		end
 
 		local d = (T.LightEvery / 2 - travelled) % T.LightEvery
 		while d <= length do
 			local reached = travelled + d
-			if reached > T.FlareLength and reached < total - T.FlareLength then
+			local clearStart = not startMouth or reached > T.FlareLength
+			local clearFinish = not finishMouth or reached < total - T.FlareLength
+			if clearStart and clearFinish then
 				local t = d / length
 				local along = tangentAt(piece, t)
-				local up = Vector3.new(-along.Z, 0, along.X).Unit:Cross(along)
+				local flat = base:VectorToObjectSpace(along)
+				local up = base:VectorToWorldSpace(Vector3.new(-flat.Z, 0, flat.X).Unit):Cross(along)
 				local spot = pointAt(piece, t) + up * (face - 0.1)
-				light(model, T, CFrame.lookAt(spot, spot + along, up))
+				if not cutAbove or base:PointToObjectSpace(spot).Y < cutAbove - 2 * T.Radius then
+					light(model, T, CFrame.lookAt(spot, spot + along, up))
+				end
 			end
 			d += T.LightEvery
 		end
 		travelled += length
 	end
+	return if cut then cut.points else {}
 end
 
 return Tube

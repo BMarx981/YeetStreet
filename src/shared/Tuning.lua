@@ -428,6 +428,10 @@ Tuning.Score = {
 		["Wrecking ball"] = 300, -- smacked by one of Downtown's (ScoreService)
 		Kaiju = 500, -- caught by Downtown's kaiju in the air (ScoreService)
 		Zapped = 300, -- blasted by the kaiju's laser (ScoreService)
+		-- Flung over the gravitron's rim, by how fast it spun (ScoreService)
+		Gravitron = 200,
+		["Gravitron Fast"] = 400,
+		["Gravitron Ludicrous"] = 800,
 	},
 }
 
@@ -817,6 +821,90 @@ Tuning.Corkscrew = {
 		RunwayLength = 300,
 		RunwayRows = 12,
 		RunwayBoostRows = 2,
+	},
+	-- The gravitron (Parks.CorkscrewGravitron, Gravitron, GravitronRide): a
+	-- huge bowl that spins, open at the top, its floor's middle over X, Z.
+	-- Its high side faces -Z turned Heading degrees the way
+	-- CFrame.Angles(0, Heading, 0) turns: -90 faces +X, toward the open
+	-- field between it and the middle ramp. Heading must be a multiple of 90.
+	Gravitron = {
+		X = -450,
+		Z = -810,
+		Heading = -90,
+		FloorRadius = 200,
+		CurveRadius = 40,
+		CurveSteps = 8,
+		Lean = 15, -- degrees the wall leans out from the axis
+		Height = 300, -- the rim, up the axis from the floor
+		Tilt = 20,
+		Thickness = 2,
+		Clearance = 1, -- under the bowl's lowest point
+		Slices = 144, -- round the bowl
+		FloorStrip = 10, -- the floor is strips this wide
+		-- A wall round under the bowl, Radius out from under the floor's
+		-- middle, up to the floor's underside, so nobody drives under it.
+		Skirt = { Radius = 180, Slices = 72 },
+		Margin = 4, -- a car's middle this far under the surface is still in the bowl
+		-- A car on the surface higher than this up the axis is armed like on
+		-- a launch pad: leaving the surface starts a run, and leaving over
+		-- the rim pays a Gravitron target by how fast it spins.
+		ArmHeight = 120,
+		RimReach = 60, -- out past the rim, a car over it has gone over the rim
+		HitGrace = 0.3, -- seconds after leaving the bowl that hits still do no damage
+		PayScale = 0.5,
+		Spin = {
+			Direction = 1, -- the way the tubes twist, counterclockwise from above
+			-- Studs per second at the wall's foot, held Hold seconds each, in
+			-- a cycle on the server's clock.
+			Stops = {
+				{ Speed = 80, Hold = 20 },
+				{ Speed = 180, Hold = 12 },
+				{ Speed = 320, Hold = 8 },
+			},
+			Ramp = 6, -- seconds easing from each stop to the next
+			MinGrip = 0.3, -- times the tyres' grip at the fastest stop
+			Carry = 1.5, -- per second: how quickly the surface brings a car to its speed
+		},
+		-- The target a run pays for leaving over the rim, by the spin's level
+		-- (Gravitron.level) when it left: the first whose Level it reaches.
+		Targets = {
+			{ Level = 0.8, Target = "Gravitron Ludicrous" },
+			{ Level = 0.3, Target = "Gravitron Fast" },
+			{ Level = 0, Target = "Gravitron" },
+		},
+		-- Two tubes (Tunnel.gravitron) from mouths at either end, along the
+		-- way the high side faces turned a quarter, that dive under the bowl
+		-- and twist round each other up into its floor. The rest of the tube's
+		-- shape is Tuning.City.Tunnels'.
+		Tubes = {
+			TwistRadius = 80,
+			Pitch = 180, -- the strands are half this apart
+			Loops = 2,
+			TwistEase = 0.1,
+			TopGap = 6,
+			ExitAngle = 45,
+			DiveSlope = 40,
+			Level = 140, -- over FlareLength, so the tube starts past the mouth
+			Dip = 30,
+			DipLength = 120,
+			Outside = 33,
+			SliceAngle = 6,
+			-- Each mouth is wide, with a curved wall each side of a funnel in
+			-- front of it that lies flat on the ground at its open end,
+			-- FunnelSpread wider each side, and curls up into the mouth.
+			MouthFloor = 120,
+			MouthCurve = 24,
+			FlareLength = 120,
+			FlareRows = 10,
+			FunnelLength = 200,
+			FunnelSpread = 100,
+			FunnelRows = 16,
+			-- A ring of launch pads at the start of each exit, so a car makes
+			-- the climb up through the floor.
+			BoostAt = 0.1, -- of the way along the exit
+			BoostLength = 24,
+			BoostSpeed = 220,
+		},
 	},
 }
 

@@ -11,6 +11,9 @@
 --      resets. On a swing seat, SwingRide does the same.
 --   2. Jets: burn, drain, and recharge fuel, push along the nose (Jets).
 --   3. On the ground: wheel motors and front wheel steering (Drive).
+--      In the gravitron (GravitronRide) its surface carries the car round as
+--      it spins, the wheels roll with it, and the tyres grip less the faster
+--      it goes. High up its wall the car is armed like on a launch pad.
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
 --      Lying on its roof or side: AirSpin rolls it back onto its wheels
 --      (Righting), and the player's spin input waits until it is upright.
@@ -35,6 +38,7 @@ local UserInputService = game:GetService("UserInputService")
 local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local GapZones = require(ReplicatedStorage.GapZones)
+local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
@@ -355,7 +359,7 @@ local function tubePull(position: Vector3): Vector3?
 			return volcanoBase:VectorToWorldSpace(Vector3.new(px, py, pz))
 		end
 	end
-	return nil
+	return GravitronRide.pull(position)
 end
 
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
@@ -408,6 +412,12 @@ local function step(r: Rig, dt: number)
 	-- down, so it can drive round the walls and along the roof.
 	local pull = tubePull(cf.Position)
 	up = if pull then -pull else Vector3.yAxis
+	-- In the gravitron, up is out of the surface nearest the car.
+	local now = workspace:GetServerTimeNow()
+	local inBowl = not pull and GravitronRide.inside(cf.Position)
+	if inBowl then
+		up = GravitronRide.up(cf.Position)
+	end
 	if r.stick then
 		r.stick.Force = if pull
 			then (pull * Tuning.City.Tunnels.Pull + Vector3.yAxis) * workspace.Gravity * r.hull.AssemblyMass
@@ -433,6 +443,15 @@ local function step(r: Rig, dt: number)
 		zapped = false
 	end
 	local airborne = reading.airborne
+	-- The gravitron's surface carries the car round with it, and high up its
+	-- wall leaving the surface starts a run.
+	local onBowl = inBowl and not airborne
+	if onBowl and r.stick then
+		r.stick.Force += GravitronRide.carry(cf.Position, velocity, now) * r.hull.AssemblyMass
+	end
+	if onBowl and GravitronRide.arms(cf.Position) then
+		reading.sample.onPad = true
+	end
 
 	-- On a rail or a swing seat, GrindRide or SwingRide moves the car: no
 	-- driving, jets, or air control.
@@ -496,31 +515,38 @@ local function step(r: Rig, dt: number)
 	end
 
 	-- In the air, gas and brake only pitch the car, and the wheels free roll so
-	-- they match the ground on landing instead of grabbing it.
+	-- they match the ground on landing instead of grabbing it. On the
+	-- gravitron the wheels drive against its surface, which moves.
 	local D = Tuning.Drive
+	local surfaceForward = if onBowl then GravitronRide.surfaceVelocity(cf.Position, now):Dot(cf.LookVector) else 0
 	local wheelSpin: number, torque: number
 	if airborne then
 		wheelSpin, torque = Drive.freeRoll(forwardSpeed, r.wheelRadius), D.CoastTorque
 	else
-		wheelSpin, torque = Drive.motor(input.throttle, forwardSpeed, r.topSpeed, r.wheelRadius, D)
+		wheelSpin, torque = Drive.motor(input.throttle, forwardSpeed - surfaceForward, r.topSpeed, r.wheelRadius, D)
+		wheelSpin += surfaceForward / r.wheelRadius
 	end
+	-- The faster the gravitron spins, the less the tyres grip, in steps so the
+	-- wheels' friction is not rewritten every frame.
+	local spinGrip = if inBowl then math.floor(GravitronRide.grip(now) * 20 + 0.5) / 20 else 1
+	local grip = weatherGrip * spinGrip
 	local steerAngle = Drive.steerAngle(
 		input.steer,
 		forwardSpeed,
 		r.topSpeed,
 		D.MaxSteerAngle,
 		D.HighSpeedSteerFactor,
-		D.SteerGrip * r.grip * weatherGrip * workspace.Gravity,
+		D.SteerGrip * r.grip * grip * workspace.Gravity,
 		2 * Tuning.Chassis.WheelbaseHalf
 	)
 	for _, wheel in r.wheels do
 		wheel.axle.AngularVelocity = wheelSpin * D.SpinSign
 		wheel.axle.MotorMaxTorque = torque
-		-- Update wheel friction based on weather grip
-		if wheel.weatherGrip ~= weatherGrip then
-			wheel.weatherGrip = weatherGrip
+		-- Update wheel friction based on weather and gravitron grip
+		if wheel.weatherGrip ~= grip then
+			wheel.weatherGrip = grip
 			local baseGrip = if wheel.steers then r.grip else r.grip * Tuning.Chassis.RearGripFactor
-			local frictionGrip = math.max(baseGrip * weatherGrip, 0.05)
+			local frictionGrip = math.max(baseGrip * grip, 0.05)
 			local density = wheel.part.CustomPhysicalProperties and wheel.part.CustomPhysicalProperties.Density or Tuning.Chassis.WheelDensity
 			wheel.part.CustomPhysicalProperties = PhysicalProperties.new(density, frictionGrip, 0, 100, 100)
 		end
@@ -535,7 +561,7 @@ local function step(r: Rig, dt: number)
 	if righting then
 		-- Worked out with `up` as Y, then turned back into world space.
 		local across = up:Cross(if math.abs(up.X) < 0.9 then Vector3.xAxis else Vector3.zAxis).Unit
-		local frame = if pull then CFrame.fromMatrix(Vector3.zero, across, up) else CFrame.identity
+		local frame = if pull or inBowl then CFrame.fromMatrix(Vector3.zero, across, up) else CFrame.identity
 		local carUp = frame:VectorToObjectSpace(cf.UpVector)
 		local look = frame:VectorToObjectSpace(cf.LookVector)
 		local wx, wy, wz = Righting.rate(carUp.X, carUp.Y, carUp.Z, look.X, look.Y, look.Z, RT)
@@ -577,7 +603,9 @@ local function step(r: Rig, dt: number)
 	stuckTime = Contact.stepStuck(stuckTime, upright, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
 	local resetPressed = input.reset and not resetHeld
 	resetHeld = input.reset
-	if resetPressed or stuckTime >= R.StuckTime or cf.Position.Y < Tuning.World.FallResetY then
+	-- The gravitron's tubes dive far under the map, so in a tube is not fallen off.
+	local fallen = cf.Position.Y < Tuning.World.FallResetY and not pull
+	if resetPressed or stuckTime >= R.StuckTime or fallen then
 		resetCar()
 	end
 end
