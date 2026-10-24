@@ -29,12 +29,25 @@
 -- survived them (survived). Neither for a player on foot.
 --
 -- Once none of a pack is chasing or latched, it rests for Rest seconds and
--- moves to the nearest other free cover.
+-- moves on to other cover. It leaves every car it went for alone for
+-- Cooldown seconds after, though other packs may not. With no car within
+-- Watch of its cover it also moves on after StayMin to StayMax seconds
+-- there. Moving on, it picks a bush or a mound by a coin toss, and the
+-- nearest free one of that kind. Between covers it still ambushes a car
+-- within Ambush of it or of the cover it is making for, coming straight at
+-- it from wherever it is.
 --
 -- Heading is in radians, 0 facing -Z and positive turning left, like the
 -- parks' Heading. Positions are world studs.
 
 local Raptors = {}
+
+-- Same as Rng.Rng, declared here so this module needs no require.
+type Rng = {
+	next: () -> number,
+	range: (low: number, high: number) -> number,
+	int: (low: number, high: number) -> number,
+}
 
 export type Rect = {
 	MinX: number,
@@ -108,6 +121,10 @@ export type Pack = {
 	raptors: { Raptor },
 	-- How each car its last attack latched onto has fared.
 	attack: { [any]: Fate },
+	target: any?, -- the car its last attack went for
+	-- Seconds left before it may go for each car it attacked again.
+	cooling: { [any]: number },
+	stay: number, -- seconds left before it moves on, with no car near
 }
 
 export type Fate = {
@@ -148,12 +165,18 @@ export type Tuning = {
 	Bites: number,
 	PinTime: number,
 	Rest: number,
+	Cooldown: number,
+	StayMin: number,
+	StayMax: number,
 }
 
 local TAU = 2 * math.pi
 local ROLES: { Role } = { "top", "left", "right" }
 -- Going round a mound, how far round it aims at a time.
 local ORBIT_STEP = math.rad(30)
+-- How much further than its hiding spot a pack may be from its cover and
+-- still be at it.
+local AT_COVER = 15
 
 local function wrap(angle: number): number
 	return (angle + math.pi) % TAU - math.pi
@@ -183,7 +206,18 @@ function Raptors.newPack(x: number, z: number, heading: number): Pack
 		}
 		table.insert(raptors, raptor)
 	end
-	return { mode = "move", cover = nil, awayX = 0, awayZ = 1, rest = 0, raptors = raptors, attack = {} }
+	return {
+		mode = "move",
+		cover = nil,
+		awayX = 0,
+		awayZ = 1,
+		rest = 0,
+		raptors = raptors,
+		attack = {},
+		target = nil,
+		cooling = {},
+		stay = 0,
+	}
 end
 
 -- A cover's own x, z axes in the world.
@@ -299,10 +333,11 @@ local function middle(pack: Pack): (number, number)
 end
 
 -- The nearest cover to the pack that no other pack has, other than
--- `except`; or the one it has if there is none.
-local function chooseCover(packs: { Pack }, me: number, covers: { Cover }, except: number?): number?
+-- `except`, of the kind `bush` asks for if one is free (any kind when nil);
+-- or the one it has if there is none.
+local function chooseCover(packs: { Pack }, me: number, covers: { Cover }, except: number?, bush: boolean?): number?
 	local x, z = middle(packs[me])
-	local best, bestDistance = nil, math.huge
+	local best, bestDistance, bestKind = nil, math.huge, false
 	for i, cover in covers do
 		local taken = i == except
 		for j, other in packs do
@@ -311,19 +346,35 @@ local function chooseCover(packs: { Pack }, me: number, covers: { Cover }, excep
 			end
 		end
 		local distance = (cover.x - x) ^ 2 + (cover.z - z) ^ 2
-		if not taken and distance < bestDistance then
-			best, bestDistance = i, distance
+		local kind = bush == nil or cover.bush == bush
+		if not taken and (kind and not bestKind or kind == bestKind and distance < bestDistance) then
+			best, bestDistance, bestKind = i, distance, kind
 		end
 	end
 	return best or packs[me].cover
 end
 
--- The closest car on the ground in the territory to x, z, within `within`.
-local function closest(cars: { Car }, x: number, z: number, within: number, territory: Territory): Car?
+-- Moves on to other cover, and stays there a while.
+local function moveOn(packs: { Pack }, me: number, covers: { Cover }, rng: Rng, tuning: Tuning)
+	local pack = packs[me]
+	pack.cover = chooseCover(packs, me, covers, pack.cover, rng.next() < 0.5)
+	pack.stay = rng.range(tuning.StayMin, tuning.StayMax)
+end
+
+-- The closest car on the ground in the territory to x, z, within `within`,
+-- other than those in `skip`.
+local function closest(
+	cars: { Car },
+	x: number,
+	z: number,
+	within: number,
+	territory: Territory,
+	skip: { [any]: number }
+): Car?
 	local best, bestDistance = nil, within * within
 	for _, car in cars do
 		local distance = (car.x - x) ^ 2 + (car.z - z) ^ 2
-		if not car.air and inRect(territory, car.x, car.z) and distance <= bestDistance then
+		if not car.air and not skip[car.id] and inRect(territory, car.x, car.z) and distance <= bestDistance then
 			best, bestDistance = car, distance
 		end
 	end
@@ -350,23 +401,25 @@ local function hideGoal(pack: Pack, i: number, r: Raptor, cover: Cover, tuning: 
 	return x + pack.awayZ * spread, z - pack.awayX * spread
 end
 
-local function ambush(pack: Pack, car: Car, cover: Cover, tuning: Tuning)
+-- `round`: it is at a mound, so goes over and round it.
+local function ambush(pack: Pack, car: Car, cover: Cover, round: boolean, tuning: Tuning)
 	pack.mode = "attack"
 	pack.attack = {}
+	pack.target = car.id
 	-- Square to the line from the car to the cover.
 	local sideX, sideZ = pack.awayZ, -pack.awayX
-	local round = extent(cover, sideX, sideZ) + tuning.Wide
+	local out = extent(cover, sideX, sideZ) + tuning.Wide
 	for _, r in pack.raptors do
 		r.mode = "chase"
 		r.timer = 0
 		r.target = car.id
 		r.viaX, r.viaZ = nil, nil
-		if not cover.bush then
+		if round and not cover.bush then
 			if r.role == "top" then
 				r.viaX, r.viaZ = cover.x, cover.z
 			else
 				local s = if r.role == "left" then -1 else 1
-				r.viaX, r.viaZ = cover.x + sideX * round * s, cover.z + sideZ * round * s
+				r.viaX, r.viaZ = cover.x + sideX * out * s, cover.z + sideZ * out * s
 			end
 		end
 	end
@@ -510,28 +563,43 @@ function Raptors.step(
 	cars: { Car },
 	covers: { Cover },
 	territory: Territory,
+	rng: Rng,
 	dt: number,
 	tuning: Tuning
 ): { Event }
 	local events: { Event } = {}
 	for p, pack in packs do
 		pack.rest = math.max(pack.rest - dt, 0)
+		for id, left in pack.cooling do
+			pack.cooling[id] = if left > dt then left - dt else nil
+		end
 		if pack.cover == nil then
-			pack.cover = chooseCover(packs, p, covers, nil)
+			pack.cover = chooseCover(packs, p, covers, nil, nil)
+			pack.stay = rng.range(tuning.StayMin, tuning.StayMax)
 		end
 		local cover = pack.cover and covers[pack.cover]
 
 		if pack.mode ~= "attack" and cover then
-			local car = closest(cars, cover.x, cover.z, tuning.Watch, territory)
+			-- It hides from the closest car, cooling or not.
+			local car = closest(cars, cover.x, cover.z, tuning.Watch, territory, {})
 			if car then
 				local dx, dz = cover.x - car.x, cover.z - car.z
 				local d = math.sqrt(dx * dx + dz * dz)
 				if d > 1e-6 then
 					pack.awayX, pack.awayZ = dx / d, dz / d
 				end
-				if pack.rest <= 0 and d <= tuning.Ambush then
-					ambush(pack, car, cover, tuning)
-				end
+			else
+				pack.stay -= dt
+			end
+			local x, z = middle(pack)
+			local at = (x - cover.x) ^ 2 + (z - cover.z) ^ 2
+				<= (math.max(cover.halfX, cover.halfZ) + tuning.HideGap + AT_COVER) ^ 2
+			local prey = closest(cars, cover.x, cover.z, tuning.Ambush, territory, pack.cooling)
+				or closest(cars, x, z, tuning.Ambush, territory, pack.cooling)
+			if prey and pack.rest <= 0 then
+				ambush(pack, prey, cover, at, tuning)
+			elseif pack.stay <= 0 then
+				moveOn(packs, p, covers, rng, tuning)
 			end
 		end
 
@@ -550,7 +618,13 @@ function Raptors.step(
 			if not busy then
 				pack.mode = "move"
 				pack.rest = tuning.Rest
-				pack.cover = chooseCover(packs, p, covers, pack.cover)
+				if pack.target ~= nil then
+					pack.cooling[pack.target] = tuning.Cooldown
+				end
+				for id in pack.attack do
+					pack.cooling[id] = tuning.Cooldown
+				end
+				moveOn(packs, p, covers, rng, tuning)
 			end
 		end
 	end

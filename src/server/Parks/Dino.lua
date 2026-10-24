@@ -1215,7 +1215,8 @@ local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 end
 
 -- The raptor packs hide among `covers` on the same ground as the T-Rex,
--- each starting beside one of the first covers (DinoRaptors runs them).
+-- each starting beside a mound but the last, which starts in a bush
+-- (DinoRaptors runs them).
 -- They stand on the floor and the mounds.
 local function buildRaptors(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, covers: { Raptors.Cover })
 	local model = Instance.new("Model")
@@ -1223,10 +1224,18 @@ local function buildRaptors(parent: Instance, rect: Scatter.Rect, keepOut: { Sca
 	-- Persistent, so streaming never takes them from a client.
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	model.Parent = parent
+	local mounds, bushes = {}, {}
+	for _, cover in covers do
+		table.insert(if cover.bush then bushes else mounds, cover)
+	end
 	local starts = {}
-	for p = 1, math.min(D.Raptors.Packs, #covers) do
-		local cover = covers[p]
-		table.insert(starts, Vector3.new(cover.x + cover.halfX + D.Raptors.HideGap, FLOOR, cover.z))
+	for p = 1, D.Raptors.Packs do
+		local bush = bushes[1]
+		local cover = if p == D.Raptors.Packs and bush then bush else mounds[p]
+		if cover then
+			local out = if cover.bush then 0 else cover.halfX + D.Raptors.HideGap
+			table.insert(starts, Vector3.new(cover.x + out, FLOOR, cover.z))
+		end
 	end
 	local ground: { Instance } = { parent:FindFirstChild("DirtMounds") :: Instance }
 	for _, part in parent:GetChildren() do

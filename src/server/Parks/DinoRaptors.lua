@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Raptors = require(ReplicatedStorage.Raptors)
+local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local R = Tuning.Dino.Raptors
@@ -102,6 +103,7 @@ function DinoRaptors.start(
 		end
 		table.insert(looks, row)
 	end
+	local rng = Rng.new(R.Seed)
 	local carsFolder = workspace:WaitForChild("Cars")
 
 	local groundRays = RaycastParams.new()
@@ -200,7 +202,7 @@ function DinoRaptors.start(
 			end
 		end
 
-		for _, event in Raptors.step(packs, cars, covers, territory, dt, R) do
+		for _, event in Raptors.step(packs, cars, covers, territory, rng, dt, R) do
 			local thing = if typeof(event.car) == "Instance" then event.car else nil
 			if not thing then
 				continue

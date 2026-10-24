@@ -1,6 +1,7 @@
 --!strict
 local Check = require("./Check")
 local Raptors = require("../src/shared/Raptors")
+local Rng = require("../src/shared/Rng")
 
 local TUNING: Raptors.Tuning = {
 	WalkSpeed = 30,
@@ -24,12 +25,17 @@ local TUNING: Raptors.Tuning = {
 	Bites = 5,
 	PinTime = 2.5,
 	Rest = 5,
+	Cooldown = 20,
+	StayMin = 30,
+	StayMax = 60,
 }
 
 local TERRITORY: Raptors.Territory = {
 	rect = { MinX = -1000, MaxX = 1000, MinZ = -1000, MaxZ = 1000 },
 	keepOut = {},
 }
+
+local RNG = Rng.new(5)
 
 -- A mound lying along z at the middle, 37 by 52 out from its middle, and a
 -- bush off to the east.
@@ -47,7 +53,7 @@ end
 local function run(packs: { Raptors.Pack }, cars: { Raptors.Car }, covers: { Raptors.Cover }, seconds: number)
 	local events: { Raptors.Event } = {}
 	for _ = 1, math.floor(seconds / 0.05) do
-		for _, event in Raptors.step(packs, cars, covers, TERRITORY, 0.05, TUNING) do
+		for _, event in Raptors.step(packs, cars, covers, TERRITORY, RNG, 0.05, TUNING) do
 			table.insert(events, event)
 		end
 	end
@@ -140,7 +146,7 @@ Check.test("a raptor that reaches a moving car runs beside it, biting once a sec
 	local events = {}
 	for _ = 1, 160 do
 		moving.z += moving.vz * 0.05
-		for _, event in Raptors.step(packs, { moving }, { MOUND }, TERRITORY, 0.05, TUNING) do
+		for _, event in Raptors.step(packs, { moving }, { MOUND }, TERRITORY, RNG, 0.05, TUNING) do
 			table.insert(events, event)
 		end
 	end
@@ -211,6 +217,20 @@ Check.test("a player on foot is pinned, never bitten, and let go", function()
 	Check.eq(count(events, "survived"), 0, "no bonus on foot")
 end)
 
+Check.test("a pack leaves a car it attacked alone for Cooldown seconds after", function()
+	local packs = { Raptors.newPack(0, 60, 0) }
+	run(packs, { car("a", 0, -300) }, { MOUND }, 3)
+	local parked = car("a", 0, -90)
+	local events = run(packs, { parked }, { MOUND }, 8)
+	Check.eq(count(events, "done"), 3, "the first attack is over")
+	events = run(packs, { parked }, { MOUND }, 15)
+	Check.eq(count(events, "latch"), 0, "left alone after its rest")
+	events = run(packs, { parked, car("b", 90, 0) }, { MOUND }, 3)
+	Check.eq(count(events, "latch") > 0, true, "another car is fair game")
+	events = run(packs, { parked }, { MOUND }, 30)
+	Check.eq(count(events, "latch") > 0, true, "back for the first once it has cooled down")
+end)
+
 Check.test("after an attack the pack moves on to other cover", function()
 	local packs = { Raptors.newPack(0, 60, 0) }
 	local covers = { MOUND, BUSH }
@@ -229,11 +249,80 @@ Check.test("they keep out of keep-outs and inside the territory", function()
 	-- Starting inside the keep-out.
 	local packs = { Raptors.newPack(0, -130, 0) }
 	for _ = 1, 200 do
-		Raptors.step(packs, { car("a", 0, -400) }, { MOUND }, fenced, 0.05, TUNING)
+		Raptors.step(packs, { car("a", 0, -400) }, { MOUND }, fenced, RNG, 0.05, TUNING)
 		for _, r in packs[1].raptors do
 			Check.eq(r.z >= -200 + TUNING.Body - 1e-6 and r.z <= 200 - TUNING.Body + 1e-6, true, `inside at z {r.z}`)
 			Check.eq(math.sqrt(r.x ^ 2 + (r.z + 130) ^ 2) >= 30 + TUNING.Body - 1e-6, true, "clear of the keep-out")
 		end
+	end
+end)
+
+-- Three mounds and three bushes in a row, and quick stays, for wandering.
+local ROW: { Raptors.Cover } = {}
+for k = 0, 5 do
+	table.insert(ROW, {
+		x = k * 150,
+		z = 0,
+		heading = 0,
+		halfX = if k % 2 == 0 then 37 else 10,
+		halfZ = if k % 2 == 0 then 52 else 10,
+		bush = k % 2 == 1,
+	})
+end
+local QUICK: Raptors.Tuning = table.clone(TUNING)
+QUICK.StayMin, QUICK.StayMax = 2, 4
+
+local function wander(packs: { Raptors.Pack }, cars: { Raptors.Car }, seconds: number, rng: Rng.Rng)
+	for _ = 1, math.floor(seconds / 0.05) do
+		Raptors.step(packs, cars, ROW, TERRITORY, rng, 0.05, QUICK)
+	end
+end
+
+Check.test("with no car near, a pack moves on to other cover after its stay", function()
+	local packs = { Raptors.newPack(0, 60, 0) }
+	wander(packs, {}, 0.1, Rng.new(1))
+	Check.eq(packs[1].cover, 1, "starts at the mound beside it")
+	wander(packs, {}, 4.5, Rng.new(1))
+	Check.eq(packs[1].cover ~= 1, true, "moved on")
+end)
+
+Check.test("wandering, it picks bushes about as often as mounds", function()
+	local packs = { Raptors.newPack(0, 60, 0) }
+	local rng = Rng.new(7)
+	local bushes, mounds = 0, 0
+	local last = nil
+	for _ = 1, 400 do
+		wander(packs, {}, 0.5, rng)
+		local now = packs[1].cover
+		if now ~= last and now then
+			last = now
+			if ROW[now].bush then
+				bushes += 1
+			else
+				mounds += 1
+			end
+		end
+	end
+	Check.eq(bushes >= 10 and mounds >= 10, true, `{bushes} bushes, {mounds} mounds`)
+end)
+
+Check.test("a pack with a car near stays put", function()
+	local packs = { Raptors.newPack(0, 60, 0) }
+	wander(packs, { car("a", 0, -300) }, 10, Rng.new(1))
+	Check.eq(packs[1].cover, 1, "still at the mound")
+end)
+
+Check.test("a pack between covers ambushes from where it is, straight at the car", function()
+	local packs = { Raptors.newPack(0, 60, 0) }
+	wander(packs, {}, 0.1, Rng.new(1))
+	-- Away from its cover, with a car close by that is near its cover too.
+	for _, r in packs[1].raptors do
+		r.x, r.z = 0, 200
+	end
+	wander(packs, { car("a", 0, 110) }, 0.05, Rng.new(1))
+	Check.eq(packs[1].mode, "attack", "attacking")
+	for _, r in packs[1].raptors do
+		Check.eq(r.viaX, nil, "no going round a mound it is not at")
 	end
 end)
 

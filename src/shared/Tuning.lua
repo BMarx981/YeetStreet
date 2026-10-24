@@ -1637,14 +1637,17 @@ Tuning.Dino = {
 	-- studs a second faster each second and turning TurnRate degrees a
 	-- second. Distances are studs. A raptor stays Body inside the palms'
 	-- ground and clear of its keep-outs, though not of the mounds. Seconds:
-	-- BiteEvery, PinTime, ChaseTime and Rest. A car is in the air with
-	-- nothing under its middle within AirProbe. A latched raptor sits at its
+	-- BiteEvery, PinTime, ChaseTime, Rest, Cooldown (how long a pack leaves
+	-- a car it attacked alone), and StayMin to StayMax (how long it stays at
+	-- a cover with no car near). A car is in the air with nothing
+	-- under its middle within AirProbe. A latched raptor sits at its
 	-- Slots spot in its car's frame (a pinned player's root's for Pin), its
 	-- middle Stand above the ground otherwise. Each bite takes BiteDamage of
 	-- the car's full toughness (ScoreService). Shaking a pack off pays
 	-- ShakeBonus cash at once, and surviving its bites SurviveBonus.
 	Raptors = {
 		Packs = 3,
+		Seed = 21,
 		WalkSpeed = 30,
 		SneakSpeed = 45,
 		RunSpeed = 110,
@@ -1666,6 +1669,9 @@ Tuning.Dino = {
 		Bites = 5,
 		PinTime = 2.5,
 		Rest = 5,
+		Cooldown = 20,
+		StayMin = 30,
+		StayMax = 60,
 		BiteDamage = 0.05,
 		ShakeBonus = 150,
 		SurviveBonus = 100,
