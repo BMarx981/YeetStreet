@@ -73,9 +73,7 @@ local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
 local BUS_COLOR = Color3.fromRGB(112, 118, 66)
 local BAND_COLOR = Color3.fromRGB(222, 210, 170)
 local WINDOW_COLOR = Color3.fromRGB(34, 40, 44)
-local RAIL_COLOR = Color3.fromRGB(90, 90, 86)
 local RUST_COLOR = Color3.fromRGB(140, 78, 40)
-local TAIL_LIGHT_COLOR = Color3.fromRGB(200, 40, 30)
 local DIRT_COLOR = Color3.fromRGB(110, 82, 52)
 local BUSH_COLORS = { Color3.fromRGB(52, 98, 44), Color3.fromRGB(64, 112, 50), Color3.fromRGB(44, 84, 38) }
 local ROCK_COLORS = { Color3.fromRGB(62, 56, 54), Color3.fromRGB(78, 68, 62), Color3.fromRGB(92, 74, 60) }
@@ -968,112 +966,151 @@ local function buildPalms(
 	return rect, spots
 end
 
--- An old safari bus on its side, nose down in the grass (BusRamp), in a
--- frame on the grass at its foot, where its side comes up out of the grass,
--- tipped up the slope: across it is x (its roof toward -x, its wheels toward
--- +x), y is out of its upturned side, and -z runs up the slope to its tail.
--- Returns the line down its middle from its run-up to its tail.
-local function buildBus(parent: Instance, x: number, z: number, heading: number, angle: number): Scatter.Line
+-- One side of a band of a bus's mound, from inner points a, b to outer
+-- points c, d (c outside b, d outside a), in dirt. A straight side is a
+-- flat rectangle, one part; round a corner it is two triangles, or one where
+-- the inner points meet at the bus's corner.
+local function moundPiece(parent: Instance, a: Vector3, b: Vector3, c: Vector3, d: Vector3)
+	local thickness = D.Thickness
+	local pieces: { BasePart } = {}
+	if (b - a).Magnitude < 1e-3 then
+		pieces = Triangle.make(parent, a, c, d, Vector3.yAxis, thickness, DIRT_COLOR)
+	elseif
+		math.abs((b - a).Magnitude - (c - d).Magnitude) < 1e-3 and math.abs((b - a).Unit:Dot((d - a).Unit)) < 1e-3
+	then
+		local along, out = b - a, d - a
+		local up = along:Cross(out).Unit
+		if up.Y < 0 then
+			up = -up
+		end
+		local part = block(
+			parent,
+			"Mound",
+			Vector3.new(along.Magnitude, thickness, out.Magnitude),
+			CFrame.fromMatrix((a + b + c + d) / 4 - up * thickness / 2, along.Unit, up),
+			DIRT_COLOR
+		)
+		pieces = { part }
+	else
+		pieces = Triangle.make(parent, a, b, c, Vector3.yAxis, thickness, DIRT_COLOR)
+		for _, wedge in Triangle.make(parent, a, c, d, Vector3.yAxis, thickness, DIRT_COLOR) do
+			table.insert(pieces, wedge)
+		end
+	end
+	for _, piece in pieces do
+		piece.Name = "Mound"
+		piece.Material = Enum.Material.Ground
+	end
+end
+
+-- An old safari bus lying on its side, sunk in a mound of dirt that eases
+-- up from the grass on every side to its upturned side (BusRamp), in a frame
+-- on the grass under its middle: across it is x (its roof toward -x, its
+-- floor toward +x) and it runs along z. Cars drive on the mound and on an
+-- invisible any-way launch pad lying on the bus's side, so the bus itself
+-- is only for looks and never snags a car. Returns the line down its
+-- middle, Clear past the mound.
+local function buildBus(parent: Instance, x: number, z: number, heading: number): Scatter.Line
 	local B = D.Buses
 	local model = Instance.new("Model")
 	model.Name = "SafariBus"
-	local shape = BusRamp.shape(B.Length, B.Width, angle)
-	local across = BusRamp.across(shape, angle)
-	local flat = CFrame.new(x, FLOOR, z) * CFrame.Angles(0, heading, 0)
-	local foot = flat * CFrame.new(0, 0, across / 2)
-	local side = foot * CFrame.Angles(angle, 0, 0)
-	local half = B.Height / 2
-	local thick = B.Width
+	local frame = CFrame.new(x, FLOOR, z) * CFrame.Angles(0, heading, 0)
+	local half, halfLength = B.Height / 2, B.Length / 2
 
-	local shell = block(
+	local respawn = frame * CFrame.new(0, HULL_HEIGHT, halfLength + B.Spread + B.Approach)
+	local pad = block(
+		model,
+		"LaunchPad",
+		Vector3.new(B.Height, 0.4, B.Length),
+		frame * CFrame.new(0, B.Top - 0.2, 0),
+		DIRT_COLOR
+	)
+	LaunchPad.anyWay(pad, B.LaunchSpeed, B.LaunchPitch, respawn, D.PayScale)
+	pad.Transparency = 1
+
+	local rings = {}
+	for i = 0, B.Rings do
+		local height = BusRamp.height(i, B.Rings, B.Top)
+		local ring = {}
+		for _, p in BusRamp.ring(half, halfLength, B.Spread * i / B.Rings, B.CornerSteps) do
+			table.insert(ring, frame:PointToWorldSpace(Vector3.new(p.x, height, p.z)))
+		end
+		rings[i] = ring
+	end
+	for i = 0, B.Rings - 1 do
+		local inner, outer = rings[i], rings[i + 1]
+		for j = 1, #inner do
+			local k = j % #inner + 1
+			moundPiece(model, inner[j], inner[k], outer[k], outer[j])
+		end
+	end
+
+	-- Its upturned side shows: a row of windows along the roof half, a cream
+	-- band along the floor half, rust, and yellow edges saying it launches.
+	-- Two of its wheels lie flat, half in the dirt beside its floor.
+	local top = frame * CFrame.new(0, B.Top, 0)
+	decoration(
 		model,
 		"Shell",
-		Vector3.new(B.Height, thick, B.Length),
-		side * CFrame.new(0, -thick / 2, (shape.buried - shape.run) / 2),
+		Vector3.new(B.Height, B.Width, B.Length),
+		top * CFrame.new(0, -B.Width / 2, 0),
 		BUS_COLOR
-	)
-	shell.Material = Enum.Material.Metal
-	local respawn = flat * CFrame.new(0, HULL_HEIGHT, across / 2 + B.Approach)
-	-- Just proud of the side, so the wheels find it before the shell.
-	LaunchPad.flat(
-		model,
-		side * CFrame.new(0, 0.05, -shape.run + B.PadLength / 2),
-		B.Height - 2,
-		B.PadLength,
-		B.LaunchSpeed,
-		respawn,
-		D.PayScale
-	)
-
-	-- A row of windows up the roof half of its side, a cream band along the
-	-- floor half, rails on its roof, wheels sticking out of its floor, and a
-	-- back window and lights on its tail.
-	local windows = math.floor((shape.run - B.PadLength - 2) / 5.5)
+	).Material =
+		Enum.Material.Metal
+	local windows = math.floor((B.Length - 4) / 5.5)
 	for k = 1, windows do
 		decoration(
 			model,
 			"Window",
 			Vector3.new(half * 0.7, 0.1, 4.5),
-			side * CFrame.new(-half + 1 + half * 0.35, 0.05, -1 - (k - 0.5) * 5.5),
+			top * CFrame.new(-half + 1 + half * 0.35, 0.03, -halfLength + 2 + (k - 0.5) * 5.5),
 			WINDOW_COLOR
 		)
 	end
-	decoration(
-		model,
-		"Band",
-		Vector3.new(2, 0.1, shape.run - B.PadLength),
-		side * CFrame.new(half - 3, 0.04, -(shape.run - B.PadLength) / 2),
-		BAND_COLOR
-	)
-	for _, y in { -2.5, -thick + 2.5 } do
-		decoration(
-			model,
-			"Rail",
-			Vector3.new(1, 0.6, B.Length - 6),
-			side * CFrame.new(-half - 0.5, y, (shape.buried - shape.run) / 2),
-			RAIL_COLOR
-		)
-		for _, along in { -shape.run + 7, shape.buried - 7 } do
-			local wheel = decoration(
-				model,
-				"Wheel",
-				Vector3.new(2.5, 6, 6),
-				side * CFrame.new(half + 1.5, y, along) * CFrame.Angles(0, 0, math.pi / 2),
-				DARK_COLOR
-			)
-			wheel.Shape = Enum.PartType.Cylinder
-		end
-	end
-	local tail = side * CFrame.new(0, 0, -shape.run - 0.05)
-	decoration(
-		model,
-		"BackWindow",
-		Vector3.new(half * 0.8, thick * 0.6, 0.1),
-		tail * CFrame.new(-half + 1 + half * 0.4, -thick / 2, 0),
-		WINDOW_COLOR
-	)
-	for _, y in { -1.5, -thick + 1.5 } do
-		decoration(model, "TailLight", Vector3.new(1.5, 1.5, 0.1), tail * CFrame.new(half - 2, y, 0), TAIL_LIGHT_COLOR)
-	end
-	for k = 1, 3 do
+	decoration(model, "Band", Vector3.new(2, 0.1, B.Length - 4), top * CFrame.new(half - 3, 0.03, 0), BAND_COLOR)
+	for k = -1, 1 do
 		local rust = decoration(
 			model,
 			"Rust",
-			Vector3.new(0.1, thick * 0.4, 5),
-			side * CFrame.new(-half - 0.05, -thick * k / 4, -shape.run + k * 9),
+			Vector3.new(2.5, 0.1, 4),
+			top * CFrame.new(1, 0.03, k * halfLength * 0.6),
 			RUST_COLOR
 		)
 		rust.Material = Enum.Material.CorrodedMetal
 	end
-	-- Dirt heaped up either side of its nose where it dug in.
 	for _, s in { -1, 1 } do
-		decoration(model, "Dirt", Vector3.new(4, 3, 10), foot * CFrame.new(s * (half + 2), 0.5, 2), DIRT_COLOR)
+		LaunchPad.paint(
+			decoration(
+				model,
+				"Edge",
+				Vector3.new(1, 0.1, B.Length),
+				top * CFrame.new(s * (half - 0.5), 0.05, 0),
+				DIRT_COLOR
+			)
+		)
+		LaunchPad.paint(
+			decoration(
+				model,
+				"Edge",
+				Vector3.new(B.Height, 0.1, 1),
+				top * CFrame.new(0, 0.05, s * (halfLength - 0.5)),
+				DIRT_COLOR
+			)
+		)
+		local wheel = decoration(
+			model,
+			"Wheel",
+			Vector3.new(2.5, 6, 6),
+			top * CFrame.new(half + 3, -0.5, s * (halfLength - 8)) * CFrame.Angles(0, 0, math.pi / 2),
+			DARK_COLOR
+		)
+		wheel.Shape = Enum.PartType.Cylinder
 	end
 	model.Parent = parent
 
-	local runUp = respawn.Position
-	local back = (side * CFrame.new(0, 0, -shape.run)).Position
-	return { AX = runUp.X, AZ = runUp.Z, BX = back.X, BZ = back.Z, Radius = B.Clear }
+	local nose, tail =
+		frame:PointToWorldSpace(Vector3.new(0, 0, -halfLength)), frame:PointToWorldSpace(Vector3.new(0, 0, halfLength))
+	return { AX = nose.X, AZ = nose.Z, BX = tail.X, BZ = tail.Z, Radius = half + B.Spread + B.Clear }
 end
 
 -- The safari buses, scattered with their own seed clear of everything built
@@ -1085,16 +1122,14 @@ local function buildBuses(parent: Instance, rect: Scatter.Rect, keepOut: { Scatt
 	folder.Parent = parent
 	local clear: { Scatter.Line } = {}
 	for _, line in keepOut do
-		table.insert(clear, { AX = line.AX, AZ = line.AZ, BX = line.BX, BZ = line.BZ, Radius = line.Radius + B.Reach })
+		table.insert(clear, { AX = line.AX, AZ = line.AZ, BX = line.BX, BZ = line.BZ, Radius = line.Radius + B.Room })
 	end
 	for _, palm in palms do
-		table.insert(clear, { AX = palm.x, AZ = palm.z, BX = palm.x, BZ = palm.z, Radius = B.Reach + B.PalmClear })
+		table.insert(clear, { AX = palm.x, AZ = palm.z, BX = palm.x, BZ = palm.z, Radius = B.Room + B.PalmClear })
 	end
 	local random = Random.new(B.Seed)
 	for _, spot in Scatter.points(Rng.new(B.Seed), B.Count, rect, B.Gap, clear) do
-		local heading = random:NextNumber(0, 2 * math.pi)
-		local angle = math.rad(random:NextNumber(B.MinAngle, B.MaxAngle))
-		table.insert(keepOut, buildBus(folder, spot.x, spot.z, heading, angle))
+		table.insert(keepOut, buildBus(folder, spot.x, spot.z, random:NextNumber(0, 2 * math.pi)))
 	end
 end
 

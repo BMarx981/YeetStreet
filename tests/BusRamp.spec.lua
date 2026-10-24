@@ -2,34 +2,59 @@
 local Check = require("./Check")
 local BusRamp = require("../src/shared/BusRamp")
 
-Check.test("a tipped bus rests on the lower corner of its tail", function()
-	local angle = math.rad(20)
-	local shape = BusRamp.shape(44, 13, angle)
-	Check.near(shape.run * math.sin(angle) - 13 * math.cos(angle), 0, "tail corner on the ground")
-	Check.near(shape.run + shape.buried, 44, "run and buried nose make the whole bus")
-	Check.near(shape.top, shape.run * math.sin(angle), "top is the end of the run")
-	Check.near(shape.top, 13 * math.cos(angle), "as high as the bus is thick, tipped")
+Check.test("the mound runs from its top at the bus down to the grass", function()
+	Check.near(BusRamp.height(0, 5, 8), 8, "top ring at the bus")
+	Check.near(BusRamp.height(5, 5, 8), 0, "last ring on the grass")
+	for i = 1, 5 do
+		Check.eq(BusRamp.height(i, 5, 8) < BusRamp.height(i - 1, 5, 8), true, `ring {i} lower`)
+	end
 end)
 
-Check.test("a steeper bus is a shorter, higher ramp with more of its nose buried", function()
-	local gentle = BusRamp.shape(44, 13, math.rad(18))
-	local steep = BusRamp.shape(44, 13, math.rad(26))
-	Check.eq(steep.run < gentle.run, true, "shorter")
-	Check.eq(steep.buried > gentle.buried, true, "more buried")
-	Check.eq(steep.top < gentle.top, true, "top drops as it tips, the bus lying more on its end")
+Check.test("the mound eases in at the grass and at the top, steepest between", function()
+	local drops = {}
+	for i = 1, 6 do
+		drops[i] = BusRamp.height(i - 1, 6, 8) - BusRamp.height(i, 6, 8)
+	end
+	Check.eq(drops[1] < drops[3], true, "gentle at the top")
+	Check.eq(drops[6] < drops[4], true, "gentle at the grass")
+	Check.near(drops[1], drops[6], "the same both ends")
 end)
 
-Check.test("a bus too short to reach the ground from its tail is all ramp, nothing buried", function()
-	local shape = BusRamp.shape(20, 13, math.rad(15))
-	Check.near(shape.run, 20, "whole length")
-	Check.near(shape.buried, 0, "nothing buried")
-	Check.near(shape.top, 20 * math.sin(math.rad(15)), "top")
+-- How far a point is from the rectangle halfX by halfZ round the middle.
+local function fromRect(p: BusRamp.Point, halfX: number, halfZ: number): number
+	local dx = math.max(math.abs(p.x) - halfX, 0)
+	local dz = math.max(math.abs(p.z) - halfZ, 0)
+	return math.sqrt(dx * dx + dz * dz)
+end
+
+Check.test("a ring goes round the bus the same distance out all the way", function()
+	local ring = BusRamp.ring(7, 22, 12, 2)
+	Check.eq(#ring, 12, "steps + 1 points round each corner")
+	for i, p in ring do
+		Check.near(fromRect(p, 7, 22), 12, `point {i}`, 1e-6)
+	end
 end)
 
-Check.test("its run seen from above", function()
-	local angle = math.rad(20)
-	local shape = BusRamp.shape(44, 13, angle)
-	Check.near(BusRamp.across(shape, angle), shape.run * math.cos(angle), "flat length")
+Check.test("the top ring is the bus's own corners", function()
+	local ring = BusRamp.ring(7, 22, 0, 2)
+	for i, p in ring do
+		Check.near(math.abs(p.x), 7, `x {i}`)
+		Check.near(math.abs(p.z), 22, `z {i}`)
+	end
+end)
+
+Check.test("rings go round the same way, so their points line up ring to ring", function()
+	local inner, outer = BusRamp.ring(7, 22, 0, 2), BusRamp.ring(7, 22, 10, 2)
+	local area = 0
+	for i = 1, #outer do
+		local a, b = outer[i], outer[i % #outer + 1]
+		area += a.x * b.z - b.x * a.z
+	end
+	Check.eq(area > 0, true, "counterclockwise in x, z")
+	for i = 1, #outer do
+		local dx, dz = outer[i].x - inner[i].x, outer[i].z - inner[i].z
+		Check.near(math.sqrt(dx * dx + dz * dz), 10, `point {i} straight out from the one inside it`)
+	end
 end)
 
 Check.finish("BusRamp")

@@ -37,6 +37,11 @@ export type Sensor = {
 export type Reading = {
 	wheelsDown: number,
 	pad: BasePart?,
+	-- An any-way pad (LaunchPitch) a little way under the car while no
+	-- wheel is on a pad. One throws a car off at once, quicker than the
+	-- server may see a wheel on it, so this counts as on it for arming a run
+	-- (sample.onPad), though only a wheel on a pad launches.
+	padBelow: BasePart?,
 	lava: boolean, -- a wheel, or the hull from just above, is on lava
 	airborne: boolean,
 	lying: boolean,
@@ -156,6 +161,14 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	local ground = workspace:Raycast(cf.Position, -upward * RT.GroundProbe, sensor.rayParams)
 	local lying = Righting.lying(wheelsDown, cf.UpVector:Dot(upward), ground ~= nil, RT)
 
+	local padBelow: BasePart? = nil
+	if not pad then
+		local below = workspace:Raycast(cf.Position, Vector3.new(0, -Tuning.Launch.AnyWayReach, 0), sensor.rayParams)
+		if below and below.Instance:IsA("BasePart") and below.Instance:GetAttribute("LaunchPitch") ~= nil then
+			padBelow = below.Instance
+		end
+	end
+
 	local rotation = turn(sensor.lastCFrame, cf)
 	local hit = impact(sensor.lastCFrame, sensor.lastVelocity, cf, velocity, dt)
 	sensor.lastCFrame = cf
@@ -163,6 +176,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	return {
 		wheelsDown = wheelsDown,
 		pad = pad,
+		padBelow = padBelow,
 		lava = wheelsInLava or (ground ~= nil and isLava(ground.Instance)),
 		airborne = sensor.contact.airborne,
 		lying = lying,
@@ -170,7 +184,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 		sample = {
 			dt = dt,
 			airborne = sensor.contact.airborne,
-			onPad = pad ~= nil,
+			onPad = pad ~= nil or padBelow ~= nil,
 			x = cf.Position.X,
 			y = cf.Position.Y,
 			z = cf.Position.Z,

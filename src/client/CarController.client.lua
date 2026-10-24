@@ -40,6 +40,7 @@ local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local PadPush = require(ReplicatedStorage.PadPush)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -289,8 +290,16 @@ local function launch(r: Rig, pad: BasePart)
 		return
 	end
 	local direction = pad:GetAttribute("LaunchDirection")
-	local dir = if typeof(direction) == "Vector3" then direction.Unit else pad.CFrame.LookVector
+	local pitch = pad:GetAttribute("LaunchPitch")
 	local velocity = r.hull.AssemblyLinearVelocity
+	local dir = if typeof(direction) == "Vector3" then direction.Unit else pad.CFrame.LookVector
+	if typeof(pitch) == "number" then
+		local x, y, z = PadPush.anyWay(velocity.X, velocity.Z, math.rad(pitch), Tuning.Launch.AnyWayLeast)
+		if not x then
+			return
+		end
+		dir = Vector3.new(x, y, z)
+	end
 	local along = velocity:Dot(dir)
 	-- Only a car already heading the pad's way, so crossing a bowl's rim pads
 	-- on the way in doesn't throw the car back out.

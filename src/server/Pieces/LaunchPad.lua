@@ -9,7 +9,10 @@
 -- (ScoreService). An optional PayScale attribute scales the cash a run from
 -- it pays, so the biggest launchers can pay less per point. An optional
 -- LaunchDirection attribute (world space) pushes that way instead of along
--- the LookVector, for pads laid across the way the track runs.
+-- the LookVector, for pads laid across the way the track runs. An optional
+-- LaunchPitch attribute (degrees) makes it an any-way pad instead: it
+-- throws a car whichever way the car is going across the ground, tipped up
+-- that much (PadPush).
 
 local LaunchPad = {}
 
@@ -35,6 +38,12 @@ function LaunchPad.make(
 	part:SetAttribute("RespawnCFrame", respawn)
 	part:SetAttribute("PayScale", payScale)
 	part:SetAttribute("LaunchDirection", direction)
+end
+
+-- Makes `part` an any-way pad, throwing a car `pitch` degrees up.
+function LaunchPad.anyWay(part: BasePart, launchSpeed: number, pitch: number, respawn: CFrame, payScale: number?)
+	LaunchPad.make(part, launchSpeed, respawn, payScale)
+	part:SetAttribute("LaunchPitch", pitch)
 end
 
 -- A flat pad whose top face is centered on `top`, pushing along its LookVector.

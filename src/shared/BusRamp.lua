@@ -1,34 +1,43 @@
 --!strict
 -- BusRamp (ModuleScript) -> ReplicatedStorage.BusRamp
--- An old safari bus in Dino Valley tipped onto its side and nose down into
--- the grass, its upturned side a ramp. Seen side on, it is tipped `angle`
--- (radians) so the lower corner of its tail rests on the ground: its side
--- rises out of the grass for `run` studs to `top` high, and the rest of it,
--- `buried`, is under the grass. Pure, see InputAxes.
+-- The mound round an old safari bus in Dino Valley, lying on its side sunk
+-- in dirt with its upturned side `top` high, so a car can drive up onto it
+-- from any side. Seen from above, the mound is rings round the bus's side,
+-- each a rounded rectangle further out and lower than the last, easing in
+-- from the grass and easing out at the top so there is no sharp bump at
+-- either end. Pure, see InputAxes.
 
 local BusRamp = {}
 
-export type Shape = {
-	run: number, -- studs of its side above the grass, up the slope
-	buried: number, -- studs of it under the grass
-	top: number, -- how high its side's top edge is
+export type Point = {
+	x: number,
+	z: number,
 }
 
--- A bus `length` long and `thickness` thick (its width, lying on its side).
--- One too short to reach the ground from its tail is all ramp, its nose
--- just touching the grass.
-function BusRamp.shape(length: number, thickness: number, angle: number): Shape
-	local run = math.min(length, thickness / math.tan(angle))
-	return {
-		run = run,
-		buried = length - run,
-		top = run * math.sin(angle),
-	}
+-- How high ring `i` of `rings` is: ring 0 at the bus, `top` high, and ring
+-- `rings` on the grass.
+function BusRamp.height(i: number, rings: number, top: number): number
+	return top * (1 + math.cos(math.pi * i / rings)) / 2
 end
 
--- How far its run reaches seen from above.
-function BusRamp.across(shape: Shape, angle: number): number
-	return shape.run * math.cos(angle)
+-- The points round a ring `out` from the bus's side, which is `halfX` by
+-- `halfZ` round its middle: `steps` + 1 points round each corner, going
+-- counterclockwise in x, z from the +x, +z corner, so each ring's points
+-- line up with the next ring's. At `out` 0 a corner's points are all the
+-- corner itself.
+function BusRamp.ring(halfX: number, halfZ: number, out: number, steps: number): { Point }
+	local points: { Point } = {}
+	local corners = { { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
+	for k, corner in corners do
+		for s = 0, steps do
+			local angle = (k - 1 + s / steps) * math.pi / 2
+			table.insert(points, {
+				x = corner[1] * halfX + out * math.cos(angle),
+				z = corner[2] * halfZ + out * math.sin(angle),
+			})
+		end
+	end
+	return points
 end
 
 return BusRamp

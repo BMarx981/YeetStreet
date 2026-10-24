@@ -521,12 +521,13 @@ RunService.Heartbeat:Connect(function(dt: number)
 				end
 			elseif watch then
 				local reading = CarSensor.read(watch.sensor, dt)
-				local respawnAt = reading.pad and reading.pad:GetAttribute("RespawnCFrame")
+				local pad = reading.pad or if watch.run.phase ~= "flying" then reading.padBelow else nil
+				local respawnAt = pad and pad:GetAttribute("RespawnCFrame")
 				if typeof(respawnAt) == "CFrame" then
 					lastLaunch[watch.player] = respawnAt
 				end
-				if reading.pad then
-					local payScale = reading.pad:GetAttribute("PayScale")
+				if pad then
+					local payScale = pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 				end
 				if reading.lava and watch.run.phase == "flying" then
