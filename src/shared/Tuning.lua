@@ -426,6 +426,7 @@ Tuning.Score = {
 		Lava = 300, -- coming down in lava (ScoreService)
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
 		["Wrecking ball"] = 300, -- smacked by one of Downtown's (ScoreService)
+		Kaiju = 500, -- caught by Downtown's kaiju in the air (ScoreService)
 	},
 }
 
@@ -495,7 +496,12 @@ Tuning.Hud = {
 	ImpactTime = 3, -- seconds the hardest recent hit stays on screen
 	CashEarnedTime = 3, -- seconds the "+N" under the cash stays on screen
 	-- How the run card names a target, if not "<kind> smash".
-	TargetLabels = { Lava = "Lava splash", ["T-Rex"] = "T-Rex snack", ["Wrecking ball"] = "Wrecking ball" },
+	TargetLabels = {
+		Lava = "Lava splash",
+		["T-Rex"] = "T-Rex snack",
+		["Wrecking ball"] = "Wrecking ball",
+		Kaiju = "Kaiju snack",
+	},
 }
 
 Tuning.Righting = {
@@ -1085,6 +1091,7 @@ Tuning.City = {
 			Smack = 140,
 			Lift = 110,
 			MinShare = 0.5,
+			Outrun = 1.25,
 		},
 		-- The car's motion reaches the server late, so the server checks a
 		-- smack against where the ball was over the last Lag seconds, Slack
@@ -1096,6 +1103,67 @@ Tuning.City = {
 			Kick = 40,
 			Cooldown = 1,
 			HitGrace = 0.4,
+		},
+	},
+	-- A kaiju about 150 tall that walks the streets and hunts cars the way
+	-- Dino Valley's T-Rex does (Rex, run by Parks.CityKaiju through
+	-- Parks.DinoRex): the numbers below mean what they do in
+	-- Tuning.Dino.Rex. It keeps to Streets (park coordinates), the avenue
+	-- south of the elevated train, the two cross streets under it and the
+	-- plaza at the end, and starts at X, Z facing Heading.
+	Kaiju = {
+		X = 0,
+		Z = -1000,
+		Heading = 0,
+		Seed = 11,
+		Streets = {
+			{ MinX = -80, MaxX = 80, MinZ = -1500, MaxZ = 150 },
+			{ MinX = -900, MaxX = 900, MinZ = -650, MaxZ = -550 },
+			{ MinX = -900, MaxX = 900, MinZ = -1450, MaxZ = -1350 },
+			{ MinX = -1000, MaxX = 1000, MinZ = -1770, MaxZ = -1440 },
+		},
+		WalkSpeed = 25,
+		RunSpeed = 60, -- slower than every car
+		Accel = 40,
+		TurnRate = 45,
+		Sight = 450,
+		Lose = 650,
+		RoamRadius = 600,
+		GoalReach = 30,
+		GoalTime = 40,
+		Body = 30,
+		Neck = 15,
+		Reach = 90,
+		BiteHeight = 160,
+		Cone = 45,
+		WindUp = 0.7,
+		AirWindUp = 0.3,
+		Snap = 0.25,
+		Recover = 1.5,
+		Rest = 3,
+		Grip = 1.5,
+		EscapeJets = 0.6,
+		SlipChance = 0.3,
+		Stun = 3,
+		Chew = 2,
+		Bite = 18,
+		AirHeight = 8,
+		Gravity = Tuning.World.Gravity,
+		-- Where its head goes, in the frame of its feet on the ground facing
+		-- -Z, as in Tuning.Dino.Rex.Head. It stands upright, so its head
+		-- rests high over its feet.
+		Head = {
+			Size = Vector3.new(22, 20, 34),
+			Rest = Vector3.new(0, 140, -30),
+			Back = Vector3.new(0, 148, -12),
+			Shoulders = Vector3.new(0, 130, -15),
+			Hold = Vector3.new(0, 120, -45),
+			HoldTip = -20,
+			CarDrop = 4,
+			CarIn = 2,
+		},
+		Look = {
+			ChompRate = 3,
 		},
 	},
 }

@@ -32,6 +32,11 @@
 -- keep-out, steering round one in its way, and never hunts or bites a car
 -- inside one or outside the rectangle.
 --
+-- A territory with streets (Downtown's kaiju) is also only those
+-- rectangles: it keeps its middle Body inside one of them, and hunts and
+-- bites only cars on them. To reach a spot on another street it walks to
+-- the middle of the crossing onto the next street on the way there.
+--
 -- Heading is in radians, 0 facing -Z and positive turning left, like the
 -- parks' Heading. Positions are world studs.
 
@@ -64,6 +69,7 @@ export type Territory = {
 	rect: Rect,
 	keepOut: { Line },
 	floor: number, -- the ground's height
+	streets: { Rect }?, -- crossing streets where they overlap
 }
 
 -- A car's hull and how fast it moves, as the server sees it.
@@ -169,11 +175,14 @@ local function nearest(line: Line, x: number, z: number): (number, number)
 	return line.AX + dx * t, line.AZ + dz * t
 end
 
+local function within(r: Rect, x: number, z: number, clear: number): boolean
+	return x >= r.MinX + clear and x <= r.MaxX - clear and z >= r.MinZ + clear and z <= r.MaxZ - clear
+end
+
 -- Whether x, z is in the rectangle, `clear` in from its edges and `clear`
--- beyond every keep-out's radius.
+-- beyond every keep-out's radius, and on a street if there are any.
 local function inside(territory: Territory, x: number, z: number, clear: number): boolean
-	local r = territory.rect
-	if x < r.MinX + clear or x > r.MaxX - clear or z < r.MinZ + clear or z > r.MaxZ - clear then
+	if not within(territory.rect, x, z, clear) then
 		return false
 	end
 	for _, line in territory.keepOut do
@@ -182,7 +191,67 @@ local function inside(territory: Territory, x: number, z: number, clear: number)
 			return false
 		end
 	end
+	local streets = territory.streets
+	if streets then
+		for _, street in streets do
+			if within(street, x, z, clear) then
+				return true
+			end
+		end
+		return false
+	end
 	return true
+end
+
+-- Where to head on the way to x, z from s: straight there, or to the middle
+-- of the crossing onto the next street on the fewest streets there.
+local function waypoint(s: State, x: number, z: number, territory: Territory): (number, number)
+	local streets = territory.streets
+	if not streets then
+		return x, z
+	end
+	local goals: { [number]: boolean } = {}
+	for i, street in streets do
+		goals[i] = within(street, x, z, 0)
+	end
+	-- Breadth first from every street it is on, remembering where it came
+	-- from, to the first street the spot is on.
+	local from: { [number]: number } = {}
+	local queue: { number } = {}
+	for i, street in streets do
+		if within(street, s.x, s.z, 0) then
+			if goals[i] then
+				return x, z
+			end
+			from[i] = 0
+			table.insert(queue, i)
+		end
+	end
+	local head = 1
+	while head <= #queue do
+		local at = queue[head]
+		head += 1
+		local a = streets[at]
+		for i, b in streets do
+			local overlaps = a.MinX <= b.MaxX and b.MinX <= a.MaxX and a.MinZ <= b.MaxZ and b.MinZ <= a.MaxZ
+			if from[i] == nil and overlaps then
+				from[i] = at
+				if goals[i] then
+					-- Back to the street after the one it is on.
+					local next = i
+					while from[from[next]] ~= 0 do
+						next = from[next]
+					end
+					local c, d = streets[from[next]], streets[next]
+					local minX, maxX = math.max(c.MinX, d.MinX), math.min(c.MaxX, d.MaxX)
+					local minZ, maxZ = math.max(c.MinZ, d.MinZ), math.min(c.MaxZ, d.MaxZ)
+					return (minX + maxX) / 2, (minZ + maxZ) / 2
+				end
+				table.insert(queue, i)
+			end
+		end
+	end
+	return x, z
 end
 
 local function airborne(car: Car, territory: Territory, tuning: Tuning): boolean
@@ -349,6 +418,21 @@ local function keepIn(s: State, territory: Territory, tuning: Tuning)
 			s.x, s.z = nx + ox / d * edge, nz + oz / d * edge
 		end
 	end
+	local streets = territory.streets
+	if streets and not inside(territory, s.x, s.z, body) then
+		-- Back onto the nearest street, Body in from its edges.
+		local bestX, bestZ, best = s.x, s.z, math.huge
+		for _, street in streets do
+			local midX, midZ = (street.MinX + street.MaxX) / 2, (street.MinZ + street.MaxZ) / 2
+			local x = math.clamp(s.x, math.min(street.MinX + body, midX), math.max(street.MaxX - body, midX))
+			local z = math.clamp(s.z, math.min(street.MinZ + body, midZ), math.max(street.MaxZ - body, midZ))
+			local off = (x - s.x) ^ 2 + (z - s.z) ^ 2
+			if off < best then
+				bestX, bestZ, best = x, z, off
+			end
+		end
+		s.x, s.z = bestX, bestZ
+	end
 end
 
 local function approach(value: number, goal: number, most: number): number
@@ -360,6 +444,7 @@ end
 
 -- Turns toward x, z, speeds up or slows to `speed`, and walks on.
 local function walk(s: State, x: number, z: number, speed: number, territory: Territory, dt: number, tuning: Tuning)
+	x, z = waypoint(s, x, z, territory)
 	local dx, dz = x - s.x, z - s.z
 	local distance = math.sqrt(dx * dx + dz * dz)
 	if distance > 1e-6 then

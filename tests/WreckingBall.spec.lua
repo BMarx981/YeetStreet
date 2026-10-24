@@ -9,6 +9,7 @@ local TUNING: WreckingBall.Tuning = {
 	Smack = 140,
 	Lift = 110,
 	MinShare = 0.5,
+	Outrun = 1.25,
 }
 
 local LAYOUT: WreckingBall.Layout = {
@@ -79,6 +80,14 @@ Check.test("a ball at the end of its swing still pushes at the least", function(
 	local vx, vy = WreckingBall.push(BALL, PERIOD / 4, x - 9, y, 0, 0, 0, 0, TUNING)
 	Check.near(vx :: number, -70, "pushed away")
 	Check.near(vy :: number, 55)
+end)
+
+Check.test("a smack always throws the car clear of the ball, faster than it swings", function()
+	local weak = table.clone(TUNING)
+	weak.Smack = 40
+	local _, _, sx = WreckingBall.center(BALL, 0, PERIOD)
+	local vx = WreckingBall.push(BALL, 0, 10, -200, 0, 0, 0, 0, weak)
+	Check.near(vx :: number, sx * 1.25, "Outrun times the ball's speed")
 end)
 
 Check.test("a car already going faster away keeps its speed", function()

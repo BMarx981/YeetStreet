@@ -285,4 +285,66 @@ Check.test("chasing a car past a keep-out, it goes round, never in, and catches 
 	Check.eq(caught, "beyond", "caught")
 end)
 
+-- Downtown's shape: an avenue down the middle and two cross streets.
+local AVENUE: Rex.Rect = { MinX = -80, MaxX = 80, MinZ = -1800, MaxZ = 150 }
+local UPPER: Rex.Rect = { MinX = -900, MaxX = 900, MinZ = -650, MaxZ = -550 }
+local LOWER: Rex.Rect = { MinX = -900, MaxX = 900, MinZ = -1450, MaxZ = -1350 }
+local CITY: Rex.Territory = {
+	rect = { MinX = -1000, MaxX = 1000, MinZ = -1800, MaxZ = 150 },
+	keepOut = {},
+	floor = 0,
+	streets = { AVENUE, UPPER, LOWER },
+}
+local STREET_TUNING = table.clone(TUNING)
+STREET_TUNING.Body = 20
+STREET_TUNING.Sight = 1000
+STREET_TUNING.Lose = 1500
+
+local function onStreet(x: number, z: number): boolean
+	for _, r in { AVENUE, UPPER, LOWER } do
+		local clear = STREET_TUNING.Body - 1e-6
+		if x >= r.MinX + clear and x <= r.MaxX - clear and z >= r.MinZ + clear and z <= r.MaxZ - clear then
+			return true
+		end
+	end
+	return false
+end
+
+-- Steps on Downtown's streets for `seconds`, checking it never leaves them.
+local function runStreets(s: Rex.State, cars: { Rex.Car }, seconds: number): (any?, number?)
+	local rng = Rng.new(5)
+	for i = 1, math.floor(seconds / DT + 0.5) do
+		local id = Rex.step(s, cars, CITY, rng, DT, STREET_TUNING)
+		Check.eq(onStreet(s.x, s.z), true, `off the streets at {math.floor(s.x)}, {math.floor(s.z)}`)
+		if id ~= nil then
+			return id, i * DT
+		end
+		drive(cars, DT)
+	end
+	return nil, nil
+end
+
+Check.test("on streets, roaming keeps its Body inside them", function()
+	local s = Rex.new(0, -1000, 0)
+	runStreets(s, {}, 300)
+end)
+
+Check.test("chasing a car round a corner, it turns at the crossing and catches it", function()
+	local s = Rex.new(0, -1000, 0) -- on the avenue facing up it
+	local caught = runStreets(s, { car("corner", 500, GROUND, -600) }, 60)
+	Check.eq(caught, "corner")
+end)
+
+Check.test("a car on the other cross street is reached by the avenue, not through the block", function()
+	local s = Rex.new(500, -600, math.rad(180)) -- on the upper street facing +Z
+	local caught = runStreets(s, { car("beyond", 500, GROUND, -1400) }, 60)
+	Check.eq(caught, "beyond")
+end)
+
+Check.test("on streets, it never hunts a car off them", function()
+	local s = Rex.new(0, -1000, 0)
+	runStreets(s, { car("roof", 300, GROUND, -1000) }, 5)
+	Check.eq(s.target, nil)
+end)
+
 Check.finish("Rex")

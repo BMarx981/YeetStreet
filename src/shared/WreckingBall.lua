@@ -26,6 +26,7 @@ export type Tuning = {
 	Smack: number, -- studs per second across, from a ball at full swing
 	Lift: number, -- studs per second up, the same
 	MinShare: number, -- of Smack and Lift, from a ball barely moving into the car
+	Outrun: number, -- times the ball's own speed into the car, at the least
 }
 
 export type Ball = {
@@ -92,7 +93,8 @@ end
 -- smacks it at `time`, or nil when the ball is not touching it. It goes
 -- across away from the ball's middle and up, at Smack and Lift times how
 -- fast the ball swings into it over its fastest, never less than MinShare
--- of them, unless it already goes faster.
+-- of them, and across at least Outrun times as fast as the ball swings into
+-- it, so it gets clear, unless it already goes faster.
 function WreckingBall.push(
 	ball: Ball,
 	time: number,
@@ -113,7 +115,8 @@ function WreckingBall.push(
 	local away = if dx > 0 or (dx == 0 and sx >= 0) then 1 else -1
 	local fastest = ball.amplitude * WreckingBall.rate(tuning.Period) * ball.length
 	local share = if fastest > 0 then math.clamp(sx * away / fastest, tuning.MinShare, 1) else tuning.MinShare
-	return away * math.max(tuning.Smack * share, vx * away), math.max(vy, tuning.Lift * share), vz
+	local clear = math.max(sx * away, 0) * tuning.Outrun
+	return away * math.max(tuning.Smack * share, clear, vx * away), math.max(vy, tuning.Lift * share), vz
 end
 
 -- Whether the ball's middle comes within `reach` of (x, y, z) at any time

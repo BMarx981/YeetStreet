@@ -31,6 +31,9 @@
 -- the model's Chewing attribute, its HeldCar attribute (the held car's name,
 -- or "") and its HeldPlayer attribute (the held player's name, or ""). Each
 -- client draws the T-Rex itself from those (TRexLook).
+--
+-- Downtown's kaiju (Parks.CityKaiju) is run here the same way, with its own
+-- numbers and name.
 -- Numbers are in Tuning.Dino.Rex.
 
 local Players = game:GetService("Players")
@@ -42,10 +45,6 @@ local Rex = require(ReplicatedStorage.Rex)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 
-local R = Tuning.Dino.Rex
-
-local H = R.Head
-
 -- How quickly the head settles back after a lunge, per second.
 local HEAD_SETTLE = 8
 -- Holding a car, the head shakes SHAKE degrees each way SHAKE_RATE times a
@@ -53,11 +52,6 @@ local HEAD_SETTLE = 8
 local CHOMP_DEPTH = 4
 local SHAKE = math.rad(15)
 local SHAKE_RATE = 1.5
--- The held car's middle, in the head's frame (Tuning.Dino.Rex.Head).
-local HELD_AT = CFrame.new(0, -H.CarDrop, -(H.Size.Z / 2 + Tuning.Chassis.HullSize.Z / 2 - H.CarIn))
--- A held player's root, in the head's frame: where a car's middle goes,
--- turned across the jaws.
-local HELD_PERSON = HELD_AT * CFrame.Angles(0, math.pi / 2, 0)
 -- A held car never dips lower than a car standing on the floor.
 local HELD_LOWEST = Tuning.TestPark.SpawnHeight
 -- Seconds past chewing and the wreck's beat before a car still held is let
@@ -65,6 +59,55 @@ local HELD_LOWEST = Tuning.TestPark.SpawnHeight
 local HOLD_SPARE = 2
 
 local DinoRex = {}
+
+-- A creature's numbers, shaped like Tuning.Dino.Rex, and its name, which
+-- pays as the target when it snaps a car out of the air.
+export type Options = {
+	tuning: typeof(Tuning.Dino.Rex),
+	name: string,
+}
+
+-- Its numbers and name, and where it holds a car's middle and a player's
+-- root in its head's frame: a player turned across the jaws.
+type Kind = {
+	R: typeof(Tuning.Dino.Rex),
+	name: string,
+	heldAt: CFrame,
+	heldPerson: CFrame,
+}
+
+local function kindOf(options: Options): Kind
+	local H = options.tuning.Head
+	local heldAt = CFrame.new(0, -H.CarDrop, -(H.Size.Z / 2 + Tuning.Chassis.HullSize.Z / 2 - H.CarIn))
+	return {
+		R = options.tuning,
+		name = options.name,
+		heldAt = heldAt,
+		heldPerson = heldAt * CFrame.Angles(0, math.pi / 2, 0),
+	}
+end
+
+-- Every creature's held driver says here when their jets burn (HeldJets).
+local jetting: { [Player]: boolean } = {}
+local heldJets: RemoteEvent? = nil
+
+local function listenForJets()
+	if heldJets then
+		return
+	end
+	local remote = Instance.new("RemoteEvent")
+	remote.Name = "HeldJets"
+	remote.OnServerEvent:Connect(function(player: Player, burning: any)
+		if typeof(burning) == "boolean" then
+			jetting[player] = burning or nil
+		end
+	end)
+	remote.Parent = ReplicatedStorage
+	heldJets = remote
+	Players.PlayerRemoving:Connect(function(player: Player)
+		jetting[player] = nil
+	end)
+end
 
 local function marker(parent: Instance, name: string, size: Vector3): Part
 	local part = Instance.new("Part")
@@ -92,10 +135,10 @@ local function setAnchored(car: Model, anchored: boolean)
 	end
 end
 
-local function tell(car: Model, moment: string)
+local function tell(car: Model, moment: string, kind: Kind)
 	local carEaten = ServerStorage:FindFirstChild("CarEaten")
 	if carEaten and carEaten:IsA("BindableEvent") then
-		carEaten:Fire(car, moment)
+		carEaten:Fire(car, moment, kind.name, kind.R.Chew)
 	end
 end
 
@@ -142,7 +185,8 @@ end
 -- Where the head goes this step: rearing back over the wind-up, snapping
 -- its mouth to the bite over Snap, shaking a held car, chomping too while it
 -- chews, and easing back to rest otherwise.
-local function headFrame(s: Rex.State, chewing: boolean, hips: CFrame, last: CFrame, dt: number): CFrame
+local function headFrame(s: Rex.State, chewing: boolean, hips: CFrame, last: CFrame, dt: number, kind: Kind): CFrame
+	local R, H = kind.R, kind.R.Head
 	local rest = hips:PointToWorldSpace(H.Rest)
 	local shoulders = hips:PointToWorldSpace(H.Shoulders)
 	local settle = 1 - math.exp(-HEAD_SETTLE * dt)
@@ -164,14 +208,16 @@ local function headFrame(s: Rex.State, chewing: boolean, hips: CFrame, last: CFr
 	end
 	-- Snapping: the head's middle goes where its mouth lands on the bite.
 	local aim = CFrame.lookAt(Vector3.zero, jaw - shoulders)
-	local bitten = jaw - aim:PointToWorldSpace(HELD_AT.Position)
+	local bitten = jaw - aim:PointToWorldSpace(kind.heldAt.Position)
 	local at = back:Lerp(bitten, math.min((s.timer - windUp) / R.Snap, 1))
 	return CFrame.new(at) * aim
 end
 
 -- Starts the T-Rex in `model`, at x, z facing `heading` (radians), roaming
--- `territory`.
-function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: number, heading: number)
+-- `territory`, or with `options` another creature that hunts the same way.
+function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: number, heading: number, options: Options?)
+	local kind = kindOf(options or { tuning = Tuning.Dino.Rex, name = "T-Rex" })
+	local R, H = kind.R, kind.R.Head
 	local root = marker(model, "Root", Vector3.one)
 	local head = marker(model, "Head", H.Size)
 	local s = Rex.new(x, z, heading)
@@ -195,19 +241,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 	local slips = false
 	local chewing = false
 	local letGoAt = 0
-	local jetting: { [Player]: boolean } = {}
-
-	local heldJets = Instance.new("RemoteEvent")
-	heldJets.Name = "HeldJets"
-	heldJets.OnServerEvent:Connect(function(player: Player, burning: any)
-		if typeof(burning) == "boolean" then
-			jetting[player] = burning or nil
-		end
-	end)
-	heldJets.Parent = ReplicatedStorage
-	Players.PlayerRemoving:Connect(function(player: Player)
-		jetting[player] = nil
-	end)
+	listenForJets()
 
 	local function letGo(seconds: number)
 		held = nil
@@ -225,7 +259,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 					dropPerson(car, heldPlayer)
 				else
 					drop(car)
-					tell(car, "dropped")
+					tell(car, "dropped", kind)
 				end
 				letGo(R.Rest)
 			end
@@ -255,7 +289,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 			local driver = person or driverOf(caught)
 			slips = Rex.slips(slipRolls:NextNumber(), R)
 			print(
-				`T-Rex caught {if driver then driver.Name else caught.Name}{if person then " on foot" else ""}{if slips
+				`{kind.name} caught {if driver then driver.Name else caught.Name}{if person then " on foot" else ""}{if slips
 					then ", will slip"
 					else ""}`
 			)
@@ -269,7 +303,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 				end
 			else
 				setAnchored(caught, true)
-				tell(caught, "caught")
+				tell(caught, "caught", kind)
 			end
 		end
 
@@ -293,7 +327,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 						end
 					else
 						drop(car)
-						tell(car, "dropped")
+						tell(car, "dropped", kind)
 					end
 					letGo(R.Rest)
 				end
@@ -304,12 +338,12 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 				end
 				local grip = Rex.grip(heldFor, jetsFor, slips, R)
 				if grip == "slip" then
-					print(`T-Rex dropped {if driver then driver.Name else car.Name}`)
+					print(`{kind.name} dropped {if driver then driver.Name else car.Name}`)
 					if person then
 						dropPerson(car, person)
 					else
 						drop(car)
-						tell(car, "dropped")
+						tell(car, "dropped", kind)
 					end
 					letGo(R.Stun)
 				elseif grip == "chew" then
@@ -318,7 +352,7 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 						letGoAt = os.clock() + R.Chew
 					else
 						letGoAt = os.clock() + R.Chew + Tuning.Toughness.WreckBeat + HOLD_SPARE
-						tell(car, "chewed")
+						tell(car, "chewed", kind)
 					end
 				end
 			end
@@ -341,10 +375,10 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 
 		hips = CFrame.new(s.x, territory.floor, s.z) * CFrame.Angles(0, s.heading, 0)
 		root.CFrame = hips
-		head.CFrame = headFrame(s, chewing, hips, head.CFrame, dt)
+		head.CFrame = headFrame(s, chewing, hips, head.CFrame, dt, kind)
 
 		if held then
-			local frame = head.CFrame * (if heldPlayer then HELD_PERSON else HELD_AT)
+			local frame = head.CFrame * (if heldPlayer then kind.heldPerson else kind.heldAt)
 			local lift = math.max(territory.floor + HELD_LOWEST - frame.Y, 0)
 			held:PivotTo(frame + Vector3.new(0, lift, 0))
 		end
