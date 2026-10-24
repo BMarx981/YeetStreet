@@ -1531,8 +1531,14 @@ Tuning.Dino = {
 		-- each stud per second to MaxStride), lifting Lift high. The jaw
 		-- opens JawOpen degrees for a lunge, Grip holding a car and ChompOpen
 		-- at the top of each chomp, ChompRate times a second. The tail
-		-- sways TailSway degrees each way TailRate times a second.
+		-- sways TailSway degrees each way TailRate times a second. Spotting a
+		-- car, it roars: the raptors' screech (Raptors.Look.Screech) played
+		-- RoarPitch times as fast, so deeper, heard out to RoarHearing studs.
 		Look = {
+			Roar = "rbxassetid://9125474229",
+			RoarPitch = 0.5,
+			RoarVolume = 1,
+			RoarHearing = 600,
 			Smooth = 15,
 			MinStride = 16,
 			MaxStride = 50,
@@ -1619,7 +1625,14 @@ Tuning.Dino = {
 		-- FlapAngle degrees each way, faster and harder carrying a car, swept
 		-- back in a dive and folded on its perch. Its shadow, ShadowSize
 		-- across, lies on the ground under it, darker the lower it flies.
+		-- Starting a swoop, it screeches (Screech, a Pro Sound Effects
+		-- pterodactyl screech, played ScreechPitch times as fast), heard out
+		-- to ScreechHearing studs.
 		Look = {
+			Screech = "rbxassetid://9125474505",
+			ScreechPitch = 1,
+			ScreechVolume = 1,
+			ScreechHearing = 800,
 			Smooth = 12,
 			MostBank = 40,
 			MostPitch = 35,
@@ -1692,7 +1705,10 @@ Tuning.Dino = {
 		-- body bobs Bob studs, both full by FullSpeed. The tail sways TailSway
 		-- degrees TailRate times a second, more running. Crouching drops the
 		-- body Crouch studs. A bite opens the jaw JawOpen degrees for BiteOpen
-		-- seconds, then snaps it shut over BiteSnap.
+		-- seconds, then snaps it shut over BiteSnap. Springing an ambush, each
+		-- screeches (Screech, played MinPitch to MaxPitch times as fast, up to
+		-- ScreechDelay seconds apart); each bite snaps (Snap). Both are Pro
+		-- Sound Effects sounds, heard out to Hearing studs.
 		Look = {
 			Scale = 3.2,
 			Smooth = 15,
@@ -1707,6 +1723,14 @@ Tuning.Dino = {
 			JawOpen = 40,
 			BiteOpen = 0.15,
 			BiteSnap = 0.1,
+			Screech = "rbxassetid://9125474229",
+			ScreechVolume = 0.8,
+			MinPitch = 1.15,
+			MaxPitch = 1.45,
+			ScreechDelay = 0.3,
+			Snap = "rbxassetid://9119056795",
+			SnapVolume = 0.7,
+			Hearing = 300,
 		},
 	},
 }

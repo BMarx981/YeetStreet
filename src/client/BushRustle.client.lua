@@ -1,9 +1,10 @@
 --!strict
 -- BushRustle (LocalScript) -> StarterPlayerScripts.BushRustle
 -- Shakes Dino Valley's bushes (workspace.Parks.Dino.Bushes, built by
--- Parks.Dino) on this client while a car moves through them, each leafy
--- ball swinging about the bush's foot on its own beat, and lets them settle
--- once the car is gone (Bush). Only for looks: the server never moves them.
+-- Parks.Dino) on this client while a car or a raptor moves through them
+-- (so a bush bursts as raptors run out of it), each leafy ball swinging
+-- about the bush's foot on its own beat, and lets them settle once it is
+-- gone (Bush). Only for looks: the server never moves them.
 -- Numbers are in Tuning.Dino.Bushes.Rustle.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,7 +25,8 @@ type State = {
 	phase: number,
 }
 
-local bushes = workspace:WaitForChild("Parks"):WaitForChild("Dino"):WaitForChild("Bushes")
+local dino = workspace:WaitForChild("Parks"):WaitForChild("Dino")
+local bushes = dino:WaitForChild("Bushes")
 -- Only one copy rustles, if Rojo has synced this script twice.
 if bushes:GetAttribute("Rustled") then
 	return
@@ -65,29 +67,46 @@ local function stateOf(model: Model): State
 	return made
 end
 
--- The fastest car with its middle inside the bush, if any.
-local function speedInside(state: State, hulls: { BasePart }): number?
+-- Something that rustles a bush: where it is and how fast it moves.
+type Mover = { position: Vector3, speed: number }
+
+-- The fastest mover with its middle inside the bush, if any.
+local function speedInside(state: State, movers: { Mover }): number?
 	local fastest: number? = nil
-	for _, hull in hulls do
-		local offset = hull.Position - state.foot.Position
+	for _, mover in movers do
+		local offset = mover.position - state.foot.Position
 		local flat = Vector2.new(offset.X, offset.Z).Magnitude
 		if flat < state.radius and offset.Y < state.top then
-			local speed = hull.AssemblyLinearVelocity.Magnitude
-			fastest = math.max(fastest or 0, speed)
+			fastest = math.max(fastest or 0, mover.speed)
 		end
 	end
 	return fastest
 end
 
+-- Where each raptor was last step, for its speed: the server moves it
+-- without a velocity.
+local lastAt: { [BasePart]: Vector3 } = setmetatable({}, { __mode = "k" }) :: any
+
 local moved: { BasePart } = {}
 local to: { CFrame } = {}
 
 RunService.Heartbeat:Connect(function(dt: number)
-	local hulls = {}
+	local movers: { Mover } = {}
 	for _, car in carsFolder:GetChildren() do
 		local hull = if car:IsA("Model") then car.PrimaryPart else nil
 		if hull then
-			table.insert(hulls, hull)
+			table.insert(movers, { position = hull.Position, speed = hull.AssemblyLinearVelocity.Magnitude })
+		end
+	end
+	local raptors = dino:FindFirstChild("Raptors")
+	for _, raptor in if raptors then raptors:GetChildren() else {} do
+		if raptor:IsA("BasePart") then
+			local at = raptor.Position
+			local last = lastAt[raptor]
+			lastAt[raptor] = at
+			if last then
+				table.insert(movers, { position = at, speed = (at - last).Magnitude / dt })
+			end
 		end
 	end
 	local now = workspace:GetServerTimeNow()
@@ -98,7 +117,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 			continue
 		end
 		local state = stateOf(model)
-		local speed = speedInside(state, hulls)
+		local speed = speedInside(state, movers)
 		local was = state.level
 		state.level = Bush.rustle(was, speed ~= nil, speed or 0, dt, B.Rustle)
 		if was == 0 and state.level == 0 then

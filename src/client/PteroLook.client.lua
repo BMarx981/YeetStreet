@@ -14,7 +14,8 @@
 -- down to its feet: tucked back in flight, gripping the car's roof or the
 -- nest. While it carries a car (CarriedCar), it is drawn where the car's
 -- roof is, so the car never drifts from its feet on screen. A dark shadow
--- lies on the ground under it, darker the lower it flies.
+-- lies on the ground under it, darker the lower it flies. It screeches as
+-- it starts a swoop.
 -- While the park is put away (the :dino admin command), so is the drawing.
 -- Numbers are in Tuning.Dino.Ptero (Look).
 
@@ -184,6 +185,22 @@ local function poseFor(mode: any, vy: number): Pose
 	end
 	return CIRCLING
 end
+
+-- It screeches as it starts a swoop, from its talons.
+local screech = Instance.new("Sound")
+screech.SoundId = L.Screech
+screech.PlaybackSpeed = L.ScreechPitch
+screech.Volume = L.ScreechVolume
+screech.RollOffMaxDistance = L.ScreechHearing
+screech.Parent = serverTalons
+local lastMode = pterodactyl:GetAttribute("Mode")
+pterodactyl:GetAttributeChangedSignal("Mode"):Connect(function()
+	local mode = pterodactyl:GetAttribute("Mode")
+	if mode == "swoop" and lastMode ~= "swoop" then
+		screech:Play()
+	end
+	lastMode = mode
+end)
 
 local talons = serverTalons.CFrame
 local velocity = Vector3.zero

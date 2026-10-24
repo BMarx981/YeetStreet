@@ -13,7 +13,8 @@
 -- and each bite (the part's Bites attribute) snaps it. Latched on (Mode
 -- latch), it is drawn on its spot (Tuning.Dino.Raptors.Slots) on the car or
 -- player its Target points at, as this client sees them, so it never trails
--- behind a fast car.
+-- behind a fast car. Each screeches as its pack springs an ambush (Mode hide
+-- to chase), and each bite snaps.
 -- Numbers are in Tuning.Dino.Raptors.Look.
 
 local RunService = game:GetService("RunService")
@@ -74,9 +75,20 @@ type Look = {
 	latchAt: number,
 	wasLatched: boolean,
 	sway: number, -- its own tail beat, so the pack's tails differ
+	snap: Sound,
 }
 
 local looks: { Look } = {}
+local random = Random.new()
+
+local function sound(parent: Instance, id: string, volume: number): Sound
+	local made = Instance.new("Sound")
+	made.SoundId = id
+	made.Volume = volume
+	made.RollOffMaxDistance = L.Hearing
+	made.Parent = parent
+	return made
+end
 
 local function newLook(marker: BasePart, index: number): Look
 	local model = Instance.new("Model")
@@ -132,6 +144,20 @@ local function newLook(marker: BasePart, index: number): Look
 	end
 	model.Parent = folder
 
+	local body = pieces[1].part
+	local screech = sound(body, L.Screech, L.ScreechVolume)
+	local mode = marker:GetAttribute("Mode")
+	marker:GetAttributeChangedSignal("Mode"):Connect(function()
+		local now = marker:GetAttribute("Mode")
+		if mode == "hide" and now == "chase" then
+			task.delay(random:NextNumber(0, L.ScreechDelay), function()
+				screech.PlaybackSpeed = random:NextNumber(L.MinPitch, L.MaxPitch)
+				screech:Play()
+			end)
+		end
+		mode = now
+	end)
+
 	return {
 		marker = marker,
 		model = model,
@@ -146,6 +172,7 @@ local function newLook(marker: BasePart, index: number): Look
 		latchAt = -math.huge,
 		wasLatched = false,
 		sway = index * 2.1,
+		snap = sound(body, L.Snap, L.SnapVolume),
 	}
 end
 
@@ -225,6 +252,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 		local bites = marker:GetAttribute("Bites")
 		if typeof(bites) == "number" and bites > look.bites then
 			look.biteAt = now
+			look.snap:Play()
 		end
 		look.bites = if typeof(bites) == "number" then bites else look.bites
 		local sinceBite = now - look.biteAt

@@ -15,7 +15,7 @@
 -- held car and chomps while Chewing. The tail sways and swings out on turns.
 -- While the T-Rex holds a car (HeldCar) or a player on foot (HeldPlayer),
 -- the head is drawn where their spot in its jaws is, so they never drift
--- from them on screen.
+-- from them on screen. It roars as it spots a car and gives chase.
 -- Numbers are in Tuning.Dino.Rex (Head, Look).
 
 local Players = game:GetService("Players")
@@ -250,6 +250,22 @@ local bones: { [string]: CFrame } = {}
 
 rex:GetAttributeChangedSignal("Chewing"):Connect(function()
 	chewStart = os.clock()
+end)
+
+-- It roars as it spots a car and gives chase, from its head.
+local roar = Instance.new("Sound")
+roar.SoundId = L.Roar
+roar.PlaybackSpeed = L.RoarPitch
+roar.Volume = L.RoarVolume
+roar.RollOffMaxDistance = L.RoarHearing
+roar.Parent = serverHead
+local lastMode = rex:GetAttribute("Mode")
+rex:GetAttributeChangedSignal("Mode"):Connect(function()
+	local mode = rex:GetAttribute("Mode")
+	if lastMode == "roam" and mode == "chase" then
+		roar:Play()
+	end
+	lastMode = mode
 end)
 
 RunService.RenderStepped:Connect(function(dt: number)
