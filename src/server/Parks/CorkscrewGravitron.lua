@@ -84,8 +84,13 @@ local function triangle(
 end
 
 -- The curve from the floor up into the wall, then the wall leaning out to
--- the rim, one plank a slice, as wide as its slice at the rim.
-local function buildBowl(parent: Instance, bowl: CFrame)
+-- the rim, one plank a slice, as wide as its slice at the rim, in a Model
+-- named Bowl, whose planks each client paints in turning stripes
+-- (GravitronLook).
+local function buildBowl(model: Instance, bowl: CFrame)
+	local parent = Instance.new("Model")
+	parent.Name = "Bowl"
+	parent.Parent = model
 	CurvedWall.corner(parent, bowl, G.FloorRadius, 360, G.Slices, {
 		radius = G.CurveRadius,
 		endAngle = 90 - G.Lean,

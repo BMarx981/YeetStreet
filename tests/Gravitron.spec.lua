@@ -181,4 +181,20 @@ Check.test("the surface carries a car round toward its speed, Carry times the di
 	Check.near(az, 0)
 end)
 
+Check.test("stripes and gaps take turns round the bowl, as wide as each other", function()
+	local band = math.pi / 8 -- 8 stripes and 8 gaps
+	Check.eq(Gravitron.striped(0.01, 0, 8), true, "a stripe starts at 0")
+	Check.eq(Gravitron.striped(band - 0.01, 0, 8), true, "and runs a band round")
+	Check.eq(Gravitron.striped(band + 0.01, 0, 8), false, "then a gap")
+	Check.eq(Gravitron.striped(2 * band + 0.01, 0, 8), true, "then the next stripe")
+	Check.eq(Gravitron.striped(-0.01, 0, 8), false, "a gap just before 0")
+end)
+
+Check.test("stripes turn with the bowl", function()
+	local band = math.pi / 8
+	Check.eq(Gravitron.striped(band + 0.01, band, 8), true, "turned a band, the stripe has moved on a band")
+	Check.eq(Gravitron.striped(0.01, band, 8), false, "and left a gap behind")
+	Check.eq(Gravitron.striped(0.01 + 2 * math.pi * 1000, 0, 8), true, "whole turns change nothing")
+end)
+
 Check.finish("Gravitron")

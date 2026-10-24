@@ -242,4 +242,12 @@ function Gravitron.carry(
 	return tx * behind * spin.Carry, tz * behind * spin.Carry
 end
 
+-- Whether the surface `around` radians round the axis (the way
+-- CFrame.Angles(0, angle, 0) turns) is on one of `stripes` stripes, with the
+-- bowl turned `turned` radians. Stripes and the gaps between them are as
+-- wide as each other, and a stripe starts at 0 when it has not turned.
+function Gravitron.striped(around: number, turned: number, stripes: number): boolean
+	return ((around - turned) / math.pi * stripes) % 2 < 1
+end
+
 return Gravitron
