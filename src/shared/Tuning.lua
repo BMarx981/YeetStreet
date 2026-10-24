@@ -1314,23 +1314,21 @@ Tuning.Dino = {
 			Rate = 2.5,
 		},
 	},
-	-- Old safari buses lying on their sides, sunk in mounds of dirt with
-	-- their upturned sides Top high (BusRamp): Count of them scattered with
-	-- their own Seed over the palms' ground, Gap apart, facing any way. The
-	-- mound reaches Spread out from the bus's side in Rings, rounding each
-	-- corner in CornerSteps, so a car drives up from any side. The bus's
-	-- side is an any-way launch pad, throwing a car whichever way it is going
-	-- at LaunchSpeed, LaunchPitch degrees up. Nothing else stands within Room
-	-- of its middle, and no palm within Room + PalmClear. A wreck or reset
-	-- puts the car Approach studs out from the mound, facing its end. Bushes
-	-- and dinos keep Clear from the mound.
-	Buses = {
+	-- Mounds of dirt with a flat top TopWidth by TopLength, Top high (Mound):
+	-- Count of them scattered with their own Seed over the palms' ground,
+	-- Gap apart, facing any way. Each reaches Spread out from its top in
+	-- Rings, rounding each corner in CornerSteps, so a car drives up from any
+	-- side. The top is an any-way launch pad, throwing a car whichever way it
+	-- is going at LaunchSpeed, LaunchPitch degrees up. Nothing else stands
+	-- within Room of its middle, and no palm within Room + PalmClear. A wreck
+	-- or reset puts the car Approach studs out from the mound, facing its
+	-- end. Bushes and dinos keep Clear from the mound.
+	Mounds = {
 		Count = 6,
 		Seed = 47,
 		Gap = 400,
-		Length = 44,
-		Width = 13, -- its thickness, lying on its side
-		Height = 14, -- across its upturned side
+		TopLength = 44,
+		TopWidth = 14,
 		Top = 8,
 		Spread = 30,
 		Rings = 5,
@@ -1630,6 +1628,56 @@ Tuning.Dino = {
 			CarryFlapRate = 1.8,
 			CarryFlapAngle = 35,
 			ShadowSize = 36,
+		},
+	},
+	-- Packs of three velociraptors that hide behind the mounds or in the
+	-- bushes and ambush cars (Raptors; Parks.DinoRaptors runs them). Speeds
+	-- are studs a second: WalkSpeed between covers, SneakSpeed slipping
+	-- round a mound or heading back, RunSpeed chasing, all at most Accel
+	-- studs a second faster each second and turning TurnRate degrees a
+	-- second. Distances are studs. A raptor stays Body inside the palms'
+	-- ground and clear of its keep-outs, though not of the mounds. Seconds:
+	-- BiteEvery, PinTime, ChaseTime and Rest. A car is in the air with
+	-- nothing under its middle within AirProbe. A latched raptor sits at its
+	-- Slots spot in its car's frame (a pinned player's root's for Pin), its
+	-- middle Stand above the ground otherwise. Each bite takes BiteDamage of
+	-- the car's full toughness (ScoreService). Shaking a pack off pays
+	-- ShakeBonus cash at once, and surviving its bites SurviveBonus.
+	Raptors = {
+		Packs = 3,
+		WalkSpeed = 30,
+		SneakSpeed = 45,
+		RunSpeed = 110,
+		Accel = 300,
+		TurnRate = 540,
+		Body = 4,
+		Watch = 400,
+		Ambush = 120,
+		HideGap = 8,
+		Spacing = 6,
+		Wide = 12,
+		ViaReach = 8,
+		Lead = 0.3,
+		LatchReach = 10,
+		ChaseTime = 6,
+		Lose = 250,
+		StopSpeed = 4,
+		BiteEvery = 1,
+		Bites = 5,
+		PinTime = 2.5,
+		Rest = 5,
+		BiteDamage = 0.05,
+		ShakeBonus = 150,
+		SurviveBonus = 100,
+		AirProbe = 6,
+		Stand = 3.5,
+		Slots = {
+			Roof = Vector3.new(0, 3.5, 0),
+			Hood = Vector3.new(0, 3, -4.5),
+			Trunk = Vector3.new(0, 3, 4.5),
+			Left = Vector3.new(-7, 0.5, 0),
+			Right = Vector3.new(7, 0.5, 0),
+			Pin = Vector3.new(0, 0, -3),
 		},
 	},
 }

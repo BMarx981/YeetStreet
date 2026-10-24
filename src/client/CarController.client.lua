@@ -808,6 +808,18 @@ task.spawn(function()
 	)
 end)
 
+-- Cash the server paid at once, such as for shaking off the raptors.
+task.spawn(function()
+	local cashBonus = ReplicatedStorage:WaitForChild("CashBonus")
+	if not cashBonus:IsA("RemoteEvent") then
+		warn("CarController: ReplicatedStorage.CashBonus is not a RemoteEvent; bonuses stay hidden")
+		return
+	end
+	cashBonus.OnClientEvent:Connect(function(name: string, cash: number)
+		Hud.bonus(name, cash)
+	end)
+end)
+
 GarageMenu.start()
 SwingSet.start()
 TrainSet.start()

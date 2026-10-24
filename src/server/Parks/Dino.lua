@@ -28,10 +28,10 @@
 -- Their trunks are solid; their coconuts, and invisible boxes round each
 -- trunk and its fronds, are knockable props in one Shatter model, so a car
 -- hitting any of them shakes all the coconuts down, a Palm tree target
--- (PropService). Old safari buses lie tipped on their sides about the park
--- as ramps, a launch pad at the top of each. Bushes are scattered over the
--- same ground on their own;
--- cars drive through them and each client rustles them (BushRustle).
+-- (PropService). Mounds of dirt stand about the park, a car driving up any
+-- side of one launched off its top. Bushes are scattered over the same
+-- ground on their own; cars drive through them and each client rustles
+-- them (BushRustle).
 -- Numbers are in Tuning.Dino.
 
 local CollectionService = game:GetService("CollectionService")
@@ -39,8 +39,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Bronto = require(ReplicatedStorage.Bronto)
-local BusRamp = require(ReplicatedStorage.BusRamp)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local Mound = require(ReplicatedStorage.Mound)
+local Raptors = require(ReplicatedStorage.Raptors)
 local Rng = require(ReplicatedStorage.Rng)
 local Scatter = require(ReplicatedStorage.Scatter)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -52,6 +53,7 @@ local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 local Tube = require(ServerScriptService.Pieces.Tube)
 local DinoPtero = require(script.Parent.DinoPtero)
+local DinoRaptors = require(script.Parent.DinoRaptors)
 local DinoRex = require(script.Parent.DinoRex)
 
 local D = Tuning.Dino
@@ -70,10 +72,6 @@ local DARK_COLOR = Color3.fromRGB(25, 25, 25)
 local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
 local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
 local COCONUT_COLOR = Color3.fromRGB(105, 72, 40)
-local BUS_COLOR = Color3.fromRGB(112, 118, 66)
-local BAND_COLOR = Color3.fromRGB(222, 210, 170)
-local WINDOW_COLOR = Color3.fromRGB(34, 40, 44)
-local RUST_COLOR = Color3.fromRGB(140, 78, 40)
 local DIRT_COLOR = Color3.fromRGB(110, 82, 52)
 local BUSH_COLORS = { Color3.fromRGB(52, 98, 44), Color3.fromRGB(64, 112, 50), Color3.fromRGB(44, 84, 38) }
 local ROCK_COLORS = { Color3.fromRGB(62, 56, 54), Color3.fromRGB(78, 68, 62), Color3.fromRGB(92, 74, 60) }
@@ -966,10 +964,10 @@ local function buildPalms(
 	return rect, spots
 end
 
--- One side of a band of a bus's mound, from inner points a, b to outer
+-- One side of a band of a mound, from inner points a, b to outer
 -- points c, d (c outside b, d outside a), in dirt. A straight side is a
 -- flat rectangle, one part; round a corner it is two triangles, or one where
--- the inner points meet at the bus's corner.
+-- the inner points meet at the top's corner.
 local function moundPiece(parent: Instance, a: Vector3, b: Vector3, c: Vector3, d: Vector3)
 	local thickness = D.Thickness
 	local pieces: { BasePart } = {}
@@ -1003,41 +1001,39 @@ local function moundPiece(parent: Instance, a: Vector3, b: Vector3, c: Vector3, 
 	end
 end
 
--- An old safari bus lying on its side, sunk in a mound of dirt that eases
--- up from the grass on every side to its upturned side (BusRamp), in a frame
--- on the grass under its middle: across it is x (its roof toward -x, its
--- floor toward +x) and it runs along z. Cars drive on the mound and on an
--- invisible any-way launch pad lying on the bus's side, so the bus itself
--- is only for looks and never snags a car. Returns the line down its
--- middle, Clear past the mound.
-local function buildBus(parent: Instance, x: number, z: number, heading: number): Scatter.Line
-	local B = D.Buses
+-- A mound of dirt that eases up from the grass on every side to a flat top
+-- (Mound), in a frame on the grass under its middle, its top running along
+-- z. The top is an any-way launch pad, its yellow edges saying so. Returns
+-- the line down its middle, Clear past the mound.
+local function buildMound(parent: Instance, x: number, z: number, heading: number): Scatter.Line
+	local M = D.Mounds
 	local model = Instance.new("Model")
-	model.Name = "SafariBus"
+	model.Name = "DirtMound"
 	local frame = CFrame.new(x, FLOOR, z) * CFrame.Angles(0, heading, 0)
-	local half, halfLength = B.Height / 2, B.Length / 2
+	local half, halfLength = M.TopWidth / 2, M.TopLength / 2
 
-	local respawn = frame * CFrame.new(0, HULL_HEIGHT, halfLength + B.Spread + B.Approach)
+	local respawn = frame * CFrame.new(0, HULL_HEIGHT, halfLength + M.Spread + M.Approach)
 	local pad = block(
 		model,
 		"LaunchPad",
-		Vector3.new(B.Height, 0.4, B.Length),
-		frame * CFrame.new(0, B.Top - 0.2, 0),
+		Vector3.new(M.TopWidth, 0.4, M.TopLength),
+		frame * CFrame.new(0, M.Top - 0.2, 0),
 		DIRT_COLOR
 	)
-	LaunchPad.anyWay(pad, B.LaunchSpeed, B.LaunchPitch, respawn, D.PayScale)
-	pad.Transparency = 1
+	LaunchPad.anyWay(pad, M.LaunchSpeed, M.LaunchPitch, respawn, D.PayScale)
+	pad.Color = DIRT_COLOR
+	pad.Material = Enum.Material.Ground
 
 	local rings = {}
-	for i = 0, B.Rings do
-		local height = BusRamp.height(i, B.Rings, B.Top)
+	for i = 0, M.Rings do
+		local height = Mound.height(i, M.Rings, M.Top)
 		local ring = {}
-		for _, p in BusRamp.ring(half, halfLength, B.Spread * i / B.Rings, B.CornerSteps) do
+		for _, p in Mound.ring(half, halfLength, M.Spread * i / M.Rings, M.CornerSteps) do
 			table.insert(ring, frame:PointToWorldSpace(Vector3.new(p.x, height, p.z)))
 		end
 		rings[i] = ring
 	end
-	for i = 0, B.Rings - 1 do
+	for i = 0, M.Rings - 1 do
 		local inner, outer = rings[i], rings[i + 1]
 		for j = 1, #inner do
 			local k = j % #inner + 1
@@ -1045,45 +1041,13 @@ local function buildBus(parent: Instance, x: number, z: number, heading: number)
 		end
 	end
 
-	-- Its upturned side shows: a row of windows along the roof half, a cream
-	-- band along the floor half, rust, and yellow edges saying it launches.
-	-- Two of its wheels lie flat, half in the dirt beside its floor.
-	local top = frame * CFrame.new(0, B.Top, 0)
-	decoration(
-		model,
-		"Shell",
-		Vector3.new(B.Height, B.Width, B.Length),
-		top * CFrame.new(0, -B.Width / 2, 0),
-		BUS_COLOR
-	).Material =
-		Enum.Material.Metal
-	local windows = math.floor((B.Length - 4) / 5.5)
-	for k = 1, windows do
-		decoration(
-			model,
-			"Window",
-			Vector3.new(half * 0.7, 0.1, 4.5),
-			top * CFrame.new(-half + 1 + half * 0.35, 0.03, -halfLength + 2 + (k - 0.5) * 5.5),
-			WINDOW_COLOR
-		)
-	end
-	decoration(model, "Band", Vector3.new(2, 0.1, B.Length - 4), top * CFrame.new(half - 3, 0.03, 0), BAND_COLOR)
-	for k = -1, 1 do
-		local rust = decoration(
-			model,
-			"Rust",
-			Vector3.new(2.5, 0.1, 4),
-			top * CFrame.new(1, 0.03, k * halfLength * 0.6),
-			RUST_COLOR
-		)
-		rust.Material = Enum.Material.CorrodedMetal
-	end
+	local top = frame * CFrame.new(0, M.Top, 0)
 	for _, s in { -1, 1 } do
 		LaunchPad.paint(
 			decoration(
 				model,
 				"Edge",
-				Vector3.new(1, 0.1, B.Length),
+				Vector3.new(1, 0.1, M.TopLength),
 				top * CFrame.new(s * (half - 0.5), 0.05, 0),
 				DIRT_COLOR
 			)
@@ -1092,51 +1056,61 @@ local function buildBus(parent: Instance, x: number, z: number, heading: number)
 			decoration(
 				model,
 				"Edge",
-				Vector3.new(B.Height, 0.1, 1),
+				Vector3.new(M.TopWidth, 0.1, 1),
 				top * CFrame.new(0, 0.05, s * (halfLength - 0.5)),
 				DIRT_COLOR
 			)
 		)
-		local wheel = decoration(
-			model,
-			"Wheel",
-			Vector3.new(2.5, 6, 6),
-			top * CFrame.new(half + 3, -0.5, s * (halfLength - 8)) * CFrame.Angles(0, 0, math.pi / 2),
-			DARK_COLOR
-		)
-		wheel.Shape = Enum.PartType.Cylinder
 	end
 	model.Parent = parent
 
-	local nose, tail =
+	local front, back =
 		frame:PointToWorldSpace(Vector3.new(0, 0, -halfLength)), frame:PointToWorldSpace(Vector3.new(0, 0, halfLength))
-	return { AX = nose.X, AZ = nose.Z, BX = tail.X, BZ = tail.Z, Radius = half + B.Spread + B.Clear }
+	return { AX = front.X, AZ = front.Z, BX = back.X, BZ = back.Z, Radius = half + M.Spread + M.Clear }
 end
 
--- The safari buses, scattered with their own seed clear of everything built
--- so far and of the palms. Adds each to `keepOut`.
-local function buildBuses(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, palms: { Scatter.Point })
-	local B = D.Buses
+-- The dirt mounds, scattered with their own seed clear of everything built
+-- so far and of the palms. Adds each to `keepOut`, and returns them as cover
+-- for the raptors.
+local function buildMounds(
+	parent: Instance,
+	rect: Scatter.Rect,
+	keepOut: { Scatter.Line },
+	palms: { Scatter.Point }
+): { Raptors.Cover }
+	local M = D.Mounds
 	local folder = Instance.new("Folder")
-	folder.Name = "SafariBuses"
+	folder.Name = "DirtMounds"
 	folder.Parent = parent
 	local clear: { Scatter.Line } = {}
 	for _, line in keepOut do
-		table.insert(clear, { AX = line.AX, AZ = line.AZ, BX = line.BX, BZ = line.BZ, Radius = line.Radius + B.Room })
+		table.insert(clear, { AX = line.AX, AZ = line.AZ, BX = line.BX, BZ = line.BZ, Radius = line.Radius + M.Room })
 	end
 	for _, palm in palms do
-		table.insert(clear, { AX = palm.x, AZ = palm.z, BX = palm.x, BZ = palm.z, Radius = B.Room + B.PalmClear })
+		table.insert(clear, { AX = palm.x, AZ = palm.z, BX = palm.x, BZ = palm.z, Radius = M.Room + M.PalmClear })
 	end
-	local random = Random.new(B.Seed)
-	for _, spot in Scatter.points(Rng.new(B.Seed), B.Count, rect, B.Gap, clear) do
-		table.insert(keepOut, buildBus(folder, spot.x, spot.z, random:NextNumber(0, 2 * math.pi)))
+	local random = Random.new(M.Seed)
+	local covers: { Raptors.Cover } = {}
+	for _, spot in Scatter.points(Rng.new(M.Seed), M.Count, rect, M.Gap, clear) do
+		local heading = random:NextNumber(0, 2 * math.pi)
+		table.insert(keepOut, buildMound(folder, spot.x, spot.z, heading))
+		table.insert(covers, {
+			x = spot.x,
+			z = spot.z,
+			heading = heading,
+			halfX = M.TopWidth / 2 + M.Spread,
+			halfZ = M.TopLength / 2 + M.Spread,
+			bush = false,
+		})
 	end
+	return covers
 end
 
 -- A bush of leafy balls: a big one in the middle and a ring round it, all
 -- sunk into the grass so the top is `height` up and the ring reaches `width`
--- across. Pivots at its foot; Radius says how far out it reaches.
-local function buildBush(parent: Instance, x: number, z: number, random: Random)
+-- across. Pivots at its foot; Radius says how far out it reaches, and it
+-- returns that.
+local function buildBush(parent: Instance, x: number, z: number, random: Random): number
 	local B = D.Bushes
 	local model = Instance.new("Model")
 	model.Name = "Bush"
@@ -1165,17 +1139,20 @@ local function buildBush(parent: Instance, x: number, z: number, random: Random)
 	model.WorldPivot = foot
 	model:SetAttribute("Radius", width / 2)
 	model.Parent = parent
+	return width / 2
 end
 
 -- As many bushes as palm trees, over the same ground with their own seed.
-local function buildBushes(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line })
+-- Adds them to `covers` for the raptors.
+local function buildBushes(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, covers: { Raptors.Cover })
 	local B = D.Bushes
 	local folder = Instance.new("Folder")
 	folder.Name = "Bushes"
 	folder.Parent = parent
 	local random = Random.new(B.Seed)
 	for _, spot in Scatter.points(Rng.new(B.Seed), D.Palms.Count, rect, B.Gap, keepOut) do
-		buildBush(folder, spot.x, spot.z, random)
+		local radius = buildBush(folder, spot.x, spot.z, random)
+		table.insert(covers, { x = spot.x, z = spot.z, heading = 0, halfX = radius, halfZ = radius, bush = true })
 	end
 end
 
@@ -1237,6 +1214,29 @@ local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 	return CFrame.new(base.Position + Vector3.new(0, top, 0)) * CFrame.Angles(0, math.rad(P.Heading), 0)
 end
 
+-- The raptor packs hide among `covers` on the same ground as the T-Rex,
+-- each starting beside one of the first covers (DinoRaptors runs them).
+-- They stand on the floor and the mounds.
+local function buildRaptors(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, covers: { Raptors.Cover })
+	local model = Instance.new("Model")
+	model.Name = "Raptors"
+	-- Persistent, so streaming never takes them from a client.
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	model.Parent = parent
+	local starts = {}
+	for p = 1, math.min(D.Raptors.Packs, #covers) do
+		local cover = covers[p]
+		table.insert(starts, Vector3.new(cover.x + cover.halfX + D.Raptors.HideGap, FLOOR, cover.z))
+	end
+	local ground: { Instance } = { parent:FindFirstChild("DirtMounds") :: Instance }
+	for _, part in parent:GetChildren() do
+		if part:IsA("BasePart") and part.Name == "Floor" then
+			table.insert(ground, part)
+		end
+	end
+	DinoRaptors.start(model, { rect = rect, keepOut = keepOut }, covers, starts, ground, FLOOR)
+end
+
 -- The pterodactyl hunts over the same ground as the T-Rex (DinoPtero runs
 -- it).
 local function buildPtero(parent: Instance, rect: Scatter.Rect, keepOut: { Scatter.Line }, perch: CFrame)
@@ -1257,10 +1257,13 @@ function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	local trees, palms = buildPalms(folder, area, keepOut)
 	-- After the palms, so the spire stands in a gap without moving a tree.
 	local perch = buildSpire(folder, area, keepOut)
-	buildBuses(folder, trees, keepOut, palms)
-	buildBushes(folder, trees, keepOut)
+	-- The raptors keep out of all of these, but not the mounds.
+	local raptorKeepOut = table.clone(keepOut)
+	local covers = buildMounds(folder, trees, keepOut, palms)
+	buildBushes(folder, trees, keepOut, covers)
 	buildRex(folder, area, trees, keepOut)
 	buildPtero(folder, trees, keepOut, perch)
+	buildRaptors(folder, trees, raptorKeepOut, covers)
 end
 
 return DinoPark

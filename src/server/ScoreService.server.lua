@@ -39,7 +39,8 @@
 -- the T-Rex swallows on foot (ServerStorage.PlayerEaten) comes back in a
 -- fresh car at their last
 -- launcher, or at the hub before their first, through CarService's
--- ServerStorage.GiveCar.
+-- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
+-- toughness, and shaking off or surviving a pack pays cash at once.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
 -- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
@@ -419,6 +420,47 @@ carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", gro
 	end
 end)
 carCarried.Parent = ServerStorage
+
+-- The raptors (Parks.DinoRaptors fires ServerStorage.CarBitten): a "bite"
+-- takes Tuning.Dino.Raptors.BiteDamage of the car's full toughness on the
+-- slot the raptor is on, run or not, and can wreck it. Shaking a pack off
+-- ("shakeOff") and surviving its bites ("survived") pay cash at once, and
+-- the driver's client shows it on ReplicatedStorage.CashBonus.
+local cashBonus = Instance.new("RemoteEvent")
+cashBonus.Name = "CashBonus"
+cashBonus.Parent = ReplicatedStorage
+
+local BITTEN_SLOTS: { [string]: string } =
+	{ roof = "roof", hood = "nose", trunk = "tail", left = "sides", right = "sides" }
+
+local carBitten = Instance.new("BindableEvent")
+carBitten.Name = "CarBitten"
+carBitten.Event:Connect(function(car: Model, moment: "bite" | "shakeOff" | "survived", slot: string?)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	local Raptor = Tuning.Dino.Raptors
+	if moment == "bite" then
+		local amount = watch.maxToughness * Raptor.BiteDamage
+		damageCar(watch, amount, slot and BITTEN_SLOTS[slot])
+		print(
+			`Raptor bite {slot}, damage {math.floor(amount + 0.5)}, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`
+		)
+		if watch.toughness <= 0 then
+			wreck(watch)
+		end
+		return
+	end
+	local label, amount = "Raptor shake", Raptor.ShakeBonus
+	if moment == "survived" then
+		label, amount = "Survived the raptors", Raptor.SurviveBonus
+	end
+	Garage.pay(watch.player, amount)
+	print(`{label}, paid {amount}, {watch.player.Name}`)
+	cashBonus:FireClient(watch.player, label, amount)
+end)
+carBitten.Parent = ServerStorage
 
 local playerEaten = Instance.new("BindableEvent")
 playerEaten.Name = "PlayerEaten"

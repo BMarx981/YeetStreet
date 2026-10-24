@@ -376,6 +376,16 @@ function Hud.trick(name: string, points: number)
 	popupUntil = os.clock() + H.TrickPopupTime
 end
 
+-- Cash paid at once, outside any run, such as for shaking off the raptors.
+function Hud.bonus(name: string, cash: number)
+	local p = parts
+	if not p then
+		return
+	end
+	p.popup.Text = `{name}  +${withCommas(cash)}`
+	popupUntil = os.clock() + H.TrickPopupTime
+end
+
 -- The breakdown card for a finished run. Repeats of a trick share one line.
 -- `official` is the server's score for the run; it replaces the client's card,
 -- and a client card arriving just after it is dropped.
