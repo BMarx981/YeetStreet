@@ -18,6 +18,7 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Fingerprint = require(ReplicatedStorage.Fingerprint)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Railway = require(ReplicatedStorage.Railway)
@@ -838,7 +839,22 @@ function City.build(folder: Folder, area: MapLayout.Area)
 	buildStreetLights(folder, area)
 	buildCranes(folder, area, plain)
 	CityRailway.build(folder, area)
+end
+
+-- What moves while the game runs, for a park just built or saved with the
+-- place: the kaiju. (The trains and the wrecking balls are drawn on each
+-- client.)
+function City.start(folder: Folder, area: MapLayout.Area)
 	CityKaiju.build(folder, area)
+end
+
+-- The tuning the parts are built from: all of Tuning.City but the numbers
+-- only used while the game runs.
+function City.fingerprint(): string
+	return Fingerprint.of(
+		C :: any,
+		{ "Kaiju", "Cranes.Ball", "Cranes.Server", "Railway.Trains", "Railway.Push", "Railway.Server" }
+	)
 end
 
 return City

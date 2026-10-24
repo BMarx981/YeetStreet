@@ -1,23 +1,17 @@
 --!strict
 -- ParkService (Script) -> ServerScriptService.ParkService
--- Builds each stunt park in Tuning.Map into its own folder, workspace.Parks.<Id>:
--- a concrete floor over the park's ground and a name sign by its arrival
--- point. A park with a module in ServerScriptService.Parks (named by its Id)
--- also gets that module's build(folder, area) for its launchers and obstacles.
--- Other areas with a module, such as the long jump, get only the module's
--- build, with no floor or sign.
--- A park whose folder is already in workspace was saved with the place, so it
--- is left as it is. Warns at startup about anything wrong with the layout.
+-- Builds each stunt park in Tuning.Map into its own folder, workspace.Parks.<Id>,
+-- and starts what moves in it (ParkBuilder). A park whose folder is already
+-- in workspace was saved with the place (frozen), so its parts are left as
+-- they are and it is only started. Warns at startup about anything wrong
+-- with the layout.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
-
-type ParkModule = {
-	build: (folder: Folder, area: MapLayout.Area) -> (),
-}
+local ParkBuilder = require(ServerScriptService.ParkBuilder)
 
 local M = Tuning.Map
 local areas: { MapLayout.Area } = M.Areas :: any
@@ -33,81 +27,19 @@ if marks then
 	marks:Destroy()
 end
 
-local FLOOR_THICKNESS = 1
-local MAX_PART = 2048 -- engine limit on a part's size along any axis
-
--- In equal tiles where the park is bigger than one part can be.
-local function floor(folder: Folder, area: MapLayout.Area)
-	local across = math.ceil(area.Width / MAX_PART)
-	local down = math.ceil(area.Depth / MAX_PART)
-	local width, depth = area.Width / across, area.Depth / down
-	for i = 1, across do
-		for j = 1, down do
-			local part = Instance.new("Part")
-			part.Name = "Floor"
-			part.Anchored = true
-			part.Size = Vector3.new(width, FLOOR_THICKNESS, depth)
-			part.CFrame = CFrame.new(
-				area.X - area.Width / 2 + (i - 0.5) * width,
-				M.FloorTop - FLOOR_THICKNESS / 2,
-				area.Z - area.Depth / 2 + (j - 0.5) * depth
-			)
-			part.Color = Color3.fromRGB(170, 170, 165)
-			part.Material = Enum.Material.Concrete
-			part.TopSurface = Enum.SurfaceType.Smooth
-			part.BottomSurface = Enum.SurfaceType.Smooth
-			part.Parent = folder
-		end
-	end
-end
-
--- Ahead of the arrival point and to its left, facing back at an arriving car.
-local function sign(folder: Folder, area: MapLayout.Area)
-	local facing = CFrame.new(area.ArriveX, 0, area.ArriveZ) * CFrame.Angles(0, math.rad(area.Heading), 0)
-	local part = Instance.new("Part")
-	part.Name = "Sign"
-	part.Anchored = true
-	part.Size = Vector3.new(60, 14, 2)
-	part.CFrame = facing * CFrame.new(-50, 12, -100)
-	part.Color = Color3.fromRGB(30, 30, 40)
-	part.Material = Enum.Material.SmoothPlastic
-	part.Parent = folder
-
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back -- the face an arriving car looks at
-	gui.PixelsPerStud = 20
-	gui.Parent = part
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Text = area.Name
-	label.TextScaled = true
-	label.Font = Enum.Font.GothamBlack
-	label.TextColor3 = Color3.fromRGB(255, 200, 40)
-	label.Parent = gui
-end
-
 local parks: Instance = workspace:FindFirstChild("Parks") or Instance.new("Folder")
 parks.Name = "Parks"
 parks.Parent = workspace
 
-local modules = ServerScriptService:FindFirstChild("Parks")
-
 for _, area in areas do
-	local module = modules and modules:FindFirstChild(area.Id)
-	local hasModule = module ~= nil and module:IsA("ModuleScript")
-	if (area.Kind ~= "Park" and not hasModule) or parks:FindFirstChild(area.Id) then
-		continue
+	local saved = parks:FindFirstChild(area.Id)
+	if saved and saved:IsA("Folder") then
+		ParkBuilder.start(saved, area, true)
+	else
+		local folder = ParkBuilder.build(area)
+		if folder then
+			folder.Parent = parks
+			ParkBuilder.start(folder, area, false)
+		end
 	end
-	local folder = Instance.new("Folder")
-	folder.Name = area.Id
-	if area.Kind == "Park" then
-		floor(folder, area)
-		sign(folder, area)
-	end
-	if module and module:IsA("ModuleScript") then
-		local park: ParkModule = (require :: any)(module)
-		park.build(folder, area)
-	end
-	folder.Parent = parks
 end

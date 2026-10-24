@@ -1,8 +1,10 @@
 --!strict
 -- CityKaiju (ModuleScript) -> ServerScriptService.Parks.CityKaiju
--- Downtown's kaiju, built into the city's folder by City.build. It hunts
--- cars and players on foot the way Dino Valley's T-Rex does, and Parks.DinoRex
--- runs it, but it keeps to Downtown's streets (Tuning.City.Kaiju.Streets),
+-- Downtown's kaiju, built into the city's folder by City.start whenever a
+-- server starts, even when the city's parts were saved with the place. It
+-- hunts cars and players on foot the way Dino Valley's T-Rex does, and
+-- Parks.DinoRex runs it, but it keeps to Downtown's streets
+-- (Tuning.City.Kaiju.Streets),
 -- walking round the blocks to reach a car on another street. Each client
 -- draws it from the two parts DinoRex moves (KaijuLook).
 --

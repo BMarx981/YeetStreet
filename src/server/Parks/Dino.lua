@@ -32,13 +32,17 @@
 -- side of one launched off its top. Bushes are scattered over the same
 -- ground on their own; cars drive through them and each client rustles
 -- them (BushRustle).
+-- The T-Rex, the pterodactyl and the raptors are started by start whenever
+-- a server starts, even when the park's parts were saved with the place.
 -- Numbers are in Tuning.Dino.
 
 local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Bronto = require(ReplicatedStorage.Bronto)
+local Fingerprint = require(ReplicatedStorage.Fingerprint)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Mound = require(ReplicatedStorage.Mound)
 local Raptors = require(ReplicatedStorage.Raptors)
@@ -1258,6 +1262,19 @@ local function buildPtero(parent: Instance, rect: Scatter.Rect, keepOut: { Scatt
 	DinoPtero.start(model, territory, perch)
 end
 
+-- What the creatures need to know of the park, worked out as it is built
+-- and kept on its folder as the Layout attribute (JSON), so they can start
+-- in a park saved with the place too: the ground the trees may stand on,
+-- what to keep out of (the raptors' list leaves out the mounds), where they
+-- may hide, and the pterodactyl's perch (a CFrame's components).
+type Layout = {
+	trees: Scatter.Rect,
+	keepOut: { Scatter.Line },
+	raptorKeepOut: { Scatter.Line },
+	covers: { Raptors.Cover },
+	perch: { number },
+}
+
 function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	grassFloor(folder)
 	local bronto = buildBronto(folder, area)
@@ -1270,9 +1287,34 @@ function DinoPark.build(folder: Folder, area: MapLayout.Area)
 	local raptorKeepOut = table.clone(keepOut)
 	local covers = buildMounds(folder, trees, keepOut, palms)
 	buildBushes(folder, trees, keepOut, covers)
-	buildRex(folder, area, trees, keepOut)
-	buildPtero(folder, trees, keepOut, perch)
-	buildRaptors(folder, trees, raptorKeepOut, covers)
+	local layout: Layout = {
+		trees = trees,
+		keepOut = keepOut,
+		raptorKeepOut = raptorKeepOut,
+		covers = covers,
+		perch = { perch:GetComponents() },
+	}
+	folder:SetAttribute("Layout", HttpService:JSONEncode(layout))
+end
+
+-- The creatures, for a park just built or saved with the place, from its
+-- Layout.
+function DinoPark.start(folder: Folder, area: MapLayout.Area)
+	local json = folder:GetAttribute("Layout")
+	if typeof(json) ~= "string" then
+		warn("Dino: the park has no Layout, so its creatures cannot start")
+		return
+	end
+	local layout: Layout = HttpService:JSONDecode(json)
+	buildRex(folder, area, layout.trees, layout.keepOut)
+	buildPtero(folder, layout.trees, layout.keepOut, CFrame.new(table.unpack(layout.perch)))
+	buildRaptors(folder, layout.trees, layout.raptorKeepOut, layout.covers)
+end
+
+-- The tuning the parts are built from: all of Tuning.Dino but the numbers
+-- only the T-Rex and the raptors use, while the game runs.
+function DinoPark.fingerprint(): string
+	return Fingerprint.of(D :: any, { "Rex", "Raptors" })
 end
 
 return DinoPark
