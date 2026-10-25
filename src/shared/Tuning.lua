@@ -1345,6 +1345,11 @@ Tuning.City = {
 			Fist = 1.4,
 			ReturnSpeed = 6,
 			Cooldown = 10,
+			-- Downtown's kaiju this near makes it run round its loop FleeRate
+			-- times as fast, away, until the kaiju is CalmRadius off.
+			FleeRadius = 120,
+			CalmRadius = 180,
+			FleeRate = 2.5,
 		},
 		-- Each client draws only the nearest DrawCount walkers within
 		-- DrawRange of its camera (PedestrianLook).
@@ -1376,6 +1381,11 @@ Tuning.City = {
 			Thud = { Id = "rbxassetid://9113480917", Pitch = 1, Volume = 0.8 },
 			Yap = { Id = "rbxassetid://9113955728", Pitch = 1.6, Volume = 0.6 },
 			YapEvery = 0.8,
+			-- Fleeing the kaiju: a scream as it starts to run, its legs swinging
+			-- FleeSwing times as far, and one of FleeLines in its bubble.
+			Scream = { Id = "rbxassetid://9125905021", Pitch = 1.1, Volume = 0.5 },
+			FleeSwing = 1.5,
+			FleeLines = { "RUN!", "KAIJU!", "AAAH!", "NOT AGAIN!", "SAVE YOURSELVES!" },
 			-- Said getting up from a dive, picked by when it dived.
 			Lines = { "WATCH IT!", "I'M WALKING HERE!", "HEY!", "LEARN TO DRIVE!", "ROAD HOG!", "SLOW DOWN!" },
 			-- Said getting up after being knocked flat, about what it carried.

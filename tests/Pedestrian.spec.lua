@@ -20,6 +20,9 @@ local TUNING: Pedestrian.Tuning = {
 	Fist = 1.4,
 	ReturnSpeed = 6,
 	Cooldown = 10,
+	FleeRadius = 120,
+	CalmRadius = 180,
+	FleeRate = 2.5,
 }
 
 -- Walking along +X at the park's middle, on the curb.
@@ -219,6 +222,67 @@ Check.test("knocked down it is left alone until it is walking again", function()
 		return { car(down.x, down.z, 0, 60) }
 	end)
 	Check.eq(kinds(events), "", "no hits while down or getting up")
+end)
+
+local function kaiju(x: number, z: number): Pedestrian.Point
+	return { x = x, z = z }
+end
+
+Check.test("a walker near the kaiju runs away from it along its loop", function()
+	local s = Pedestrian.new()
+	local event = Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(-50, 0))
+	Check.eq(event and event.kind, "flee", "flees")
+	Check.eq(s.mode, "flee", "fleeing")
+	Check.near(s.rate, TUNING.FleeRate, "on along its loop, away")
+	Check.near(Pedestrian.clock(s, 101, TUNING), 100 + TUNING.FleeRate, "its loop's clock runs fast")
+	Check.eq(Pedestrian.where(s, 100.5, TUNING).phase, "flee", "drawn running")
+	Check.eq(Pedestrian.onLoop(s), true, "still on its loop")
+end)
+
+Check.test("with the kaiju ahead it runs back the way it came", function()
+	local s = Pedestrian.new()
+	Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(50, 0))
+	Check.near(s.rate, -TUNING.FleeRate, "backward")
+	Check.near(Pedestrian.clock(s, 101, TUNING), 100 - TUNING.FleeRate, "its loop's clock runs back")
+end)
+
+Check.test("it doesn't flee a kaiju beyond FleeRadius, or no kaiju at all", function()
+	local s = Pedestrian.new()
+	Check.eq(Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(-150, 0)), nil, "too far")
+	Check.eq(Pedestrian.step(s, SPOT, 0, {}, 100.1, TUNING, nil), nil, "none")
+	Check.eq(s.mode, "walk", "walking")
+end)
+
+Check.test("it keeps running until the kaiju is CalmRadius off, then walks on from where it ran to", function()
+	local s = Pedestrian.new()
+	Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(-50, 0))
+	Pedestrian.step(s, SPOT, 0, {}, 101, TUNING, kaiju(-150, 0))
+	Check.eq(s.mode, "flee", "still running between the radii")
+	Pedestrian.step(s, SPOT, 0, {}, 102, TUNING, kaiju(-500, 0))
+	Check.eq(s.mode, "walk", "calmed down")
+	Check.near(Pedestrian.clock(s, 102, TUNING), 100 + 2 * TUNING.FleeRate, "where it ran to")
+	Check.near(Pedestrian.clock(s, 103, TUNING), 101 + 2 * TUNING.FleeRate, "then at walking speed")
+end)
+
+Check.test("running, it still dives from a car, and walks on from where it had run to", function()
+	local s = Pedestrian.new()
+	Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(-100, 0))
+	local event = Pedestrian.step(s, SPOT, 0, { car(2, -40, 0, 60) }, 101, TUNING, kaiju(-100, 0))
+	Check.eq(event and event.kind, "dive", "dives")
+	Check.near(Pedestrian.clock(s, 101.5, TUNING), 100 + TUNING.FleeRate, "its loop waits where it had run to")
+	Pedestrian.step(s, SPOT, 0, {}, 101 + DIVE_TIME + 0.01, TUNING, nil)
+	Check.eq(s.mode, "walk", "walks on after")
+	Check.near(Pedestrian.clock(s, 101 + DIVE_TIME + 0.01, TUNING), 100.01 + TUNING.FleeRate, "from there", 1e-6)
+end)
+
+Check.test("running, a car reaching it still knocks it flat", function()
+	local s = Pedestrian.new()
+	Pedestrian.step(s, SPOT, 0, {}, 100, TUNING, kaiju(-100, 0))
+	local hidden = car(0, 0, 0, 60)
+	hidden.visible = false
+	local event = Pedestrian.step(s, SPOT, 0, { hidden }, 101, TUNING, kaiju(-100, 0))
+	Check.eq(event and event.kind, "hit", "hit")
+	Check.near(Pedestrian.clock(s, 102, TUNING), 100 + TUNING.FleeRate, "its loop waits where it had run to")
 end)
 
 Check.finish("Pedestrian")

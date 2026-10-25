@@ -4,15 +4,16 @@
 -- when the city's parts were saved with the place. Each goes round its
 -- loop on the curbs (Pedestrians) from the server's clock, and the server
 -- steps each one (Pedestrian) Rate times a second against the cars near
--- it, looking past the buildings to say which it can see. A near miss
+-- it, looking past the buildings to say which it can see, and where the
+-- kaiju (CityKaiju) is, so they run from it. A near miss
 -- fires ServerStorage.PedestrianNearMiss with the car, and ScoreService
 -- pays its driver. Nothing here ever touches a car.
 --
 -- For each client to draw them (PedestrianLook), workspace.Parks.City.
 -- Pedestrians holds one Configuration per walker, named by its number,
 -- with its Pedestrian.State as attributes: Mode, Since, StartX, StartZ,
--- AnchorX, AnchorZ, DirX, DirZ and Delay, set whenever it dives, flops or
--- walks on. Points are in park coordinates; the model's AreaX and AreaZ
+-- AnchorX, AnchorZ, DirX, DirZ, Delay and Rate, set whenever it flees,
+-- dives, flops or walks on. Points are in park coordinates; the model's AreaX and AreaZ
 -- attributes are the park's middle.
 
 local Players = game:GetService("Players")
@@ -49,6 +50,7 @@ local function publish(config: Configuration, s: Pedestrian.State)
 	config:SetAttribute("DirX", s.dirX)
 	config:SetAttribute("DirZ", s.dirZ)
 	config:SetAttribute("Delay", s.delay)
+	config:SetAttribute("Rate", s.rate)
 end
 
 function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
@@ -88,6 +90,14 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 		untilStep = 1 / P.Rate
 		local now = workspace:GetServerTimeNow()
 
+		-- The kaiju's feet, in park coordinates.
+		local kaiju: Pedestrian.Point? = nil
+		local kaijuModel = parent:FindFirstChild("Kaiju")
+		local root = kaijuModel and kaijuModel:FindFirstChild("Root")
+		if root and root:IsA("BasePart") then
+			kaiju = { x = root.Position.X - area.X, z = root.Position.Z - area.Z }
+		end
+
 		-- Every unheld car in park coordinates, once.
 		local hulls: { { model: Model, p: Vector3, v: Vector3 } } = {}
 		for _, car in carsFolder:GetChildren() do
@@ -114,7 +124,7 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 			local route = routes[walker.route]
 			local spot = Pedestrians.at(walker, route, Pedestrian.clock(s, now, D))
 			local x, z = spot.x, spot.z
-			if s.mode ~= "walk" then
+			if not Pedestrian.onLoop(s) then
 				local where = Pedestrian.where(s, now, D)
 				x, z = where.x, where.z
 			end
@@ -136,15 +146,13 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 					})
 				end
 			end
-			if #cars > 0 or s.mode ~= "walk" then
-				local mode = s.mode
-				local event = Pedestrian.step(s, spot, 0, cars, now, D)
-				if event and event.kind == "nearMiss" then
-					tellNearMiss(event.car)
-				end
-				if s.mode ~= mode then
-					publish(configs[i], s)
-				end
+			local mode = s.mode
+			local event = Pedestrian.step(s, spot, 0, cars, now, D, kaiju)
+			if event and event.kind == "nearMiss" then
+				tellNearMiss(event.car)
+			end
+			if s.mode ~= mode then
+				publish(configs[i], s)
 			end
 		end
 	end)

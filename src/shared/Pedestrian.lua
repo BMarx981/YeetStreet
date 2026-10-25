@@ -2,14 +2,18 @@
 -- Pedestrian (ModuleScript) -> ReplicatedStorage.Pedestrian
 -- One of Downtown's walkers (Pedestrians) getting out of a car's way. Pure,
 -- see InputAxes. The server steps it (Parks.CityPedestrians) and says
--- which cars the walker can see past the buildings; clients only draw it,
--- from the same state, with `where`.
+-- which cars the walker can see past the buildings, and where Downtown's
+-- kaiju is; clients only draw it, from the same state, with `where`.
 --
 --   walk  round its loop. A car on the ground it can see, coming to pass
 --         within DiveRadius of it in under SeeTime, makes it dive; a car
 --         reaching it (within HitRadius and HitHeight), seen or not, or
 --         landing on it from the air, knocks it flat. It never sees a car
---         in the air.
+--         in the air. The kaiju coming within FleeRadius makes it flee.
+--   flee  runs round its loop FleeRate times as fast, whichever way takes it
+--         away from where the kaiju was, until the kaiju is CalmRadius off,
+--         then walks on from where it ran to. Cars make it dive or knock it
+--         flat as they do walking.
 --   dive  out DiveDistance square to the car's way, on its own side of it
 --         (or, out in the road, toward the nearer curb), over DiveTime.
 --         The car that made it dive and then passed within NearMiss
@@ -47,7 +51,12 @@ export type Tuning = {
 	Fist: number,
 	ReturnSpeed: number,
 	Cooldown: number,
+	FleeRadius: number,
+	CalmRadius: number, -- more than FleeRadius, so it doesn't start and stop at the edge
+	FleeRate: number,
 }
+
+export type Point = { x: number, z: number }
 
 -- Where it is on its loop while walking (Pedestrians.Pose).
 export type Spot = {
@@ -73,24 +82,25 @@ export type Car = {
 	air: boolean,
 }
 
-export type Mode = "walk" | "dive" | "flop"
+export type Mode = "walk" | "flee" | "dive" | "flop"
 
 export type State = {
 	mode: Mode,
-	since: number, -- on the server's clock, when the dive or flop began
+	since: number, -- on the server's clock, when the flee, dive or flop began
 	startX: number, -- where it began
 	startZ: number,
 	anchorX: number, -- where it left its loop, to walk back to
 	anchorZ: number,
 	dirX: number, -- the way it dives or is thrown, a level unit
 	dirZ: number,
-	delay: number, -- seconds its loop is behind the server's clock
+	delay: number, -- seconds its loop is behind the server's clock, when it began
+	rate: number, -- fleeing, how fast its loop's clock runs: backward if below 0
 	car: any?, -- the car it is diving from, until it pays or goes
 	closest: number, -- the nearest that car has come
 	payable: number, -- on the server's clock, when it can next pay a near miss
 }
 
-export type Phase = "walk" | "dive" | "flop" | "down" | "up" | "fist" | "back"
+export type Phase = "walk" | "flee" | "dive" | "flop" | "down" | "up" | "fist" | "back"
 
 export type Where = {
 	x: number,
@@ -102,8 +112,8 @@ export type Where = {
 }
 
 export type Event = {
-	kind: "dive" | "hit" | "nearMiss",
-	car: any,
+	kind: "flee" | "dive" | "hit" | "nearMiss",
+	car: any, -- nil for a flee
 }
 
 function Pedestrian.new(): State
@@ -117,6 +127,7 @@ function Pedestrian.new(): State
 		dirX = 1,
 		dirZ = 0,
 		delay = 0,
+		rate = 1,
 		car = nil,
 		closest = math.huge,
 		payable = -math.huge,
@@ -142,20 +153,27 @@ local function backTime(s: State, tuning: Tuning): number
 	return math.sqrt((x - s.anchorX) ^ 2 + (z - s.anchorZ) ^ 2) / tuning.ReturnSpeed
 end
 
+-- Walking or fleeing: wherever its loop puts it.
+function Pedestrian.onLoop(s: State): boolean
+	return s.mode == "walk" or s.mode == "flee"
+end
+
 -- Seconds from the start of a dive or flop until it walks on.
 function Pedestrian.duration(s: State, tuning: Tuning): number
-	if s.mode == "walk" then
+	if Pedestrian.onLoop(s) then
 		return 0
 	end
 	return moveTime(s, tuning) + downTime(s, tuning) + tuning.GetUp + tuning.Fist + backTime(s, tuning)
 end
 
 -- The time on its loop's clock (Pedestrians.at) at `now` on the server's:
--- stopped during a dive or flop, and on again after it even before the
--- server has stepped it back to walking.
+-- running fast while it flees, stopped during a dive or flop, and on again
+-- after it even before the server has stepped it back to walking.
 function Pedestrian.clock(s: State, now: number, tuning: Tuning): number
 	if s.mode == "walk" then
 		return now - s.delay
+	elseif s.mode == "flee" then
+		return s.since - s.delay + (now - s.since) * s.rate
 	end
 	local duration = Pedestrian.duration(s, tuning)
 	if now < s.since + duration then
@@ -173,7 +191,8 @@ local function smooth(p: number): number
 end
 
 -- Where it is during a dive or flop, which way it faces, and what it is
--- doing. Walking, it is wherever its loop puts it: phase "walk".
+-- doing. Walking or fleeing, it is wherever its loop puts it: phase "walk"
+-- or "flee".
 function Pedestrian.where(s: State, now: number, tuning: Tuning): Where
 	local t = now - s.since
 	local move, down = moveTime(s, tuning), downTime(s, tuning)
@@ -181,6 +200,9 @@ function Pedestrian.where(s: State, now: number, tuning: Tuning): Where
 	local outX, outZ = landing(s, tuning)
 	local function at(x: number, z: number, fx: number, fz: number, phase: Phase, progress: number): Where
 		return { x = x, z = z, facingX = fx, facingZ = fz, phase = phase, progress = math.clamp(progress, 0, 1) }
+	end
+	if s.mode == "flee" then
+		return at(s.anchorX, s.anchorZ, s.dirX, s.dirZ, "flee", 0)
 	end
 	if s.mode == "walk" or t >= move + down + tuning.GetUp + tuning.Fist + back then
 		return at(s.anchorX, s.anchorZ, s.dirX, s.dirZ, "walk", 0)
@@ -247,10 +269,18 @@ local function threat(car: Car, spot: Spot, y: number, tuning: Tuning): number?
 	return t
 end
 
+-- Walking again from wherever its loop's clock has got to.
+local function settle(s: State, now: number, tuning: Tuning)
+	s.delay = now - Pedestrian.clock(s, now, tuning)
+	s.mode = "walk"
+	s.rate = 1
+end
+
 -- Knocked flat at (x, z) by `car`, now. Its loop's clock stays where it
 -- stopped if it was already diving.
-local function flop(s: State, car: Car, x: number, z: number, spot: Spot, now: number)
-	if s.mode == "walk" then
+local function flop(s: State, car: Car, x: number, z: number, spot: Spot, now: number, tuning: Tuning)
+	if Pedestrian.onLoop(s) then
+		settle(s, now, tuning)
 		s.anchorX, s.anchorZ = x, z
 	else
 		s.delay += now - s.since
@@ -273,7 +303,8 @@ local function flop(s: State, car: Car, x: number, z: number, spot: Spot, now: n
 	s.car = nil
 end
 
-local function dive(s: State, car: Car, spot: Spot, now: number)
+local function dive(s: State, car: Car, spot: Spot, now: number, tuning: Tuning)
+	settle(s, now, tuning)
 	local dx, dz
 	if spot.road and spot.toCurb ~= 0 then
 		dx, dz = spot.headingX * spot.toCurb, spot.headingZ * spot.toCurb
@@ -294,17 +325,25 @@ local function dive(s: State, car: Car, spot: Spot, now: number)
 end
 
 -- One step at `now` on the server's clock, with the walker at `spot` on
--- its loop (at Pedestrian.clock) and its feet `y` high. Returns what
--- happened, if anything.
-function Pedestrian.step(s: State, spot: Spot, y: number, cars: { Car }, now: number, tuning: Tuning): Event?
-	if s.mode ~= "walk" then
+-- its loop (at Pedestrian.clock), its feet `y` high, and the kaiju at
+-- `kaiju` if there is one. Returns what happened, if anything.
+function Pedestrian.step(
+	s: State,
+	spot: Spot,
+	y: number,
+	cars: { Car },
+	now: number,
+	tuning: Tuning,
+	kaiju: Point?
+): Event?
+	if not Pedestrian.onLoop(s) then
 		local duration = Pedestrian.duration(s, tuning)
 		if now < s.since + duration then
 			local here = Pedestrian.where(s, now, tuning)
 			if s.mode == "dive" and here.phase == "dive" then
 				for _, car in cars do
 					if reaches(car, here.x, here.z, y, tuning) then
-						flop(s, car, here.x, here.z, spot, now)
+						flop(s, car, here.x, here.z, spot, now, tuning)
 						return { kind = "hit", car = car.id }
 					end
 				end
@@ -338,9 +377,19 @@ function Pedestrian.step(s: State, spot: Spot, y: number, cars: { Car }, now: nu
 		s.car = nil
 	end
 
+	local kx, kz = 0, 0
+	local near = math.huge
+	if kaiju then
+		kx, kz = spot.x - kaiju.x, spot.z - kaiju.z
+		near = math.sqrt(kx * kx + kz * kz)
+	end
+	if s.mode == "flee" and near > tuning.CalmRadius then
+		settle(s, now, tuning)
+	end
+
 	for _, car in cars do
 		if reaches(car, spot.x, spot.z, y, tuning) then
-			flop(s, car, spot.x, spot.z, spot, now)
+			flop(s, car, spot.x, spot.z, spot, now, tuning)
 			return { kind = "hit", car = car.id }
 		end
 	end
@@ -353,8 +402,18 @@ function Pedestrian.step(s: State, spot: Spot, y: number, cars: { Car }, now: nu
 		end
 	end
 	if soonest then
-		dive(s, soonest, spot, now)
+		dive(s, soonest, spot, now, tuning)
 		return { kind = "dive", car = soonest.id }
+	end
+
+	if s.mode == "walk" and near <= tuning.FleeRadius then
+		local away = kx * spot.headingX + kz * spot.headingZ
+		s.mode = "flee"
+		s.delay = now - Pedestrian.clock(s, now, tuning)
+		s.since = now
+		s.rate = if away < 0 then -tuning.FleeRate else tuning.FleeRate
+		s.anchorX, s.anchorZ = spot.x, spot.z
+		return { kind = "flee", car = nil }
 	end
 	return nil
 end

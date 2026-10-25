@@ -19,7 +19,8 @@
 -- hops about. Getting up, and shaking a fist, it says something in a
 -- bubble: about what it carried, if it was knocked flat. It whooshes as it
 -- dives, grunts as it is knocked flat and thuds as it lands, and its dog
--- yaps while it is busy.
+-- yaps while it is busy. Fleeing the kaiju, it screams and runs with its
+-- arms in the air, shouting in its bubble, its dog running beside it.
 -- Numbers are in Tuning.City.Pedestrians.Look.
 
 local Players = game:GetService("Players")
@@ -108,12 +109,13 @@ local function read(config: Instance, s: Pedestrian.State)
 		return if typeof(value) == "number" then value else default
 	end
 	local mode = config:GetAttribute("Mode")
-	s.mode = if mode == "dive" or mode == "flop" then mode else "walk"
+	s.mode = if mode == "flee" or mode == "dive" or mode == "flop" then mode else "walk"
 	s.since = number("Since", 0)
 	s.startX, s.startZ = number("StartX", 0), number("StartZ", 0)
 	s.anchorX, s.anchorZ = number("AnchorX", 0), number("AnchorZ", 0)
 	s.dirX, s.dirZ = number("DirX", 1), number("DirZ", 0)
 	s.delay = number("Delay", 0)
+	s.rate = number("Rate", 1)
 end
 
 type Style = { skin: Color3, shirt: Color3, pants: Color3, hair: Color3, prop: Prop }
@@ -158,6 +160,7 @@ type Figure = {
 	grunt: Sound,
 	thud: Sound,
 	yap: Sound,
+	scream: Sound,
 	heard: Pedestrian.Phase?, -- the phase its sounds last saw, nil until drawn once
 	heardSince: number,
 	yapAt: number,
@@ -313,6 +316,7 @@ local function newFigure(index: number): Figure
 		grunt = sound(head, L.Grunt),
 		thud = sound(head, L.Thud),
 		yap = sound(dogBody, L.Yap),
+		scream = sound(head, L.Scream),
 		heard = nil,
 		heardSince = 0,
 		yapAt = 0,
@@ -364,7 +368,9 @@ end
 
 -- What the walker says in its bubble.
 local function line(s: Pedestrian.State, style: Style): string
-	if s.mode == "flop" then
+	if s.mode == "flee" then
+		return L.FleeLines[math.floor(s.since * 10) % #L.FleeLines + 1]
+	elseif s.mode == "flop" then
 		return L.PropLines[style.prop] or L.Lines[1]
 	end
 	return L.Lines[math.floor(s.since * 10) % #L.Lines + 1]
@@ -379,12 +385,15 @@ local function draw(figure: Figure, i: number, now: number)
 	local s = states[i]
 	local style = styles[i]
 	local clock = Pedestrian.clock(s, now, D)
-	-- Where its loop has it: walking, where it is; otherwise where it left.
+	-- Where its loop has it: walking or fleeing, where it is; otherwise
+	-- where it left. Fleeing backward round its loop, it faces back.
 	local pose = Pedestrians.at(walker, route, clock)
 	local where = Pedestrian.where(s, now, D)
 	local phase = where.phase
-	local x, z, facing = pose.x, pose.z, flat(pose.headingX, pose.headingZ)
-	if phase ~= "walk" then
+	local running = if phase == "flee" and s.rate < 0 then -1 else 1
+	local x, z, facing = pose.x, pose.z, flat(pose.headingX * running, pose.headingZ * running)
+	local onLoop = phase == "walk" or phase == "flee"
+	if not onLoop then
 		x, z, facing = where.x, where.z, flat(where.facingX, where.facingZ)
 	end
 	local wx, wz = areaX + x, areaZ + z
@@ -404,6 +413,12 @@ local function draw(figure: Figure, i: number, now: number)
 	local lying = if flopped then deg(90) else -deg(90)
 	if phase == "walk" then
 		walking(Pedestrians.distance(walker, route, clock) / L.Stride * 2 * math.pi)
+	elseif phase == "flee" then
+		walking(Pedestrians.distance(walker, route, clock) / L.Stride * 2 * math.pi)
+		legL, legR = legL * L.FleeSwing, legR * L.FleeSwing
+		local wave = deg(20) * math.sin(now * 14)
+		armL, armR, outL, outR = deg(160) + wave, deg(160) - wave, deg(25), deg(25)
+		holding = false
 	elseif phase == "dive" then
 		local p = where.progress
 		lean, hop = lying * p, math.sin(math.pi * p) * L.DiveHop
@@ -492,14 +507,13 @@ local function draw(figure: Figure, i: number, now: number)
 	end
 	frames.prop = propFrame
 
-	-- The dog walks beside it; while it is busy, the dog stays where it
-	-- left its loop and hops about, facing it.
-	local loop = CFrame.lookAt(
-		Vector3.new(areaX + pose.x, feet.Y, areaZ + pose.z),
-		Vector3.new(areaX + pose.x + pose.headingX, feet.Y, areaZ + pose.z + pose.headingZ)
-	)
+	-- The dog walks or runs beside it; while it is busy, the dog stays
+	-- where it left its loop and hops about, facing it.
+	local spotted = Vector3.new(areaX + pose.x, feet.Y, areaZ + pose.z)
+	local ahead = Vector3.new(pose.headingX * running, 0, pose.headingZ * running)
+	local loop = CFrame.lookAt(spotted, spotted + ahead)
 	local dog = loop * CFrame.new(L.DogSide, 0, -L.DogAhead)
-	if phase ~= "walk" then
+	if not onLoop then
 		local spot = dog.Position
 		local toward = flat(feet.X - spot.X, feet.Z - spot.Z)
 		dog = CFrame.lookAt(spot, spot + toward) * CFrame.new(0, math.abs(math.sin(now * 12)) * 0.6, 0)
@@ -540,6 +554,8 @@ local function draw(figure: Figure, i: number, now: number)
 			figure.grunt:Play()
 		elseif phase == "down" and (heard == "dive" or heard == "flop") then
 			figure.thud:Play()
+		elseif phase == "flee" then
+			figure.scream:Play()
 		end
 	end
 	figure.heard, figure.heardSince = phase, s.since
@@ -550,7 +566,7 @@ local function draw(figure: Figure, i: number, now: number)
 		figure.yapAt = now + L.YapEvery
 	end
 
-	local talking = phase == "up" or phase == "fist"
+	local talking = phase == "up" or phase == "fist" or phase == "flee"
 	if talking and not figure.bubble.Enabled then
 		figure.text.Text = line(s, style)
 	end
@@ -571,7 +587,7 @@ RunService.RenderStepped:Connect(function()
 	for i, walker in walkers do
 		local s = states[i]
 		local x, z
-		if s.mode == "walk" then
+		if Pedestrian.onLoop(s) then
 			local pose = Pedestrians.at(walker, routes[walker.route], Pedestrian.clock(s, now, D))
 			x, z = pose.x, pose.z
 		else
