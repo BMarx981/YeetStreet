@@ -6,7 +6,8 @@
 -- that ramp (Corkscrew), ridden on the inside, upside down at the top of each
 -- loop. The track's edges are open, so a car that drifts off falls. A runway
 -- leads into the track from the floor. Boosters run all the way up both.
--- The gravitron stands in the open beside them (CorkscrewGravitron).
+-- The gravitron and the globe stand in the open beside them
+-- (CorkscrewGravitron, CorkscrewGlobe).
 -- Numbers are in Tuning.Corkscrew.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +17,7 @@ local Corkscrew = require(ReplicatedStorage.Corkscrew)
 local CurveProfile = require(ReplicatedStorage.CurveProfile)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CorkscrewGlobe = require(ServerScriptService.Parks.CorkscrewGlobe)
 local CorkscrewGravitron = require(ServerScriptService.Parks.CorkscrewGravitron)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
@@ -287,6 +289,7 @@ function CorkscrewPark.build(folder: Folder, area: MapLayout.Area)
 	buildRamp(folder, area, axis, length)
 	buildTrack(folder, axis, length)
 	CorkscrewGravitron.build(folder, area)
+	CorkscrewGlobe.build(folder, area)
 end
 
 return CorkscrewPark

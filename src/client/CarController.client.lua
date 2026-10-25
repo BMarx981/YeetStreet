@@ -38,6 +38,7 @@ local UserInputService = game:GetService("UserInputService")
 local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local GapZones = require(ReplicatedStorage.GapZones)
+local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
@@ -359,7 +360,7 @@ local function tubePull(position: Vector3): Vector3?
 			return volcanoBase:VectorToWorldSpace(Vector3.new(px, py, pz))
 		end
 	end
-	return GravitronRide.pull(position)
+	return GravitronRide.pull(position) or GlobeRide.pull(position)
 end
 
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with

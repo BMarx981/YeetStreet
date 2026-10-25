@@ -906,6 +906,49 @@ Tuning.Corkscrew = {
 			BoostSpeed = 220,
 		},
 	},
+	-- The globe (Parks.CorkscrewGlobe, Globe, GlobeRide): a huge closed ball
+	-- on the ground, its bottom over X, Z, driven round inside with ordinary
+	-- gravity, so a loop over the top takes jets: about sqrt(gravity times
+	-- Radius), 180 studs per second, at the top. A tube comes up into it
+	-- through a hatch in its bottom, from a mouth along the way Heading turns
+	-- +X the way CFrame.Angles(0, Heading, 0) does: 90 puts the mouth to +Z,
+	-- facing the park's arrival. Heading must be a multiple of 90.
+	Globe = {
+		X = -400,
+		Z = 850,
+		Heading = 90,
+		Radius = 250, -- to the inside
+		Thickness = 4,
+		Clearance = 1, -- under the bottom, above the ground
+		Slices = 96, -- round; a multiple of 4
+		Bands = 48, -- bottom to top
+		Overlap = 0.3, -- each plank this much wider and taller, so the seams stay closed
+		EquatorBands = 2,
+		MeridianSlices = 2,
+		-- The bottom bands all the way round are the hatch the tube comes up
+		-- through: solid, but for a car coming up the tube, on its own
+		-- driver's client, until HatchHold seconds after it leaves the tube.
+		HatchBands = 3,
+		HatchHold = 1,
+		Windows = { Count = 8, Slices = 3, Bands = 3, Above = 5 },
+		Margin = 4, -- a car's middle this far past the inside is still in the globe
+		HitGrace = 0.3, -- seconds after leaving the globe that hits still do no damage
+		-- A wall round under the globe, Radius out from under its bottom, up
+		-- to its underside, so nobody drives under it.
+		Base = { Radius = 150, Slices = 72 },
+		Orb = { Size = 40, LightRange = 60, LightBrightness = 5 },
+		-- The tube's layout (Tunnel.globe); the rest of its shape, its
+		-- funnel, and the launch pads near the top of its climb are the
+		-- gravitron's Tubes'. Depth keeps the tube under the ground's slab
+		-- along Run, and Run keeps the dive out past the Base.
+		Tube = {
+			ExitAngle = 50,
+			DiveSlope = 28,
+			Level = 140,
+			Run = 140,
+			Depth = 40,
+		},
+	},
 }
 
 -- The dense city (ServerScriptService.Parks.City). X and Z are studs from the

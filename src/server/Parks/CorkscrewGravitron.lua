@@ -400,50 +400,80 @@ local function worldRect(ground: CFrame, x1: number, x2: number, z1: number, z2:
 	return { x1 = math.min(a.X, b.X), x2 = math.max(a.X, b.X), z1 = math.min(a.Z, b.Z), z2 = math.max(a.Z, b.Z) }
 end
 
+-- The hole in the ground where a strand's approach dives, as wide as the
+-- tube, and new floor between its edges and the tube's outside at the
+-- floor. Nil when the approach never goes under.
+local function buildDiveHole(parent: Instance, ground: CFrame, strand: Tunnel.GravitronStrand): Railway.Rect?
+	local outside = Tube.outsideOf(OPTIONS, OPTIONS.Radius)
+	local W = outside + 1
+	local stations = diveThrough(strand, outside)
+	if #stations < 2 then
+		return nil
+	end
+	local z = strand.mouth.z
+	table.sort(stations, function(a: Vector2, b: Vector2): boolean
+		return a.X < b.X
+	end)
+	local function at(x: number, across: number): Vector3
+		return ground:PointToWorldSpace(Vector3.new(x, 0, z + across))
+	end
+	for i = 1, #stations - 1 do
+		local a, b = stations[i], stations[i + 1]
+		for _, sign in { 1, -1 } do
+			triangle(
+				parent,
+				at(a.X, sign * a.Y),
+				at(a.X, sign * W),
+				at(b.X, sign * W),
+				Vector3.yAxis,
+				GROUND_THICKNESS,
+				GROUND_COLOR
+			)
+			triangle(
+				parent,
+				at(a.X, sign * a.Y),
+				at(b.X, sign * W),
+				at(b.X, sign * b.Y),
+				Vector3.yAxis,
+				GROUND_THICKNESS,
+				GROUND_COLOR
+			)
+		end
+	end
+	return worldRect(ground, stations[1].X, stations[#stations].X, z - W, z + W)
+end
+
+-- The park's floor parts in `folder` and TestPark's ground slab tiles under
+-- them, for cutting holes in.
+local function groundParts(folder: Folder): { BasePart }
+	local parts: { BasePart } = {}
+	for _, child in folder:GetChildren() do
+		if child:IsA("BasePart") and child.Name == "Floor" then
+			table.insert(parts, child)
+		end
+	end
+	local testPark = workspace:FindFirstChild("TestPark")
+	local slab = testPark and testPark:FindFirstChild("Ground")
+	if slab then
+		for _, tile in slab:GetChildren() do
+			if tile:IsA("BasePart") then
+				table.insert(parts, tile)
+			end
+		end
+	end
+	return parts
+end
+
 -- Holes in the ground for the tubes, and the floor closed back round them
--- where they dive: each dive's hole is as wide as the tube, and between its
--- edges and the tube's outside at the floor lies new floor. Where the
--- twists come up through the ground, inside the skirt, the hole is left
--- open.
+-- where they dive (buildDiveHole). Where the twists come up through the
+-- ground, inside the skirt, the hole is left open.
 local function buildGroundHoles(parent: Instance, folder: Folder, ground: CFrame)
 	local outside = Tube.outsideOf(OPTIONS, OPTIONS.Radius)
 	local holes: { Railway.Rect } = {}
-	local W = outside + 1
 	for _, strand in GravitronRide.strands do
-		local stations = diveThrough(strand, outside)
-		if #stations < 2 then
-			continue
-		end
-		local z = strand.mouth.z
-		table.sort(stations, function(a: Vector2, b: Vector2): boolean
-			return a.X < b.X
-		end)
-		table.insert(holes, worldRect(ground, stations[1].X, stations[#stations].X, z - W, z + W))
-		local function at(x: number, across: number): Vector3
-			return ground:PointToWorldSpace(Vector3.new(x, 0, z + across))
-		end
-		for i = 1, #stations - 1 do
-			local a, b = stations[i], stations[i + 1]
-			for _, sign in { 1, -1 } do
-				triangle(
-					parent,
-					at(a.X, sign * a.Y),
-					at(a.X, sign * W),
-					at(b.X, sign * W),
-					Vector3.yAxis,
-					GROUND_THICKNESS,
-					GROUND_COLOR
-				)
-				triangle(
-					parent,
-					at(a.X, sign * a.Y),
-					at(b.X, sign * W),
-					at(b.X, sign * b.Y),
-					Vector3.yAxis,
-					GROUND_THICKNESS,
-					GROUND_COLOR
-				)
-			end
+		local hole = buildDiveHole(parent, ground, strand)
+		if hole then
+			table.insert(holes, hole)
 		end
 	end
 
@@ -489,22 +519,7 @@ local function buildGroundHoles(parent: Instance, folder: Folder, ground: CFrame
 		z += ROW
 	end
 
-	local parts: { BasePart } = {}
-	for _, child in folder:GetChildren() do
-		if child:IsA("BasePart") and child.Name == "Floor" then
-			table.insert(parts, child)
-		end
-	end
-	local testPark = workspace:FindFirstChild("TestPark")
-	local slab = testPark and testPark:FindFirstChild("Ground")
-	if slab then
-		for _, tile in slab:GetChildren() do
-			if tile:IsA("BasePart") then
-				table.insert(parts, tile)
-			end
-		end
-	end
-	cutGround(parts, holes)
+	cutGround(groundParts(folder), holes)
 end
 
 function CorkscrewGravitron.build(folder: Folder, _area: MapLayout.Area)
@@ -546,5 +561,16 @@ function CorkscrewGravitron.build(folder: Folder, _area: MapLayout.Area)
 	buildFloor(model, bowl, outlines)
 	buildGroundHoles(model, folder, ground)
 end
+
+-- Shared with the globe's tube (Parks.CorkscrewGlobe), which is built like
+-- a strand's.
+CorkscrewGravitron.OPTIONS = OPTIONS
+CorkscrewGravitron.GROUND_BOTTOM = GROUND_BOTTOM
+CorkscrewGravitron.buildBoost = buildBoost
+CorkscrewGravitron.buildFunnel = buildFunnel
+CorkscrewGravitron.buildDiveHole = buildDiveHole
+CorkscrewGravitron.groundParts = groundParts
+CorkscrewGravitron.cutGround = cutGround
+CorkscrewGravitron.worldRect = worldRect
 
 return CorkscrewGravitron

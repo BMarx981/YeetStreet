@@ -74,6 +74,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
+local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
@@ -443,6 +444,20 @@ local function gravitron(watch: Watch, reading: CarSensor.Reading)
 	end
 end
 
+-- A car in the globe takes no hits, nor for HitGrace after: its wall
+-- pushing the car round the curve reads as a steady stream of them. Resets
+-- and wrecks there come back to the globe's funnel.
+local function globe(watch: Watch)
+	if not GlobeRide.inside(watch.sensor.hull.Position) then
+		return
+	end
+	watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + Tuning.Corkscrew.Globe.HitGrace)
+	local respawn = GlobeRide.respawn()
+	if respawn then
+		lastLaunch[watch.player] = respawn
+	end
+end
+
 -- A hit with a train's nose where it pushes the car lately is the train
 -- pushing it (CarController), so no hit is measured for a moment.
 local function trainPush(watch: Watch, reading: CarSensor.Reading)
@@ -735,6 +750,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 				smack(watch, reading)
 				trainPush(watch, reading)
 				gravitron(watch, reading)
+				globe(watch)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end
