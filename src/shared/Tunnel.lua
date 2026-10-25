@@ -683,6 +683,57 @@ function Tunnel.globe(tube: GlobeTube, cut: number, tunnels: Tunnels): Gravitron
 	}
 end
 
+-- The Corkscrew park's face's tubes (Tuning.Corkscrew.Globe), in its ground
+-- space: on the floor under the middle of the face, which stands across Z,
+-- the eyes Span out either side. From a mouth on the ground a stem runs
+-- along +X to TurnRadius short of the face, and forks: each branch turns a
+-- quarter on the ground, left to -Z or right to +Z, then climbs out under
+-- its eye, steepest at ExitAngle halfway, right under it, where its middle
+-- line passes `cut`, the height the face's eyes' bottoms are built at. Seen
+-- from the mouth the branches make a smile.
+export type FaceTubes = {
+	Span: number,
+	TurnRadius: number,
+	ExitAngle: number,
+	Stem: number,
+}
+
+export type Face = {
+	stem: { Piece },
+	left: { Piece },
+	right: { Piece },
+	mouth: Crossing, -- where the stem starts
+	heading: number, -- along X, in from the mouth
+	cut: number,
+}
+
+function Tunnel.face(tubes: FaceTubes, tunnels: Tunnels): Face
+	local ground = Tunnel.groundHeight(tunnels)
+	local r = tubes.TurnRadius
+	local forkX = -r
+	local mouthX = forkX - tubes.Stem
+	local stem = Tunnel.path(mouthX, 0, 1, 0, { { Straight = tubes.Stem } }, ground)
+	-- Eased climbs are steepest halfway, 1.5 times their average slope.
+	local climbLength = 2 * (tubes.Span - r)
+	local climbRise = climbLength * math.tan(math.rad(tubes.ExitAngle)) / 1.5
+	local function branch(turn: number): { Piece }
+		return (
+			Tunnel.path(forkX, 0, 1, 0, {
+				{ Turn = turn, Radius = r },
+				{ Straight = climbLength, Rise = climbRise },
+			}, ground)
+		)
+	end
+	return {
+		stem = stem,
+		left = branch(90),
+		right = branch(-90),
+		mouth = { x = mouthX, z = 0 },
+		heading = 1,
+		cut = ground + climbRise / 2,
+	}
+end
+
 -- How thick a tube's planks are (Pieces.Tube).
 Tunnel.THICKNESS = 2
 
@@ -747,6 +798,57 @@ function Tunnel.above(piece: Piece, outside: number, y: number): Rect?
 	return { x1 = x1, x2 = x2, z1 = z1, z2 = z2 }
 end
 
+-- From the nearest point on `piece`'s middle line to (x, y, z), each place
+-- the point is alongside it: once on a straight, and once each time round a
+-- turn that loops. None past either end.
+local function offsets(piece: Piece, x: number, y: number, z: number): { { number } }
+	-- How far along the piece the point is alongside it, seen from above.
+	local alongside: { number } = {}
+	if piece.kind == "straight" then
+		local dx, dz = piece.toX - piece.fromX, piece.toZ - piece.fromZ
+		local length2 = dx * dx + dz * dz
+		local along = ((x - piece.fromX) * dx + (z - piece.fromZ) * dz) / length2
+		if along >= 0 and along <= 1 then
+			table.insert(alongside, along)
+		end
+	else
+		local ux, uz = piece.startX - piece.centerX, piece.startZ - piece.centerZ
+		local wx, wz = x - piece.centerX, z - piece.centerZ
+		-- Radians around from the start, the way a left turn goes.
+		local around = math.atan2(wx * uz - wz * ux, wx * ux + wz * uz)
+		if around < 0 then
+			around += 2 * math.pi
+		end
+		if (wx * wx + wz * wz) > 1e-9 then
+			while around <= piece.sweep do
+				table.insert(alongside, if piece.left then around / piece.sweep else 1 - around / piece.sweep)
+				around += 2 * math.pi
+			end
+		end
+	end
+	local found: { { number } } = {}
+	for _, seen in alongside do
+		-- Seen from above is not square to a line that climbs steeply, so
+		-- slide along to the nearest point on it.
+		local t = seen
+		for _ = 1, 4 do
+			local t0, t1 = math.max(t - 1e-3, 0), math.min(t + 1e-3, 1)
+			local x0, y0, z0 = Tunnel.pointAt(piece, t0)
+			local x1, y1, z1 = Tunnel.pointAt(piece, t1)
+			local dx, dy, dz = (x1 - x0) / (t1 - t0), (y1 - y0) / (t1 - t0), (z1 - z0) / (t1 - t0)
+			local px, py, pz = Tunnel.pointAt(piece, t)
+			local d2 = dx * dx + dy * dy + dz * dz
+			if d2 < 1e-12 then
+				break
+			end
+			t = math.clamp(t + ((x - px) * dx + (y - py) * dy + (z - pz) * dz) / d2, 0, 1)
+		end
+		local ax, ay, az = Tunnel.pointAt(piece, t)
+		table.insert(found, { x - ax, y - ay, z - az })
+	end
+	return found
+end
+
 -- The way a tube of `radius` around the middle line `pieces` pulls a car at
 -- (x, y, z): straight out from the nearest point on the middle line through
 -- the car, toward the nearest wall, as a unit vector. Nil outside the tube,
@@ -754,49 +856,8 @@ end
 -- down.
 function Tunnel.pull(pieces: { Piece }, radius: number, x: number, y: number, z: number): (number?, number?, number?)
 	for _, piece in pieces do
-		-- How far along the piece the car is alongside it: once on a
-		-- straight, and once each time round a turn that loops.
-		local alongside: { number } = {}
-		if piece.kind == "straight" then
-			local dx, dz = piece.toX - piece.fromX, piece.toZ - piece.fromZ
-			local length2 = dx * dx + dz * dz
-			local along = ((x - piece.fromX) * dx + (z - piece.fromZ) * dz) / length2
-			if along >= 0 and along <= 1 then
-				table.insert(alongside, along)
-			end
-		else
-			local ux, uz = piece.startX - piece.centerX, piece.startZ - piece.centerZ
-			local wx, wz = x - piece.centerX, z - piece.centerZ
-			-- Radians around from the start, the way a left turn goes.
-			local around = math.atan2(wx * uz - wz * ux, wx * ux + wz * uz)
-			if around < 0 then
-				around += 2 * math.pi
-			end
-			if (wx * wx + wz * wz) > 1e-9 then
-				while around <= piece.sweep do
-					table.insert(alongside, if piece.left then around / piece.sweep else 1 - around / piece.sweep)
-					around += 2 * math.pi
-				end
-			end
-		end
-		for _, seen in alongside do
-			-- Seen from above is not square to a line that climbs steeply, so
-			-- slide along to the nearest point on it.
-			local t = seen
-			for _ = 1, 4 do
-				local t0, t1 = math.max(t - 1e-3, 0), math.min(t + 1e-3, 1)
-				local x0, y0, z0 = Tunnel.pointAt(piece, t0)
-				local x1, y1, z1 = Tunnel.pointAt(piece, t1)
-				local dx, dy, dz = (x1 - x0) / (t1 - t0), (y1 - y0) / (t1 - t0), (z1 - z0) / (t1 - t0)
-				local px, py, pz = Tunnel.pointAt(piece, t)
-				local d2 = dx * dx + dy * dy + dz * dz
-				if d2 < 1e-12 then
-					break
-				end
-				t = math.clamp(t + ((x - px) * dx + (y - py) * dy + (z - pz) * dz) / d2, 0, 1)
-			end
-			local ax, ay, az = Tunnel.pointAt(piece, t)
-			local px, py, pz = x - ax, y - ay, z - az
+		for _, offset in offsets(piece, x, y, z) do
+			local px, py, pz = offset[1], offset[2], offset[3]
 			local distance = math.sqrt(px * px + py * py + pz * pz)
 			if distance <= radius then
 				if distance < 1e-9 then
@@ -807,6 +868,21 @@ function Tunnel.pull(pieces: { Piece }, radius: number, x: number, y: number, z:
 		end
 	end
 	return nil, nil, nil
+end
+
+-- How far (x, y, z) is from the nearest point on the middle line `pieces`
+-- that it is alongside, or nil when it is past both ends.
+function Tunnel.distance(pieces: { Piece }, x: number, y: number, z: number): number?
+	local best: number? = nil
+	for _, piece in pieces do
+		for _, offset in offsets(piece, x, y, z) do
+			local distance = math.sqrt(offset[1] ^ 2 + offset[2] ^ 2 + offset[3] ^ 2)
+			if not best or distance < best then
+				best = distance
+			end
+		end
+	end
+	return best
 end
 
 return Tunnel

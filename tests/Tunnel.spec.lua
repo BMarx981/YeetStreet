@@ -857,4 +857,59 @@ Check.test("the globe's tube dives at DiveSlope at its steepest, then runs Run l
 	Check.near(strand.top, -40)
 end)
 
+Check.test("distance is to the nearest point on the middle line, nil past its ends", function()
+	local pieces = Tunnel.path(0, 0, 1, 0, { { Straight = 100 }, { Turn = 90, Radius = 50 } })
+	Check.near(Tunnel.distance(pieces, 40, 3, 4) :: number, 5, "beside the straight")
+	Check.near(Tunnel.distance(pieces, 100, 0, -50) :: number, 50, "at the turn's middle")
+	Check.near(Tunnel.distance(pieces, 135.355, 0, -14.645) :: number, 0, "on the turn", 1e-3)
+	Check.eq(Tunnel.distance(pieces, -10, 0, 0), nil, "before the start")
+end)
+
+local FACE: Tunnel.FaceTubes = {
+	Span = 329,
+	TurnRadius = 120,
+	ExitAngle = 50,
+	Stem = 200,
+}
+
+Check.test("the face's stem runs Stem along X on the ground from its mouth to TurnRadius short of the eyes", function()
+	local face = Tunnel.face(FACE, city({}).Tunnels)
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	Check.eq(#face.stem, 1)
+	local stem = face.stem[1]
+	Check.near(stem.fromX, -320, "mouth")
+	Check.near(stem.toX, -120, "fork")
+	Check.near(stem.fromZ, 0)
+	Check.near(stem.fromY, ground)
+	Check.near(stem.toY, ground)
+	Check.near(face.mouth.x, -320)
+	Check.eq(face.heading, 1)
+end)
+
+Check.test("each branch turns a quarter, then climbs through the cut under its eye", function()
+	local face = Tunnel.face(FACE, city({}).Tunnels)
+	local ground = Tunnel.groundHeight(city({}).Tunnels)
+	for _, branch in { { pieces = face.left, side = -1 }, { pieces = face.right, side = 1 } } do
+		local turn, climb = branch.pieces[1], branch.pieces[2]
+		Check.eq(turn.kind, "arc")
+		Check.eq(turn.left, branch.side < 0, "left goes to -Z")
+		Check.near(turn.fromX, -120)
+		Check.near(turn.fromZ, 0)
+		Check.near(turn.toX, 0, "out under the eyes")
+		Check.near(turn.toZ, branch.side * 120)
+		Check.near(turn.toY, ground, "level round the turn")
+		local t = exitThrough(climb, face.cut)
+		local x, _, z = Tunnel.pointAt(climb, t)
+		Check.near(x, 0, "under the eye", 1e-6)
+		Check.near(z, branch.side * 329, "Span out", 1e-6)
+		Check.near(t, 0.5, "halfway, where it is steepest", 1e-6)
+		local _, y0, z0 = Tunnel.pointAt(climb, t - 1e-4)
+		local _, y1, z1 = Tunnel.pointAt(climb, t + 1e-4)
+		Check.near(math.deg(math.atan((y1 - y0) / math.abs(z1 - z0))), 50, "ExitAngle", 0.01)
+	end
+	-- Eased halfway up: half its rise over half its length, at 1.5 times the
+	-- average slope.
+	Check.near(face.cut, ground + (329 - 120) * math.tan(math.rad(50)) / 1.5, "the cut")
+end)
+
 Check.finish("Tunnel")

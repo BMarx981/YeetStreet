@@ -49,6 +49,9 @@ export type Ends = {
 	finishMouth: boolean?, -- and the last piece's end
 	roll: number?, -- radians round the middle line, the way from `up` to `side`
 	cutAbove: number?, -- nothing over this height in base's space
+	-- How far into something else a point is, as where two tubes fork, so
+	-- planks are cut back to where it is 0 and left out past it.
+	trim: ((Vector3) -> number)?,
 }
 
 -- Where the planks were cut off, for building a floor round the hole.
@@ -78,33 +81,29 @@ local function block(parent: Instance, name: string, size: Vector3, cframe: CFra
 	return part
 end
 
--- The plank whose inside face is the rectangle `corners`, facing `out`'s
--- opposite, cut off where `cut` says: as triangles from what is left under
--- the cut. The cut's ends on the outside go in cut.points.
-local function cutPlank(parent: Instance, corners: { Vector3 }, out: Vector3, cut: Cut)
-	local function height(p: Vector3): number
-		return cut.base:PointToObjectSpace(p).Y
-	end
-	-- A plank facing up is cut lower, so its outside stays under the cut.
-	local rise = cut.base:VectorToObjectSpace(out).Y
-	local level = cut.above - THICKNESS * math.max(rise, 0)
+-- What is left of the polygon `corners` where `over` is at most 0, `over`
+-- taken as running straight between corners, and where its edges cross 0.
+local function clip(corners: { Vector3 }, over: (Vector3) -> number): ({ Vector3 }, { Vector3 })
 	local kept: { Vector3 } = {}
 	local ends: { Vector3 } = {}
 	for i, a in corners do
 		local b = corners[i % #corners + 1]
-		local ha, hb = height(a), height(b)
-		if ha <= level then
+		local oa, ob = over(a), over(b)
+		if oa <= 0 then
 			table.insert(kept, a)
 		end
-		if (ha <= level) ~= (hb <= level) then
-			local p = a:Lerp(b, (level - ha) / (hb - ha))
+		if (oa <= 0) ~= (ob <= 0) then
+			local p = a:Lerp(b, oa / (oa - ob))
 			table.insert(kept, p)
 			table.insert(ends, p)
 		end
 	end
-	if #kept < 3 then
-		return
-	end
+	return kept, ends
+end
+
+-- The polygon `kept`, the inside face of a plank facing `out`'s opposite,
+-- as triangles.
+local function fan(parent: Instance, kept: { Vector3 }, out: Vector3)
 	for i = 2, #kept - 1 do
 		if (kept[i] - kept[1]):Cross(kept[i + 1] - kept[1]).Magnitude > 0.01 then
 			for _, wedge in Triangle.make(parent, kept[1], kept[i], kept[i + 1], -out, THICKNESS, TUBE_COLOR) do
@@ -112,6 +111,22 @@ local function cutPlank(parent: Instance, corners: { Vector3 }, out: Vector3, cu
 			end
 		end
 	end
+end
+
+-- The plank whose inside face is the rectangle `corners`, facing `out`'s
+-- opposite, cut off where `cut` says: as triangles from what is left under
+-- the cut. The cut's ends on the outside go in cut.points.
+local function cutPlank(parent: Instance, corners: { Vector3 }, out: Vector3, cut: Cut)
+	-- A plank facing up is cut lower, so its outside stays under the cut.
+	local rise = cut.base:VectorToObjectSpace(out).Y
+	local level = cut.above - THICKNESS * math.max(rise, 0)
+	local kept, ends = clip(corners, function(p: Vector3): number
+		return cut.base:PointToObjectSpace(p).Y - level
+	end)
+	if #kept < 3 then
+		return
+	end
+	fan(parent, kept, out)
 	for _, p in ends do
 		table.insert(cut.points, if rise > 0 then p + out * THICKNESS else p)
 	end
@@ -121,7 +136,8 @@ end
 -- section square to the line: `side` level across it and `up` square to
 -- both. The curves are `radius` around, pulled `flat` apart either side into
 -- a flat floor and roof. Each plank is `lengthAt` long, given where its
--- middle is from the middle line. With a `cut`, planks are cut off at it.
+-- middle is from the middle line. With a `cut`, planks are cut off at it;
+-- with a `trim`, cut back to where it is 0 (Ends.trim).
 local function ring(
 	parent: Instance,
 	options: Options,
@@ -131,7 +147,8 @@ local function ring(
 	flat: number,
 	radius: number,
 	lengthAt: (Vector3) -> number,
-	cut: Cut?
+	cut: Cut?,
+	trim: ((Vector3) -> number)?
 )
 	local halfStep = math.pi / options.Sides
 	local face = radius * math.cos(halfStep)
@@ -147,18 +164,37 @@ local function ring(
 		local shift = if level then 0 else flat * math.sign(s)
 		local length = lengthAt(side * shift + out * face)
 		local cframe = CFrame.fromMatrix(middle + side * shift + out * (face + THICKNESS / 2), around, -out)
-		if cut then
+		if cut or trim then
 			local inside = cframe.Position - out * (THICKNESS / 2)
 			local a, z = around * (width / 2), cframe.ZVector * (length / 2)
 			local corners = { inside + a + z, inside - a + z, inside - a - z, inside + a - z }
-			local highest = -math.huge
-			for _, p in corners do
-				local inner = cut.base:PointToObjectSpace(p).Y
-				highest = math.max(highest, inner, cut.base:PointToObjectSpace(p + out * THICKNESS).Y)
+			if cut then
+				local highest = -math.huge
+				for _, p in corners do
+					local inner = cut.base:PointToObjectSpace(p).Y
+					highest = math.max(highest, inner, cut.base:PointToObjectSpace(p + out * THICKNESS).Y)
+				end
+				if highest > cut.above then
+					cutPlank(parent, corners, out, cut)
+					continue
+				end
 			end
-			if highest > cut.above then
-				cutPlank(parent, corners, out, cut)
-				continue
+			if trim then
+				local over = 0
+				for _, p in corners do
+					if trim(p) > 0 then
+						over += 1
+					end
+				end
+				if over == #corners then
+					continue
+				elseif over > 0 then
+					local kept = clip(corners, trim)
+					if #kept >= 3 then
+						fan(parent, kept, out)
+					end
+					continue
+				end
 			end
 		end
 		block(parent, "Plank", Vector3.new(width, THICKNESS, length), cframe, TUBE_COLOR)
@@ -285,6 +321,7 @@ function Tube.build(
 	local finishMouth = not ends or ends.finishMouth ~= false
 	local roll = ends and ends.roll or 0
 	local cutAbove = ends and ends.cutAbove
+	local trim = ends and ends.trim
 	local cut: Cut? = if cutAbove then { base = base, above = cutAbove, points = {} } else nil
 	local halfStep = math.pi / T.Sides
 	local face = T.Radius * math.cos(halfStep) -- from the middle line to each plank's inside face
@@ -403,7 +440,7 @@ function Tube.build(
 					return stretch
 				end
 			end
-			ring(model, T, middle, side, up, 0, T.Radius, lengthAt, cut)
+			ring(model, T, middle, side, up, 0, T.Radius, lengthAt, cut, trim)
 		end
 		if index == 1 and startMouth then
 			flare(pointAt(piece, 0) - Vector3.new(0, ground, 0), tangentAt(piece, 0))
