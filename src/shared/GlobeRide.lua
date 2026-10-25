@@ -1,11 +1,12 @@
 --!strict
 -- GlobeRide (ModuleScript) -> ReplicatedStorage.GlobeRide
--- The Corkscrew park's globe (Globe, Tuning.Corkscrew.Globe) put in the
--- world: where its shell and tube are.
+-- The Corkscrew park's face (Globe, Tunnel.face, Tuning.Corkscrew.Globe) put
+-- in the world: where its two eyes are, and the tube forking up into them
+-- in a smile.
 --
 -- Parks.CorkscrewGlobe builds it, CarController asks how its tube pulls a
--- car, GlobeHatch opens its hatch for a car coming up the tube, and
--- ScoreService asks whether a car is in it.
+-- car, GlobeHatch opens the eyes' hatches for a car coming up the tube, and
+-- ScoreService asks whether a car is in an eye.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -21,36 +22,67 @@ local GlobeRide = {}
 
 GlobeRide.shape = G :: Globe.Shape
 
--- The CollectionService tag on the hatch's planks.
+-- The CollectionService tag on the hatches' planks.
 GlobeRide.HATCH_TAG = "GlobeHatch"
 
--- The globe's ground space: on the floor under its bottom, the tube coming
--- in along +X. Nil when the park is missing.
+-- The face's ground space: on the floor under its middle, the mouth out
+-- along -X and the eyes Span either side along Z. Nil when the park is
+-- missing.
 GlobeRide.ground = if area
 	then CFrame.new(area.X + G.X, Tuning.Map.FloorTop, area.Z + G.Z) * CFrame.Angles(0, math.rad(G.Heading), 0)
 	else nil
--- At the globe's middle, turned like the ground space.
-GlobeRide.center = if GlobeRide.ground
-	then GlobeRide.ground * CFrame.new(0, G.Clearance + G.Thickness + G.Radius, 0)
-	else nil
 
-GlobeRide.strand = Tunnel.globe(G.Tube :: any, G.Clearance, Tuning.City.Tunnels :: any)
+GlobeRide.face = Tunnel.face({
+	Span = G.Radius + G.Thickness + G.EyeGap / 2,
+	TurnRadius = G.Smile.TurnRadius,
+	ExitAngle = G.Smile.ExitAngle,
+	Stem = G.Smile.Stem,
+}, Tuning.City.Tunnels :: any)
 
--- Whether `position` is in the globe.
-function GlobeRide.inside(position: Vector3): boolean
-	local center = GlobeRide.center
-	if not center then
-		return false
+-- At each eye's middle, turned like the ground space, so each eye's -X, its
+-- front, faces the mouth: the left branch's, then the right's.
+GlobeRide.eyes = {} :: { CFrame }
+-- Each branch as a gravitron strand from the mouth, its climb as the twist,
+-- so the gravitron's funnel and launch pads fit it.
+GlobeRide.strands = {} :: { Tunnel.GravitronStrand }
+do
+	local face = GlobeRide.face
+	local span = G.Radius + G.Thickness + G.EyeGap / 2
+	for _, branch in { { side = -1, pieces = face.left }, { side = 1, pieces = face.right } } do
+		if GlobeRide.ground then
+			table.insert(
+				GlobeRide.eyes,
+				GlobeRide.ground * CFrame.new(0, face.cut + G.Thickness + G.Radius, branch.side * span)
+			)
+		end
+		table.insert(GlobeRide.strands, {
+			side = branch.side,
+			approach = face.stem,
+			twist = branch.pieces,
+			mouth = face.mouth,
+			heading = face.heading,
+			roll = 0,
+			top = face.cut,
+		})
 	end
-	local p = center:PointToObjectSpace(position)
-	return Globe.inside(GlobeRide.shape, p.X, p.Y, p.Z, G.Margin)
+end
+
+-- Whether `position` is in either eye.
+function GlobeRide.inside(position: Vector3): boolean
+	for _, eye in GlobeRide.eyes do
+		local p = eye:PointToObjectSpace(position)
+		if Globe.inside(GlobeRide.shape, p.X, p.Y, p.Z, G.Margin) then
+			return true
+		end
+	end
+	return false
 end
 
 -- The funnel's open end, and the way in from there.
 local function funnelEntry(ground: CFrame): (Vector3, Vector3)
-	local strand = GlobeRide.strand
-	local inward = ground:VectorToWorldSpace(Vector3.new(strand.heading, 0, 0))
-	local mouth = ground:PointToWorldSpace(Vector3.new(strand.mouth.x, Tuning.TestPark.SpawnHeight, strand.mouth.z))
+	local face = GlobeRide.face
+	local inward = ground:VectorToWorldSpace(Vector3.new(face.heading, 0, 0))
+	local mouth = ground:PointToWorldSpace(Vector3.new(face.mouth.x, Tuning.TestPark.SpawnHeight, face.mouth.z))
 	return mouth - inward * Tuning.Corkscrew.Gravitron.Tubes.FunnelLength, inward
 end
 
@@ -65,8 +97,8 @@ function GlobeRide.respawn(): CFrame?
 	return CFrame.lookAt(entry, entry + inward)
 end
 
--- Where a reset in the globe, or leaving through the hatch, puts a car: at
--- the funnel's open end, facing out.
+-- Where a reset in an eye, or leaving through its hatch, puts a car: at the
+-- funnel's open end, facing out.
 function GlobeRide.exit(): CFrame?
 	local ground = GlobeRide.ground
 	if not ground then
@@ -76,20 +108,23 @@ function GlobeRide.exit(): CFrame?
 	return CFrame.lookAt(entry, entry - inward)
 end
 
--- Whether a car at `position` is over the hatch's middle, where dropping
--- through it lands in the tube (Globe.overHatch).
+-- Whether a car at `position` is over the middle of either eye's hatch,
+-- where dropping through it lands in the tube (Globe.overHatch).
 function GlobeRide.overHatch(position: Vector3): boolean
-	local center = GlobeRide.center
-	if not center then
-		return false
+	for _, eye in GlobeRide.eyes do
+		local p = eye:PointToObjectSpace(position)
+		if Globe.overHatch(GlobeRide.shape, p.X, p.Y, p.Z, G.Exit.Reach, G.Exit.Height) then
+			return true
+		end
 	end
-	local p = center:PointToObjectSpace(position)
-	return Globe.overHatch(GlobeRide.shape, p.X, p.Y, p.Z, G.Exit.Reach, G.Exit.Height)
+	return false
 end
 
 -- Which way the tube pulls a car at `position` (Tunnel.pull), or nil outside
--- it. Over the cut under the globe it has been cut off, so it pulls nothing
--- there.
+-- it: toward the nearest wall of whichever of the stem and branches has its
+-- middle line nearest, so through the fork it is the one the car is
+-- heading into. Above the cut under the eyes the branches have been cut
+-- off, so they pull nothing there.
 function GlobeRide.pull(position: Vector3): Vector3?
 	local ground = GlobeRide.ground
 	if not ground then
@@ -97,15 +132,50 @@ function GlobeRide.pull(position: Vector3): Vector3?
 	end
 	local radius = Tuning.City.Tunnels.Radius
 	local p = ground:PointToObjectSpace(position)
-	local strand = GlobeRide.strand
-	local px, py, pz = Tunnel.pull(strand.approach, radius, p.X, p.Y, p.Z)
-	if not (px and py and pz) and p.Y < G.Clearance then
-		px, py, pz = Tunnel.pull(strand.twist, radius, p.X, p.Y, p.Z)
+	local face = GlobeRide.face
+	local lines = { face.stem }
+	if p.Y < face.cut then
+		table.insert(lines, face.left)
+		table.insert(lines, face.right)
 	end
+	local nearest: { Tunnel.Piece }? = nil
+	local best = radius
+	for _, pieces in lines do
+		local distance = Tunnel.distance(pieces, p.X, p.Y, p.Z)
+		if distance and distance <= best then
+			nearest, best = pieces, distance
+		end
+	end
+	if not nearest then
+		return nil
+	end
+	local px, py, pz = Tunnel.pull(nearest, radius, p.X, p.Y, p.Z)
 	if px and py and pz then
 		return ground:VectorToWorldSpace(Vector3.new(px, py, pz))
 	end
 	return nil
+end
+
+-- The sideways push on a car at `position` moving at `velocity` where the
+-- branches still overlap past the fork, as an acceleration toward the
+-- branch it goes (Globe.forkSide): the left one turns to -Z, the right to
+-- +Z. Zero anywhere else.
+function GlobeRide.forkPush(position: Vector3, velocity: Vector3): Vector3
+	local ground = GlobeRide.ground
+	if not ground then
+		return Vector3.zero
+	end
+	local radius = Tuning.City.Tunnels.Radius
+	local p = ground:PointToObjectSpace(position)
+	local face = GlobeRide.face
+	local left = Tunnel.distance(face.left, p.X, p.Y, p.Z)
+	local right = Tunnel.distance(face.right, p.X, p.Y, p.Z)
+	if not (left and right) or left > radius or right > radius then
+		return Vector3.zero
+	end
+	local sideways = ground:VectorToObjectSpace(velocity).Z
+	local side = Globe.forkSide(left, right, sideways, G.Smile.ForkLevel)
+	return ground:VectorToWorldSpace(Vector3.new(0, 0, side * G.Smile.ForkPush))
 end
 
 return GlobeRide

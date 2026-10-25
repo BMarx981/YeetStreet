@@ -423,6 +423,10 @@ local function step(r: Rig, dt: number)
 		r.stick.Force = if pull
 			then (pull * Tuning.City.Tunnels.Pull + Vector3.yAxis) * workspace.Gravity * r.hull.AssemblyMass
 			else Vector3.zero
+		-- Where the face's tube forks, the car is pushed into a branch.
+		if pull then
+			r.stick.Force += GlobeRide.forkPush(cf.Position, velocity) * r.hull.AssemblyMass
+		end
 	end
 
 	-- A train that reaches the car pushes it ahead and a little aside.

@@ -11,6 +11,7 @@ local SHAPE: Globe.Shape = {
 	MeridianSlices = 2,
 	HatchBands = 3,
 	Windows = { Count = 8, Slices = 3, Bands = 3, Above = 5 },
+	Pupil = 0,
 }
 
 Check.test("band 0 starts at the bottom pole and band Bands ends at the top", function()
@@ -80,6 +81,29 @@ Check.test("windows are Count blocks of Slices by Bands, Above bands over the eq
 	Check.eq(Globe.kind(SHAPE, 30, 7), "window")
 	Check.eq(Globe.kind(SHAPE, 30, 8), "plain")
 	Check.eq(Globe.kind(SHAPE, 30, 17), "window", "the next, 12 slices on")
+end)
+
+Check.test("the pupil is the planks within Pupil degrees of -X, over the stripes but not the hatch", function()
+	local shape = table.clone(SHAPE)
+	shape.Pupil = 25
+	-- Bands 23 and 24 meet at the equator; slices 47 and 48 meet at -X.
+	for _, at in { { 23, 47 }, { 24, 48 }, { 26, 50 }, { 21, 45 } } do
+		Check.eq(Globe.kind(shape, at[1], at[2]), "pupil", `band {at[1]} slice {at[2]}`)
+	end
+	-- About 24 degrees up from -X is in; about 28 is out.
+	Check.eq(Globe.kind(shape, 30, 48), "pupil", "band 30")
+	Check.eq(Globe.kind(shape, 31, 48), "plain", "band 31")
+	Check.eq(Globe.kind(shape, 24, 0), "equator", "the back")
+	Check.eq(Globe.kind(shape, 1, 48), "hatch")
+	Check.eq(Globe.kind(SHAPE, 24, 48), "equator", "no pupil at 0")
+end)
+
+Check.test("at the fork a car goes the way of the nearer branch, then the way it drifts, then left", function()
+	Check.eq(Globe.forkSide(10, 12, 5, 1), -1, "nearer the left, even drifting right")
+	Check.eq(Globe.forkSide(12, 10, -5, 1), 1, "nearer the right")
+	Check.eq(Globe.forkSide(11, 11.5, 3, 1), 1, "level within 1, drifting right")
+	Check.eq(Globe.forkSide(11.5, 11, -3, 1), -1, "level within 1, drifting left")
+	Check.eq(Globe.forkSide(11, 11, 0, 1), -1, "dead straight")
 end)
 
 local function dot(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number

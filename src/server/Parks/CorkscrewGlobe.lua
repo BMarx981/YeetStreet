@@ -1,15 +1,17 @@
 --!strict
 -- CorkscrewGlobe (ModuleScript) -> ServerScriptService.Parks.CorkscrewGlobe
--- The Corkscrew park's globe (Globe, GlobeRide, Tuning.Corkscrew.Globe): a
--- huge closed ball of planks on the ground, on a base wall so nobody drives
--- under it, with an orb of light in the middle. Inside, a yellow stripe runs
--- round the equator, a blue one round through both poles, and windows of
--- glass planks sit above the equator. A tube comes in from a wide mouth,
--- dives under the ground, and climbs up under the bottom, where it is cut
--- off under the hatch: the bottom bands of planks, tagged GlobeHatch, which
--- each driver's client lets its own car through on the way up (GlobeHatch).
--- The tube, its funnel, and its launch pads are built like the gravitron's
--- (Parks.CorkscrewGravitron).
+-- The Corkscrew park's face (Globe, GlobeRide, Tuning.Corkscrew.Globe): two
+-- huge closed balls of planks up in the air for eyes, each with an orb of
+-- light in its middle glowing through a round pupil of dark glass on its
+-- front. Inside each, a yellow stripe runs round the equator, a blue one
+-- round through both poles, and windows of glass planks sit above the
+-- equator. A tube comes in from a wide mouth on the ground and forks: each
+-- branch turns out under its eye and climbs to its bottom, the two making a
+-- smile, and is cut off there under the hatch: the bottom bands of planks,
+-- tagged GlobeHatch, which each driver's client lets its own car through on
+-- the way up (GlobeHatch). Through the fork each branch is cut back where
+-- it runs into the other (Tube's trim). The tube, its funnel, and its
+-- launch pads are built like the gravitron's (Parks.CorkscrewGravitron).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,7 +20,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Globe = require(ReplicatedStorage.Globe)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local MapLayout = require(ReplicatedStorage.MapLayout)
-local Railway = require(ReplicatedStorage.Railway)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CorkscrewGravitron = require(ServerScriptService.Parks.CorkscrewGravitron)
@@ -33,10 +34,10 @@ local COLORS: { [Globe.Kind]: Color3 } = {
 	meridian = Color3.fromRGB(40, 120, 255),
 	hatch = Color3.fromRGB(255, 150, 40), -- the gravitron's funnels'
 	window = Color3.fromRGB(170, 220, 255),
+	pupil = Color3.fromRGB(25, 25, 35),
 }
+local GLASS: { [Globe.Kind]: number } = { window = 0.5, pupil = 0.35 } -- transparency
 local ORB_COLOR = Color3.fromRGB(255, 240, 200)
-local BASE_THICKNESS = 2
-local GROUND_THICKNESS = 1 -- ParkBuilder's floor
 
 local CorkscrewGlobe = {}
 
@@ -54,8 +55,8 @@ local function block(parent: Instance, name: string, size: Vector3, cframe: CFra
 	return part
 end
 
--- Every plank of the shell, its inner face on Globe.plank's, the hatch's in
--- their own model.
+-- Every plank of an eye's shell, its inner face on Globe.plank's, the
+-- hatch's in their own model.
 local function buildShell(model: Instance, center: CFrame)
 	local shell = Instance.new("Model")
 	shell.Name = "Shell"
@@ -79,9 +80,9 @@ local function buildShell(model: Instance, center: CFrame)
 				center * CFrame.fromMatrix(face + out * (G.Thickness / 2), right, up, out),
 				COLORS[kind]
 			)
-			if kind == "window" then
+			if GLASS[kind] then
 				part.Material = Enum.Material.Glass
-				part.Transparency = 0.5
+				part.Transparency = GLASS[kind]
 			elseif kind == "hatch" then
 				CollectionService:AddTag(part, GlobeRide.HATCH_TAG)
 			end
@@ -103,88 +104,63 @@ local function buildOrb(model: Instance, center: CFrame)
 	light.Parent = orb
 end
 
--- A wall round under the globe, from the floor's underside up into its
--- shell's outside, short of its inside.
-local function buildBase(model: Instance, ground: CFrame)
-	local S, n = G.Base.Radius, G.Base.Slices
-	local outside = G.Radius + G.Thickness
-	if S >= outside then
-		warn("CorkscrewGlobe: the base is wider than the globe")
-		return
-	end
-	local top = G.Clearance + outside - math.sqrt(outside * outside - S * S) + 1
-	local bottom = -GROUND_THICKNESS
-	local width = 2 * (S + BASE_THICKNESS) * math.sin(math.pi / n) + 0.4
-	for i = 0, n - 1 do
-		block(
-			model,
-			"Base",
-			Vector3.new(width, top - bottom, BASE_THICKNESS),
-			ground
-				* CFrame.Angles(0, 2 * math.pi * (i + 0.5) / n, 0)
-				* CFrame.new(0, (top + bottom) / 2, -(S + BASE_THICKNESS / 2)),
-			COLORS.plain
-		)
+-- How far into `other`'s planks a point is, past TrimMargin inside them, or
+-- -1 alongside neither end of it: a branch's trim where it runs into the
+-- other branch.
+local function trimBy(ground: CFrame, other: { Tunnel.Piece }): (Vector3) -> number
+	local options = CorkscrewGravitron.OPTIONS
+	local inner = options.Radius * math.cos(math.pi / options.Sides) - G.Smile.TrimMargin
+	return function(p: Vector3): number
+		local q = ground:PointToObjectSpace(p)
+		local distance = Tunnel.distance(other, q.X, q.Y, q.Z)
+		return if distance then inner - distance else -1
 	end
 end
 
--- The tube from its mouth to under the hatch, its funnel, and launch pads
--- near the start of its climb.
-local function buildTube(model: Instance, ground: CFrame)
-	local strand = GlobeRide.strand
+-- The stem from its mouth to the fork, both branches up to the cut under
+-- the eyes, launch pads near the start of each climb, and the funnel.
+local function buildSmile(model: Instance, ground: CFrame)
+	local face = GlobeRide.face
 	local options = CorkscrewGravitron.OPTIONS
 	local tube = Instance.new("Model")
-	tube.Name = "GlobeTube"
+	tube.Name = "Smile"
 	tube.Parent = model
-	Tube.build(tube, ground, strand.approach, T.SliceAngle, options, { finishMouth = false })
-	Tube.build(tube, ground, strand.twist, T.SliceAngle, options, {
-		startMouth = false,
-		finishMouth = false,
-		cutAbove = G.Clearance,
-	})
-	CorkscrewGravitron.buildBoost(tube, ground, strand, GlobeRide.respawn() :: CFrame)
-	CorkscrewGravitron.buildFunnel(tube, ground, strand)
-end
-
--- Holes in the ground where the tube dives, with the floor closed back
--- round it, and where it climbs up through the ground under the globe,
--- inside the base, left open.
-local function buildGroundHoles(model: Instance, folder: Folder, ground: CFrame)
-	local strand = GlobeRide.strand
-	local holes: { Railway.Rect } = {}
-	local dive = CorkscrewGravitron.buildDiveHole(model, ground, strand)
-	if dive then
-		table.insert(holes, dive)
+	Tube.build(tube, ground, face.stem, T.SliceAngle, options, { finishMouth = false })
+	for _, branch in { { face.left, face.right }, { face.right, face.left } } do
+		Tube.build(tube, ground, branch[1], G.Smile.SliceAngle, options, {
+			startMouth = false,
+			finishMouth = false,
+			cutAbove = face.cut,
+			trim = trimBy(ground, branch[2]),
+		})
 	end
-	local outside = Tube.outsideOf(CorkscrewGravitron.OPTIONS, CorkscrewGravitron.OPTIONS.Radius)
-	local climb = Tunnel.above(strand.twist[1], outside, CorkscrewGravitron.GROUND_BOTTOM)
-	if climb then
-		local far = math.sqrt(math.max(climb.x1 ^ 2, climb.x2 ^ 2) + math.max(climb.z1 ^ 2, climb.z2 ^ 2))
-		if far > G.Base.Radius then
-			warn("CorkscrewGlobe: the hole for the climb reaches past the base; raise Depth or ExitAngle")
-		end
-		table.insert(holes, CorkscrewGravitron.worldRect(ground, climb.x1, climb.x2, climb.z1, climb.z2))
+	local respawn = GlobeRide.respawn() :: CFrame
+	for _, strand in GlobeRide.strands do
+		CorkscrewGravitron.buildBoost(tube, ground, strand, respawn)
 	end
-	CorkscrewGravitron.cutGround(CorkscrewGravitron.groundParts(folder), holes)
+	CorkscrewGravitron.buildFunnel(tube, ground, GlobeRide.strands[1])
 end
 
 function CorkscrewGlobe.build(folder: Folder, _area: MapLayout.Area)
-	local ground, center = GlobeRide.ground, GlobeRide.center
-	if not ground or not center then
+	local ground = GlobeRide.ground
+	if not ground then
 		return
 	end
 	if G.Heading % 90 ~= 0 then
-		warn("CorkscrewGlobe: Heading must be a multiple of 90, or the ground holes come out wrong")
+		warn("CorkscrewGlobe: Heading must be a multiple of 90")
 	end
 	local model = Instance.new("Model")
-	model.Name = "Globe"
+	model.Name = "Face"
 	model.Parent = folder
 
-	buildShell(model, center)
-	buildOrb(model, center)
-	buildBase(model, ground)
-	buildTube(model, ground)
-	buildGroundHoles(model, folder, ground)
+	for i, center in GlobeRide.eyes do
+		local eye = Instance.new("Model")
+		eye.Name = if i == 1 then "LeftEye" else "RightEye"
+		eye.Parent = model
+		buildShell(eye, center)
+		buildOrb(eye, center)
+	end
+	buildSmile(model, ground)
 end
 
 return CorkscrewGlobe

@@ -10,8 +10,8 @@
 -- one grid step, and each plank is as wide as its wider edge: the extra
 -- reaches past its neighbors' faces, outside the ball, out of sight. Paint
 -- is which planks are which: the bottom HatchBands are the hatch the tube
--- comes up through, an equator stripe, a meridian stripe through both
--- poles, and windows.
+-- comes up through, a round pupil of glass on the front, an equator stripe,
+-- a meridian stripe through both poles, and windows.
 --
 -- Points are from the ball's middle, Y up; slices go round from +X toward
 -- +Z.
@@ -34,6 +34,8 @@ export type Shape = {
 	MeridianSlices: number, -- even
 	HatchBands: number,
 	Windows: Windows,
+	-- Degrees round -X, the front, that the pupil reaches; 0 for none.
+	Pupil: number,
 }
 
 -- A plank: the middle of its inner face, its axes across (r) and up the
@@ -52,7 +54,7 @@ export type Plank = {
 	height: number,
 }
 
-export type Kind = "hatch" | "equator" | "meridian" | "window" | "plain"
+export type Kind = "hatch" | "pupil" | "equator" | "meridian" | "window" | "plain"
 
 -- The grid point at the bottom of `band` and the start of `slice`, on the
 -- inside.
@@ -66,6 +68,14 @@ end
 function Globe.kind(shape: Shape, band: number, slice: number): Kind
 	if band < shape.HatchBands then
 		return "hatch"
+	end
+	if shape.Pupil > 0 then
+		-- The plank's middle, as a way out from the ball's middle.
+		local lat = -math.pi / 2 + (band + 0.5) / shape.Bands * math.pi
+		local lon = (slice + 0.5) / shape.Slices * 2 * math.pi
+		if -math.cos(lat) * math.cos(lon) > math.cos(math.rad(shape.Pupil)) then
+			return "pupil"
+		end
 	end
 	local half = shape.Bands // 2
 	local equator = shape.EquatorBands // 2
@@ -141,6 +151,17 @@ end
 -- bottom.
 function Globe.overHatch(shape: Shape, x: number, y: number, z: number, reach: number, height: number): boolean
 	return x * x + z * z < reach * reach and y < -shape.Radius + height
+end
+
+-- Which branch of the fork into the eyes a car goes, given how far it is
+-- from the left and right branches' middle lines and its speed sideways
+-- toward the right: -1 left, 1 right. The nearer branch; within `level`
+-- of each other, the way it drifts; dead straight, left.
+function Globe.forkSide(left: number, right: number, sideways: number, level: number): number
+	if math.abs(left - right) > level then
+		return if left < right then -1 else 1
+	end
+	return if sideways > 0 then 1 else -1
 end
 
 -- Whether (x, y, z) from the middle is in the ball, or within `margin` of

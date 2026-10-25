@@ -562,15 +562,10 @@ function CorkscrewGravitron.build(folder: Folder, _area: MapLayout.Area)
 	buildGroundHoles(model, folder, ground)
 end
 
--- Shared with the globe's tube (Parks.CorkscrewGlobe), which is built like
--- a strand's.
+-- Shared with the face's tube (Parks.CorkscrewGlobe), whose branches are
+-- built like strands.
 CorkscrewGravitron.OPTIONS = OPTIONS
-CorkscrewGravitron.GROUND_BOTTOM = GROUND_BOTTOM
 CorkscrewGravitron.buildBoost = buildBoost
 CorkscrewGravitron.buildFunnel = buildFunnel
-CorkscrewGravitron.buildDiveHole = buildDiveHole
-CorkscrewGravitron.groundParts = groundParts
-CorkscrewGravitron.cutGround = cutGround
-CorkscrewGravitron.worldRect = worldRect
 
 return CorkscrewGravitron

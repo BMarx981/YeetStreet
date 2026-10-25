@@ -906,25 +906,30 @@ Tuning.Corkscrew = {
 			BoostSpeed = 220,
 		},
 	},
-	-- The globe (Parks.CorkscrewGlobe, Globe, GlobeRide): a huge closed ball
-	-- on the ground, its bottom over X, Z, driven round inside with ordinary
-	-- gravity, so a loop over the top takes jets: about sqrt(gravity times
-	-- Radius), 180 studs per second, at the top. A tube comes up into it
-	-- through a hatch in its bottom, from a mouth along the way Heading turns
-	-- +X the way CFrame.Angles(0, Heading, 0) does: 90 puts the mouth to +Z,
-	-- facing the park's arrival. Heading must be a multiple of 90.
+	-- The face (Parks.CorkscrewGlobe, Globe, GlobeRide): two huge closed
+	-- balls for eyes, held up over the ground by the tube into them, which
+	-- forks under them into a smile (Tunnel.face). Each eye is driven round
+	-- inside with ordinary gravity, so a loop over the top takes jets: about
+	-- sqrt(gravity times Radius), 180 studs per second, at the top. The face
+	-- stands across the park, its middle over X, Z, with the mouth in front
+	-- along the way Heading turns -X the way CFrame.Angles(0, Heading, 0)
+	-- does: 90 puts the mouth to +Z, facing the park's arrival. Heading must
+	-- be a multiple of 90.
 	Globe = {
 		X = -400,
 		Z = 850,
 		Heading = 90,
 		Radius = 250, -- to the inside
 		Thickness = 4,
-		Clearance = 1, -- under the bottom, above the ground
+		EyeGap = 150, -- between the eyes' outsides
 		Slices = 96, -- round; a multiple of 4
 		Bands = 48, -- bottom to top
 		Overlap = 0.3, -- each plank this much wider and taller, so the seams stay closed
 		EquatorBands = 2,
 		MeridianSlices = 2,
+		-- Degrees round the front of each eye, toward the mouth, that its
+		-- pupil of dark glass reaches, with the orb glowing through it.
+		Pupil = 25,
 		-- The bottom bands all the way round are the hatch the tube comes up
 		-- through: solid, but for a car coming up the tube, on its own
 		-- driver's client, until HatchHold seconds after it leaves the tube.
@@ -937,22 +942,28 @@ Tuning.Corkscrew = {
 		-- second while it waits, on that client only.
 		Exit = { Speed = 3, Wait = 2, Reach = 20, Height = 10, FlashRate = 4 },
 		Windows = { Count = 8, Slices = 3, Bands = 3, Above = 5 },
-		Margin = 4, -- a car's middle this far past the inside is still in the globe
-		HitGrace = 0.3, -- seconds after leaving the globe that hits still do no damage
-		-- A wall round under the globe, Radius out from under its bottom, up
-		-- to its underside, so nobody drives under it.
-		Base = { Radius = 150, Slices = 72 },
-		Orb = { Size = 40, LightRange = 60, LightBrightness = 5 },
-		-- The tube's layout (Tunnel.globe); the rest of its shape, its
-		-- funnel, and the launch pads near the top of its climb are the
-		-- gravitron's Tubes'. Depth keeps the tube under the ground's slab
-		-- along Run, and Run keeps the dive out past the Base.
-		Tube = {
+		Margin = 4, -- a car's middle this far past the inside is still in an eye
+		HitGrace = 0.3, -- seconds after leaving an eye that hits still do no damage
+		Orb = { Size = 60, LightRange = 60, LightBrightness = 5 },
+		-- The smile's layout (Tunnel.face); the eyes' bottoms are where its
+		-- branches are cut off. The rest of the tube's shape, its funnel,
+		-- and the launch pads near the start of each climb are the
+		-- gravitron's Tubes'. Through the fork each branch has a ring every
+		-- SliceAngle degrees of its turn, short so each is cut back closely
+		-- along the seam where it runs into the other, at TrimMargin inside
+		-- the other's planks.
+		-- Where the branches still overlap past the fork, a car is pushed
+		-- sideways ForkPush (studs per second per second) into the branch it
+		-- goes (Globe.forkSide, level within ForkLevel studs), so one driven
+		-- straight does not run into the ridge between them.
+		Smile = {
+			TurnRadius = 120,
 			ExitAngle = 50,
-			DiveSlope = 28,
-			Level = 140,
-			Run = 140,
-			Depth = 40,
+			Stem = 200,
+			SliceAngle = 2,
+			TrimMargin = 0.1,
+			ForkPush = 150,
+			ForkLevel = 1,
 		},
 	},
 }

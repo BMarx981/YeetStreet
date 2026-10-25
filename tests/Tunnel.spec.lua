@@ -788,15 +788,6 @@ Check.test("a Pitch that lets the strands meet warns", function()
 	Check.eq(warning ~= nil, true)
 end)
 
-local GLOBE_TUBE: Tunnel.GlobeTube = {
-	ExitAngle = 50,
-	DiveSlope = 28,
-	Level = 140,
-	Run = 140,
-	Depth = 40,
-}
-local GLOBE_CUT = 1
-
 -- Where the exit's middle line climbs through `y`, by halving.
 local function exitThrough(piece: Tunnel.Piece, y: number): number
 	local low, high = 0, 1
@@ -811,51 +802,6 @@ local function exitThrough(piece: Tunnel.Piece, y: number): number
 	end
 	return (low + high) / 2
 end
-
-Check.test("the globe's tube comes up through the cut under the pole at ExitAngle", function()
-	local strand = Tunnel.globe(GLOBE_TUBE, GLOBE_CUT, city({}).Tunnels)
-	Check.eq(#strand.twist, 1, "one climb")
-	local exit = strand.twist[1]
-	local t = exitThrough(exit, GLOBE_CUT)
-	local x, _, z = Tunnel.pointAt(exit, t)
-	Check.near(x, 0, "under the pole", 1e-6)
-	Check.near(z, 0, "on the X axis")
-	local x0, y0 = Tunnel.pointAt(exit, t - 1e-4)
-	local x1, y1 = Tunnel.pointAt(exit, t + 1e-4)
-	Check.near(math.deg(math.atan((y1 - y0) / (x1 - x0))), 50, "at its steepest", 0.01)
-end)
-
-Check.test("the globe's tube starts at a mouth on the ground and runs on along X, end to end", function()
-	local strand = Tunnel.globe(GLOBE_TUBE, GLOBE_CUT, city({}).Tunnels)
-	Check.eq(strand.heading, 1)
-	Check.eq(strand.roll, 0)
-	local first = strand.approach[1]
-	Check.near(first.fromY, Tunnel.groundHeight(city({}).Tunnels), "on the ground")
-	Check.near(strand.mouth.x, first.fromX)
-	Check.near(strand.mouth.z, 0)
-	Check.near(Tunnel.length(first), 140, "Level on the ground first")
-	local pieces = table.clone(strand.approach)
-	table.insert(pieces, strand.twist[1])
-	for i = 1, #pieces - 1 do
-		local a, b = pieces[i], pieces[i + 1]
-		Check.near(a.toX, b.fromX, `x where {i} meets {i + 1}`)
-		Check.near(a.toY, b.fromY, `y where {i} meets {i + 1}`)
-		Check.near(a.toZ, b.fromZ, `z where {i} meets {i + 1}`)
-	end
-end)
-
-Check.test("the globe's tube dives at DiveSlope at its steepest, then runs Run level at Depth", function()
-	local strand = Tunnel.globe(GLOBE_TUBE, GLOBE_CUT, city({}).Tunnels)
-	Check.eq(#strand.approach, 3, "level, dive, run")
-	local dive, run = strand.approach[2], strand.approach[3]
-	local x0, y0 = Tunnel.pointAt(dive, 0.5 - 1e-4)
-	local x1, y1 = Tunnel.pointAt(dive, 0.5 + 1e-4)
-	Check.near(math.deg(math.atan((y0 - y1) / (x1 - x0))), 28, "halfway down", 0.01)
-	Check.near(run.fromY, -40)
-	Check.near(run.toY, -40)
-	Check.near(Tunnel.length(run), 140)
-	Check.near(strand.top, -40)
-end)
 
 Check.test("distance is to the nearest point on the middle line, nil past its ends", function()
 	local pieces = Tunnel.path(0, 0, 1, 0, { { Straight = 100 }, { Turn = 90, Radius = 50 } })
