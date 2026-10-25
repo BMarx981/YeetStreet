@@ -1368,6 +1368,7 @@ Tuning.City = {
 			FlyFurther = 6,
 			FlyHeight = 8,
 			FlyExtra = 0.35,
+			LieReach = 6, -- lying down, feet to fingertips: how far it checks the ground rises
 			DogSide = 1.8, -- to its right
 			DogAhead = 1,
 			BubbleDistance = 150,

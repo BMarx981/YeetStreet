@@ -452,6 +452,27 @@ local function draw(figure: Figure, i: number, now: number)
 		walking(now * D.ReturnSpeed / L.Stride * 2 * math.pi)
 	end
 
+	-- Lying where the ground rises toward its head (the curve at a
+	-- building's foot), it lies along the ground instead of into it: tipped
+	-- over less, as far as the steepest rise from its feet out to LieReach.
+	if lean ~= 0 then
+		local headward = if lean < 0 then facing else -facing
+		local steepest = 0
+		for k = 1, 3 do
+			local d = L.LieReach * k / 3
+			local at = feet + headward * d
+			local hit = workspace:Raycast(
+				Vector3.new(at.X, feet.Y + L.LieReach * 2.5, at.Z),
+				Vector3.new(0, -L.LieReach * 3, 0),
+				ground
+			)
+			if hit then
+				steepest = math.max(steepest, math.atan2(hit.Position.Y - feet.Y, d))
+			end
+		end
+		lean *= (math.pi / 2 - steepest) / (math.pi / 2)
+	end
+
 	-- Its things change how it holds its arms, while it holds them.
 	local prop = style.prop
 	if holding and (phase == "walk" or phase == "back") then
