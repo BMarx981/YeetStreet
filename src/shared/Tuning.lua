@@ -1366,6 +1366,16 @@ Tuning.City = {
 			DogSide = 1.8, -- to its right
 			DogAhead = 1,
 			BubbleDistance = 150,
+			-- Sounds, all Pro Sound Effects, from each walker: a whoosh as it
+			-- dives, a grunt as it is knocked flat, a thud as it lands from
+			-- either, and its dog yapping while it is busy (a coyote's bark,
+			-- sped up), every YapEvery seconds.
+			Hearing = 150,
+			Whoosh = { Id = "rbxassetid://9120711172", Pitch = 1.2, Volume = 0.6 },
+			Grunt = { Id = "rbxassetid://9120417632", Pitch = 1.1, Volume = 0.8 },
+			Thud = { Id = "rbxassetid://9113480917", Pitch = 1, Volume = 0.8 },
+			Yap = { Id = "rbxassetid://9113955728", Pitch = 1.6, Volume = 0.6 },
+			YapEvery = 0.8,
 			-- Said getting up from a dive, picked by when it dived.
 			Lines = { "WATCH IT!", "I'M WALKING HERE!", "HEY!", "LEARN TO DRIVE!", "ROAD HOG!", "SLOW DOWN!" },
 			-- Said getting up after being knocked flat, about what it carried.

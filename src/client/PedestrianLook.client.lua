@@ -17,7 +17,9 @@
 -- front. Knocked flat, it flies onto its back, arms and legs flailing, and
 -- what it carries flies off and lands (a coffee spills); its dog stays and
 -- hops about. Getting up, and shaking a fist, it says something in a
--- bubble: about what it carried, if it was knocked flat.
+-- bubble: about what it carried, if it was knocked flat. It whooshes as it
+-- dives, grunts as it is knocked flat and thuds as it lands, and its dog
+-- yaps while it is busy.
 -- Numbers are in Tuning.City.Pedestrians.Look.
 
 local Players = game:GetService("Players")
@@ -152,6 +154,13 @@ type Figure = {
 	bubble: BillboardGui,
 	text: TextLabel,
 	lead: BasePart,
+	whoosh: Sound,
+	grunt: Sound,
+	thud: Sound,
+	yap: Sound,
+	heard: Pedestrian.Phase?, -- the phase its sounds last saw, nil until drawn once
+	heardSince: number,
+	yapAt: number,
 }
 
 local function newFigure(index: number): Figure
@@ -231,7 +240,7 @@ local function newFigure(index: number): Figure
 
 	-- A small dog, its frame on the ground under its middle, facing -Z.
 	local fur, ear = Color3.fromRGB(170, 120, 70), Color3.fromRGB(90, 60, 35)
-	add("dog", Vector3.new(0.7, 0.6, 1.4), CFrame.new(0, 0.75, 0), fur, nil, "Dog")
+	local dogBody = add("dog", Vector3.new(0.7, 0.6, 1.4), CFrame.new(0, 0.75, 0), fur, nil, "Dog")
 	add("dog", Vector3.new(0.6, 0.6, 0.6), CFrame.new(0, 1.15, -0.85), fur, nil, "Dog")
 	add("dog", Vector3.new(0.35, 0.25, 0.3), CFrame.new(0, 1.05, -1.25), ear, nil, "Dog")
 	for _, side in { -1, 1 } do
@@ -283,7 +292,31 @@ local function newFigure(index: number): Figure
 	bubble.Parent = figureModel
 
 	figureModel.Parent = folder
-	return { pieces = pieces, walker = nil, head = head, bubble = bubble, text = text, lead = lead }
+	local function sound(parent: Instance, spec: { Id: string, Pitch: number, Volume: number }): Sound
+		local made = Instance.new("Sound")
+		made.SoundId = spec.Id
+		made.PlaybackSpeed = spec.Pitch
+		made.Volume = spec.Volume
+		made.RollOffMaxDistance = L.Hearing
+		made.Parent = parent
+		return made
+	end
+
+	return {
+		pieces = pieces,
+		walker = nil,
+		head = head,
+		bubble = bubble,
+		text = text,
+		lead = lead,
+		whoosh = sound(head, L.Whoosh),
+		grunt = sound(head, L.Grunt),
+		thud = sound(head, L.Thud),
+		yap = sound(dogBody, L.Yap),
+		heard = nil,
+		heardSince = 0,
+		yapAt = 0,
+	}
 end
 
 local figures: { Figure } = {}
@@ -305,6 +338,7 @@ local function dress(figure: Figure, i: number)
 		end
 	end
 	figure.bubble.Enabled = false
+	figure.heard = nil
 end
 
 local function hide(figure: Figure)
@@ -494,6 +528,26 @@ local function draw(figure: Figure, i: number, now: number)
 		else
 			figure.lead.CFrame = HIDDEN
 		end
+	end
+
+	-- Sounds as it changes what it is doing, not for whatever it was doing
+	-- when this figure took it on.
+	local heard = figure.heard
+	if heard and (phase ~= heard or s.since ~= figure.heardSince) then
+		if phase == "dive" then
+			figure.whoosh:Play()
+		elseif phase == "flop" then
+			figure.grunt:Play()
+		elseif phase == "down" and (heard == "dive" or heard == "flop") then
+			figure.thud:Play()
+		end
+	end
+	figure.heard, figure.heardSince = phase, s.since
+	if phase == "walk" then
+		figure.yapAt = 0
+	elseif prop == "Dog" and now >= figure.yapAt then
+		figure.yap:Play()
+		figure.yapAt = now + L.YapEvery
 	end
 
 	local talking = phase == "up" or phase == "fist"
