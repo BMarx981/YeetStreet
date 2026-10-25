@@ -622,7 +622,7 @@ Check.test("a segment with an Ease climbs evenly", function()
 end)
 
 local GRAVITRON_SHAPE: Gravitron.Shape = {
-	FloorRadius = 200,
+	FloorRadius = 260,
 	CurveRadius = 40,
 	Lean = 15,
 	Height = 300,
@@ -640,14 +640,14 @@ local BOWL: Tunnel.GravitronBowl = {
 local TUBES: Tunnel.GravitronTubes = {
 	TwistRadius = 80,
 	Pitch = 180,
-	Loops = 2,
+	Loops = 1,
 	TwistEase = 0.1,
 	TopGap = 6,
-	ExitAngle = 45,
-	DiveSlope = 40,
+	ExitAngle = 50,
+	DiveSlope = 28,
 	Level = 120,
-	Dip = 30,
-	DipLength = 120,
+	Dip = 20,
+	DipLength = 150,
 	Outside = 33,
 }
 
@@ -688,7 +688,7 @@ Check.test("two strands start opposite each other under the bowl, heading along 
 		local first = strand.twist[1]
 		Check.near(first.fromX, 0, "on the Z axis")
 		Check.near(first.fromZ, strand.side * 80, "TwistRadius out")
-		Check.near(first.fromY, top - 2 * 180, "Loops of Pitch under the top")
+		Check.near(first.fromY, top - 180, "Loops of Pitch under the top")
 		Check.eq(strand.heading, strand.side)
 		Check.near(strand.top, top, "the top loop's outside TopGap under the floor")
 	end
@@ -704,8 +704,8 @@ Check.test("each twists Loops times round the bowl's axis to the left, climbing 
 		Check.near(piece.centerX, 0)
 		Check.near(piece.centerZ, 0)
 		Check.near(piece.radius, 80)
-		Check.near(math.deg(piece.sweep), 720)
-		Check.near(piece.toY - piece.fromY, 360)
+		Check.near(math.deg(piece.sweep), 360)
+		Check.near(piece.toY - piece.fromY, 180)
 		Check.eq(piece.ease, 0.1)
 	end
 end)
@@ -716,11 +716,11 @@ Check.test("each comes up through the floor at ExitAngle, its bottom on the floo
 		Check.eq(exit.kind, "straight")
 		Check.near(exit.fromY, strand.top)
 		local _, y = Tunnel.pointAt(exit, 0.5)
-		Check.near(y, FACE / math.cos(math.rad(45)), "the bottom plank meets the floor", 1e-6)
+		Check.near(y, FACE / math.cos(math.rad(50)), "the bottom plank meets the floor", 1e-6)
 		local _, y0 = Tunnel.pointAt(exit, 0.499)
 		local _, y1 = Tunnel.pointAt(exit, 0.501)
 		local slope = (y1 - y0) / (Tunnel.length(exit) * 0.002)
-		Check.near(math.deg(math.atan(slope)), 45, "at ExitAngle", 0.01)
+		Check.near(math.deg(math.atan(slope)), 50, "at ExitAngle", 0.01)
 		Check.near(exit.toZ, strand.side * 80, "straight on from the twist")
 		Check.eq((exit.toX - exit.fromX) * strand.side > 0, true)
 	end
@@ -738,8 +738,8 @@ Check.test("each comes in level on the ground from its mouth, dives under its tw
 		Check.eq((level.toX - level.fromX) * strand.heading > 0, true, "heading in")
 		local first = strand.twist[1]
 		local x, y, z = Gravitron.fromLocal(GRAVITRON_SHAPE, first.fromX, first.fromY, first.fromZ)
-		Check.near(dive.toY, y - 30, "Dip under the twist's start", 1e-6)
-		Check.near(Tunnel.length(dip), 120, "climbing back over DipLength")
+		Check.near(dive.toY, y - 20, "Dip under the twist's start", 1e-6)
+		Check.near(Tunnel.length(dip), 150, "climbing back over DipLength")
 		Check.near(dip.toX, x, "to meet the twist", 1e-6)
 		Check.near(dip.toY, y, nil, 1e-6)
 		Check.near(dip.toZ, z, nil, 1e-6)
@@ -747,7 +747,7 @@ Check.test("each comes in level on the ground from its mouth, dives under its tw
 			local _, a = Tunnel.pointAt(dive, i / 100)
 			local _, b = Tunnel.pointAt(dive, (i + 1) / 100)
 			local slope = math.abs(b - a) / (Tunnel.length(dive) / 100)
-			Check.eq(slope <= math.tan(math.rad(40)) + 1e-6, true, `dives {math.deg(math.atan(slope))} degrees`)
+			Check.eq(slope <= math.tan(math.rad(28)) + 1e-6, true, `dives {math.deg(math.atan(slope))} degrees`)
 		end
 	end
 end)

@@ -831,7 +831,7 @@ Tuning.Corkscrew = {
 		X = -450,
 		Z = -810,
 		Heading = -90,
-		FloorRadius = 200,
+		FloorRadius = 260,
 		CurveRadius = 40,
 		CurveSteps = 8,
 		Lean = 15, -- degrees the wall leans out from the axis
@@ -843,7 +843,7 @@ Tuning.Corkscrew = {
 		FloorStrip = 10, -- the floor is strips this wide
 		-- A wall round under the bowl, Radius out from under the floor's
 		-- middle, up to the floor's underside, so nobody drives under it.
-		Skirt = { Radius = 180, Slices = 72 },
+		Skirt = { Radius = 190, Slices = 72 },
 		Margin = 4, -- a car's middle this far under the surface is still in the bowl
 		-- A car on the surface higher than this up the axis is armed like on
 		-- a launch pad: leaving the surface starts a run, and leaving over
@@ -857,9 +857,9 @@ Tuning.Corkscrew = {
 			-- Studs per second at the wall's foot, held Hold seconds each, in
 			-- a cycle on the server's clock.
 			Stops = {
-				{ Speed = 80, Hold = 20 },
-				{ Speed = 180, Hold = 12 },
-				{ Speed = 320, Hold = 8 },
+				{ Speed = 90, Hold = 20 },
+				{ Speed = 200, Hold = 12 },
+				{ Speed = 360, Hold = 8 },
 			},
 			Ramp = 6, -- seconds easing from each stop to the next
 			MinGrip = 0.3, -- times the tyres' grip at the fastest stop
@@ -879,14 +879,14 @@ Tuning.Corkscrew = {
 		Tubes = {
 			TwistRadius = 80,
 			Pitch = 180, -- the strands are half this apart
-			Loops = 2,
+			Loops = 1,
 			TwistEase = 0.1,
 			TopGap = 6,
-			ExitAngle = 45,
-			DiveSlope = 40,
+			ExitAngle = 50,
+			DiveSlope = 28,
 			Level = 140, -- over FlareLength, so the tube starts past the mouth
-			Dip = 30,
-			DipLength = 120,
+			Dip = 20,
+			DipLength = 150,
 			Outside = 33,
 			SliceAngle = 6,
 			-- Each mouth is wide, with a curved wall each side of a funnel in
