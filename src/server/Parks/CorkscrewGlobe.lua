@@ -37,7 +37,12 @@ local COLORS: { [Globe.Kind]: Color3 } = {
 	pupil = Color3.fromRGB(25, 25, 35),
 }
 local GLASS: { [Globe.Kind]: number } = { window = 0.5, pupil = 0.35 } -- transparency
+-- Painted on the inside only, over a plain outside (PaintDepth).
+local PAINTED: { [Globe.Kind]: boolean } = { equator = true, meridian = true, hatch = true }
 local ORB_COLOR = Color3.fromRGB(255, 240, 200)
+-- Room past where the tube's floor comes up through an eye's bottom that
+-- its hatch must reach, for the car.
+local CAR_ROOM = 8
 
 local CorkscrewGlobe = {}
 
@@ -56,7 +61,8 @@ local function block(parent: Instance, name: string, size: Vector3, cframe: CFra
 end
 
 -- Every plank of an eye's shell, its inner face on Globe.plank's, the
--- hatch's in their own model.
+-- hatch's in their own model. A painted plank is two layers: its color
+-- PaintDepth deep on the inside, and plain beyond.
 local function buildShell(model: Instance, center: CFrame)
 	local shell = Instance.new("Model")
 	shell.Name = "Shell"
@@ -73,18 +79,30 @@ local function buildShell(model: Instance, center: CFrame)
 			local up = Vector3.new(plank.ux, plank.uy, plank.uz)
 			local out = right:Cross(up)
 			local face = Vector3.new(plank.x, plank.y, plank.z)
-			local part = block(
-				if kind == "hatch" then hatch else shell,
-				"Plank",
-				Vector3.new(plank.width + G.Overlap, plank.height + G.Overlap, G.Thickness),
-				center * CFrame.fromMatrix(face + out * (G.Thickness / 2), right, up, out),
-				COLORS[kind]
-			)
-			if GLASS[kind] then
-				part.Material = Enum.Material.Glass
-				part.Transparency = GLASS[kind]
-			elseif kind == "hatch" then
-				CollectionService:AddTag(part, GlobeRide.HATCH_TAG)
+			local parent = if kind == "hatch" then hatch else shell
+			-- A layer from `from` to `to` out from the inner face.
+			local function layer(from: number, to: number, color: Color3): Part
+				local part = block(
+					parent,
+					"Plank",
+					Vector3.new(plank.width + G.Overlap, plank.height + G.Overlap, to - from),
+					center * CFrame.fromMatrix(face + out * ((from + to) / 2), right, up, out),
+					color
+				)
+				if kind == "hatch" then
+					CollectionService:AddTag(part, GlobeRide.HATCH_TAG)
+				end
+				return part
+			end
+			if PAINTED[kind] then
+				layer(0, G.PaintDepth, COLORS[kind])
+				layer(G.PaintDepth, G.Thickness, COLORS.plain)
+			else
+				local part = layer(0, G.Thickness, COLORS[kind])
+				if GLASS[kind] then
+					part.Material = Enum.Material.Glass
+					part.Transparency = GLASS[kind]
+				end
 			end
 		end
 	end
@@ -148,6 +166,10 @@ function CorkscrewGlobe.build(folder: Folder, _area: MapLayout.Area)
 	end
 	if G.Heading % 90 ~= 0 then
 		warn("CorkscrewGlobe: Heading must be a multiple of 90")
+	end
+	local floorUp = CorkscrewGravitron.OPTIONS.Radius / math.sin(math.rad(G.Smile.ExitAngle))
+	if Globe.hatchRadius(GlobeRide.shape) < floorUp + CAR_ROOM then
+		warn("CorkscrewGlobe: the hatch is too small for cars coming up the tube; raise HatchBands")
 	end
 	local model = Instance.new("Model")
 	model.Name = "Face"

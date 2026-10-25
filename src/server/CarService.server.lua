@@ -129,6 +129,9 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	car:SetAttribute("OwnerUserId", player.UserId)
 	car:SetAttribute("CarId", ladderCar.Id)
 	CarParts.setLook(car, ladderCar.Seed, ladderCar.Archetype, ladderCar.Tier, looks)
+	if player:GetAttribute("HeliCarEquipped") == true then
+		car:SetAttribute("HeliCar", true)
+	end
 	car.Parent = carsFolder
 	cars[player] = car
 	seatDriver(car, humanoid)
@@ -254,6 +257,22 @@ giveFrogCar.Event:Connect(function(player: Player)
 	placeFrogCar(player, humanoid, cframe)
 end)
 giveFrogCar.Parent = ServerStorage
+
+-- Admin command: switch a player's car to the HeliCar look and back, and
+-- rebuild their car where it is. Only the looks change; the stats still come
+-- from their equipped car. Lasts until they leave.
+local toggleHeliCar = Instance.new("BindableEvent")
+toggleHeliCar.Name = "ToggleHeliCar"
+toggleHeliCar.Event:Connect(function(player: Player)
+	player:SetAttribute("HeliCarEquipped", player:GetAttribute("HeliCarEquipped") ~= true)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local car = cars[player]
+	if humanoid and humanoid.Health > 0 and car then
+		placeCar(player, humanoid, car:GetPivot())
+	end
+end)
+toggleHeliCar.Parent = ServerStorage
 
 -- Client requested to exit the car: unseat the driver and place them beside
 -- the car so they can walk around. The exited flag prevents the SeatPart

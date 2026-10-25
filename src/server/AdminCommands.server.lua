@@ -299,6 +299,7 @@ local COMMAND_INFO = {
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
 	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global <text>",                optionsType = "text" },
 	{ name = "frog",       desc = "Give a player the Frog Car (it can jump!)",            usage = ":frog <playerName>",            optionsType = "player" },
+	{ name = "helicar",    desc = "Turn the HeliCar look on or off for you or a player", usage = ":helicar [playerName]",         optionsType = "player" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
@@ -522,6 +523,22 @@ local COMMANDS = {
 		-- Persist Frog Car ownership so it shows as OWNED in the Limiteds tab.
 		Garage.giveLimited(target, "FrogCar")
 		return "Gave a Frog Car to " .. target.Name .. "!"
+	end,
+
+	helicar = function(adminPlayer, args)
+		local targetName = string.match(args, "%S+")
+		local target = if targetName then findPlayer(targetName) else adminPlayer
+		if not target then
+			return if targetName then "Player not found: " .. targetName else "Usage: :helicar [playerName]"
+		end
+
+		local toggleHeliCar = game:GetService("ServerStorage"):FindFirstChild("ToggleHeliCar")
+		if not (toggleHeliCar and toggleHeliCar:IsA("BindableEvent")) then
+			return "HeliCar isn't available"
+		end
+		local turningOn = target:GetAttribute("HeliCarEquipped") ~= true
+		toggleHeliCar:Fire(target)
+		return if turningOn then target.Name .. " is driving the HeliCar!" else target.Name .. " is back in their own car."
 	end,
 
 	promote = function(adminPlayer, args)

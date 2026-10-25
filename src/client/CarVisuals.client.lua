@@ -6,6 +6,8 @@
 -- They are massless and out of physics, so handling comes only from stats.
 --
 -- Also, on each car:
+--   A car with the HeliCar attribute (an admin toggle) gets the fixed
+--   HeliCar look instead. It doesn't break apart on hits yet.
 --   Hover cars hide their wheels. The physics wheels are still there.
 --   Each thruster gets a flame, a smoke trail, and a glow that grow with the
 --   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
@@ -21,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
+local HeliCar = require(ReplicatedStorage.HeliCar)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Toughness
@@ -170,6 +173,37 @@ local function addRaptor(car: Model, hull: BasePart, side: number, zOffset: numb
 	eyeRight.Shape = Enum.PartType.Ball
 end
 
+-- The HeliCar's fixed look in place of the generated one, with trims welded
+-- to each wheel so they spin and steer with it. Its jet flame blows out of
+-- the back of the roof fan.
+local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
+	local function weldTo(base: BasePart, parts: { BasePart })
+		for _, part in parts do
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = base
+			weld.Part1 = part
+			weld.Parent = part
+			part.Anchored = false
+		end
+	end
+
+	local jets: { Jet } = {}
+	local parts = HeliCar.build(HeliCar.body, hull.CFrame, folder)
+	weldTo(hull, parts)
+	for _, part in parts do
+		if part.Name == "FanHub" then
+			table.insert(jets, addJet(part, flameColor, jetStep))
+		end
+	end
+	for _, name in WHEEL_NAMES do
+		local wheel = car:WaitForChild(name, HULL_WAIT)
+		if wheel and wheel:IsA("BasePart") then
+			weldTo(wheel, HeliCar.build(HeliCar.wheels[name], wheel.CFrame, folder))
+		end
+	end
+	return jets
+end
+
 local function setUp(car: Model)
 	local hull = car:WaitForChild("Hull", HULL_WAIT)
 	if not (hull and hull:IsA("BasePart")) then
@@ -228,12 +262,16 @@ local function setUp(car: Model)
 		return
 	end
 	built[car] = true
+	local heli = car:GetAttribute("HeliCar") == true
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Looks"
-	local parts = CarParts.build(design, hull.CFrame, folder)
+	local parts = if heli then {} else CarParts.build(design, hull.CFrame, folder)
 	local jets: { Jet } = {}
 	local jetStep = CarDesign.step(car:GetAttribute("LevelJets") :: number, Tuning.CarLooks.StatSteps)
+	if heli then
+		jets = buildHeliCar(car, hull, folder, rgb(design.flameColor), jetStep)
+	end
 	for i, part in parts do
 		part.CanQuery = false
 		local weld = Instance.new("WeldConstraint")
@@ -248,12 +286,12 @@ local function setUp(car: Model)
 	folder.Parent = car
 
 	-- The Velociraptor car carries two little raptors along its sides.
-	if car:GetAttribute("CarId") == "Velociraptor" then
+	if car:GetAttribute("CarId") == "Velociraptor" and not heli then
 		addRaptor(car, hull, -1, -2.5)
 		addRaptor(car, hull, 1, 1.5)
 	end
 
-	if design.hideWheels then
+	if design.hideWheels and not heli then
 		for _, name in WHEEL_NAMES do
 			local wheel = car:FindFirstChild(name)
 			if wheel and wheel:IsA("BasePart") then
@@ -276,7 +314,7 @@ local function setUp(car: Model)
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
 
 	for _, slot in CarParts.Slots do
-		local order = CarDesign.breakable(design, slot)
+		local order = if heli then {} else CarDesign.breakable(design, slot)
 		local attribute = CarParts.brokenAttribute(slot)
 		local shown = 0
 		local function showBroken()

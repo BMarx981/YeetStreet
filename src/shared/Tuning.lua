@@ -910,7 +910,7 @@ Tuning.Corkscrew = {
 	-- balls for eyes, held up over the ground by the tube into them, which
 	-- forks under them into a smile (Tunnel.face). Each eye is driven round
 	-- inside with ordinary gravity, so a loop over the top takes jets: about
-	-- sqrt(gravity times Radius), 180 studs per second, at the top. The face
+	-- sqrt(gravity times Radius), 140 studs per second, at the top. The face
 	-- stands across the park, its middle over X, Z, with the mouth in front
 	-- along the way Heading turns -X the way CFrame.Angles(0, Heading, 0)
 	-- does: 90 puts the mouth to +Z, facing the park's arrival. Heading must
@@ -919,21 +919,28 @@ Tuning.Corkscrew = {
 		X = -400,
 		Z = 850,
 		Heading = 90,
-		Radius = 250, -- to the inside
+		Radius = 150, -- to the inside
 		Thickness = 4,
-		EyeGap = 150, -- between the eyes' outsides
+		EyeGap = 100, -- between the eyes' outsides
 		Slices = 96, -- round; a multiple of 4
 		Bands = 48, -- bottom to top
 		Overlap = 0.3, -- each plank this much wider and taller, so the seams stay closed
 		EquatorBands = 2,
 		MeridianSlices = 2,
+		-- The stripes and the hatch are painted on the inside only: their
+		-- planks are this much of the Thickness in their color, the rest the
+		-- shell's.
+		PaintDepth = 1,
 		-- Degrees round the front of each eye, toward the mouth, that its
 		-- pupil of dark glass reaches, with the orb glowing through it.
 		Pupil = 25,
 		-- The bottom bands all the way round are the hatch the tube comes up
 		-- through: solid, but for a car coming up the tube, on its own
 		-- driver's client, until HatchHold seconds after it leaves the tube.
-		HatchBands = 3,
+		-- It must reach past where the tube's floor comes up through the
+		-- bottom, the tube's Radius over sin(ExitAngle) out, plus a car, or
+		-- cars hit the shell on the way in (the builder warns).
+		HatchBands = 6,
 		HatchHold = 1,
 		-- The way out: a car stopped (under Speed) on the hatch, within Reach
 		-- of its middle and Height up from the bottom, for Wait seconds drops
@@ -944,7 +951,7 @@ Tuning.Corkscrew = {
 		Windows = { Count = 8, Slices = 3, Bands = 3, Above = 5 },
 		Margin = 4, -- a car's middle this far past the inside is still in an eye
 		HitGrace = 0.3, -- seconds after leaving an eye that hits still do no damage
-		Orb = { Size = 60, LightRange = 60, LightBrightness = 5 },
+		Orb = { Size = 45, LightRange = 60, LightBrightness = 5 },
 		-- The smile's layout (Tunnel.face); the eyes' bottoms are where its
 		-- branches are cut off. The rest of the tube's shape, its funnel,
 		-- and the launch pads near the start of each climb are the
