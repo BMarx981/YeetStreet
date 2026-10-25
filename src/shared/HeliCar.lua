@@ -29,6 +29,7 @@ export type Spec = {
 	transparency: number,
 	slot: CarDesign.Slot?, -- the slot it breaks off with
 	label: string?, -- text shown on both sides
+	swivel: boolean?, -- turns with the fan
 }
 
 local BLUE = Color3.fromRGB(0, 85, 191)
@@ -222,14 +223,16 @@ add(
 	0.35
 )
 
--- The fan on the roof: a yellow ring around black blades, turned to face
--- forward and to the left.
+-- The fan on the roof: a yellow ring around black blades, facing forward on
+-- a stand. The ring and the horn on it swivel on top of the stand, about
+-- HeliCar.fanPivot, to follow the steering (CarVisuals).
 local FAN_RADIUS = 1.0
 local FAN_SEGMENTS = 16
 local FAN_BLADES = 10
-local FAN_TURN = 40
-local fanCenter = CFrame.new(0, ROOF_TOP + 0.3 + FAN_RADIUS + 0.1, 0.9) * CFrame.Angles(0, math.rad(FAN_TURN), 0)
+local FAN_PIVOT = CFrame.new(0, ROOF_TOP + 0.3, 0.9)
+local fanCenter = FAN_PIVOT * CFrame.new(0, FAN_RADIUS + 0.1, 0)
 add("FanStand", "cylinder", Vector3.new(0.3, 0.8, 0.8), CFrame.new(0, ROOF_TOP + 0.15, 0.9) * UPRIGHT, BLUE, "roof")
+local firstSwivel = #body + 1
 local chord = 2 * (FAN_RADIUS + 0.1) * math.tan(math.pi / FAN_SEGMENTS)
 for k = 0, FAN_SEGMENTS - 1 do
 	local angle = k * 2 * math.pi / FAN_SEGMENTS
@@ -275,6 +278,9 @@ add(
 	BLACK,
 	"roof"
 )
+for i = firstSwivel, #body do
+	body[i].swivel = true
+end
 
 -- The jet tail: a boom out the back of the arch, white bricks and a grey
 -- slope on top, a red tail light, and a swept white fin with a flag.
@@ -349,6 +355,11 @@ table.insert(body, {
 })
 
 HeliCar.body = body
+
+-- Where the fan swivels, in car space; it turns about this frame's y axis.
+HeliCar.fanPivot = FAN_PIVOT
+HeliCar.FanSteerGain = 1.5 -- fan turn per degree the front wheels steer
+HeliCar.FanTurnRate = 10 -- how quickly the fan catches up to the wheels, per second
 
 -- Trims welded to each physics wheel so they spin and steer with it. The
 -- front left has a yellow rim, the back left is a flat black disc, and the

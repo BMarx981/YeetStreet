@@ -7,7 +7,8 @@
 --
 -- Also, on each car:
 --   A car with the HeliCar attribute (an admin toggle) gets the fixed
---   HeliCar look instead. It doesn't break apart on hits yet.
+--   HeliCar look instead, with its roof fan turning to follow the steering.
+--   It doesn't break apart on hits yet.
 --   Hover cars hide their wheels. The physics wheels are still there.
 --   Each thruster gets a flame, a smoke trail, and a glow that grow with the
 --   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
@@ -20,6 +21,7 @@
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
@@ -176,31 +178,77 @@ end
 -- The HeliCar's fixed look in place of the generated one, with trims welded
 -- to each wheel so they spin and steer with it. Its jet flame blows out of
 -- the back of the roof fan.
+--
+-- The fan swivels on a Weld from the hull, turned each frame to follow the
+-- front wheels. Their angle to the hull comes from physics, which replicates,
+-- so every client sees the fan turn, not just the driver's.
 local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
-	local function weldTo(base: BasePart, parts: { BasePart })
-		for _, part in parts do
-			local weld = Instance.new("WeldConstraint")
-			weld.Part0 = base
-			weld.Part1 = part
-			weld.Parent = part
-			part.Anchored = false
-		end
+	local function weldTo(base: BasePart, part: BasePart)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = base
+		weld.Part1 = part
+		weld.Parent = part
+		part.Anchored = false
 	end
+
+	local pivot = Instance.new("Part")
+	pivot.Name = "FanPivot"
+	pivot.Size = Vector3.one * 0.2
+	pivot.CFrame = hull.CFrame * HeliCar.fanPivot
+	pivot.Transparency = 1
+	pivot.CanCollide = false
+	pivot.CanTouch = false
+	pivot.CanQuery = false
+	pivot.Massless = true
+	pivot.Parent = folder
+	local swivel = Instance.new("Weld")
+	swivel.Part0 = hull
+	swivel.Part1 = pivot
+	swivel.C0 = HeliCar.fanPivot
+	swivel.Parent = pivot
 
 	local jets: { Jet } = {}
 	local parts = HeliCar.build(HeliCar.body, hull.CFrame, folder)
-	weldTo(hull, parts)
-	for _, part in parts do
+	for i, part in parts do
+		weldTo(if HeliCar.body[i].swivel then pivot else hull, part)
 		if part.Name == "FanHub" then
 			table.insert(jets, addJet(part, flameColor, jetStep))
 		end
 	end
+	local fronts: { BasePart } = {}
 	for _, name in WHEEL_NAMES do
 		local wheel = car:WaitForChild(name, HULL_WAIT)
 		if wheel and wheel:IsA("BasePart") then
-			weldTo(wheel, HeliCar.build(HeliCar.wheels[name], wheel.CFrame, folder))
+			for _, part in HeliCar.build(HeliCar.wheels[name], wheel.CFrame, folder) do
+				weldTo(wheel, part)
+			end
+			if name == "WheelFL" or name == "WheelFR" then
+				table.insert(fronts, wheel)
+			end
 		end
 	end
+
+	-- A wheel's axle is its x axis; turned left by a steer angle a about the
+	-- hull's up axis, it points along (cos a, 0, -sin a) in hull space.
+	local yaw = 0
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(dt: number)
+		if car.Parent == nil then
+			connection:Disconnect()
+			return
+		end
+		if #fronts == 0 then
+			return
+		end
+		local steer = 0
+		for _, wheel in fronts do
+			local axle = hull.CFrame:VectorToObjectSpace(wheel.CFrame.RightVector)
+			steer += math.atan2(-axle.Z, axle.X)
+		end
+		local target = steer / #fronts * HeliCar.FanSteerGain
+		yaw += (target - yaw) * (1 - math.exp(-HeliCar.FanTurnRate * dt))
+		swivel.C0 = HeliCar.fanPivot * CFrame.Angles(0, yaw, 0)
+	end)
 	return jets
 end
 
