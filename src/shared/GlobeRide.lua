@@ -46,18 +46,45 @@ function GlobeRide.inside(position: Vector3): boolean
 	return Globe.inside(GlobeRide.shape, p.X, p.Y, p.Z, G.Margin)
 end
 
--- Where a reset in the globe or its tube puts a car: at its funnel's open
+-- The funnel's open end, and the way in from there.
+local function funnelEntry(ground: CFrame): (Vector3, Vector3)
+	local strand = GlobeRide.strand
+	local inward = ground:VectorToWorldSpace(Vector3.new(strand.heading, 0, 0))
+	local mouth = ground:PointToWorldSpace(Vector3.new(strand.mouth.x, Tuning.TestPark.SpawnHeight, strand.mouth.z))
+	return mouth - inward * Tuning.Corkscrew.Gravitron.Tubes.FunnelLength, inward
+end
+
+-- Where a reset in the tube on the way in puts a car: at its funnel's open
 -- end, facing in.
 function GlobeRide.respawn(): CFrame?
 	local ground = GlobeRide.ground
 	if not ground then
 		return nil
 	end
-	local strand = GlobeRide.strand
-	local inward = ground:VectorToWorldSpace(Vector3.new(strand.heading, 0, 0))
-	local mouth = ground:PointToWorldSpace(Vector3.new(strand.mouth.x, Tuning.TestPark.SpawnHeight, strand.mouth.z))
-	local entry = mouth - inward * Tuning.Corkscrew.Gravitron.Tubes.FunnelLength
+	local entry, inward = funnelEntry(ground)
 	return CFrame.lookAt(entry, entry + inward)
+end
+
+-- Where a reset in the globe, or leaving through the hatch, puts a car: at
+-- the funnel's open end, facing out.
+function GlobeRide.exit(): CFrame?
+	local ground = GlobeRide.ground
+	if not ground then
+		return nil
+	end
+	local entry, inward = funnelEntry(ground)
+	return CFrame.lookAt(entry, entry - inward)
+end
+
+-- Whether a car at `position` is over the hatch's middle, where dropping
+-- through it lands in the tube (Globe.overHatch).
+function GlobeRide.overHatch(position: Vector3): boolean
+	local center = GlobeRide.center
+	if not center then
+		return false
+	end
+	local p = center:PointToObjectSpace(position)
+	return Globe.overHatch(GlobeRide.shape, p.X, p.Y, p.Z, G.Exit.Reach, G.Exit.Height)
 end
 
 -- Which way the tube pulls a car at `position` (Tunnel.pull), or nil outside

@@ -136,6 +136,13 @@ function Globe.hatchRadius(shape: Shape): number
 	return shape.Radius * math.sin(shape.HatchBands / shape.Bands * math.pi)
 end
 
+-- Whether (x, y, z) from the middle is over the middle of the hatch: within
+-- `reach` of under the middle, and under `height` up from the inside's
+-- bottom.
+function Globe.overHatch(shape: Shape, x: number, y: number, z: number, reach: number, height: number): boolean
+	return x * x + z * z < reach * reach and y < -shape.Radius + height
+end
+
 -- Whether (x, y, z) from the middle is in the ball, or within `margin` of
 -- its inside.
 function Globe.inside(shape: Shape, x: number, y: number, z: number, margin: number): boolean

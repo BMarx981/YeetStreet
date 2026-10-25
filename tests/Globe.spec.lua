@@ -139,4 +139,12 @@ Check.test("inside is within Radius and the margin of the middle", function()
 	Check.eq(Globe.inside(SHAPE, 190, 190, 0, 4), false)
 end)
 
+Check.test("over the hatch is near the bottom, within reach of under the middle", function()
+	Check.eq(Globe.overHatch(SHAPE, 0, -243, 0, 20, 10), true, "resting on it")
+	Check.eq(Globe.overHatch(SHAPE, 12, -243, -12, 20, 10), true, "a little off the middle")
+	Check.eq(Globe.overHatch(SHAPE, 15, -243, 15, 20, 10), false, "too far out")
+	Check.eq(Globe.overHatch(SHAPE, 0, -239, 0, 20, 10), false, "too high over it")
+	Check.eq(Globe.overHatch(SHAPE, 0, 243, 0, 20, 10), false, "at the top")
+end)
+
 Check.finish("Globe")

@@ -930,6 +930,12 @@ Tuning.Corkscrew = {
 		-- driver's client, until HatchHold seconds after it leaves the tube.
 		HatchBands = 3,
 		HatchHold = 1,
+		-- The way out: a car stopped (under Speed) on the hatch, within Reach
+		-- of its middle and Height up from the bottom, for Wait seconds drops
+		-- through it into the tube, on its own driver's client, and comes out
+		-- at the funnel facing out. The hatch flashes FlashRate times a
+		-- second while it waits, on that client only.
+		Exit = { Speed = 3, Wait = 2, Reach = 20, Height = 10, FlashRate = 4 },
 		Windows = { Count = 8, Slices = 3, Bands = 3, Above = 5 },
 		Margin = 4, -- a car's middle this far past the inside is still in the globe
 		HitGrace = 0.3, -- seconds after leaving the globe that hits still do no damage

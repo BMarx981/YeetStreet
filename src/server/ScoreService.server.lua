@@ -446,13 +446,14 @@ end
 
 -- A car in the globe takes no hits, nor for HitGrace after: its wall
 -- pushing the car round the curve reads as a steady stream of them. Resets
--- and wrecks there come back to the globe's funnel.
+-- and wrecks there, and leaving through its hatch (GlobeHatch asks for a
+-- reset), come back to the globe's funnel, facing out.
 local function globe(watch: Watch)
 	if not GlobeRide.inside(watch.sensor.hull.Position) then
 		return
 	end
 	watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + Tuning.Corkscrew.Globe.HitGrace)
-	local respawn = GlobeRide.respawn()
+	local respawn = GlobeRide.exit()
 	if respawn then
 		lastLaunch[watch.player] = respawn
 	end
