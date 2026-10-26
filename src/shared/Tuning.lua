@@ -357,6 +357,16 @@ Tuning.Glide = {
 	EngineTopSpeed = 250, -- the engine (jets with the wings out) fades out here
 }
 
+-- A PlaneCar's air control with its wings out (PlaneFlight): up and down
+-- hold the nose this far from level, steering banks this far, and no input
+-- flies level.
+Tuning.PlaneFlight = {
+	MaxPitch = math.rad(30),
+	MaxBank = math.rad(35),
+	Gain = 3, -- spin per radian off the held angle, per second
+	YawShare = 0.5, -- of the car's turn rate, swinging the nose at full steer
+}
+
 -- A PlaneCar's guns (Guns, ShotPath). Each hit takes ShotDamage of the car's
 -- full toughness off the side it hit, run or not (ScoreService).
 Tuning.Guns = {

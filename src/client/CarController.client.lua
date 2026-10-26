@@ -17,6 +17,8 @@
 --      it spins, the wheels roll with it, and the tyres grip less the faster
 --      it goes. High up its wall the car is armed like on a launch pad.
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
+--      A PlaneCar with its wings out holds the angle the input asks for
+--      instead, and levels out with none, so it can't flip (PlaneFlight).
 --      Lying on its roof or side: AirSpin rolls it back onto its wheels
 --      (Righting), and the player's spin input waits until it is upright.
 --      A PlaneCar with its wings out glides in the air (Glide).
@@ -54,6 +56,7 @@ local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local PadPush = require(ReplicatedStorage.PadPush)
+local PlaneFlight = require(ReplicatedStorage.PlaneFlight)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -597,12 +600,20 @@ local function step(r: Rig, dt: number)
 		local A = Tuning.Air
 		local pitchInput = InputAxes.combine({ input.throttle, input.pitch })
 		local rollInput = if r.rollUnlocked then input.roll else 0
-		local tx, ty, tz = AirControl.targetRates(input.steer, pitchInput, rollInput, r.turnRate, AIR_SCALES)
+		local tx, ty, tz
+		if wingsOut then
+			local lookUp, rightUp, upUp = cf.LookVector:Dot(up), cf.RightVector:Dot(up), cf.UpVector:Dot(up)
+			tx, ty, tz =
+				PlaneFlight.rates(lookUp, rightUp, upUp, pitchInput, input.steer, r.turnRate, Tuning.PlaneFlight)
+		else
+			tx, ty, tz = AirControl.targetRates(input.steer, pitchInput, rollInput, r.turnRate, AIR_SCALES)
+		end
+		-- A plane always steers toward the angle it holds, input or not.
 		local spinNow = cf:VectorToObjectSpace(r.hull.AssemblyAngularVelocity)
 		r.spin.AngularVelocity = Vector3.new(
-			AirControl.stepAxis(spinNow.X, tx, pitchInput ~= 0, A.AngularAccel, A.IdleDamping, dt),
-			AirControl.stepAxis(spinNow.Y, ty, input.steer ~= 0, A.AngularAccel, A.IdleDamping, dt),
-			AirControl.stepAxis(spinNow.Z, tz, rollInput ~= 0, A.AngularAccel, A.IdleDamping, dt)
+			AirControl.stepAxis(spinNow.X, tx, wingsOut or pitchInput ~= 0, A.AngularAccel, A.IdleDamping, dt),
+			AirControl.stepAxis(spinNow.Y, ty, wingsOut or input.steer ~= 0, A.AngularAccel, A.IdleDamping, dt),
+			AirControl.stepAxis(spinNow.Z, tz, wingsOut or rollInput ~= 0, A.AngularAccel, A.IdleDamping, dt)
 		)
 		r.spin.MaxTorque = r.mass * A.TorquePerMass
 		r.spin.Enabled = true
