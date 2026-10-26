@@ -97,8 +97,7 @@ function GlobeRide.respawn(): CFrame?
 	return CFrame.lookAt(entry, entry + inward)
 end
 
--- Where a reset in an eye, or leaving through its hatch, puts a car: at the
--- funnel's open end, facing out.
+-- Where a reset in an eye puts a car: at the funnel's open end, facing out.
 function GlobeRide.exit(): CFrame?
 	local ground = GlobeRide.ground
 	if not ground then
@@ -159,7 +158,9 @@ end
 -- The sideways push on a car at `position` moving at `velocity` where the
 -- branches still overlap past the fork, as an acceleration toward the
 -- branch it goes (Globe.forkSide): the left one turns to -Z, the right to
--- +Z. Zero anywhere else.
+-- +Z. Only for a car heading in from the mouth (the stem runs along X, in
+-- along face.heading), so one driving down a branch from an eye can turn
+-- into the stem. Zero anywhere else.
 function GlobeRide.forkPush(position: Vector3, velocity: Vector3): Vector3
 	local ground = GlobeRide.ground
 	if not ground then
@@ -167,13 +168,17 @@ function GlobeRide.forkPush(position: Vector3, velocity: Vector3): Vector3
 	end
 	local radius = Tuning.City.Tunnels.Radius
 	local p = ground:PointToObjectSpace(position)
+	local v = ground:VectorToObjectSpace(velocity)
 	local face = GlobeRide.face
+	if v.X * face.heading <= 0 then
+		return Vector3.zero
+	end
 	local left = Tunnel.distance(face.left, p.X, p.Y, p.Z)
 	local right = Tunnel.distance(face.right, p.X, p.Y, p.Z)
 	if not (left and right) or left > radius or right > radius then
 		return Vector3.zero
 	end
-	local sideways = ground:VectorToObjectSpace(velocity).Z
+	local sideways = v.Z
 	local side = Globe.forkSide(left, right, sideways, G.Smile.ForkLevel)
 	return ground:VectorToWorldSpace(Vector3.new(0, 0, side * G.Smile.ForkPush))
 end

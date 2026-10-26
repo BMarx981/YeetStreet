@@ -5,11 +5,11 @@
 -- this client moves its own car, so only its own copy of the hatch matters
 -- to it, and every other player sees and drives on a solid hatch.
 --
--- On the way in, the hatch is open while the car is in the globe's tube,
--- and HatchHold seconds after. On the way out, a car stopped over the
--- hatch's middle (Tuning.Corkscrew.Globe.Exit) makes it flash for Wait
--- seconds, then open; once the car drops into the tube, this client asks
--- for a reset, which puts it at the funnel facing out (ScoreService).
+-- The hatch is open while the car is in the globe's tube, and HatchHold
+-- seconds after. On the way out, a car stopped over the hatch's middle
+-- (Tuning.Corkscrew.Globe.Exit) makes it flash for Wait seconds, then open
+-- for DROP_TIME, so the car falls into the tube and rides it back down and
+-- out of the funnel.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -26,19 +26,17 @@ end
 local G = Tuning.Corkscrew.Globe
 local FLASH_COLOR = Color3.fromRGB(255, 255, 255)
 local OPEN_TRANSPARENCY = 0.7
--- Seconds after the hatch opens under a leaving car by which it should be
--- in the tube; past this it is reset anyway, wherever it fell.
+-- Seconds the hatch opens under a leaving car, enough for it to drop into
+-- the tube, which then holds it open.
 local DROP_TIME = 2
 
 local player = Players.LocalPlayer
 local carsFolder = workspace:WaitForChild("Cars")
-local resetRemote = ReplicatedStorage:WaitForChild("ResetCar") :: RemoteEvent
 
 local open = false
 local flashOn = false
 local openUntil = -math.huge
 local waited = 0
-local leavingUntil: number? = nil
 -- Each plank's own color, to go back to after a flash.
 local colors: { [BasePart]: Color3 } = {}
 
@@ -85,16 +83,15 @@ RunService.Heartbeat:Connect(function(dt: number)
 		openUntil = now + G.HatchHold
 	end
 
-	if leavingUntil then
-		if inTube or now > leavingUntil then
-			leavingUntil = nil
-			resetRemote:FireServer()
-		end
-	elseif hull and hull.AssemblyLinearVelocity.Magnitude < G.Exit.Speed and GlobeRide.overHatch(hull.Position) then
+	if
+		now >= openUntil
+		and hull
+		and hull.AssemblyLinearVelocity.Magnitude < G.Exit.Speed
+		and GlobeRide.overHatch(hull.Position)
+	then
 		waited += dt
 		if waited >= G.Exit.Wait then
 			waited = 0
-			leavingUntil = now + DROP_TIME
 			openUntil = now + DROP_TIME
 		end
 	else
