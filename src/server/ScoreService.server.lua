@@ -20,7 +20,8 @@
 --
 -- Targets a car smashes through during a run (PropService fires
 -- ServerStorage.PropSmashed, such as for Downtown's billboard) pay their
--- Target points on that run.
+-- Target points on that run. A run landing on a roof helipad (a part tagged
+-- Helipad, CityRoofs) counts the Helipad target.
 --
 -- A car coming down on lava (CarSensor) banks its run as a landing with a
 -- Lava splash target. Lava, and smashing through a boulder too fast
@@ -67,6 +68,7 @@
 -- ServerStorage.MovePlayerCar) ends the run the same way and builds the car
 -- at its destination.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -260,7 +262,19 @@ local function hurt(watch: Watch, hit: Vector3)
 	carImpact:FireClient(watch.player, strength, slot, inRun, damage, watch.toughness)
 end
 
+-- Whether a helipad lies just under the car.
+local function onHelipad(watch: Watch): boolean
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = CollectionService:GetTagged("Helipad")
+	local reach = Vector3.new(0, -Tuning.Score.HelipadReach, 0)
+	return workspace:Raycast(watch.sensor.hull.Position, reach, params) ~= nil
+end
+
 local function finish(watch: Watch, result: RunTracker.Result)
+	if result.ending == "landed" and onHelipad(watch) then
+		table.insert(watch.targets, "Helipad")
+	end
 	result.gaps = GapZones.find(result)
 	result.targets = watch.targets
 	watch.targets = {}

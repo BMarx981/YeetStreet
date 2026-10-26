@@ -455,11 +455,15 @@ Tuning.Score = {
 	GrindPerSecond = 120, -- per second on a rail
 	GapPoints = 500, -- per gap cleared, such as across the skate park's bowl
 	SwingPoints = 300, -- coming down on a swing seat
+	-- A run landing with a part tagged Helipad this far under the hull's
+	-- middle counts the Helipad target (ScoreService).
+	HelipadReach = 8,
 	-- Smashing through a target during a run, by the target's kind (its Target
 	-- attribute, PropService).
 	TargetPoints = {
 		Billboard = 500,
 		["Water tower"] = 300,
+		Helipad = 500, -- a run landing clean on a Downtown roof's helipad (ScoreService)
 		["Palm tree"] = 200,
 		Lava = 300, -- coming down in lava (ScoreService)
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
@@ -545,6 +549,7 @@ Tuning.Hud = {
 		["Wrecking ball"] = "Wrecking ball",
 		Kaiju = "Kaiju snack",
 		Zapped = "Zapped",
+		Helipad = "Helipad landing",
 	},
 }
 
@@ -1341,6 +1346,16 @@ Tuning.City = {
 			Gap = 10,
 			Panel = 6,
 			Seam = 0.4,
+		},
+		-- A pad the size of the kind's footprint, a yellow Ring (its middle
+		-- Ring - RingWidth out) round a white H, Letter tall with Stroke wide
+		-- bars, and Lights round the edge. Only the pad is solid.
+		Helipad = {
+			Ring = 30,
+			RingWidth = 3,
+			Letter = 26,
+			Stroke = 4,
+			Lights = 12,
 		},
 		-- While the game runs (CityRoofs.start): a car coming down onto a
 		-- solar row faster than Speed cracks the panels within Radius of it,

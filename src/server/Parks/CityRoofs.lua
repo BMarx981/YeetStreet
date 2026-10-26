@@ -17,6 +17,9 @@
 --   Solar: rows of panels on frames a car drives up (Roofs.solarRows). The
 --   panels are only looks: cars ride the frame, and start cracks the panels
 --   where a car comes down hard.
+--   Helipad: a pad with a ring round a big H, tagged Helipad, so a run
+--   that lands on it pays the Helipad target (ScoreService). The paint and
+--   lights on it are only looks.
 -- Numbers are in Tuning.City.Roofs.
 
 local CollectionService = game:GetService("CollectionService")
@@ -38,6 +41,13 @@ local PANEL_COLOR = Color3.fromRGB(30, 45, 95)
 local CRACKED_COLOR = Color3.fromRGB(200, 215, 230)
 local PANEL_THICKNESS = 0.2
 local SPLASH_TAG = "WaterTowerSplash"
+local PAD_COLOR = Color3.fromRGB(70, 72, 78)
+local RING_COLOR = Color3.fromRGB(255, 200, 40)
+local LETTER_COLOR = Color3.fromRGB(240, 240, 240)
+local PAD_LIGHT_COLOR = Color3.fromRGB(120, 255, 140)
+local PAD_THICKNESS = 0.2
+local PAINT = 0.05 -- each layer of paint above the last
+local HELIPAD_TAG = "Helipad"
 
 local CityRoofs = {}
 
@@ -296,6 +306,68 @@ local function solarFarm(parent: Instance, area: MapLayout.Area, height: number,
 	model.Parent = parent
 end
 
+-- Paint and lights: seen, never touched or hit.
+local function paint(made: BasePart)
+	made.CanCollide = false
+	made.CanQuery = false
+	made.CanTouch = false
+end
+
+-- A helipad filling the spot on the roof `height` up.
+local function helipad(parent: Instance, area: MapLayout.Area, height: number, spot: Roofs.Rect)
+	local H = T.Helipad
+	local model = Instance.new("Model")
+	model.Name = "Helipad"
+	local up = Vector3.yAxis
+	local middle = Vector3.new(area.X + (spot.x1 + spot.x2) / 2, FLOOR + height, area.Z + (spot.z1 + spot.z2) / 2)
+	local pad = part(
+		model,
+		"Pad",
+		"Part",
+		Vector3.new(spot.x2 - spot.x1, PAD_THICKNESS, spot.z2 - spot.z1),
+		CFrame.new(middle + up * PAD_THICKNESS / 2),
+		PAD_COLOR,
+		Enum.Material.Concrete
+	)
+	CollectionService:AddTag(pad, HELIPAD_TAG)
+
+	local top = middle + up * PAD_THICKNESS
+	paint(disk(model, "Ring", top + up * PAINT / 2, H.Ring, PAINT, RING_COLOR, Enum.Material.SmoothPlastic))
+	paint(disk(model, "Inside", top + up * PAINT * 1.5, H.Ring - H.RingWidth, PAINT, PAD_COLOR, Enum.Material.Concrete))
+	local width = H.Letter * 0.7
+	local letter = top + up * PAINT * 2.5
+	for _, side in { -1, 1 } do
+		paint(
+			part(
+				model,
+				"Letter",
+				"Part",
+				Vector3.new(H.Stroke, PAINT, H.Letter),
+				CFrame.new(letter + Vector3.xAxis * side * (width - H.Stroke) / 2),
+				LETTER_COLOR,
+				Enum.Material.SmoothPlastic
+			)
+		)
+	end
+	paint(
+		part(
+			model,
+			"Letter",
+			"Part",
+			Vector3.new(width, PAINT, H.Stroke),
+			CFrame.new(letter),
+			LETTER_COLOR,
+			Enum.Material.SmoothPlastic
+		)
+	)
+	for i = 1, H.Lights do
+		local angle = (i - 0.5) / H.Lights * 2 * math.pi
+		local at = top + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (H.Ring + 2) + up * 0.25
+		paint(part(model, "Light", "Part", Vector3.new(1, 0.5, 1), CFrame.new(at), PAD_LIGHT_COLOR, Enum.Material.Neon))
+	end
+	model.Parent = parent
+end
+
 function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 	local old = folder:FindFirstChild("Roofs")
 	if old then
@@ -317,6 +389,8 @@ function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 			waterTower(roof, Vector3.new(area.X + x, FLOOR + plan.roof.height, area.Z + z))
 		elseif spot and plan.kind == "Solar" then
 			solarFarm(roof, area, plan.roof.height, spot)
+		elseif spot and plan.kind == "Helipad" then
+			helipad(roof, area, plan.roof.height, spot)
 		end
 		roof.Parent = model
 	end
