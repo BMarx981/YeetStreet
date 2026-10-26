@@ -19,8 +19,9 @@
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
 --      A PlaneCar with its wings out holds the angle the input asks for
 --      instead, and levels out with none, so it can't flip (PlaneFlight).
---      Lying on its roof or side: AirSpin rolls it back onto its wheels
---      (Righting), and the player's spin input waits until it is upright.
+--      Lying on its roof or side, or falling out of a tube off its wall or
+--      roof: AirSpin rolls it back onto its wheels (Righting), and the
+--      player's spin input waits until it is upright.
 --      A PlaneCar with its wings out glides in the air (Glide).
 --   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
@@ -148,6 +149,8 @@ local gunCooldown = 0
 local nextGun = 1
 local frogCooldown = 0
 local righting = false
+-- When the car was last in a tube's pull (server time).
+local tubeAt = -math.huge
 -- Which way is up for the car: world up, or inside a tube, toward its
 -- middle line.
 local up = Vector3.yAxis
@@ -437,6 +440,9 @@ local function step(r: Rig, dt: number)
 	if inBowl then
 		up = GravitronRide.up(cf.Position)
 	end
+	if pull then
+		tubeAt = now
+	end
 	if r.stick then
 		r.stick.Force = if pull
 			then (pull * Tuning.City.Tunnels.Pull + Vector3.yAxis) * workspace.Gravity * r.hull.AssemblyMass
@@ -501,7 +507,9 @@ local function step(r: Rig, dt: number)
 
 	local RT = Tuning.Righting
 	local upright = cf.UpVector:Dot(up)
-	righting = Righting.step(righting, reading.lying, reading.wheelsDown, upright, RT)
+	-- Falling out of a tube off its wall or roof, it rights like lying.
+	local fromTube = not pull and Righting.afterTube(now - tubeAt, airborne, upright, RT)
+	righting = Righting.step(righting, reading.lying or fromTube, reading.wheelsDown, upright, RT)
 
 	local wingsOut = r.model:GetAttribute("PlaneCar") == true and r.model:GetAttribute("WingsOut") == true
 
@@ -688,6 +696,7 @@ local function enter(r: Rig)
 		end
 	end
 	righting = false
+	tubeAt = -math.huge
 	run = RunTracker.new()
 	tricksShown = 0
 	resetAskedAt = -math.huge

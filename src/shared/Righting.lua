@@ -12,6 +12,7 @@ export type Tuning = {
 	LandWheels: number,
 	Rate: number,
 	SlowAngle: number,
+	TubeExit: number,
 }
 
 -- On its roof or side: no wheels down, tipped past StartUpY, and the ground
@@ -30,6 +31,13 @@ function Righting.step(righting: boolean, lying: boolean, wheelsDown: number, up
 		return false
 	end
 	return wheelsDown < tuning.LandWheels and upY < tuning.EndUpY
+end
+
+-- A car that left a tube on its wall or roof starts righting while it falls,
+-- so it lands on its wheels: in the air, tipped past StartUpY, and out of the
+-- tube's pull at most TubeExit seconds.
+function Righting.afterTube(sinceTube: number, airborne: boolean, upY: number, tuning: Tuning): boolean
+	return airborne and sinceTube <= tuning.TubeExit and upY < tuning.StartUpY
 end
 
 -- World angular velocity that turns the car's up vector toward world up the

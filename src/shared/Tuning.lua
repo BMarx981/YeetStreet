@@ -554,6 +554,7 @@ Tuning.Righting = {
 	GroundProbe = 3.5, -- ground within this far below the hull counts as lying
 	Rate = 4, -- radians per second
 	SlowAngle = math.rad(30), -- eases off inside this angle of upright
+	TubeExit = 2, -- seconds after leaving a tube's pull that a tipped car in the air rights itself
 	-- Needs to beat the car's weight lifting it off its side (about gravity
 	-- times half the hull width per unit mass), so well above air control.
 	TorquePerMass = 1200,

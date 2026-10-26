@@ -8,6 +8,7 @@ local TUNING: Righting.Tuning = {
 	LandWheels = 2,
 	Rate = 4,
 	SlowAngle = math.rad(30),
+	TubeExit = 2,
 }
 
 Check.test("lying needs no wheels down, tipped over, and ground close below", function()
@@ -24,6 +25,15 @@ Check.test("righting starts when lying and holds until upright", function()
 	Check.eq(Righting.step(true, false, 0, 0.96, TUNING), false, "upright")
 	Check.eq(Righting.step(true, false, 2, 0.7, TUNING), false, "wheels down")
 	Check.eq(Righting.step(false, false, 0, 0.7, TUNING), false, "never started")
+end)
+
+Check.test("just out of a tube on its wall or roof, it rights in the air", function()
+	Check.eq(Righting.afterTube(0.5, true, -1, TUNING), true, "off the roof")
+	Check.eq(Righting.afterTube(0.5, true, 0, TUNING), true, "off the wall")
+	Check.eq(Righting.afterTube(1.9, true, 0, TUNING), true, "still falling")
+	Check.eq(Righting.afterTube(0.5, true, 0.9, TUNING), false, "came out upright")
+	Check.eq(Righting.afterTube(0.5, false, -1, TUNING), false, "wheels still on the mouth's wall")
+	Check.eq(Righting.afterTube(2.5, true, -1, TUNING), false, "left the tube long ago")
 end)
 
 Check.test("upright needs no turn", function()
