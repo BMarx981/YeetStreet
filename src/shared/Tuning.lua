@@ -344,6 +344,15 @@ Tuning.Jets = {
 	RelightFuel = 0.25, -- fuel needed to start a new burn
 }
 
+-- A PlaneCar flying with its wings out (Glide). At Lift 0.02 a flat fall
+-- slows to about 100 studs/s.
+Tuning.Glide = {
+	Lift = 0.02,
+	Side = 0.015,
+	Drag = 0.05,
+	MaxAccel = 300, -- about one and a half gravities
+}
+
 -- The admin-only Frog Car. Built by CarBuilder with these stats, and the jet
 -- button (Left Shift) triggers a jump instead of jets. Given via :frog command.
 Tuning.FrogCar = {

@@ -17,6 +17,7 @@
 --      In the air: AirSpin steers the car's spin toward the input (AirControl).
 --      Lying on its roof or side: AirSpin rolls it back onto its wheels
 --      (Righting), and the player's spin input waits until it is upright.
+--      A PlaneCar with its wings out glides in the air (Glide).
 --   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
@@ -39,6 +40,7 @@ local UserInputService = game:GetService("UserInputService")
 local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local GapZones = require(ReplicatedStorage.GapZones)
+local Glide = require(ReplicatedStorage.Glide)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Contact = require(ReplicatedStorage.Contact)
@@ -591,6 +593,14 @@ local function step(r: Rig, dt: number)
 		r.spin.Enabled = true
 	else
 		r.spin.Enabled = false
+	end
+
+	-- The air pushes on a PlaneCar's wings and fin, on top of the tube pull.
+	local wingsOut = r.model:GetAttribute("PlaneCar") == true and r.model:GetAttribute("WingsOut") == true
+	if airborne and not righting and wingsOut and r.stick then
+		local v = cf:VectorToObjectSpace(velocity)
+		local ax, ay, az = Glide.accel(v.X, v.Y, v.Z, Tuning.Glide)
+		r.stick.Force += cf:VectorToWorldSpace(Vector3.new(ax, ay, az)) * r.mass
 	end
 
 	if reading.pad then
