@@ -26,6 +26,7 @@ local WEATHER_ICONS = {
 	bonerain = { icon = "🦴", label = "Bone Rain", color = Color3.fromRGB(230, 210, 160) },
 }
 
+-- Usernames in lowercase; lookups lowercase the name, since Roblox names ignore case.
 local ADMINS = {
 	["bananadad981"] = true,
 	["bannanaman0175"] = true,
@@ -488,7 +489,7 @@ adminFeedbackEvent.OnClientEvent:Connect(function(message)
 	end
 
 	-- ===== ADMIN FEEDBACK (only for admins) =====
-	if not ADMINS[player.Name] then
+	if not ADMINS[string.lower(player.Name)] then
 		return
 	end
 
@@ -612,14 +613,14 @@ local function setupAdminBar()
 end
 
 -- Set up admin bar immediately for existing admins
-if ADMINS[player.Name] then
+if ADMINS[string.lower(player.Name)] then
 	setupAdminBar()
 end
 
 -- Listen for runtime promotion from the server
 adminFeedbackEvent.OnClientEvent:Connect(function(message)
 	if message == "__PROMOTED__" then
-		ADMINS[player.Name] = true
+		ADMINS[string.lower(player.Name)] = true
 		setupAdminBar()
 	end
 end)

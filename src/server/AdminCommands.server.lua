@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 
--- Only these usernames have admin access
+-- Only these usernames have admin access. Lowercase; lookups lowercase the
+-- name, since Roblox names ignore case.
 local ADMINS = {
 	["bananadad981"] = true,
 	["bannanaman0175"] = true,
@@ -324,7 +325,7 @@ local COMMANDS = {
 			return "Kick command broadcast to all servers for: " .. targetName
 		end
 
-		if ADMINS[target.Name] then
+		if ADMINS[string.lower(target.Name)] then
 			return "You cannot kick another admin."
 		end
 
@@ -552,11 +553,11 @@ local COMMANDS = {
 			return "Player not found: " .. targetName
 		end
 
-		if ADMINS[target.Name] then
+		if ADMINS[string.lower(target.Name)] then
 			return target.Name .. " is already an admin."
 		end
 
-		ADMINS[target.Name] = true
+		ADMINS[string.lower(target.Name)] = true
 		-- Notify the promoted player's client to activate the admin command bar
 		adminFeedbackEvent:FireClient(target, "__PROMOTED__")
 		return target.Name .. " has been promoted to admin."
@@ -625,7 +626,7 @@ local COMMANDS = {
 
 local function processCommand(player, message)
 	-- Only admins can use commands
-	if not ADMINS[player.Name] then
+	if not ADMINS[string.lower(player.Name)] then
 		return
 	end
 
