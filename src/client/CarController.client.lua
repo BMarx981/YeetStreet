@@ -22,6 +22,8 @@
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
 --   6. A PlaneCar's wings fold or spread on request: the server flips them.
+--      Its guns shoot while fire is held (Guns): the server decides what each
+--      shot hits (GunService), and this game draws it at once (GunFx).
 --   7. Reset on request, when still stuck on the roof after righting had its
 --      chance, or after falling off the map. Resets ask the server, which
 --      builds a fresh car at the last launcher, the same as after a wreck.
@@ -41,6 +43,7 @@ local AirControl = require(ReplicatedStorage.AirControl)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local GapZones = require(ReplicatedStorage.GapZones)
 local Glide = require(ReplicatedStorage.Glide)
+local Guns = require(ReplicatedStorage.Guns)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Contact = require(ReplicatedStorage.Contact)
@@ -52,6 +55,7 @@ local PadPush = require(ReplicatedStorage.PadPush)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
+local ShotPath = require(ReplicatedStorage.ShotPath)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
@@ -59,6 +63,7 @@ local ChaseCamera = require(script.Parent.ChaseCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
 local GrindRide = require(script.Parent.GrindRide)
+local GunFx = require(script.Parent.GunFx)
 local Hud = require(script.Parent.Hud)
 local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
@@ -134,6 +139,8 @@ local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
 local wingsHeld = false
+local gunCooldown = 0
+local nextGun = 1
 local frogCooldown = 0
 local righting = false
 -- Which way is up for the car: world up, or inside a tube, toward its
@@ -150,6 +157,7 @@ local carGoneAt: number? = nil
 local resetRemote: RemoteEvent? = nil
 local exitRemote: RemoteEvent? = nil
 local wingsRemote: RemoteEvent? = nil
+local fireRemote: RemoteEvent? = nil
 local spawnRemote: RemoteEvent? = nil
 
 local function numberAttribute(model: Model, key: string): number?
@@ -623,6 +631,17 @@ local function step(r: Rig, dt: number)
 		wingsRemote:FireServer()
 	end
 
+	-- Guns
+	local armed = r.model:GetAttribute("PlaneCar") == true
+	local fire
+	gunCooldown, fire = Guns.step(gunCooldown, input.fire and armed, dt, Tuning.Guns.Rate)
+	if fire and fireRemote then
+		fireRemote:FireServer(nextGun)
+		local from, to, victim = ShotPath.trace(r.model, r.hull, nextGun)
+		GunFx.shot(from, to, victim ~= nil)
+		nextGun = Guns.nextGun(nextGun)
+	end
+
 	-- Resets
 	local R = Tuning.Reset
 	stuckTime = Contact.stepStuck(stuckTime, upright, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
@@ -657,6 +676,7 @@ local function enter(r: Rig)
 	carGoneAt = nil
 	exitHeld = false
 	wingsHeld = false
+	gunCooldown = 0
 	frogCooldown = 0
 	if defaultControls then
 		defaultControls:Disable()
@@ -668,7 +688,7 @@ local function enter(r: Rig)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 	end
 	TouchControls.setVisible(true)
-	TouchControls.showWings(r.model:GetAttribute("PlaneCar") == true)
+	TouchControls.showPlane(r.model:GetAttribute("PlaneCar") == true)
 	Hud.setVisible(true)
 end
 
@@ -880,6 +900,15 @@ task.spawn(function()
 end)
 
 task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("FireGuns")
+	if remote:IsA("RemoteEvent") then
+		fireRemote = remote
+	else
+		warn("CarController: ReplicatedStorage.FireGuns is not a RemoteEvent; guns don't shoot")
+	end
+end)
+
+task.spawn(function()
 	local remote = ReplicatedStorage:WaitForChild("SpawnCar")
 	if remote:IsA("RemoteEvent") then
 		spawnRemote = remote
@@ -915,6 +944,7 @@ task.spawn(function()
 end)
 
 GarageMenu.start()
+GunFx.start()
 SwingSet.start()
 TrainSet.start()
 TeleportMenu.start()

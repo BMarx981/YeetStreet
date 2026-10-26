@@ -353,6 +353,18 @@ Tuning.Glide = {
 	MaxAccel = 300, -- about one and a half gravities
 }
 
+-- A PlaneCar's guns (Guns, ShotPath). Each hit takes ShotDamage of the car's
+-- full toughness off the side it hit, run or not (ScoreService).
+Tuning.Guns = {
+	Rate = 5, -- shots a second, the two guns taking turns
+	Slack = 0.75, -- the server takes a shot this much of a shot's time early
+	Range = 400, -- studs
+	HitRadius = 4, -- a shot passing this close to a car hits it
+	ShotDamage = 0.1, -- ten hits wreck a car
+	TracerTime = 0.08, -- seconds a shot's streak shows
+	HitSparks = 15,
+}
+
 -- The admin-only Frog Car. Built by CarBuilder with these stats, and the jet
 -- button (Left Shift) triggers a jump instead of jets. Given via :frog command.
 Tuning.FrogCar = {

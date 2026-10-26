@@ -7,7 +7,8 @@
 -- and a finger sliding off do not leave it stuck down. A press ends when the
 -- touch's InputObject changes to End or Cancel, wherever the finger is.
 --
--- The WINGS button shows only while the car is a PlaneCar (showWings).
+-- The WINGS and FIRE buttons show only while the car is a PlaneCar
+-- (showPlane).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +18,15 @@ local InputAxes = require(ReplicatedStorage.InputAxes)
 
 local TouchControls = {}
 
-export type Frame = { steer: number, throttle: number, roll: number, jet: boolean, reset: boolean, wings: boolean }
+export type Frame = {
+	steer: number,
+	throttle: number,
+	roll: number,
+	jet: boolean,
+	reset: boolean,
+	wings: boolean,
+	fire: boolean,
+}
 
 type ButtonSpec = {
 	name: string,
@@ -85,6 +94,13 @@ local BUTTONS: { ButtonSpec } = {
 		size = UDim2.fromOffset(110, 56),
 	},
 	{
+		name = "Fire",
+		label = "FIRE",
+		anchor = Vector2.new(1, 1),
+		position = UDim2.new(1, -146, 1, -126),
+		size = UDim2.fromOffset(90, 90),
+	},
+	{
 		name = "Reset",
 		label = "RESET",
 		anchor = Vector2.new(1, 0),
@@ -95,7 +111,8 @@ local BUTTONS: { ButtonSpec } = {
 
 local touches: { [string]: number } = {}
 local gui: ScreenGui? = nil
-local wingsShown = false
+local planeShown = false
+local PLANE_BUTTONS = { "Wings", "Fire" }
 
 local function isDown(name: string): boolean
 	return (touches[name] or 0) > 0
@@ -153,9 +170,11 @@ local function build(): ScreenGui
 	for _, spec in BUTTONS do
 		buildButton(screen, spec)
 	end
-	local wings = screen:FindFirstChild("Wings")
-	if wings and wings:IsA("GuiObject") then
-		wings.Visible = wingsShown
+	for _, name in PLANE_BUTTONS do
+		local button = screen:FindFirstChild(name)
+		if button and button:IsA("GuiObject") then
+			button.Visible = planeShown
+		end
 	end
 	return screen
 end
@@ -176,15 +195,18 @@ function TouchControls.setVisible(visible: boolean)
 	end
 end
 
--- Shows or hides the WINGS button, for whether the car is a PlaneCar.
-function TouchControls.showWings(shown: boolean)
-	wingsShown = shown
-	local wings = gui and gui:FindFirstChild("Wings")
-	if wings and wings:IsA("GuiObject") then
-		wings.Visible = shown
-	end
-	if not shown then
-		touches.Wings = nil
+-- Shows or hides the WINGS and FIRE buttons, for whether the car is a
+-- PlaneCar.
+function TouchControls.showPlane(shown: boolean)
+	planeShown = shown
+	for _, name in PLANE_BUTTONS do
+		local button = gui and gui:FindFirstChild(name)
+		if button and button:IsA("GuiObject") then
+			button.Visible = shown
+		end
+		if not shown then
+			touches[name] = nil
+		end
 	end
 end
 
@@ -196,6 +218,7 @@ function TouchControls.read(): Frame
 		jet = isDown("Jet"),
 		reset = isDown("Reset"),
 		wings = isDown("Wings"),
+		fire = isDown("Fire"),
 	}
 end
 

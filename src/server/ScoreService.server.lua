@@ -41,7 +41,8 @@
 -- fresh car at their last
 -- launcher, or at the hub before their first, through CarService's
 -- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
--- toughness, and shaking off or surviving a pack pays cash at once.
+-- toughness, and shaking off or surviving a pack pays cash at once. A
+-- PlaneCar's shot (ServerStorage.CarShot) costs toughness the same way.
 --
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
@@ -606,6 +607,31 @@ carBitten.Event:Connect(function(car: Model, moment: "bite" | "shakeOff" | "surv
 	cashBonus:FireClient(watch.player, label, amount)
 end)
 carBitten.Parent = ServerStorage
+
+-- A PlaneCar's shot hitting a car (GunService fires ServerStorage.CarShot
+-- with the car, the shooter, and which way the shot flew): it takes
+-- Tuning.Guns.ShotDamage of the car's full toughness on the side it hit,
+-- run or not, and can wreck it.
+local carShot = Instance.new("BindableEvent")
+carShot.Name = "CarShot"
+carShot.Event:Connect(function(car: Model, shooter: Player, direction: Vector3)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	local push = watch.sensor.hull.CFrame:VectorToObjectSpace(direction)
+	local slot = Impact.slot(push.X, push.Y, push.Z)
+	local amount = watch.maxToughness * Tuning.Guns.ShotDamage
+	damageCar(watch, amount, slot)
+	print(
+		`Shot by {shooter.Name} {slot}, damage {math.floor(amount + 0.5)}, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`
+	)
+	carImpact:FireClient(watch.player, amount, slot, watch.run.phase == "flying", amount, watch.toughness)
+	if watch.toughness <= 0 then
+		wreck(watch)
+	end
+end)
+carShot.Parent = ServerStorage
 
 -- A Downtown walker diving clear of a car (Parks.CityPedestrians fires
 -- ServerStorage.PedestrianNearMiss) pays its driver at once, run or not.

@@ -4,10 +4,11 @@
 -- -1..1 with positive meaning right, gas, or nose down.
 --
 --   Keyboard  W/S or Up/Down gas and brake, A/D or Left/Right steer,
---             Space or Left Shift jets, Q/E roll, R reset, F wings
+--             Space or Left Shift jets, Q/E roll, R reset, F wings, X or
+--             left click fire
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
 --             pitch in the air), A jets, LB/RB roll, Y reset, D-pad up
---             wings
+--             wings, B fire
 --   Touch     see TouchControls
 -- No input reaches the car while the garage panel or teleport menu is open
 -- (GarageMenu, TeleportMenu).
@@ -35,6 +36,7 @@ export type Frame = {
 	reset: boolean,
 	exit: boolean,
 	wings: boolean, -- turns a PlaneCar between plane and car
+	fire: boolean, -- a PlaneCar's guns
 }
 
 local function anyKey(codes: { Enum.KeyCode }): boolean
@@ -49,7 +51,17 @@ end
 function Controls.read(): Frame
 	-- Buttons in the garage panel or teleport menu must not drive the car either.
 	if GarageMenu.isOpen() or TeleportMenu.isOpen() then
-		return { steer = 0, throttle = 0, pitch = 0, roll = 0, jet = false, reset = false, exit = false, wings = false }
+		return {
+			steer = 0,
+			throttle = 0,
+			pitch = 0,
+			roll = 0,
+			jet = false,
+			reset = false,
+			exit = false,
+			wings = false,
+			fire = false,
+		}
 	end
 	-- Typing in chat must not drive the car.
 	local typing = UserInputService:GetFocusedTextBox() ~= nil
@@ -58,7 +70,7 @@ function Controls.read(): Frame
 	end
 
 	local stickX, stickY, gas, brake = 0, 0, 0, 0
-	local padJet, padRollLeft, padRollRight, padReset, padWings = false, false, false, false, false
+	local padJet, padRollLeft, padRollRight, padReset, padWings, padFire = false, false, false, false, false, false
 	if UserInputService.GamepadEnabled then
 		local stickZone = Tuning.Input.StickDeadzone
 		local triggerZone = Tuning.Input.TriggerDeadzone
@@ -77,6 +89,7 @@ function Controls.read(): Frame
 		padRollRight = UserInputService:IsGamepadButtonDown(PAD, K.ButtonR1)
 		padReset = UserInputService:IsGamepadButtonDown(PAD, K.ButtonY)
 		padWings = UserInputService:IsGamepadButtonDown(PAD, K.DPadUp)
+		padFire = UserInputService:IsGamepadButtonDown(PAD, K.ButtonB)
 	end
 
 	local touch = TouchControls.read()
@@ -102,6 +115,10 @@ function Controls.read(): Frame
 		exit = key({ K.Space }),
 		reset = key({ K.R }) or padReset or touch.reset,
 		wings = key({ K.F }) or padWings or touch.wings,
+		fire = key({ K.X })
+			or (not typing and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1))
+			or padFire
+			or touch.fire,
 	}
 end
 

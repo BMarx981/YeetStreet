@@ -267,6 +267,7 @@ local TIP_LEADING = 2.9
 local GUN_X = 5.5
 local GUN_MOUNT_Z = 2.6
 local GUN_Y = 1.45
+local MUZZLE_Z = 0.38
 for _, side in { -1, 1 } do
 	local wing: Group = if side < 0 then "wingL" else "wingR"
 	box(
@@ -339,7 +340,7 @@ for _, side in { -1, 1 } do
 		"Muzzle",
 		"cylinder",
 		Vector3.new(0.05, 0.35, 0.35),
-		CFrame.new(side * GUN_X, GUN_Y, 0.38) * LENGTHWAYS,
+		CFrame.new(side * GUN_X, GUN_Y, MUZZLE_Z) * LENGTHWAYS,
 		BLACK,
 		"underside"
 	)
@@ -394,6 +395,15 @@ function PlaneCar.pose(group: Group, stages: PlaneMorph.Stages): CFrame
 	local side = if group == "gunL" then 1 else -1
 	local wing = if group == "gunL" then "wingL" else "wingR"
 	return wingPose(wing, stages) * about(GUN_PIVOTS[group], CFrame.Angles(0, side * QUARTER * stages.guns, 0))
+end
+
+-- Where the shots come out of the left gun (1) and the right gun (2), in
+-- the hull's space, looking along the barrel.
+function PlaneCar.muzzles(stages: PlaneMorph.Stages): { CFrame }
+	return {
+		PlaneCar.pose("gunL", stages) * CFrame.new(-GUN_X, GUN_Y, MUZZLE_Z),
+		PlaneCar.pose("gunR", stages) * CFrame.new(GUN_X, GUN_Y, MUZZLE_Z),
+	}
 end
 
 -- A tyre and hub welded to each physics wheel, in the wheel's own space,
