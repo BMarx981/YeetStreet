@@ -20,7 +20,8 @@
 --   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
---   6. Reset on request, when still stuck on the roof after righting had its
+--   6. A PlaneCar's wings fold or spread on request: the server flips them.
+--   7. Reset on request, when still stuck on the roof after righting had its
 --      chance, or after falling off the map. Resets ask the server, which
 --      builds a fresh car at the last launcher, the same as after a wreck.
 -- Camera and HUD update each render frame.
@@ -130,6 +131,7 @@ local heldJetsSent = false
 local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
+local wingsHeld = false
 local frogCooldown = 0
 local righting = false
 -- Which way is up for the car: world up, or inside a tube, toward its
@@ -145,6 +147,7 @@ local carGoneAt: number? = nil
 -- Found in the background; nil until the server has made it.
 local resetRemote: RemoteEvent? = nil
 local exitRemote: RemoteEvent? = nil
+local wingsRemote: RemoteEvent? = nil
 local spawnRemote: RemoteEvent? = nil
 
 local function numberAttribute(model: Model, key: string): number?
@@ -603,6 +606,13 @@ local function step(r: Rig, dt: number)
 		requestExit()
 	end
 
+	-- Wings (edge-triggered like exit)
+	local wingsPressed = input.wings and not wingsHeld
+	wingsHeld = input.wings
+	if wingsPressed and wingsRemote and r.model:GetAttribute("PlaneCar") == true then
+		wingsRemote:FireServer()
+	end
+
 	-- Resets
 	local R = Tuning.Reset
 	stuckTime = Contact.stepStuck(stuckTime, upright, velocity.Magnitude, dt, R.StuckUpY, R.StuckSpeed)
@@ -636,6 +646,7 @@ local function enter(r: Rig)
 	resetAskedAt = -math.huge
 	carGoneAt = nil
 	exitHeld = false
+	wingsHeld = false
 	frogCooldown = 0
 	if defaultControls then
 		defaultControls:Disable()
@@ -647,6 +658,7 @@ local function enter(r: Rig)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
 	end
 	TouchControls.setVisible(true)
+	TouchControls.showWings(r.model:GetAttribute("PlaneCar") == true)
 	Hud.setVisible(true)
 end
 
@@ -845,6 +857,15 @@ task.spawn(function()
 		exitRemote = remote
 	else
 		warn("CarController: ReplicatedStorage.ExitCar is not a RemoteEvent; exit does nothing")
+	end
+end)
+
+task.spawn(function()
+	local remote = ReplicatedStorage:WaitForChild("FoldWings")
+	if remote:IsA("RemoteEvent") then
+		wingsRemote = remote
+	else
+		warn("CarController: ReplicatedStorage.FoldWings is not a RemoteEvent; wings stay put")
 	end
 end)
 

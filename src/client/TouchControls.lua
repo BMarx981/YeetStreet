@@ -6,6 +6,8 @@
 -- Each button counts the touches currently on it, so two fingers on one button
 -- and a finger sliding off do not leave it stuck down. A press ends when the
 -- touch's InputObject changes to End or Cancel, wherever the finger is.
+--
+-- The WINGS button shows only while the car is a PlaneCar (showWings).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,7 +17,7 @@ local InputAxes = require(ReplicatedStorage.InputAxes)
 
 local TouchControls = {}
 
-export type Frame = { steer: number, throttle: number, roll: number, jet: boolean, reset: boolean }
+export type Frame = { steer: number, throttle: number, roll: number, jet: boolean, reset: boolean, wings: boolean }
 
 type ButtonSpec = {
 	name: string,
@@ -76,6 +78,13 @@ local BUTTONS: { ButtonSpec } = {
 		size = UDim2.fromOffset(110, 90),
 	},
 	{
+		name = "Wings",
+		label = "WINGS",
+		anchor = Vector2.new(1, 1),
+		position = UDim2.new(1, -24, 1, -248),
+		size = UDim2.fromOffset(110, 56),
+	},
+	{
 		name = "Reset",
 		label = "RESET",
 		anchor = Vector2.new(1, 0),
@@ -86,6 +95,7 @@ local BUTTONS: { ButtonSpec } = {
 
 local touches: { [string]: number } = {}
 local gui: ScreenGui? = nil
+local wingsShown = false
 
 local function isDown(name: string): boolean
 	return (touches[name] or 0) > 0
@@ -143,6 +153,10 @@ local function build(): ScreenGui
 	for _, spec in BUTTONS do
 		buildButton(screen, spec)
 	end
+	local wings = screen:FindFirstChild("Wings")
+	if wings and wings:IsA("GuiObject") then
+		wings.Visible = wingsShown
+	end
 	return screen
 end
 
@@ -162,6 +176,18 @@ function TouchControls.setVisible(visible: boolean)
 	end
 end
 
+-- Shows or hides the WINGS button, for whether the car is a PlaneCar.
+function TouchControls.showWings(shown: boolean)
+	wingsShown = shown
+	local wings = gui and gui:FindFirstChild("Wings")
+	if wings and wings:IsA("GuiObject") then
+		wings.Visible = shown
+	end
+	if not shown then
+		touches.Wings = nil
+	end
+end
+
 function TouchControls.read(): Frame
 	return {
 		steer = InputAxes.fromKeys(isDown("Left"), isDown("Right")),
@@ -169,6 +195,7 @@ function TouchControls.read(): Frame
 		roll = InputAxes.fromKeys(isDown("RollLeft"), isDown("RollRight")),
 		jet = isDown("Jet"),
 		reset = isDown("Reset"),
+		wings = isDown("Wings"),
 	}
 end
 

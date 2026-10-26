@@ -357,6 +357,18 @@ if exitCar and exitCar:IsA("RemoteEvent") then
 	exitCar.OnServerEvent:Connect(onExitCar)
 end
 
+-- Client pressed the wings button: a PlaneCar turns from car to plane or
+-- back. Every client transforms it from the WingsOut attribute (CarVisuals).
+local foldWings = ReplicatedStorage:FindFirstChild("FoldWings")
+if foldWings and foldWings:IsA("RemoteEvent") then
+	foldWings.OnServerEvent:Connect(function(player: Player)
+		local car = cars[player]
+		if car and car:GetAttribute("PlaneCar") == true then
+			car:SetAttribute("WingsOut", car:GetAttribute("WingsOut") ~= true)
+		end
+	end)
+end
+
 -- Spawn a car at the player's position when they press Z on foot.
 local spawnCar = ReplicatedStorage:FindFirstChild("SpawnCar")
 if spawnCar and spawnCar:IsA("RemoteEvent") then
