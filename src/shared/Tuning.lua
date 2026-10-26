@@ -1262,6 +1262,24 @@ Tuning.City = {
 			HitGrace = 0.4,
 		},
 	},
+	-- What goes on the roofs (Roofs): a lip along every edge, and one kind
+	-- each, picked by Weight from Seed, its footprint Width along x by Depth
+	-- along z (or turned) placed near the roof's middle.
+	Roofs = {
+		Seed = 26,
+		LipHeight = 3,
+		LipLength = 6,
+		Clearance = 4,
+		Step = 2,
+		Kinds = {
+			{ Name = "Plain", Weight = 1, Width = 0, Depth = 0 },
+			{ Name = "Pool", Weight = 1, Width = 56, Depth = 32 },
+			{ Name = "Garden", Weight = 2, Width = 100, Depth = 100 },
+			{ Name = "Solar", Weight = 2, Width = 100, Depth = 80 },
+			{ Name = "WaterTower", Weight = 2, Width = 30, Depth = 30 },
+			{ Name = "Helipad", Weight = 1, Width = 70, Depth = 70 },
+		},
+	},
 	-- A kaiju about 150 tall that walks the streets and hunts cars the way
 	-- Dino Valley's T-Rex does (Rex, run by Parks.CityKaiju through
 	-- Parks.DinoRex): the numbers below mean what they do in

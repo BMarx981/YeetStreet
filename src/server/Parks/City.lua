@@ -12,7 +12,8 @@
 -- a twisting round tube through them that crosses the alley between them
 -- overhead. A train line loops round, elevated and underground
 -- (CityRailway). A kaiju walks the streets hunting cars (CityKaiju), and
--- walkers on the curbs dive out of cars' way (CityPedestrians).
+-- walkers on the curbs dive out of cars' way (CityPedestrians). Every
+-- roof has a lip along its edges (CityRoofs).
 -- Numbers are in Tuning.City.
 
 local CollectionService = game:GetService("CollectionService")
@@ -32,6 +33,7 @@ local Tube = require(ServerScriptService.Pieces.Tube)
 local CityKaiju = require(script.Parent.CityKaiju)
 local CityPedestrians = require(script.Parent.CityPedestrians)
 local CityRailway = require(script.Parent.CityRailway)
+local CityRoofs = require(script.Parent.CityRoofs)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 
 local C = Tuning.City
@@ -840,8 +842,14 @@ function City.build(folder: Folder, area: MapLayout.Area)
 	buildBillboard(folder, area)
 	buildStreetLights(folder, area)
 	buildCranes(folder, area, plain)
+	CityRoofs.build(folder, area)
 	CityRailway.build(folder, area)
 end
+
+-- Pieces a saved city can have rebuilt in place (ParkFreeze.patch).
+City.patches = {
+	Roofs = CityRoofs.build,
+}
 
 -- What moves while the game runs, for a park just built or saved with the
 -- place: the kaiju. (The trains and the wrecking balls are drawn on each

@@ -1,0 +1,179 @@
+--!strict
+local Check = require("./Check")
+local Rng = require("../src/shared/Rng")
+local Roofs = require("../src/shared/Roofs")
+
+local TUNING: Roofs.Tuning = {
+	LipHeight = 3,
+	LipLength = 12,
+	Clearance = 4,
+	Step = 2,
+	Kinds = {
+		{ Name = "Plain", Weight = 1, Width = 0, Depth = 0 },
+		{ Name = "Pool", Weight = 1, Width = 56, Depth = 32 },
+		{ Name = "Helipad", Weight = 1, Width = 70, Depth = 70 },
+	},
+}
+
+local function roof(busy: { Roofs.Rect }?): Roofs.Roof
+	return { x1 = 0, x2 = 160, z1 = 0, z2 = 160, height = 100, busy = busy or {} }
+end
+
+local function only(name: string): Roofs.Tuning
+	local kinds = {}
+	for _, kind in TUNING.Kinds do
+		table.insert(
+			kinds,
+			{ Name = kind.Name, Weight = if kind.Name == name then 1 else 0, Width = kind.Width, Depth = kind.Depth }
+		)
+	end
+	local tuning = table.clone(TUNING)
+	tuning.Kinds = kinds
+	return tuning
+end
+
+local function overlaps(a: Roofs.Rect, b: Roofs.Rect): boolean
+	return a.x1 < b.x2 and b.x1 < a.x2 and a.z1 < b.z2 and b.z1 < a.z2
+end
+
+Check.test("an empty roof gets a lip the whole length of each side, facing out", function()
+	local plan = Roofs.plan({ roof() }, TUNING, Rng.new(1))[1]
+	Check.eq(#plan.lips, 4)
+	local outs = {}
+	for _, lip in plan.lips do
+		Check.near(math.abs(lip.x2 - lip.x1) + math.abs(lip.z2 - lip.z1), 160, "full side")
+		outs[`{lip.outX},{lip.outZ}`] = true
+		-- The lip sits on the edge it faces out of.
+		if lip.outX ~= 0 then
+			Check.eq(lip.x1, if lip.outX > 0 then 160 else 0)
+			Check.eq(lip.x2, lip.x1)
+		else
+			Check.eq(lip.z1, if lip.outZ > 0 then 160 else 0)
+			Check.eq(lip.z2, lip.z1)
+		end
+	end
+	for _, out in { "0,-1", "1,0", "0,1", "-1,0" } do
+		Check.eq(outs[out], true, out)
+	end
+end)
+
+Check.test("something standing on the lip's strip cuts that side's lip around it", function()
+	-- A mast 8 in from the low-x edge, from z 70 to 80.
+	local plan = Roofs.plan({ roof({ { x1 = 8, x2 = 14, z1 = 70, z2 = 80 } }) }, TUNING, Rng.new(1))[1]
+	local west = {}
+	for _, lip in plan.lips do
+		if lip.outX == -1 then
+			table.insert(west, lip)
+		else
+			Check.near(math.abs(lip.x2 - lip.x1) + math.abs(lip.z2 - lip.z1), 160, "other sides whole")
+		end
+	end
+	Check.eq(#west, 2)
+	table.sort(west, function(a, b)
+		return a.z1 < b.z1
+	end)
+	Check.near(west[1].z1, 0)
+	Check.near(west[1].z2, 66, "stops Clearance short")
+	Check.near(west[2].z1, 84, "starts Clearance past")
+	Check.near(west[2].z2, 160)
+end)
+
+Check.test("something in the middle of the roof leaves the lips whole", function()
+	local plan = Roofs.plan({ roof({ { x1 = 70, x2 = 90, z1 = 70, z2 = 90 } }) }, only("Plain"), Rng.new(1))[1]
+	Check.eq(#plan.lips, 4)
+end)
+
+Check.test("a short scrap of lip left by a cut is dropped", function()
+	-- Cuts the low-x side from 0 to 159, leaving a 1 stud scrap.
+	local plan = Roofs.plan({ roof({ { x1 = 2, x2 = 8, z1 = 4, z2 = 155 } }) }, only("Plain"), Rng.new(1))[1]
+	for _, lip in plan.lips do
+		Check.eq(math.abs(lip.x2 - lip.x1) + math.abs(lip.z2 - lip.z1) >= TUNING.LipLength, true, "no scraps")
+	end
+	Check.eq(#plan.lips, 3)
+end)
+
+Check.test("a kind's footprint goes in the middle of an empty roof", function()
+	local plan = Roofs.plan({ roof() }, only("Pool"), Rng.new(1))[1]
+	Check.eq(plan.kind, "Pool")
+	local spot = assert(plan.spot, "a spot")
+	Check.near((spot.x1 + spot.x2) / 2, 80)
+	Check.near((spot.z1 + spot.z2) / 2, 80)
+	Check.near(spot.x2 - spot.x1, 56)
+	Check.near(spot.z2 - spot.z1, 32)
+end)
+
+Check.test("a footprint moves aside, clear of what stands on the roof and inside the lips", function()
+	local mast = { x1 = 100, x2 = 110, z1 = 70, z2 = 90 }
+	local plan = Roofs.plan({ roof({ mast }) }, only("Helipad"), Rng.new(1))[1]
+	Check.eq(plan.kind, "Helipad")
+	local spot = assert(plan.spot, "a spot")
+	local grown = { x1 = mast.x1 - 4, x2 = mast.x2 + 4, z1 = mast.z1 - 4, z2 = mast.z2 + 4 }
+	Check.eq(overlaps(spot, grown), false, "clear of the mast")
+	local inset = TUNING.LipLength + TUNING.Clearance
+	Check.eq(spot.x1 >= inset and spot.x2 <= 160 - inset, true, "inside the lips across")
+	Check.eq(spot.z1 >= inset and spot.z2 <= 160 - inset, true, "inside the lips along")
+end)
+
+Check.test("a footprint turns sideways when only that fits", function()
+	-- A strip along z leaves room 40 wide across x, but long along z.
+	local busy = { { x1 = 16, x2 = 100, z1 = 0, z2 = 160 } }
+	local plan = Roofs.plan({ roof(busy) }, only("Pool"), Rng.new(1))[1]
+	Check.eq(plan.kind, "Pool")
+	local spot = assert(plan.spot, "a spot")
+	Check.near(spot.x2 - spot.x1, 32, "turned")
+	Check.near(spot.z2 - spot.z1, 56, "turned")
+end)
+
+Check.test("a kind that fits nowhere on a roof is never picked for it", function()
+	local small: Roofs.Roof = { x1 = 0, x2 = 80, z1 = 0, z2 = 80, height = 60, busy = {} }
+	local roofs = {}
+	for _ = 1, 50 do
+		table.insert(roofs, table.clone(small))
+	end
+	for _, plan in Roofs.plan(roofs, TUNING, Rng.new(1)) do
+		Check.eq(plan.kind ~= "Helipad", true, "a helipad needs 70 inside the lips")
+	end
+end)
+
+Check.test("plain roofs have no footprint", function()
+	local plan = Roofs.plan({ roof() }, only("Plain"), Rng.new(1))[1]
+	Check.eq(plan.kind, "Plain")
+	Check.eq(plan.spot, nil)
+end)
+
+Check.test("the same seed gives the same kinds, another seed different ones", function()
+	local roofs = {}
+	for _ = 1, 40 do
+		table.insert(roofs, roof())
+	end
+	local function kinds(seed: number): string
+		local names = {}
+		for _, plan in Roofs.plan(roofs, TUNING, Rng.new(seed)) do
+			table.insert(names, plan.kind)
+		end
+		return table.concat(names, ",")
+	end
+	Check.eq(kinds(1), kinds(1))
+	Check.eq(kinds(1) ~= kinds(2), true, "another seed")
+end)
+
+Check.test("kinds come up about as often as their weights say", function()
+	local tuning = table.clone(TUNING)
+	tuning.Kinds = {
+		{ Name = "Plain", Weight = 7, Width = 0, Depth = 0 },
+		{ Name = "Pool", Weight = 1, Width = 56, Depth = 32 },
+	}
+	local roofs = {}
+	for _ = 1, 2000 do
+		table.insert(roofs, roof())
+	end
+	local pools = 0
+	for _, plan in Roofs.plan(roofs, tuning, Rng.new(1)) do
+		if plan.kind == "Pool" then
+			pools += 1
+		end
+	end
+	Check.near(pools / 2000, 1 / 8, "one in eight", 0.03)
+end)
+
+Check.finish("Roofs")

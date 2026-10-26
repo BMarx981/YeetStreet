@@ -26,6 +26,8 @@ export type ParkModule = {
 	build: (folder: Folder, area: MapLayout.Area) -> (),
 	start: ((folder: Folder, area: MapLayout.Area) -> ())?,
 	fingerprint: (() -> string)?,
+	-- Pieces of a saved park that can be rebuilt in place (ParkFreeze.patch).
+	patches: { [string]: (folder: Folder, area: MapLayout.Area) -> () }?,
 }
 
 local M = Tuning.Map
