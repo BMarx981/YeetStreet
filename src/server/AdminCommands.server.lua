@@ -301,6 +301,7 @@ local COMMAND_INFO = {
 	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global <text>",                optionsType = "text" },
 	{ name = "frog",       desc = "Give a player the Frog Car (it can jump!)",            usage = ":frog <playerName>",            optionsType = "player" },
 	{ name = "helicar",    desc = "Turn the HeliCar look on or off for you or a player", usage = ":helicar [playerName]",         optionsType = "player" },
+	{ name = "planecar",   desc = "Turn the PlaneCar on or off for you or a player",    usage = ":planecar [playerName]",        optionsType = "player" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
@@ -540,6 +541,22 @@ local COMMANDS = {
 		local turningOn = target:GetAttribute("HeliCarEquipped") ~= true
 		toggleHeliCar:Fire(target)
 		return if turningOn then target.Name .. " is driving the HeliCar!" else target.Name .. " is back in their own car."
+	end,
+
+	planecar = function(adminPlayer, args)
+		local targetName = string.match(args, "%S+")
+		local target = if targetName then findPlayer(targetName) else adminPlayer
+		if not target then
+			return if targetName then "Player not found: " .. targetName else "Usage: :planecar [playerName]"
+		end
+
+		local togglePlaneCar = game:GetService("ServerStorage"):FindFirstChild("TogglePlaneCar")
+		if not (togglePlaneCar and togglePlaneCar:IsA("BindableEvent")) then
+			return "PlaneCar isn't available"
+		end
+		local turningOn = target:GetAttribute("PlaneCarEquipped") ~= true
+		togglePlaneCar:Fire(target)
+		return if turningOn then target.Name .. " is driving the PlaneCar!" else target.Name .. " is back in their own car."
 	end,
 
 	promote = function(adminPlayer, args)

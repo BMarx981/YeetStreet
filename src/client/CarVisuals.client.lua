@@ -9,6 +9,9 @@
 --   A car with the HeliCar attribute (an admin toggle) gets the fixed
 --   HeliCar look instead, with its roof fan turning to follow the steering.
 --   It doesn't break apart on hits yet.
+--   A car with the PlaneCar attribute (an admin toggle) gets the fixed
+--   PlaneCar look, a plane while its WingsOut attribute is true and a car
+--   otherwise, transforming between them. It doesn't break apart yet either.
 --   Hover cars hide their wheels. The physics wheels are still there.
 --   Each thruster gets a flame, a smoke trail, and a glow that grow with the
 --   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
@@ -26,6 +29,8 @@ local RunService = game:GetService("RunService")
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
 local HeliCar = require(ReplicatedStorage.HeliCar)
+local PlaneCar = require(ReplicatedStorage.PlaneCar)
+local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Toughness
@@ -46,6 +51,14 @@ end
 type Jet = {
 	emitters: { ParticleEmitter },
 	glow: PointLight?,
+}
+
+-- A PlaneCar tyre on its physics wheel, and where it tucks to as a plane.
+type Tyre = {
+	wheel: BasePart,
+	weld: Weld,
+	parts: { BasePart },
+	tuck: Vector3, -- in the hull's space
 }
 
 -- A flame, smoke, and glow out of the back of a thruster, sized for Jets look
@@ -252,6 +265,113 @@ local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameCol
 	return jets
 end
 
+-- The PlaneCar's fixed look in place of the generated one. Each group of
+-- parts (body, nose, wings, guns) is welded to a pivot of its own, on a Weld
+-- from the hull that PlaneCar.pose moves through the transform: toward a
+-- plane while the car's WingsOut attribute is true, toward a car otherwise.
+-- A new car starts as whichever it is, without transforming. The jet flame
+-- blows out of the back of the body.
+--
+-- The physics wheels are hidden. A tyre is welded to each through a pivot,
+-- so it spins and steers with the wheel, and tucks up into the wing out of
+-- sight as the car becomes a plane.
+local function buildPlaneCar(car: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
+	local function pivotOn(base: BasePart, name: string): (BasePart, Weld)
+		local pivot = Instance.new("Part")
+		pivot.Name = name
+		pivot.Size = Vector3.one * 0.2
+		pivot.CFrame = base.CFrame
+		pivot.Transparency = 1
+		pivot.CanCollide = false
+		pivot.CanTouch = false
+		pivot.CanQuery = false
+		pivot.Massless = true
+		pivot.Parent = folder
+		local weld = Instance.new("Weld")
+		weld.Part0 = base
+		weld.Part1 = pivot
+		weld.Parent = pivot
+		return pivot, weld
+	end
+	-- A Weld, not a WeldConstraint: that keeps whatever offset its parts have
+	-- when it reaches the workspace, by when show has moved the pivot.
+	local function weldTo(pivot: BasePart, part: BasePart, offset: CFrame)
+		local weld = Instance.new("Weld")
+		weld.Part0 = pivot
+		weld.Part1 = part
+		weld.C0 = offset
+		weld.Parent = part
+		part.Anchored = false
+	end
+
+	local jets: { Jet } = {}
+	local poses: { [PlaneCar.Group]: Weld } = {}
+	for group, specs in PlaneCar.groups do
+		local pivot, weld = pivotOn(hull, "PlanePivot")
+		poses[group] = weld
+		for i, part in HeliCar.build(specs, hull.CFrame, folder) do
+			weldTo(pivot, part, specs[i].cframe)
+			if part.Name == "Exhaust" then
+				table.insert(jets, addJet(part, flameColor, jetStep))
+			end
+		end
+	end
+
+	local tyres: { Tyre } = {}
+	for _, name in WHEEL_NAMES do
+		local wheel = car:WaitForChild(name, HULL_WAIT)
+		if wheel and wheel:IsA("BasePart") then
+			wheel.Transparency = 1
+			local pivot, weld = pivotOn(wheel, "TyrePivot")
+			local parts = HeliCar.build(PlaneCar.wheel, wheel.CFrame, folder)
+			for i, part in parts do
+				weldTo(pivot, part, PlaneCar.wheel[i].cframe)
+			end
+			local side = if string.sub(name, -1) == "L" then 1 else -1
+			table.insert(tyres, {
+				wheel = wheel,
+				weld = weld,
+				parts = parts,
+				tuck = PlaneCar.WheelTuck * Vector3.new(side, 1, 1),
+			})
+		end
+	end
+
+	local function show(progress: number)
+		local stages = PlaneMorph.stages(progress)
+		for group, weld in poses do
+			weld.C0 = PlaneCar.pose(group, stages)
+		end
+		local hidden = stages.wheels == 0
+		for _, tyre in tyres do
+			local tuck = hull.CFrame:VectorToWorldSpace(tyre.tuck * (1 - stages.wheels))
+			tyre.weld.C0 = CFrame.new(tyre.wheel.CFrame:VectorToObjectSpace(tuck))
+			for _, part in tyre.parts do
+				part.Transparency = if hidden then 1 else 0
+			end
+		end
+	end
+
+	local function goal(): number
+		return if car:GetAttribute("WingsOut") == true then 0 else 1
+	end
+	local progress = goal()
+	show(progress)
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(dt: number)
+		if car.Parent == nil then
+			connection:Disconnect()
+			return
+		end
+		local target = goal()
+		if progress ~= target then
+			progress = PlaneMorph.approach(progress, target, dt)
+			show(progress)
+		end
+	end)
+	return jets
+end
+
 local function setUp(car: Model)
 	local hull = car:WaitForChild("Hull", HULL_WAIT)
 	if not (hull and hull:IsA("BasePart")) then
@@ -311,13 +431,16 @@ local function setUp(car: Model)
 	end
 	built[car] = true
 	local heli = car:GetAttribute("HeliCar") == true
+	local plane = car:GetAttribute("PlaneCar") == true
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Looks"
-	local parts = if heli then {} else CarParts.build(design, hull.CFrame, folder)
+	local parts = if heli or plane then {} else CarParts.build(design, hull.CFrame, folder)
 	local jets: { Jet } = {}
 	local jetStep = CarDesign.step(car:GetAttribute("LevelJets") :: number, Tuning.CarLooks.StatSteps)
-	if heli then
+	if plane then
+		jets = buildPlaneCar(car, hull, folder, rgb(design.flameColor), jetStep)
+	elseif heli then
 		jets = buildHeliCar(car, hull, folder, rgb(design.flameColor), jetStep)
 	end
 	for i, part in parts do
@@ -334,12 +457,12 @@ local function setUp(car: Model)
 	folder.Parent = car
 
 	-- The Velociraptor car carries two little raptors along its sides.
-	if car:GetAttribute("CarId") == "Velociraptor" and not heli then
+	if car:GetAttribute("CarId") == "Velociraptor" and not (heli or plane) then
 		addRaptor(car, hull, -1, -2.5)
 		addRaptor(car, hull, 1, 1.5)
 	end
 
-	if design.hideWheels and not heli then
+	if design.hideWheels and not (heli or plane) then
 		for _, name in WHEEL_NAMES do
 			local wheel = car:FindFirstChild(name)
 			if wheel and wheel:IsA("BasePart") then
@@ -362,7 +485,7 @@ local function setUp(car: Model)
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
 
 	for _, slot in CarParts.Slots do
-		local order = if heli then {} else CarDesign.breakable(design, slot)
+		local order = if heli or plane then {} else CarDesign.breakable(design, slot)
 		local attribute = CarParts.brokenAttribute(slot)
 		local shown = 0
 		local function showBroken()
