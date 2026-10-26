@@ -176,4 +176,37 @@ Check.test("kinds come up about as often as their weights say", function()
 	Check.near(pools / 2000, 1 / 8, "one in eight", 0.03)
 end)
 
+local SOLAR: Roofs.Solar = { Height = 3, Run = 9, Back = 5, Gap = 10 }
+
+Check.test("solar rows run along the spot's long side, centered across it", function()
+	local rows = Roofs.solarRows({ x1 = 0, x2 = 100, z1 = 0, z2 = 80 }, SOLAR)
+	-- Rows 14 deep with 10 between: three take 62 of the 80.
+	Check.eq(#rows, 3)
+	for i, row in rows do
+		Check.near(row.x1, 0, "whole length")
+		Check.near(row.x2, 100, "whole length")
+		Check.near(row.z1, 9 + (i - 1) * 24, `row {i} starts`)
+		Check.near(row.z2 - row.z1, 14, "Run and Back deep")
+		Check.eq(row.riseX, 0)
+		Check.eq(row.riseZ, -1)
+	end
+end)
+
+Check.test("a spot longer along z gets rows along z, rising toward -x", function()
+	local rows = Roofs.solarRows({ x1 = 10, x2 = 90, z1 = 0, z2 = 100 }, SOLAR)
+	Check.eq(#rows, 3)
+	for _, row in rows do
+		Check.near(row.z1, 0)
+		Check.near(row.z2, 100)
+		Check.near(row.x2 - row.x1, 14)
+		Check.eq(row.riseX, -1)
+		Check.eq(row.riseZ, 0)
+	end
+	Check.near(rows[1].x1, 19, "centered across")
+end)
+
+Check.test("a spot too narrow for a row gets none", function()
+	Check.eq(#Roofs.solarRows({ x1 = 0, x2 = 100, z1 = 0, z2 = 12 }, SOLAR), 0)
+end)
+
 Check.finish("Roofs")

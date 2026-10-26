@@ -13,7 +13,8 @@
 -- overhead. A train line loops round, elevated and underground
 -- (CityRailway). A kaiju walks the streets hunting cars (CityKaiju), and
 -- walkers on the curbs dive out of cars' way (CityPedestrians). Every
--- roof has a lip along its edges (CityRoofs).
+-- roof has a lip along its edges, and some have a water tower to smash or
+-- solar panels to drive up (CityRoofs).
 -- Numbers are in Tuning.City.
 
 local CollectionService = game:GetService("CollectionService")
@@ -852,20 +853,28 @@ City.patches = {
 }
 
 -- What moves while the game runs, for a park just built or saved with the
--- place: the kaiju. (The trains and the wrecking balls are drawn on each
--- client.)
+-- place: the kaiju, the walkers, and cracks in the roofs' solar panels. (The
+-- trains and the wrecking balls are drawn on each client.)
 function City.start(folder: Folder, area: MapLayout.Area)
 	CityKaiju.build(folder, area)
 	CityPedestrians.start(folder, area)
+	CityRoofs.start(folder, area)
 end
 
 -- The tuning the parts are built from: all of Tuning.City but the numbers
 -- only used while the game runs.
 function City.fingerprint(): string
-	return Fingerprint.of(
-		C :: any,
-		{ "Kaiju", "Pedestrians", "Cranes.Ball", "Cranes.Server", "Railway.Trains", "Railway.Push", "Railway.Server" }
-	)
+	return Fingerprint.of(C :: any, {
+		"Kaiju",
+		"Pedestrians",
+		"Cranes.Ball",
+		"Cranes.Server",
+		"Railway.Trains",
+		"Railway.Push",
+		"Railway.Server",
+		"Roofs.Crack",
+		"Roofs.Splash",
+	})
 end
 
 return City

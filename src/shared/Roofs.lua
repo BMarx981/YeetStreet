@@ -14,6 +14,10 @@
 -- of them and of anything busy on the roof. A kind with no Width needs no
 -- room and gets no spot. If nothing fits, the roof is Plain.
 --
+-- A solar farm's footprint holds rows of panels you can drive up
+-- (solarRows): each rises Height over Run, then drops over Back on the far
+-- side, so a car coming the other way meets a ramp too, not a wall.
+--
 -- Coordinates are the park's: x and z on the ground.
 
 local Roofs = {}
@@ -65,6 +69,24 @@ export type Plan = {
 	lips: { Lip },
 	kind: string,
 	spot: Rect?, -- the kind's footprint, if it has one
+}
+
+export type Solar = {
+	Height: number,
+	Run: number, -- the slope a car drives up
+	Back: number, -- the drop behind its top
+	Gap: number, -- flat roof between rows
+}
+
+-- A row of solar panels across its rect, rising along (riseX, riseZ): Run
+-- up from the rect's edge behind that, then Back down to the edge ahead.
+export type Row = {
+	x1: number,
+	x2: number,
+	z1: number,
+	z2: number,
+	riseX: number,
+	riseZ: number,
 }
 
 -- An Rng from the shared Rng module (Rng.new).
@@ -202,6 +224,27 @@ local function place(roof: Roof, kind: Kind, tuning: Tuning): Rect?
 		end
 	end
 	return best
+end
+
+-- The rows of a solar farm on its spot: along the spot's longer side, as
+-- many as fit across it with Gap between, centered, each rising toward
+-- lower z (or lower x, for rows along z).
+function Roofs.solarRows(spot: Rect, solar: Solar): { Row }
+	local alongX = spot.x2 - spot.x1 >= spot.z2 - spot.z1
+	local across = if alongX then spot.z2 - spot.z1 else spot.x2 - spot.x1
+	local depth = solar.Run + solar.Back
+	local count = math.floor((across + solar.Gap) / (depth + solar.Gap))
+	local start = (if alongX then spot.z1 else spot.x1) + (across - (count * depth + (count - 1) * solar.Gap)) / 2
+	local rows: { Row } = {}
+	for i = 1, count do
+		local a = start + (i - 1) * (depth + solar.Gap)
+		if alongX then
+			table.insert(rows, { x1 = spot.x1, x2 = spot.x2, z1 = a, z2 = a + depth, riseX = 0, riseZ = -1 })
+		else
+			table.insert(rows, { x1 = a, x2 = a + depth, z1 = spot.z1, z2 = spot.z2, riseX = -1, riseZ = 0 })
+		end
+	end
+	return rows
 end
 
 -- The plan for each roof, in the order given. The Rng picks the kinds, one

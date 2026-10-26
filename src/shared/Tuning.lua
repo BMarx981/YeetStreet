@@ -459,6 +459,7 @@ Tuning.Score = {
 	-- attribute, PropService).
 	TargetPoints = {
 		Billboard = 500,
+		["Water tower"] = 300,
 		["Palm tree"] = 200,
 		Lava = 300, -- coming down in lava (ScoreService)
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
@@ -1316,6 +1317,44 @@ Tuning.City = {
 			{ Name = "Solar", Weight = 2, Width = 100, Depth = 80 },
 			{ Name = "WaterTower", Weight = 2, Width = 30, Depth = 30 },
 			{ Name = "Helipad", Weight = 1, Width = 70, Depth = 70 },
+		},
+		-- A wooden tank of Staves on four legs under a stepped roof. Every
+		-- part is a knockable prop in one Shatter model with Target "Water
+		-- tower", so flying through any of it bursts it all (PropService).
+		WaterTower = {
+			Radius = 9,
+			TankHeight = 14,
+			Staves = 18,
+			StaveThickness = 1,
+			LegHeight = 14,
+			LegSize = 1.5,
+			RoofRise = 5, -- the stepped roof's height above the tank
+			ResetTime = 6,
+			CarSpeedShare = 0.6,
+		},
+		-- Rows of panels (Roofs.solarRows) on a frame a car drives up. Each
+		-- row is panels Panel wide along it, Seam apart.
+		Solar = {
+			Height = 3,
+			Run = 9,
+			Back = 9, -- as long as Run: steeper, a car driving up it flips
+			Gap = 10,
+			Panel = 6,
+			Seam = 0.4,
+		},
+		-- While the game runs (CityRoofs.start): a car coming down onto a
+		-- solar row faster than Speed cracks the panels within Radius of it,
+		-- mended after Time seconds.
+		Crack = {
+			Speed = 40,
+			Reach = 6, -- below the hull's middle, where a falling car is about to land
+			Radius = 8,
+			Time = 8,
+		},
+		-- Drawn on each client when a water tower bursts (WaterTowerSplash).
+		Splash = {
+			Drops = 120,
+			Mist = 30,
 		},
 	},
 	-- A kaiju about 150 tall that walks the streets and hunts cars the way

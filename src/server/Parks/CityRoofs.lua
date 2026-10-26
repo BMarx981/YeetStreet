@@ -9,9 +9,19 @@
 -- Rebuilding replaces the folder's Roofs model.
 --
 -- A lip runs along each roof edge: a wedge in the building's own color and
--- material, rising toward the edge. Numbers are in Tuning.City.Roofs.
+-- material, rising toward the edge. On its roof's spot:
+--   WaterTower: a wooden tank on legs, every part a knockable prop in one
+--   Shatter model with Target "Water tower" (PropService pays it on a run).
+--   An invisible Splash part tagged WaterTowerSplash marks where each
+--   client draws the water bursting out (WaterTowerSplash).
+--   Solar: rows of panels on frames a car drives up (Roofs.solarRows). The
+--   panels are only looks: cars ride the frame, and start cracks the panels
+--   where a car comes down hard.
+-- Numbers are in Tuning.City.Roofs.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
@@ -20,6 +30,14 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.City.Roofs
 local FLOOR = Tuning.Map.FloorTop
+
+local STAVE_COLORS = { Color3.fromRGB(150, 105, 65), Color3.fromRGB(135, 92, 56) }
+local IRON_COLOR = Color3.fromRGB(55, 55, 60)
+local FRAME_COLOR = Color3.fromRGB(190, 192, 196)
+local PANEL_COLOR = Color3.fromRGB(30, 45, 95)
+local CRACKED_COLOR = Color3.fromRGB(200, 215, 230)
+local PANEL_THICKNESS = 0.2
+local SPLASH_TAG = "WaterTowerSplash"
 
 local CityRoofs = {}
 
@@ -107,6 +125,177 @@ local function lip(parent: Instance, area: MapLayout.Area, roof: Roofs.Roof, edg
 	part.Parent = parent
 end
 
+local function part(
+	parent: Instance,
+	name: string,
+	class: string,
+	size: Vector3,
+	cframe: CFrame,
+	color: Color3,
+	material: Enum.Material
+): BasePart
+	local made = Instance.new(class) :: BasePart
+	made.Name = name
+	made.Anchored = true
+	made.Size = size
+	made.CFrame = cframe
+	made.Color = color
+	made.Material = material
+	made.TopSurface = Enum.SurfaceType.Smooth
+	made.BottomSurface = Enum.SurfaceType.Smooth
+	made.Parent = parent
+	return made
+end
+
+-- A flat disk lying level, centered on `at`.
+local function disk(
+	parent: Instance,
+	name: string,
+	at: Vector3,
+	radius: number,
+	thickness: number,
+	color: Color3,
+	material: Enum.Material
+): BasePart
+	local made = part(
+		parent,
+		name,
+		"Part",
+		Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame.new(at) * CFrame.Angles(0, 0, math.pi / 2),
+		color,
+		material
+	);
+	(made :: Part).Shape = Enum.PartType.Cylinder
+	return made
+end
+
+-- A water tower standing on the roof at `base`.
+local function waterTower(parent: Instance, base: Vector3)
+	local W = T.WaterTower
+	local model = Instance.new("Model")
+	model.Name = "WaterTower"
+	model:SetAttribute("Shatter", true)
+	local up = Vector3.yAxis
+	local bottom = base + up * W.LegHeight
+
+	local leg = W.Radius * 0.6
+	for _, corner in { Vector3.new(1, 0, 1), Vector3.new(-1, 0, 1), Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1) } do
+		part(
+			model,
+			"Leg",
+			"Part",
+			Vector3.new(W.LegSize, W.LegHeight, W.LegSize),
+			CFrame.new(base + corner * leg + up * W.LegHeight / 2),
+			IRON_COLOR,
+			Enum.Material.Metal
+		)
+	end
+	disk(model, "Floor", bottom - up * 0.5, W.Radius + 0.5, 1, IRON_COLOR, Enum.Material.Metal)
+
+	local middle = bottom + up * W.TankHeight / 2
+	local width = 2 * math.pi * W.Radius / W.Staves + 0.1
+	for i = 1, W.Staves do
+		local turn = CFrame.new(middle) * CFrame.Angles(0, (i - 0.5) / W.Staves * 2 * math.pi, 0)
+		part(
+			model,
+			"Stave",
+			"Part",
+			Vector3.new(width, W.TankHeight, W.StaveThickness),
+			turn * CFrame.new(0, 0, -(W.Radius - W.StaveThickness / 2)),
+			STAVE_COLORS[i % 2 + 1],
+			Enum.Material.WoodPlanks
+		)
+	end
+	for _, share in { 0.25, 0.75 } do
+		disk(model, "Hoop", bottom + up * W.TankHeight * share, W.Radius + 0.2, 0.6, IRON_COLOR, Enum.Material.Metal)
+	end
+
+	local step = W.RoofRise / 3
+	for i, share in { 1.05, 0.65, 0.3 } do
+		local at = bottom + up * (W.TankHeight + (i - 0.5) * step)
+		disk(model, "Roof", at, W.Radius * share, step, STAVE_COLORS[2], Enum.Material.WoodPlanks)
+	end
+
+	for _, made in model:GetChildren() do
+		made:SetAttribute("Target", "Water tower")
+		made:SetAttribute("ResetTime", W.ResetTime)
+		made:SetAttribute("CarSpeedShare", W.CarSpeedShare)
+		CollectionService:AddTag(made, "Knockable")
+	end
+
+	local splash =
+		part(model, "Splash", "Part", Vector3.one, CFrame.new(middle), IRON_COLOR, Enum.Material.SmoothPlastic)
+	splash.Transparency = 1
+	splash.CanCollide = false
+	splash.CanQuery = false
+	splash.CanTouch = false
+	CollectionService:AddTag(splash, SPLASH_TAG)
+	model.Parent = parent
+end
+
+-- A solar farm's rows on the roof `height` up: each a frame up the Run and
+-- down the Back, with panels laid on its Run.
+local function solarFarm(parent: Instance, area: MapLayout.Area, height: number, spot: Roofs.Rect)
+	local S = T.Solar
+	local model = Instance.new("Model")
+	model.Name = "Solar"
+	local up = Vector3.yAxis
+	for _, row in Roofs.solarRows(spot, S :: any) do
+		local rise = Vector3.new(row.riseX, 0, row.riseZ)
+		local along = Vector3.new(math.abs(row.riseZ), 0, math.abs(row.riseX))
+		local length = if row.riseZ ~= 0 then row.x2 - row.x1 else row.z2 - row.z1
+		-- The middle of the row's low edge, behind the way it rises.
+		local low = Vector3.new(
+			area.X + (if row.riseX < 0 then row.x2 else (row.x1 + row.x2) / 2),
+			FLOOR + height,
+			area.Z + (if row.riseZ < 0 then row.z2 else (row.z1 + row.z2) / 2)
+		)
+		-- A wedge rises toward its +Z end.
+		local front = low + rise * S.Run / 2 + up * S.Height / 2
+		part(
+			model,
+			"Frame",
+			"WedgePart",
+			Vector3.new(length, S.Height, S.Run),
+			CFrame.lookAt(front, front - rise),
+			FRAME_COLOR,
+			Enum.Material.Metal
+		)
+		local back = low + rise * (S.Run + S.Back / 2) + up * S.Height / 2
+		part(
+			model,
+			"Frame",
+			"WedgePart",
+			Vector3.new(length, S.Height, S.Back),
+			CFrame.lookAt(back, back + rise),
+			FRAME_COLOR,
+			Enum.Material.Metal
+		)
+
+		local slope = (rise * S.Run + up * S.Height).Magnitude
+		local normal = (up * S.Run - rise * S.Height).Unit
+		local count = math.floor((length + S.Seam) / (S.Panel + S.Seam))
+		local first = -(count * (S.Panel + S.Seam) - S.Seam) / 2 + S.Panel / 2
+		for i = 0, count - 1 do
+			local center = front + normal * (PANEL_THICKNESS / 2) + along * (first + i * (S.Panel + S.Seam))
+			local panel = part(
+				model,
+				"Panel",
+				"Part",
+				Vector3.new(S.Panel, PANEL_THICKNESS, slope - 0.6),
+				CFrame.fromMatrix(center, along, normal),
+				PANEL_COLOR,
+				Enum.Material.Glass
+			)
+			panel.CanCollide = false
+			panel.CanQuery = false
+			panel.CanTouch = false
+		end
+	end
+	model.Parent = parent
+end
+
 function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 	local old = folder:FindFirstChild("Roofs")
 	if old then
@@ -122,9 +311,69 @@ function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 		for _, edge in plan.lips do
 			lip(roof, area, plan.roof, edge, towers[plan.roof])
 		end
+		local spot = plan.spot
+		if spot and plan.kind == "WaterTower" then
+			local x, z = (spot.x1 + spot.x2) / 2, (spot.z1 + spot.z2) / 2
+			waterTower(roof, Vector3.new(area.X + x, FLOOR + plan.roof.height, area.Z + z))
+		elseif spot and plan.kind == "Solar" then
+			solarFarm(roof, area, plan.roof.height, spot)
+		end
 		roof.Parent = model
 	end
 	model.Parent = folder
+end
+
+-- Cracks the solar panels near where a car comes down hard on a frame, and
+-- mends them after a while.
+function CityRoofs.start(folder: Instance, _area: MapLayout.Area)
+	local K = T.Crack
+	local roofs = folder:FindFirstChild("Roofs")
+	if not roofs then
+		return
+	end
+	local frames: { Instance } = {}
+	local panels: { BasePart } = {}
+	for _, made in roofs:GetDescendants() do
+		if made:IsA("BasePart") and made.Name == "Frame" then
+			table.insert(frames, made)
+		elseif made:IsA("BasePart") and made.Name == "Panel" then
+			table.insert(panels, made)
+		end
+	end
+	if #frames == 0 then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = frames
+	local whole: { [BasePart]: { color: Color3, material: Enum.Material } } = {}
+	local cars = workspace:WaitForChild("Cars")
+
+	RunService.Heartbeat:Connect(function()
+		for _, car in cars:GetChildren() do
+			local hull = car:FindFirstChild("Hull")
+			if not (hull and hull:IsA("BasePart") and hull.AssemblyLinearVelocity.Y < -K.Speed) then
+				continue
+			end
+			local hit = workspace:Raycast(hull.Position, Vector3.new(0, -K.Reach, 0), params)
+			if not hit then
+				continue
+			end
+			for _, panel in panels do
+				if not whole[panel] and (panel.Position - hit.Position).Magnitude < K.Radius then
+					whole[panel] = { color = panel.Color, material = panel.Material }
+					panel.Color = CRACKED_COLOR
+					panel.Material = Enum.Material.Ice
+					task.delay(K.Time, function()
+						local was = whole[panel]
+						whole[panel] = nil
+						panel.Color = was.color
+						panel.Material = was.material
+					end)
+				end
+			end
+		end
+	end)
 end
 
 return CityRoofs
