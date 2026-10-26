@@ -25,4 +25,10 @@ function Guns.nextGun(gun: number): number
 	return if gun == 1 then 2 else 1
 end
 
+-- Whether shooting a player down pays, given when this shooter was last
+-- paid for that player (nil if never), so two players can't farm each other.
+function Guns.bountyDue(lastPaidAt: number?, now: number, gap: number): boolean
+	return lastPaidAt == nil or now - lastPaidAt >= gap
+end
+
 return Guns

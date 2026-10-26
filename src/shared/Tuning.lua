@@ -361,6 +361,8 @@ Tuning.Guns = {
 	Range = 400, -- studs
 	HitRadius = 4, -- a shot passing this close to a car hits it
 	ShotDamage = 0.1, -- ten hits wreck a car
+	WreckBonus = 300, -- cash to the shooter whose shot wrecks a car, paid at once
+	BountyGap = 20, -- seconds before wrecking the same player pays again
 	TracerTime = 0.08, -- seconds a shot's streak shows
 	HitSparks = 15,
 }

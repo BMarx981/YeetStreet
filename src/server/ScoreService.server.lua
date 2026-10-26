@@ -42,7 +42,8 @@
 -- launcher, or at the hub before their first, through CarService's
 -- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
 -- toughness, and shaking off or surviving a pack pays cash at once. A
--- PlaneCar's shot (ServerStorage.CarShot) costs toughness the same way.
+-- PlaneCar's shot (ServerStorage.CarShot) costs toughness the same way, and
+-- the shot that wrecks a car pays its shooter cash at once.
 --
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
@@ -77,6 +78,7 @@ local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
+local Guns = require(ReplicatedStorage.Guns)
 local Impact = require(ReplicatedStorage.Impact)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -611,7 +613,31 @@ carBitten.Parent = ServerStorage
 -- A PlaneCar's shot hitting a car (GunService fires ServerStorage.CarShot
 -- with the car, the shooter, and which way the shot flew): it takes
 -- Tuning.Guns.ShotDamage of the car's full toughness on the side it hit,
--- run or not, and can wreck it.
+-- run or not, and can wreck it. The shot that wrecks it pays the shooter
+-- Tuning.Guns.WreckBonus at once, shown on ReplicatedStorage.CashBonus, but
+-- only once every BountyGap seconds for the same player shot down.
+--
+-- When each shooter was last paid for shooting down each player.
+local bountyPaidAt: { [Player]: { [Player]: number } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function payBounty(shooter: Player, victim: Player)
+	local G = Tuning.Guns
+	local paid = bountyPaidAt[shooter]
+	if not paid then
+		paid = setmetatable({}, { __mode = "k" }) :: any
+		bountyPaidAt[shooter] = paid
+	end
+	local now = os.clock()
+	if shooter.Parent ~= Players or not Guns.bountyDue(paid[victim], now, G.BountyGap) then
+		return
+	end
+	paid[victim] = now
+	Garage.pay(shooter, G.WreckBonus)
+	local label = `Shot down {victim.DisplayName}`
+	print(`{label}, paid {G.WreckBonus}, {shooter.Name}`)
+	cashBonus:FireClient(shooter, label, G.WreckBonus)
+end
+
 local carShot = Instance.new("BindableEvent")
 carShot.Name = "CarShot"
 carShot.Event:Connect(function(car: Model, shooter: Player, direction: Vector3)
@@ -629,6 +655,7 @@ carShot.Event:Connect(function(car: Model, shooter: Player, direction: Vector3)
 	carImpact:FireClient(watch.player, amount, slot, watch.run.phase == "flying", amount, watch.toughness)
 	if watch.toughness <= 0 then
 		wreck(watch)
+		payBounty(shooter, watch.player)
 	end
 end)
 carShot.Parent = ServerStorage

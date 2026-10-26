@@ -39,4 +39,13 @@ Check.test("the guns take turns", function()
 	Check.eq(Guns.nextGun(2), 1)
 end)
 
+Check.test("shooting a player down pays the first time", function()
+	Check.eq(Guns.bountyDue(nil, 100, 20), true)
+end)
+
+Check.test("shooting the same player down again pays only after the gap", function()
+	Check.eq(Guns.bountyDue(100, 110, 20), false, "too soon")
+	Check.eq(Guns.bountyDue(100, 120, 20), true, "after the gap")
+end)
+
 Check.finish("Guns")
