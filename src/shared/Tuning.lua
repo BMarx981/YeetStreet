@@ -345,12 +345,16 @@ Tuning.Jets = {
 }
 
 -- A PlaneCar flying with its wings out (Glide). At Lift 0.02 a flat fall
--- slows to about 100 studs/s.
+-- slows to about 100 studs/s. At Camber 0.016 the wings hold it up at about
+-- 110 studs/s, where it takes off, and above that it climbs.
 Tuning.Glide = {
 	Lift = 0.02,
 	Side = 0.015,
 	Drag = 0.05,
 	MaxAccel = 300, -- about one and a half gravities
+	Camber = 0.016,
+	MaxCamber = 255, -- about 1.3 gravities, a gentle climb at full speed
+	EngineTopSpeed = 250, -- the engine (jets with the wings out) fades out here
 }
 
 -- A PlaneCar's guns (Guns, ShotPath). Each hit takes ShotDamage of the car's

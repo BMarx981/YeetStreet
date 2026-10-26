@@ -10,6 +10,8 @@
 --      rides it there instead of the steps below, except run tracking and
 --      resets. On a swing seat, SwingRide does the same.
 --   2. Jets: burn, drain, and recharge fuel, push along the nose (Jets).
+--      A PlaneCar with its wings out has an engine instead: jets that never
+--      run out, pushing less toward its top speed (Glide.thrust).
 --   3. On the ground: wheel motors and front wheel steering (Drive).
 --      In the gravitron (GravitronRide) its surface carries the car round as
 --      it spins, the wheels roll with it, and the tyres grip less the faster
@@ -498,6 +500,8 @@ local function step(r: Rig, dt: number)
 	local upright = cf.UpVector:Dot(up)
 	righting = Righting.step(righting, reading.lying, reading.wheelsDown, upright, RT)
 
+	local wingsOut = r.model:GetAttribute("PlaneCar") == true and r.model:GetAttribute("WingsOut") == true
+
 	-- Frog jump or jets
 	if r.isFrog then
 		frogCooldown = math.max(0, frogCooldown - dt)
@@ -512,9 +516,12 @@ local function step(r: Rig, dt: number)
 			r.model:SetAttribute("JetsBurning", false)
 		end
 	else
-		burning = Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
-		fuel = Jets.stepFuel(fuel, r.jetFuel, burning, not airborne, r.fuelRecharge, dt)
-		r.jet.Force = Vector3.new(0, 0, if burning then -r.jetPower * r.mass else 0)
+		burning = if wingsOut then input.jet else Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
+		fuel = Jets.stepFuel(fuel, r.jetFuel, burning and not wingsOut, not airborne, r.fuelRecharge, dt)
+		local power = if wingsOut
+			then Glide.thrust(r.jetPower, forwardSpeed, Tuning.Glide.EngineTopSpeed)
+			else r.jetPower
+		r.jet.Force = Vector3.new(0, 0, if burning then -power * r.mass else 0)
 		-- Set only on this client; CarVisuals lights the thruster flames from it.
 		if r.model:GetAttribute("JetsBurning") ~= burning then
 			r.model:SetAttribute("JetsBurning", burning)
@@ -604,8 +611,8 @@ local function step(r: Rig, dt: number)
 	end
 
 	-- The air pushes on a PlaneCar's wings and fin, on top of the tube pull.
-	local wingsOut = r.model:GetAttribute("PlaneCar") == true and r.model:GetAttribute("WingsOut") == true
-	if airborne and not righting and wingsOut and r.stick then
+	-- On the ground too, so going fast enough lifts it off.
+	if not righting and wingsOut and r.stick then
 		local v = cf:VectorToObjectSpace(velocity)
 		local ax, ay, az = Glide.accel(v.X, v.Y, v.Z, Tuning.Glide)
 		r.stick.Force += cf:VectorToWorldSpace(Vector3.new(ax, ay, az)) * r.mass
