@@ -1571,8 +1571,17 @@ Tuning.City = {
 		-- DrawRange of its camera (PedestrianLook).
 		DrawCount = 10,
 		DrawRange = 300,
+		-- People sitting in Downtown's roof gardens (CityRoofs' GardenSeat
+		-- seats): a Share of the seats, picked from Seed, each dodging cars
+		-- like a walker whose loop never moves (CityPedestrians).
+		Sitters = {
+			Share = 0.6,
+			Seed = 5,
+		},
 		-- How they are drawn (PedestrianLook): angles in degrees.
 		Look = {
+			Recline = 55, -- leaning back on a lounger
+			SitArms = 20, -- sitting, hands forward on the lap
 			Stride = 4, -- studs walked per step with each foot
 			LegSwing = 30,
 			ArmSwing = 25,

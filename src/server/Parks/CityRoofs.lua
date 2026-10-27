@@ -27,7 +27,10 @@
 --   Garden: a lawn with paths, trees, flower beds, benches and loungers
 --   (Roofs.gardenLayout). Each tree, bed and seat is a knockable prop, its
 --   other parts welded to it, so a car plows through and they fly and come
---   back (PropService). Seats are tagged GardenSeat, with their Kind.
+--   back (PropService). Seats are tagged GardenSeat, with their Kind, the
+--   Foot of the seat on the lawn and the way it faces (Face), and the
+--   SeatHeight of its top above that, for the people sitting on them
+--   (CityPedestrians).
 -- Numbers are in Tuning.City.Roofs.
 
 local CollectionService = game:GetService("CollectionService")
@@ -82,6 +85,8 @@ local LOUNGER_COLOR = Color3.fromRGB(245, 245, 240)
 local CUSHION_COLOR = Color3.fromRGB(80, 160, 220)
 local LAWN_THICKNESS = 0.2
 local SEAT_TAG = "GardenSeat"
+local BENCH_TOP = 1.85
+local LOUNGER_TOP = 1.5
 
 local CityRoofs = {}
 
@@ -684,6 +689,9 @@ local function seat(parent: Instance, foot: Vector3, face: Vector3, kind: string
 		end
 	end
 	root:SetAttribute("Kind", kind)
+	root:SetAttribute("Foot", foot)
+	root:SetAttribute("Face", face)
+	root:SetAttribute("SeatHeight", if kind == "Bench" then BENCH_TOP else LOUNGER_TOP)
 	CollectionService:AddTag(root, SEAT_TAG)
 	knockable(root, others)
 end

@@ -15,7 +15,15 @@
 -- AnchorX, AnchorZ, DirX, DirZ, Delay and Rate, set whenever it flees,
 -- dives, flops or walks on. Points are in park coordinates; the model's AreaX and AreaZ
 -- attributes are the park's middle.
+--
+-- People also sit on a Share of the roof gardens' seats (CityRoofs tags
+-- them GardenSeat). Each is a walker whose loop is its seat, its feet up on
+-- the roof: it dives, is knocked flat and walks back to its seat the same
+-- way, and pays near misses the same. Its Configuration is named "Sitter"
+-- and its number, with the seat as attributes too: SeatX, SeatZ, FaceX,
+-- FaceZ, Y (its feet above the floor), SeatHeight and Kind.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -32,6 +40,13 @@ local P = C.Pedestrians
 local FLOOR = Tuning.Map.FloorTop
 
 local CityPedestrians = {}
+
+type Sitter = {
+	spot: Pedestrian.Spot,
+	y: number,
+	state: Pedestrian.State,
+	config: Configuration,
+}
 
 local function tellNearMiss(car: Model)
 	local event = ServerStorage:FindFirstChild("PedestrianNearMiss")
@@ -72,6 +87,55 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 		configs[i] = config
 		publish(config, states[i])
 		config.Parent = model
+	end
+
+	-- The seats in a set order, so the same ones are taken every time.
+	local seats: { BasePart } = {}
+	for _, seat in CollectionService:GetTagged("GardenSeat") do
+		if seat:IsA("BasePart") and seat:IsDescendantOf(parent) and typeof(seat:GetAttribute("Foot")) == "Vector3" then
+			table.insert(seats, seat)
+		end
+	end
+	table.sort(seats, function(a, b)
+		local fa, fb = a:GetAttribute("Foot") :: Vector3, b:GetAttribute("Foot") :: Vector3
+		if fa.X ~= fb.X then
+			return fa.X < fb.X
+		end
+		return fa.Z < fb.Z
+	end)
+	local sitters: { Sitter } = {}
+	local pick = Rng.new(P.Sitters.Seed)
+	for _, seat in seats do
+		if pick.next() < P.Sitters.Share then
+			local foot = seat:GetAttribute("Foot") :: Vector3
+			local face = seat:GetAttribute("Face")
+			local faceX, faceZ = 0, -1
+			if typeof(face) == "Vector3" then
+				faceX, faceZ = face.X, face.Z
+			end
+			local spot = {
+				x = foot.X - area.X,
+				z = foot.Z - area.Z,
+				headingX = faceX,
+				headingZ = faceZ,
+				road = false,
+				toCurb = 0,
+			}
+			local config = Instance.new("Configuration")
+			config.Name = `Sitter{#sitters + 1}`
+			config:SetAttribute("SeatX", spot.x)
+			config:SetAttribute("SeatZ", spot.z)
+			config:SetAttribute("FaceX", faceX)
+			config:SetAttribute("FaceZ", faceZ)
+			config:SetAttribute("Y", foot.Y - FLOOR)
+			config:SetAttribute("SeatHeight", seat:GetAttribute("SeatHeight"))
+			config:SetAttribute("Kind", seat:GetAttribute("Kind"))
+			local state = Pedestrian.new()
+			state.anchorX, state.anchorZ = spot.x, spot.z
+			publish(config, state)
+			config.Parent = model
+			table.insert(sitters, { spot = spot, y = foot.Y - FLOOR, state = state, config = config })
+		end
 	end
 	model.Parent = parent
 
@@ -119,16 +183,10 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 		end
 		params.FilterDescendantsInstances = ignore
 
-		for i, walker in walkers do
-			local s = states[i]
-			local route = routes[walker.route]
-			local spot = Pedestrians.at(walker, route, Pedestrian.clock(s, now, D))
-			local x, z = spot.x, spot.z
-			if not Pedestrian.onLoop(s) then
-				local where = Pedestrian.where(s, now, D)
-				x, z = where.x, where.z
-			end
-			local eyes = Vector3.new(area.X + x, FLOOR + P.EyeHeight, area.Z + z)
+		-- The cars near someone at (x, z) with its feet `y` above the floor,
+		-- as it sees them.
+		local function near(x: number, z: number, y: number): { Pedestrian.Car }
+			local eyes = Vector3.new(area.X + x, FLOOR + y + P.EyeHeight, area.Z + z)
 			local cars: { Pedestrian.Car } = {}
 			for _, hull in hulls do
 				local offset = hull.p - eyes
@@ -142,17 +200,46 @@ function CityPedestrians.start(parent: Instance, area: MapLayout.Area)
 						vy = hull.v.Y,
 						vz = hull.v.Z,
 						visible = workspace:Raycast(eyes, offset, params) == nil,
-						air = hull.p.Y - FLOOR > P.AirHeight,
+						air = hull.p.Y - FLOOR - y > P.AirHeight,
 					})
 				end
 			end
-			local mode = s.mode
-			local event = Pedestrian.step(s, spot, 0, cars, now, D, kaiju)
+			return cars
+		end
+
+		for i, walker in walkers do
+			local s = states[i]
+			local route = routes[walker.route]
+			local spot = Pedestrians.at(walker, route, Pedestrian.clock(s, now, D))
+			local x, z = spot.x, spot.z
+			if not Pedestrian.onLoop(s) then
+				local where = Pedestrian.where(s, now, D)
+				x, z = where.x, where.z
+			end
+			local mode, since = s.mode, s.since
+			local event = Pedestrian.step(s, spot, 0, near(x, z, 0), now, D, kaiju)
 			if event and event.kind == "nearMiss" then
 				tellNearMiss(event.car)
 			end
-			if s.mode ~= mode then
+			if s.mode ~= mode or s.since ~= since then
 				publish(configs[i], s)
+			end
+		end
+
+		for _, sitter in sitters do
+			local s = sitter.state
+			local x, z = sitter.spot.x, sitter.spot.z
+			if not Pedestrian.onLoop(s) then
+				local where = Pedestrian.where(s, now, D)
+				x, z = where.x, where.z
+			end
+			local mode, since = s.mode, s.since
+			local event = Pedestrian.step(s, sitter.spot, sitter.y, near(x, z, sitter.y), now, D)
+			if event and event.kind == "nearMiss" then
+				tellNearMiss(event.car)
+			end
+			if s.mode ~= mode or s.since ~= since then
+				publish(sitter.config, s)
 			end
 		end
 	end)

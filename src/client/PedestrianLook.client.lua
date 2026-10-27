@@ -21,6 +21,11 @@
 -- dives, grunts as it is knocked flat and thuds as it lands, and its dog
 -- yaps while it is busy. Fleeing the kaiju, it screams and runs with its
 -- arms in the air, shouting in its bubble, its dog running beside it.
+--
+-- People sitting on the roof gardens' seats (Configurations named Sitter
+-- and a number) are drawn the same way, after the walkers: while on their
+-- seat they sit, legs out in front, leaning back on a lounger, and after a
+-- dive they walk back to it.
 -- Numbers are in Tuning.City.Pedestrians.Look.
 
 local Players = game:GetService("Players")
@@ -83,6 +88,8 @@ local NEWSPAPER = CFrame.new(0, 3.9, -1.95)
 local COLLAR = CFrame.new(0, 1.2, -0.7) -- in the dog's frame
 local LEAD_REACH = 7 -- further than this from its dog, it has dropped the lead
 local HIDDEN = CFrame.new(0, -500, 0)
+local SEAT_BACK = { Bench = 0.3, Lounger = 1.2 } -- hips this far back from a seat's middle
+local LEG_HALF = 0.45 -- legs out flat, the hips this far above the seat
 
 local model = workspace:WaitForChild("Parks"):WaitForChild("City"):WaitForChild("Pedestrians")
 local carsFolder = workspace:WaitForChild("Cars")
@@ -120,17 +127,20 @@ end
 
 type Style = { skin: Color3, shirt: Color3, pants: Color3, hair: Color3, prop: Prop }
 local styles: { Style } = {}
-for i in walkers do
-	local s = Pedestrian.new()
-	states[i] = s
+local function styleFor(i: number): Style
 	local rng = Rng.new(P.Seed * 1000 + i)
-	styles[i] = {
+	return {
 		skin = SKINS[rng.int(1, #SKINS)],
 		shirt = SHIRTS[rng.int(1, #SHIRTS)],
 		pants = PANTS[rng.int(1, #PANTS)],
 		hair = HAIRS[rng.int(1, #HAIRS)],
 		prop = PROPS[rng.int(1, #PROPS)],
 	}
+end
+for i in walkers do
+	local s = Pedestrian.new()
+	states[i] = s
+	styles[i] = styleFor(i)
 	task.spawn(function()
 		local config = model:WaitForChild(tostring(i))
 		read(config, s)
@@ -138,6 +148,65 @@ for i in walkers do
 			read(config, s)
 		end)
 	end)
+end
+
+-- People on seats, numbered on from the walkers: where their seat is, with
+-- its foot `y` above the floor, the way it faces, its top's height and kind.
+type Seat = { x: number, z: number, y: number, faceX: number, faceZ: number, height: number, kind: string }
+local seats: { [number]: Seat } = {}
+local count = #walkers
+local function addSitter(config: Instance)
+	if not string.match(config.Name, "^Sitter%d+$") then
+		return
+	end
+	local function number(name: string): number
+		local value = config:GetAttribute(name)
+		return if typeof(value) == "number" then value else 0
+	end
+	count += 1
+	local i = count
+	seats[i] = {
+		x = number("SeatX"),
+		z = number("SeatZ"),
+		y = number("Y"),
+		faceX = number("FaceX"),
+		faceZ = number("FaceZ"),
+		height = number("SeatHeight"),
+		kind = if config:GetAttribute("Kind") == "Lounger" then "Lounger" else "Bench",
+	}
+	local s = Pedestrian.new()
+	states[i] = s
+	styles[i] = styleFor(i)
+	read(config, s)
+	config.AttributeChanged:Connect(function()
+		read(config, s)
+	end)
+end
+for _, config in model:GetChildren() do
+	addSitter(config)
+end
+model.ChildAdded:Connect(addSitter)
+
+-- Where person i is at `clock` on its loop: round its route, or on its seat.
+local function poseOf(i: number, clock: number): Pedestrians.Pose
+	local seat = seats[i]
+	if seat then
+		return { x = seat.x, z = seat.z, headingX = seat.faceX, headingZ = seat.faceZ, road = false, toCurb = 0 }
+	end
+	local walker = walkers[i]
+	return Pedestrians.at(walker, routes[walker.route], clock)
+end
+
+-- How far person i has walked round its loop at `clock`, for its stride.
+local function distanceOf(i: number, clock: number): number
+	local walker = walkers[i]
+	return if walker then Pedestrians.distance(walker, routes[walker.route], clock) else 0
+end
+
+-- The height of what person i stands on: the floor, or its roof.
+local function baseOf(i: number): number
+	local seat = seats[i]
+	return if seat then FLOOR + seat.y else FLOOR
 end
 
 type Bone = "body" | "head" | "armL" | "armR" | "legL" | "legR" | "prop" | "dog" | "lead" | "puddle"
@@ -355,8 +424,12 @@ end
 local ground = RaycastParams.new()
 ground.FilterType = Enum.RaycastFilterType.Exclude
 
--- The floor or curve under (x, z), world coordinates.
-local function groundAt(x: number, z: number): number
+-- The floor or curve under (x, z), world coordinates, for person i. A
+-- sitter's roof is flat, and its seats are not ground.
+local function groundAt(i: number, x: number, z: number): number
+	if seats[i] then
+		return baseOf(i)
+	end
 	local hit = workspace:Raycast(Vector3.new(x, FLOOR + 30, z), Vector3.new(0, -40, 0), ground)
 	return if hit then hit.Position.Y else FLOOR
 end
@@ -380,14 +453,13 @@ end
 local FLY_TIME = D.FlopTime + L.FlyExtra
 
 local function draw(figure: Figure, i: number, now: number)
-	local walker = walkers[i]
-	local route = routes[walker.route]
+	local seat = seats[i]
 	local s = states[i]
 	local style = styles[i]
 	local clock = Pedestrian.clock(s, now, D)
 	-- Where its loop has it: walking or fleeing, where it is; otherwise
 	-- where it left. Fleeing backward round its loop, it faces back.
-	local pose = Pedestrians.at(walker, route, clock)
+	local pose = poseOf(i, clock)
 	local where = Pedestrian.where(s, now, D)
 	local phase = where.phase
 	local running = if phase == "flee" and s.rate < 0 then -1 else 1
@@ -397,7 +469,7 @@ local function draw(figure: Figure, i: number, now: number)
 		x, z, facing = where.x, where.z, flat(where.facingX, where.facingZ)
 	end
 	local wx, wz = areaX + x, areaZ + z
-	local feet = Vector3.new(wx, groundAt(wx, wz), wz)
+	local feet = Vector3.new(wx, groundAt(i, wx, wz), wz)
 
 	local deg = math.rad
 	local lean, hop, bob, nod = 0, 0, 0, 0
@@ -411,10 +483,16 @@ local function draw(figure: Figure, i: number, now: number)
 	end
 	local flopped = s.mode == "flop"
 	local lying = if flopped then deg(90) else -deg(90)
-	if phase == "walk" then
-		walking(Pedestrians.distance(walker, route, clock) / L.Stride * 2 * math.pi)
+	local recline = 0
+	if phase == "walk" and seat then
+		-- Sitting, its legs out level whichever way it leans.
+		recline = if seat.kind == "Lounger" then deg(L.Recline) else 0
+		legL, legR = deg(90) - recline, deg(90) - recline
+		armL, armR = deg(L.SitArms), deg(L.SitArms)
+	elseif phase == "walk" then
+		walking(distanceOf(i, clock) / L.Stride * 2 * math.pi)
 	elseif phase == "flee" then
-		walking(Pedestrians.distance(walker, route, clock) / L.Stride * 2 * math.pi)
+		walking(distanceOf(i, clock) / L.Stride * 2 * math.pi)
 		legL, legR = legL * L.FleeSwing, legR * L.FleeSwing
 		local wave = deg(20) * math.sin(now * 14)
 		armL, armR, outL, outR = deg(160) + wave, deg(160) - wave, deg(25), deg(25)
@@ -479,7 +557,7 @@ local function draw(figure: Figure, i: number, now: number)
 		if prop == "Coffee" then
 			armR = deg(50)
 		elseif prop == "Briefcase" then
-			armR = deg(8) * math.sin(Pedestrians.distance(walker, route, clock) / L.Stride * 2 * math.pi)
+			armR = deg(8) * math.sin(distanceOf(i, clock) / L.Stride * 2 * math.pi)
 		elseif prop == "Phone" then
 			armR, nod = deg(100), deg(15)
 		elseif prop == "Newspaper" then
@@ -493,6 +571,11 @@ local function draw(figure: Figure, i: number, now: number)
 	local lift = hop + bob + HALF_DEPTH * math.abs(math.sin(lean))
 	local root = CFrame.lookAt(feet, feet + facing)
 	local body = root * CFrame.new(0, lift, 0) * CFrame.Angles(lean, 0, 0)
+	if phase == "walk" and seat then
+		-- Its hips on the seat, a little back from the middle.
+		local hips = feet + Vector3.new(0, seat.height + LEG_HALF, 0) - facing * SEAT_BACK[seat.kind]
+		body = CFrame.lookAt(hips, hips + facing) * CFrame.Angles(recline, 0, 0) * CFrame.new(0, -HIP_Y, 0)
+	end
 	local frames: { [Bone]: CFrame } = {
 		body = body,
 		head = body * CFrame.new(0, NECK_Y, 0) * CFrame.Angles(nod, 0, 0),
@@ -513,7 +596,7 @@ local function draw(figure: Figure, i: number, now: number)
 		local from = Vector3.new(areaX + s.startX, feet.Y + SHOULDER_Y, areaZ + s.startZ)
 		local reach = D.FlopDistance + L.FlyFurther
 		local lx, lz = areaX + s.startX + s.dirX * reach, areaZ + s.startZ + s.dirZ * reach
-		local to = Vector3.new(lx, groundAt(lx, lz) + 0.3, lz)
+		local to = Vector3.new(lx, groundAt(i, lx, lz) + 0.3, lz)
 		local yaw = CFrame.Angles(0, math.atan2(s.dirX, s.dirZ), 0)
 		if t < FLY_TIME then
 			local p = t / FLY_TIME
@@ -602,20 +685,20 @@ RunService.RenderStepped:Connect(function()
 	local now = workspace:GetServerTimeNow()
 	local eye = camera.CFrame.Position
 
-	-- The nearest DrawCount walkers in range.
+	-- The nearest DrawCount people in range.
 	local near: { { gap: number, index: number } } = {}
 	local range2 = P.DrawRange * P.DrawRange
-	for i, walker in walkers do
+	for i = 1, count do
 		local s = states[i]
 		local x, z
 		if Pedestrian.onLoop(s) then
-			local pose = Pedestrians.at(walker, routes[walker.route], Pedestrian.clock(s, now, D))
+			local pose = poseOf(i, Pedestrian.clock(s, now, D))
 			x, z = pose.x, pose.z
 		else
 			x, z = s.anchorX, s.anchorZ
 		end
-		local dx, dz = areaX + x - eye.X, areaZ + z - eye.Z
-		local gap = dx * dx + dz * dz
+		local dx, dy, dz = areaX + x - eye.X, baseOf(i) - eye.Y, areaZ + z - eye.Z
+		local gap = dx * dx + dy * dy + dz * dz
 		if gap <= range2 then
 			table.insert(near, { gap = gap, index = i })
 		end

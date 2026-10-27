@@ -285,4 +285,21 @@ Check.test("running, a car reaching it still knocks it flat", function()
 	Check.near(Pedestrian.clock(s, 102, TUNING), 100 + TUNING.FleeRate, "its loop waits where it had run to")
 end)
 
+Check.test("sitting high up on a roof, it dives from a car on its roof and not from one on the street below", function()
+	local roof = 150
+	local function at(height: number): Pedestrian.Car
+		return { id = "car", x = -40, y = height + 3, z = 0, vx = 60, vy = 0, vz = 0, air = false, visible = true }
+	end
+	local below = Pedestrian.new()
+	Check.eq(Pedestrian.step(below, SPOT, roof, { at(0) }, 0, TUNING), nil, "the street is far below")
+	local on = Pedestrian.new()
+	local event = Pedestrian.step(on, SPOT, roof, { at(roof) }, 0, TUNING)
+	Check.eq(event and event.kind, "dive")
+	-- And it comes back to its seat after.
+	local back = Pedestrian.where(on, DIVE_TIME + 0.01, TUNING)
+	Check.eq(back.phase, "walk")
+	Check.near(back.x, SPOT.x)
+	Check.near(back.z, SPOT.z)
+end)
+
 Check.finish("Pedestrian")
