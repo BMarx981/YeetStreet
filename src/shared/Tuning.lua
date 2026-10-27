@@ -464,6 +464,7 @@ Tuning.Score = {
 		Billboard = 500,
 		["Water tower"] = 300,
 		Helipad = 500, -- a run landing clean on a Downtown roof's helipad (ScoreService)
+		Pool = 300, -- a run coming down in a Downtown roof's pool (ScoreService)
 		["Palm tree"] = 200,
 		Lava = 300, -- coming down in lava (ScoreService)
 		["T-Rex"] = 400, -- caught by the T-Rex in the air (ScoreService)
@@ -550,6 +551,7 @@ Tuning.Hud = {
 		Kaiju = "Kaiju snack",
 		Zapped = "Zapped",
 		Helipad = "Helipad landing",
+		Pool = "Pool splash",
 	},
 }
 
@@ -1317,7 +1319,7 @@ Tuning.City = {
 		Step = 2,
 		Kinds = {
 			{ Name = "Plain", Weight = 1, Width = 0, Depth = 0 },
-			{ Name = "Pool", Weight = 1, Width = 56, Depth = 32 },
+			{ Name = "Pool", Weight = 1, Width = 80, Depth = 50 },
 			{ Name = "Garden", Weight = 2, Width = 100, Depth = 100 },
 			{ Name = "Solar", Weight = 2, Width = 100, Depth = 80 },
 			{ Name = "WaterTower", Weight = 2, Width = 30, Depth = 30 },
@@ -1356,6 +1358,25 @@ Tuning.City = {
 			Letter = 26,
 			Stroke = 4,
 			Lights = 12,
+		},
+		-- A raised pool deck (Roofs.poolLayout), its water WaterBelow under
+		-- the deck's top. Cars drive on the basin's floor under the water.
+		Pool = {
+			Height = 4,
+			Ramp = 8,
+			Rim = 4,
+			Shallow = 12,
+			WaterBelow = 0.6,
+		},
+		-- While the game runs: a hull's middle inside a pool's water, or up
+		-- to Margin above it, is in the pool (ScoreService). Falling in faster
+		-- than Speed throws a splash of Drops and Mist on each client
+		-- (WaterTowerSplash).
+		PoolSplash = {
+			Margin = 1,
+			Speed = 30,
+			Drops = 150,
+			Mist = 40,
 		},
 		-- While the game runs (CityRoofs.start): a car coming down onto a
 		-- solar row faster than Speed cracks the panels within Radius of it,

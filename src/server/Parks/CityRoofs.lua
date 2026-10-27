@@ -20,6 +20,10 @@
 --   Helipad: a pad with a ring round a big H, tagged Helipad, so a run
 --   that lands on it pays the Helipad target (ScoreService). The paint and
 --   lights on it are only looks.
+--   Pool: a raised deck with ramps all round (Roofs.poolLayout) and a basin
+--   down to the roof with a shallow floor to drive out. The water is only
+--   looks, tagged Pool: a car falling into it splashes, and a run that
+--   does pays the Pool target (ScoreService).
 -- Numbers are in Tuning.City.Roofs.
 
 local CollectionService = game:GetService("CollectionService")
@@ -48,6 +52,11 @@ local PAD_LIGHT_COLOR = Color3.fromRGB(120, 255, 140)
 local PAD_THICKNESS = 0.2
 local PAINT = 0.05 -- each layer of paint above the last
 local HELIPAD_TAG = "Helipad"
+local DECK_COLOR = Color3.fromRGB(232, 226, 210)
+local TILE_COLOR = Color3.fromRGB(120, 200, 235)
+local WATER_COLOR = Color3.fromRGB(60, 165, 230)
+local TILE_THICKNESS = 0.2
+local POOL_TAG = "Pool"
 
 local CityRoofs = {}
 
@@ -368,6 +377,106 @@ local function helipad(parent: Instance, area: MapLayout.Area, height: number, s
 	model.Parent = parent
 end
 
+-- A pool deck on the roof `height` up.
+local function pool(parent: Instance, area: MapLayout.Area, height: number, spot: Roofs.Rect)
+	local P = T.Pool
+	local layout = Roofs.poolLayout(spot, P :: any)
+	local model = Instance.new("Model")
+	model.Name = "Pool"
+	local base = FLOOR + height
+	local function box(rect: Roofs.Rect, bottom: number, top: number): (Vector3, Vector3)
+		return Vector3.new(rect.x2 - rect.x1, top - bottom, rect.z2 - rect.z1),
+			Vector3.new(area.X + (rect.x1 + rect.x2) / 2, base + (bottom + top) / 2, area.Z + (rect.z1 + rect.z2) / 2)
+	end
+
+	-- A ramp up each side of the deck, and a corner wedge between each two,
+	-- so a car meets a slope coming from any way.
+	local deck = layout.deck
+	local sides = {
+		{
+			out = Vector3.new(0, 0, -1),
+			at = Vector3.new((deck.x1 + deck.x2) / 2, 0, deck.z1),
+			length = deck.x2 - deck.x1,
+		},
+		{
+			out = Vector3.new(0, 0, 1),
+			at = Vector3.new((deck.x1 + deck.x2) / 2, 0, deck.z2),
+			length = deck.x2 - deck.x1,
+		},
+		{
+			out = Vector3.new(-1, 0, 0),
+			at = Vector3.new(deck.x1, 0, (deck.z1 + deck.z2) / 2),
+			length = deck.z2 - deck.z1,
+		},
+		{
+			out = Vector3.new(1, 0, 0),
+			at = Vector3.new(deck.x2, 0, (deck.z1 + deck.z2) / 2),
+			length = deck.z2 - deck.z1,
+		},
+	}
+	for _, side in sides do
+		local center = Vector3.new(area.X + side.at.X, base + P.Height / 2, area.Z + side.at.Z) + side.out * P.Ramp / 2
+		-- A wedge rises toward its +Z end: look outward to rise inward.
+		part(
+			model,
+			"Ramp",
+			"WedgePart",
+			Vector3.new(side.length, P.Height, P.Ramp),
+			CFrame.lookAt(center, center + side.out),
+			DECK_COLOR,
+			Enum.Material.Concrete
+		)
+	end
+	-- A corner wedge peaks at its +X, -Z corner, sloping down toward -X and
+	-- +Z: turn its +X and +Z out from the deck's corner along the two sides.
+	for _, corner in { { 1, 3 }, { 3, 2 }, { 2, 4 }, { 4, 1 } } do
+		local a, b = sides[corner[1]].out, sides[corner[2]].out
+		local right = -a
+		if (right:Cross(Vector3.yAxis) - b).Magnitude > 0.01 then
+			right = -b
+		end
+		local x = if a.X ~= 0 then (if a.X < 0 then deck.x1 else deck.x2) else (if b.X < 0 then deck.x1 else deck.x2)
+		local z = if a.Z ~= 0 then (if a.Z < 0 then deck.z1 else deck.z2) else (if b.Z < 0 then deck.z1 else deck.z2)
+		local center = Vector3.new(area.X + x, base + P.Height / 2, area.Z + z) + (a + b) * P.Ramp / 2
+		part(
+			model,
+			"Corner",
+			"CornerWedgePart",
+			Vector3.new(P.Ramp, P.Height, P.Ramp),
+			CFrame.fromMatrix(center, right, Vector3.yAxis),
+			DECK_COLOR,
+			Enum.Material.Concrete
+		)
+	end
+	for _, slab in layout.rim do
+		local size, center = box(slab, 0, P.Height)
+		part(model, "Deck", "Part", size, CFrame.new(center), DECK_COLOR, Enum.Material.Concrete)
+	end
+
+	local size, center = box(layout.basin, 0, TILE_THICKNESS)
+	part(model, "Tiles", "Part", size, CFrame.new(center), TILE_COLOR, Enum.Material.SmoothPlastic)
+	local rise = Vector3.new(layout.riseX, 0, layout.riseZ)
+	local shallowSize, shallowCenter = box(layout.shallow, TILE_THICKNESS, P.Height)
+	part(
+		model,
+		"Shallow",
+		"WedgePart",
+		if layout.riseX ~= 0 then Vector3.new(shallowSize.Z, shallowSize.Y, shallowSize.X) else shallowSize,
+		CFrame.lookAt(shallowCenter, shallowCenter - rise),
+		TILE_COLOR,
+		Enum.Material.SmoothPlastic
+	)
+
+	local waterSize, waterCenter = box(layout.basin, TILE_THICKNESS, P.Height - P.WaterBelow)
+	local water =
+		part(model, "Water", "Part", waterSize, CFrame.new(waterCenter), WATER_COLOR, Enum.Material.SmoothPlastic)
+	water.Transparency = 0.4
+	water.Reflectance = 0.15
+	paint(water)
+	CollectionService:AddTag(water, POOL_TAG)
+	model.Parent = parent
+end
+
 function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 	local old = folder:FindFirstChild("Roofs")
 	if old then
@@ -391,6 +500,8 @@ function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 			solarFarm(roof, area, plan.roof.height, spot)
 		elseif spot and plan.kind == "Helipad" then
 			helipad(roof, area, plan.roof.height, spot)
+		elseif spot and plan.kind == "Pool" then
+			pool(roof, area, plan.roof.height, spot)
 		end
 		roof.Parent = model
 	end

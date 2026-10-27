@@ -23,6 +23,11 @@
 -- Target points on that run. A run landing on a roof helipad (a part tagged
 -- Helipad, CityRoofs) counts the Helipad target.
 --
+-- A car dropping into a roof pool's water (a part tagged Pool, CityRoofs)
+-- banks its run as a landing with a Pool splash target, before it reaches
+-- the bottom, so the touchdown does no damage. Falling in fast, run or not,
+-- splashes on every client (ReplicatedStorage.PoolSplash).
+--
 -- A car coming down on lava (CarSensor) banks its run as a landing with a
 -- Lava splash target. Lava, and smashing through a boulder too fast
 -- (PropService fires ServerStorage.BoulderSmashed), damage the car run or
@@ -128,6 +133,7 @@ type Watch = {
 	-- Armed high on the gravitron's wall: the run pays a Gravitron target
 	-- once it goes over the rim.
 	gravitronArmed: boolean,
+	wet: boolean, -- in a pool's water at the last step
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -219,6 +225,7 @@ local function watchFor(car: Model): Watch?
 		armTarget = nil,
 		armUntil = -math.huge,
 		gravitronArmed = false,
+		wet = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -358,14 +365,39 @@ local function wreck(watch: Watch)
 	task.delay(T.WreckBeat, respawn, watch)
 end
 
--- Coming down in lava ends the run as a landing, never clean, paying a Lava
--- splash target on it. Then the lava burns the car (burn).
-local function splash(watch: Watch)
-	table.insert(watch.targets, "Lava")
+-- Coming down in lava or a pool ends the run as a landing, never clean,
+-- paying the target (Lava or Pool) on it. Then lava burns the car (burn).
+local function splash(watch: Watch, target: string)
+	table.insert(watch.targets, target)
 	local result = RunTracker.abort(watch.run, "landed")
 	if result then
 		finish(watch, result)
 	end
+end
+
+local PS = Tuning.City.Roofs.PoolSplash
+
+local poolSplash = Instance.new("RemoteEvent")
+poolSplash.Name = "PoolSplash"
+poolSplash.Parent = ReplicatedStorage
+
+-- Whether a point is in a pool's water, or up to Margin above it.
+local function inPool(position: Vector3): boolean
+	for _, water in CollectionService:GetTagged("Pool") do
+		if water:IsA("BasePart") then
+			local at = water.CFrame:PointToObjectSpace(position)
+			local half = water.Size / 2
+			if
+				math.abs(at.X) <= half.X
+				and math.abs(at.Z) <= half.Z
+				and at.Y >= -half.Y
+				and at.Y <= half.Y + PS.Margin
+			then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Burns `dt` seconds' worth of the car's toughness, all of it over
@@ -802,8 +834,19 @@ RunService.Heartbeat:Connect(function(dt: number)
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 				end
 				if reading.lava and watch.run.phase == "flying" then
-					splash(watch)
+					splash(watch, "Lava")
 				end
+				local wet = inPool(watch.sensor.hull.Position)
+				if wet and not watch.wet then
+					local falling = -watch.sensor.hull.AssemblyLinearVelocity.Y
+					if falling > PS.Speed then
+						poolSplash:FireAllClients(watch.sensor.hull.Position, falling)
+					end
+					if watch.run.phase == "flying" then
+						splash(watch, "Pool")
+					end
+				end
+				watch.wet = wet
 				-- Still burning for LavaFireHold after it last touched lava, so a
 				-- bounce does not put the fire out, and the boulders at the
 				-- lake's edge let it out (PropService, CarController).

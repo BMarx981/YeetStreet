@@ -874,6 +874,7 @@ function City.fingerprint(): string
 		"Railway.Server",
 		"Roofs.Crack",
 		"Roofs.Splash",
+		"Roofs.PoolSplash",
 	})
 end
 

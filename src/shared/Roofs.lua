@@ -18,6 +18,11 @@
 -- (solarRows): each rises Height over Run, then drops over Back on the far
 -- side, so a car coming the other way meets a ramp too, not a wall.
 --
+-- A pool's footprint holds a raised deck (poolLayout): ramps rise Height
+-- over Ramp from the footprint's edge up to the deck, a Rim wide all round
+-- a basin sunk to the roof, and a Shallow floor rising out of the basin's
+-- far end along its length, so a car that drops in can drive back out.
+--
 -- Coordinates are the park's: x and z on the ground.
 
 local Roofs = {}
@@ -86,6 +91,22 @@ export type Row = {
 	z1: number,
 	z2: number,
 	riseX: number,
+	riseZ: number,
+}
+
+export type Pool = {
+	Height: number, -- the deck above the roof, and the basin's depth
+	Ramp: number,
+	Rim: number,
+	Shallow: number,
+}
+
+export type PoolLayout = {
+	deck: Rect, -- the top of the ramps
+	basin: Rect,
+	rim: { Rect }, -- the deck but for the basin, in four slabs
+	shallow: Rect, -- the floor rising out of the basin
+	riseX: number, -- the way the shallow floor rises
 	riseZ: number,
 }
 
@@ -245,6 +266,41 @@ function Roofs.solarRows(spot: Rect, solar: Solar): { Row }
 		end
 	end
 	return rows
+end
+
+-- A pool deck on its spot. The shallow floor is at the basin's low-x end
+-- (low-z for a spot longer along z), rising toward it.
+function Roofs.poolLayout(spot: Rect, pool: Pool): PoolLayout
+	local deck = {
+		x1 = spot.x1 + pool.Ramp,
+		x2 = spot.x2 - pool.Ramp,
+		z1 = spot.z1 + pool.Ramp,
+		z2 = spot.z2 - pool.Ramp,
+	}
+	local basin = {
+		x1 = deck.x1 + pool.Rim,
+		x2 = deck.x2 - pool.Rim,
+		z1 = deck.z1 + pool.Rim,
+		z2 = deck.z2 - pool.Rim,
+	}
+	local rim = {
+		{ x1 = deck.x1, x2 = deck.x2, z1 = deck.z1, z2 = basin.z1 },
+		{ x1 = deck.x1, x2 = deck.x2, z1 = basin.z2, z2 = deck.z2 },
+		{ x1 = deck.x1, x2 = basin.x1, z1 = basin.z1, z2 = basin.z2 },
+		{ x1 = basin.x2, x2 = deck.x2, z1 = basin.z1, z2 = basin.z2 },
+	}
+	local alongX = spot.x2 - spot.x1 >= spot.z2 - spot.z1
+	local shallow = if alongX
+		then { x1 = basin.x1, x2 = basin.x1 + pool.Shallow, z1 = basin.z1, z2 = basin.z2 }
+		else { x1 = basin.x1, x2 = basin.x2, z1 = basin.z1, z2 = basin.z1 + pool.Shallow }
+	return {
+		deck = deck,
+		basin = basin,
+		rim = rim,
+		shallow = shallow,
+		riseX = if alongX then -1 else 0,
+		riseZ = if alongX then 0 else -1,
+	}
 end
 
 -- The plan for each roof, in the order given. The Rng picks the kinds, one

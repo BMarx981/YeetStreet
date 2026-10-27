@@ -209,4 +209,50 @@ Check.test("a spot too narrow for a row gets none", function()
 	Check.eq(#Roofs.solarRows({ x1 = 0, x2 = 100, z1 = 0, z2 = 12 }, SOLAR), 0)
 end)
 
+local POOL: Roofs.Pool = { Height = 4, Ramp = 8, Rim = 4, Shallow = 12 }
+
+local function area(rect: Roofs.Rect): number
+	return (rect.x2 - rect.x1) * (rect.z2 - rect.z1)
+end
+
+Check.test("a pool's deck sits inside its ramps, with the basin inside the deck's rim", function()
+	local pool = Roofs.poolLayout({ x1 = 0, x2 = 80, z1 = 0, z2 = 50 }, POOL)
+	Check.near(pool.deck.x1, 8)
+	Check.near(pool.deck.x2, 72)
+	Check.near(pool.deck.z1, 8)
+	Check.near(pool.deck.z2, 42)
+	Check.near(pool.basin.x1, 12)
+	Check.near(pool.basin.x2, 68)
+	Check.near(pool.basin.z1, 12)
+	Check.near(pool.basin.z2, 38)
+	-- The rim's slabs cover the deck but for the basin, without overlapping.
+	local covered = 0
+	for _, slab in pool.rim do
+		covered += area(slab)
+		Check.eq(
+			slab.x1 < pool.basin.x2 and pool.basin.x1 < slab.x2 and slab.z1 < pool.basin.z2 and pool.basin.z1 < slab.z2,
+			false,
+			"not over the basin"
+		)
+	end
+	Check.near(covered, area(pool.deck) - area(pool.basin), "the whole rim")
+end)
+
+Check.test("the shallow end rises out of the long side's low end", function()
+	local pool = Roofs.poolLayout({ x1 = 0, x2 = 80, z1 = 0, z2 = 50 }, POOL)
+	Check.near(pool.shallow.x1, 12)
+	Check.near(pool.shallow.x2, 24, "Shallow long")
+	Check.near(pool.shallow.z1, 12, "the basin's width")
+	Check.near(pool.shallow.z2, 38, "the basin's width")
+	Check.eq(pool.riseX, -1)
+	Check.eq(pool.riseZ, 0)
+
+	local turned = Roofs.poolLayout({ x1 = 0, x2 = 50, z1 = 0, z2 = 80 }, POOL)
+	Check.near(turned.shallow.z1, 12)
+	Check.near(turned.shallow.z2, 24)
+	Check.near(turned.shallow.x2 - turned.shallow.x1, 26)
+	Check.eq(turned.riseX, 0)
+	Check.eq(turned.riseZ, -1)
+end)
+
 Check.finish("Roofs")
