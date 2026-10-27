@@ -38,6 +38,17 @@ function Drive.motor(
 	return target / wheelRadius, tuning.DriveTorque
 end
 
+-- The Brakes upgrade's push on the car, as acceleration along the nose
+-- (positive is forward). It works with the wheel brake from `motor` whenever
+-- that brakes, and since it pushes the car itself and not the tyres, it still
+-- slows a car that is already skidding. A part press pushes part as hard.
+function Drive.brakePush(throttle: number, forwardSpeed: number, brakePower: number, tuning: Tuning): number
+	if throttle * forwardSpeed >= 0 or math.abs(forwardSpeed) <= tuning.BrakeSpeed then
+		return 0
+	end
+	return throttle * brakePower
+end
+
 -- Wheel spin that rolls without slipping at `forwardSpeed`. Used in the air so
 -- the wheels already match the ground when the car lands.
 function Drive.freeRoll(forwardSpeed: number, wheelRadius: number): number

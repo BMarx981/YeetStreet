@@ -115,6 +115,7 @@ type Rig = {
 	wheels: { Wheel },
 	spin: AngularVelocity,
 	jet: VectorForce,
+	brake: VectorForce?, -- nil on a car built before brakes had one
 	stick: VectorForce?, -- nil on a car built before tubes had one
 	-- Every unanchored part that is its own assembly: hull, hubs, wheels.
 	roots: { BasePart },
@@ -126,6 +127,7 @@ type Rig = {
 	fuelRecharge: number,
 	turnRate: number,
 	grip: number,
+	brakePower: number,
 	rollUnlocked: boolean,
 	wheelRadius: number,
 	isFrog: boolean,
@@ -181,6 +183,7 @@ local function rigFor(model: Model, character: Model): Rig?
 	end
 	local spin = hull:FindFirstChild("AirSpin")
 	local jet = hull:FindFirstChild("Jet")
+	local brake = hull:FindFirstChild("Brake")
 	local stick = hull:FindFirstChild("Stick")
 	if not (spin and spin:IsA("AngularVelocity") and jet and jet:IsA("VectorForce")) then
 		return nil
@@ -243,6 +246,7 @@ local function rigFor(model: Model, character: Model): Rig?
 		wheels = wheels,
 		spin = spin,
 		jet = jet,
+		brake = if brake and brake:IsA("VectorForce") then brake else nil,
 		stick = if stick and stick:IsA("VectorForce") then stick else nil,
 		roots = roots,
 		sensor = sensor,
@@ -253,6 +257,7 @@ local function rigFor(model: Model, character: Model): Rig?
 		fuelRecharge = fuelRecharge,
 		turnRate = turnRate,
 		grip = grip,
+		brakePower = numberAttribute(model, "BrakePower") or 0,
 		rollUnlocked = model:GetAttribute("RollUnlocked") == true,
 		wheelRadius = wheelRadius,
 		isFrog = isFrog,
@@ -490,6 +495,9 @@ local function step(r: Rig, dt: number)
 	then
 		burning = false
 		r.jet.Force = Vector3.zero
+		if r.brake then
+			r.brake.Force = Vector3.zero
+		end
 		r.spin.Enabled = false
 		if r.model:GetAttribute("JetsBurning") then
 			r.model:SetAttribute("JetsBurning", false)
@@ -556,11 +564,17 @@ local function step(r: Rig, dt: number)
 	local D = Tuning.Drive
 	local surfaceForward = if onBowl then GravitronRide.surfaceVelocity(cf.Position, now):Dot(cf.LookVector) else 0
 	local wheelSpin: number, torque: number
+	local brakePush = 0
 	if airborne then
 		wheelSpin, torque = Drive.freeRoll(forwardSpeed, r.wheelRadius), D.CoastTorque
 	else
 		wheelSpin, torque = Drive.motor(input.throttle, forwardSpeed - surfaceForward, r.topSpeed, r.wheelRadius, D)
 		wheelSpin += surfaceForward / r.wheelRadius
+		brakePush = Drive.brakePush(input.throttle, forwardSpeed - surfaceForward, r.brakePower, D)
+	end
+	-- The hull's nose points along -Z.
+	if r.brake then
+		r.brake.Force = Vector3.new(0, 0, -brakePush * r.mass)
 	end
 	-- The faster the gravitron spins, the less the tyres grip, in steps so the
 	-- wheels' friction is not rewritten every frame.
@@ -722,6 +736,9 @@ end
 local function leave()
 	if rig and rig.stick then
 		rig.stick.Force = Vector3.zero
+	end
+	if rig and rig.brake then
+		rig.brake.Force = Vector3.zero
 	end
 	rig = nil
 	up = Vector3.yAxis

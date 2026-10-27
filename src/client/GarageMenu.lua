@@ -50,6 +50,7 @@ local STATS: { { stat: Economy.StatName, about: string, icon: string } } = {
 	{ stat = "Jets", about = "Jet power, fuel, recharge, and air turning", icon = "🚀" },
 	{ stat = "Toughness", about = "How hard a hit the car takes before it wrecks", icon = "🛡️" },
 	{ stat = "Grip", about = "Tire grip for corners and landings", icon = "🧲" },
+	{ stat = "Brakes", about = "How fast the car stops on the ground", icon = "🛑" },
 }
 
 local PIP_COUNT = 10
@@ -103,6 +104,7 @@ local function levels(): Economy.Levels
 		Jets = number("Jets"),
 		Toughness = number("Toughness"),
 		Grip = number("Grip"),
+		Brakes = number("Brakes"),
 	}
 end
 
@@ -124,10 +126,15 @@ end
 local function carText(car: Economy.Car): string
 	local caps = car.Caps
 	local free = if car.Bonus > 0 then `+{car.Bonus} free levels. ` else ""
-	if caps.Speed == caps.Jets and caps.Jets == caps.Toughness and caps.Toughness == caps.Grip then
+	if
+		caps.Speed == caps.Jets
+		and caps.Jets == caps.Toughness
+		and caps.Toughness == caps.Grip
+		and caps.Grip == caps.Brakes
+	then
 		return `{free}Max level {caps.Speed} on every stat`
 	end
-	return `{free}Max: Speed {caps.Speed}, Jets {caps.Jets}, Tough {caps.Toughness}, Grip {caps.Grip}`
+	return `{free}Max: Speed {caps.Speed}, Jets {caps.Jets}, Tough {caps.Toughness}, Grip {caps.Grip}, Brakes {caps.Brakes}`
 end
 
 local function build()
@@ -652,7 +659,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "BoneCoins" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "BoneCoins" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end

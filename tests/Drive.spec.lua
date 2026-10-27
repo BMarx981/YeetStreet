@@ -45,6 +45,25 @@ Check.test("brake when nearly stopped reverses at the reverse cap", function()
 	Check.eq(torque, 100)
 end)
 
+Check.test("brakes push against the direction of travel", function()
+	Check.eq(Drive.brakePush(-1, 30, 100, tuning), -100, "brake while rolling forward")
+	Check.eq(Drive.brakePush(1, -30, 100, tuning), 100, "gas while rolling backward")
+end)
+
+Check.test("half a press brakes half as hard", function()
+	Check.eq(Drive.brakePush(-0.5, 30, 100, tuning), -50)
+end)
+
+Check.test("brakes push nothing unless pressed against travel", function()
+	Check.eq(Drive.brakePush(0, 30, 100, tuning), 0, "coasting")
+	Check.eq(Drive.brakePush(1, 30, 100, tuning), 0, "gas forward")
+	Check.eq(Drive.brakePush(-1, -30, 100, tuning), 0, "reversing")
+end)
+
+Check.test("brakes stop pushing once nearly stopped, where brake turns into reverse", function()
+	Check.eq(Drive.brakePush(-1, 1, 100, tuning), 0)
+end)
+
 -- No grip limit, for tests of the speed curve alone.
 local ANY_GRIP = math.huge
 local WHEELBASE = 10

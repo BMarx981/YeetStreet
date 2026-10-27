@@ -26,6 +26,9 @@ Tuning.StarterCar = {
 	Grip = 1.0, -- wheel friction
 	RollUnlocked = true,
 	Toughness = 60, -- damage a car takes in one run before it wrecks
+	-- Slowing on top of the wheel brake (Tuning.Drive.BrakeTorque), studs per
+	-- second squared. 0 leaves the wheel brake alone.
+	BrakePower = 0,
 }
 
 -- Economy: a run's server score pays out as cash.
@@ -39,8 +42,8 @@ Tuning.Cash = {
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
 -- to the real stats its upgrade drives: Speed drives TopSpeed; Jets drives
 -- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive
--- their own. Friction is capped at 2 (rear wheels get Grip times
--- Chassis.RearGripFactor), so Grip steps stay small.
+-- their own; Brakes drives BrakePower. Friction is capped at 2 (rear wheels
+-- get Grip times Chassis.RearGripFactor), so Grip steps stay small.
 -- Prices: level 1 is 300, level 10 about 1,140, level 20 about 5,030, level
 -- 30 about 22,200. All four stats to 10 cost about 25,600.
 Tuning.Upgrades = {
@@ -55,6 +58,7 @@ Tuning.Upgrades = {
 		TurnRate = 0.1,
 		Toughness = 4,
 		Grip = 0.02,
+		BrakePower = 5,
 	},
 }
 
@@ -94,7 +98,7 @@ Tuning.Ladder = {
 		Name = "Junker",
 		Price = 0,
 		Bonus = 0,
-		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10, Brakes = 10 },
 		Seed = 1,
 		Archetype = "pickup",
 		Tier = "Junker",
@@ -104,7 +108,7 @@ Tuning.Ladder = {
 		Name = "Hatchback",
 		Price = 15000,
 		Bonus = 4,
-		Caps = { Speed = 20, Jets = 20, Toughness = 20, Grip = 20 },
+		Caps = { Speed = 20, Jets = 20, Toughness = 20, Grip = 20, Brakes = 20 },
 		Seed = 1,
 		Archetype = "hatch",
 		Tier = "Street",
@@ -114,7 +118,7 @@ Tuning.Ladder = {
 		Name = "Muscle Car",
 		Price = 75000,
 		Bonus = 8,
-		Caps = { Speed = 30, Jets = 24, Toughness = 30, Grip = 24 },
+		Caps = { Speed = 30, Jets = 24, Toughness = 30, Grip = 24, Brakes = 24 },
 		Seed = 1,
 		Archetype = "muscle",
 		Tier = "Sports",
@@ -124,7 +128,7 @@ Tuning.Ladder = {
 		Name = "Speed Car",
 		Price = 100000,
 		Bonus = 12,
-		Caps = { Speed = 40, Jets = 30, Toughness = 36, Grip = 30 },
+		Caps = { Speed = 40, Jets = 30, Toughness = 36, Grip = 30, Brakes = 30 },
 		Seed = 1,
 		Archetype = "wedge",
 		Tier = "Supercar",
@@ -135,7 +139,7 @@ Tuning.Ladder = {
 		Name = "Velociraptor",
 		Price = 0,
 		Bonus = 8,
-		Caps = { Speed = 34, Jets = 26, Toughness = 26, Grip = 30 },
+		Caps = { Speed = 34, Jets = 26, Toughness = 26, Grip = 30, Brakes = 30 },
 		Seed = 11,
 		Archetype = "buggy",
 		Tier = "Dino",
@@ -145,7 +149,7 @@ Tuning.Ladder = {
 		Name = "Triceratops",
 		Price = 0,
 		Bonus = 10,
-		Caps = { Speed = 30, Jets = 24, Toughness = 44, Grip = 30 },
+		Caps = { Speed = 30, Jets = 24, Toughness = 44, Grip = 30, Brakes = 30 },
 		Seed = 12,
 		Archetype = "triceratops",
 		Tier = "Dino",
@@ -155,7 +159,7 @@ Tuning.Ladder = {
 		Name = "Brachiosaurus",
 		Price = 0,
 		Bonus = 12,
-		Caps = { Speed = 28, Jets = 32, Toughness = 48, Grip = 28 },
+		Caps = { Speed = 28, Jets = 32, Toughness = 48, Grip = 28, Brakes = 28 },
 		Seed = 13,
 		Archetype = "brachiosaurus",
 		Tier = "Dino",
@@ -165,7 +169,7 @@ Tuning.Ladder = {
 		Name = "Spinosaurus",
 		Price = 0,
 		Bonus = 14,
-		Caps = { Speed = 44, Jets = 36, Toughness = 40, Grip = 36 },
+		Caps = { Speed = 44, Jets = 36, Toughness = 40, Grip = 36, Brakes = 36 },
 		Seed = 14,
 		Archetype = "spinosaurus",
 		Tier = "Dino",
@@ -175,7 +179,7 @@ Tuning.Ladder = {
 		Name = "T-Rex",
 		Price = 0,
 		Bonus = 16,
-		Caps = { Speed = 50, Jets = 40, Toughness = 50, Grip = 40 },
+		Caps = { Speed = 50, Jets = 40, Toughness = 50, Grip = 40, Brakes = 40 },
 		Seed = 7,
 		Archetype = "trex",
 		Tier = "Dino",

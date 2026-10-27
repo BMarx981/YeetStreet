@@ -8,7 +8,7 @@ local LADDER: { Economy.Car } = {
 		Name = "Junker",
 		Price = 0,
 		Bonus = 0,
-		Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5 },
+		Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5, Brakes = 5 },
 		Seed = 1,
 		Archetype = "pickup",
 		Tier = "Junker",
@@ -18,7 +18,7 @@ local LADDER: { Economy.Car } = {
 		Name = "Hatchback",
 		Price = 5000,
 		Bonus = 4,
-		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10 },
+		Caps = { Speed = 10, Jets = 10, Toughness = 10, Grip = 10, Brakes = 10 },
 		Seed = 2,
 		Archetype = "hatch",
 		Tier = "Street",
@@ -28,7 +28,7 @@ local LADDER: { Economy.Car } = {
 		Name = "Muscle Car",
 		Price = 25000,
 		Bonus = 8,
-		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12 },
+		Caps = { Speed = 15, Jets = 12, Toughness = 15, Grip = 12, Brakes = 12 },
 		Seed = 3,
 		Archetype = "muscle",
 		Tier = "Sports",
@@ -50,6 +50,7 @@ local BASE: Economy.CarStats = {
 	Grip = 1.3,
 	RollUnlocked = true,
 	Toughness = 100,
+	BrakePower = 10,
 }
 
 local STEPS: Economy.Steps = {
@@ -60,10 +61,11 @@ local STEPS: Economy.Steps = {
 	TurnRate = 0.1,
 	Toughness = 15,
 	Grip = 0.03,
+	BrakePower = 4,
 }
 
-local function levels(speed: number, jets: number, toughness: number, grip: number): Economy.Levels
-	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip }
+local function levels(speed: number, jets: number, toughness: number, grip: number, brakes: number?): Economy.Levels
+	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip, Brakes = brakes or 0 }
 end
 
 local function state(cash: number, lv: Economy.Levels, cars: { string }, equipped: string): Economy.State
@@ -73,7 +75,7 @@ end
 Check.test("a new player has no cash, no levels, and the first ladder car", function()
 	local s = Economy.newState(LADDER)
 	Check.eq(s.Cash, 0)
-	Check.eq(s.Levels.Speed + s.Levels.Jets + s.Levels.Toughness + s.Levels.Grip, 0, "levels")
+	Check.eq(s.Levels.Speed + s.Levels.Jets + s.Levels.Toughness + s.Levels.Grip + s.Levels.Brakes, 0, "levels")
 	Check.eq(#s.Cars, 1, "cars owned")
 	Check.eq(s.Cars[1], "Junker")
 	Check.eq(s.Equipped, "Junker")
@@ -102,11 +104,12 @@ Check.test("level 0 stats are the base car", function()
 	Check.eq(stats.TurnRate, 4)
 	Check.eq(stats.Toughness, 100)
 	Check.eq(stats.Grip, 1.3)
+	Check.eq(stats.BrakePower, 10)
 	Check.eq(stats.RollUnlocked, true)
 end)
 
 Check.test("each stat's levels raise only its own real stats", function()
-	local stats = Economy.stats(BASE, levels(2, 3, 4, 5), LADDER[1], STEPS)
+	local stats = Economy.stats(BASE, levels(2, 3, 4, 5, 3), LADDER[1], STEPS)
 	Check.near(stats.TopSpeed, 122, "Speed")
 	Check.near(stats.JetPower, 174, "Jets: power")
 	Check.near(stats.JetFuel, 3.9, "Jets: fuel")
@@ -114,12 +117,14 @@ Check.test("each stat's levels raise only its own real stats", function()
 	Check.near(stats.TurnRate, 4.3, "Jets: turn rate")
 	Check.near(stats.Toughness, 160, "Toughness")
 	Check.near(stats.Grip, 1.45, "Grip")
+	Check.near(stats.BrakePower, 22, "Brakes")
 end)
 
 Check.test("levels above the car's cap count only up to the cap", function()
-	local stats = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[1], STEPS)
+	local stats = Economy.stats(BASE, levels(10, 10, 10, 10, 10), LADDER[1], STEPS)
 	Check.near(stats.TopSpeed, 140, "Speed capped at 5")
 	Check.near(stats.Toughness, 175, "Toughness capped at 5")
+	Check.near(stats.BrakePower, 30, "Brakes capped at 5")
 	local muscle = Economy.stats(BASE, levels(20, 20, 20, 20), LADDER[3], STEPS)
 	Check.near(muscle.TopSpeed, 248, "Speed cap 15, plus 8 free")
 	Check.near(muscle.JetPower, 310, "Jets cap 12, plus 8 free")
@@ -132,6 +137,7 @@ Check.test("a car's free levels add to every stat on top of the levels bought", 
 	Check.near(stats.TurnRate, 4.4, "Jets 0 + 4")
 	Check.near(stats.Toughness, 160, "Toughness 0 + 4")
 	Check.near(stats.Grip, 1.42, "Grip 0 + 4")
+	Check.near(stats.BrakePower, 26, "Brakes 0 + 4")
 	local maxed = Economy.stats(BASE, levels(10, 10, 10, 10), LADDER[2], STEPS)
 	Check.near(maxed.TopSpeed, 194, "the cap limits levels bought, not free ones: 10 + 4")
 end)
@@ -143,16 +149,18 @@ Check.test("free levels beat the last car's max right away", function()
 end)
 
 Check.test("look levels are the levels the stats count: capped, plus free levels", function()
-	local junker = Economy.lookLevels(levels(2, 9, 0, 5), LADDER[1])
+	local junker = Economy.lookLevels(levels(2, 9, 0, 5, 7), LADDER[1])
 	Check.eq(junker.Speed, 2, "Speed under the cap")
 	Check.eq(junker.Jets, 5, "Jets capped at 5")
 	Check.eq(junker.Toughness, 0, "Toughness 0")
 	Check.eq(junker.Grip, 5, "Grip at the cap")
+	Check.eq(junker.Brakes, 5, "Brakes capped at 5")
 	local muscle = Economy.lookLevels(levels(20, 20, 3, 0), LADDER[3])
 	Check.eq(muscle.Speed, 23, "Speed cap 15, plus 8 free")
 	Check.eq(muscle.Jets, 20, "Jets cap 12, plus 8 free")
 	Check.eq(muscle.Toughness, 11, "Toughness 3, plus 8 free")
 	Check.eq(muscle.Grip, 8, "Grip 0, plus 8 free")
+	Check.eq(muscle.Brakes, 8, "Brakes 0, plus 8 free")
 end)
 
 Check.test("buying a level spends its cost and raises that stat", function()
@@ -164,6 +172,17 @@ Check.test("buying a level spends its cost and raises that stat", function()
 	Check.eq(after.Levels.Speed, 0, "other stats unchanged")
 	Check.eq(before.Cash, 1000, "the old state is not changed")
 	Check.eq(before.Levels.Jets, 0, "the old levels are not changed")
+end)
+
+Check.test("brakes are bought like any other stat", function()
+	local after, reason =
+		Economy.upgrade(state(1000, levels(0, 0, 0, 0), { "Junker" }, "Junker"), "Brakes", LADDER, COSTS)
+	assert(after, reason)
+	Check.eq(after.Cash, 750)
+	Check.eq(after.Levels.Brakes, 1)
+	local _, capped =
+		Economy.upgrade(state(99999, levels(0, 0, 0, 0, 5), { "Junker" }, "Junker"), "Brakes", LADDER, COSTS)
+	Check.eq(capped, "AtCap")
 end)
 
 Check.test("a level costs what the next level up is priced at", function()
@@ -231,20 +250,22 @@ Check.test("findCar looks a car up by id", function()
 end)
 
 Check.test("level reads one stat by name", function()
-	local lv = levels(1, 2, 3, 4)
+	local lv = levels(1, 2, 3, 4, 5)
 	Check.eq(Economy.level(lv, "Speed"), 1)
 	Check.eq(Economy.level(lv, "Jets"), 2)
 	Check.eq(Economy.level(lv, "Toughness"), 3)
 	Check.eq(Economy.level(lv, "Grip"), 4)
+	Check.eq(Economy.level(lv, "Brakes"), 5)
 end)
 
 Check.test("reconcile keeps a valid saved state", function()
-	local saved = state(1234, levels(3, 2, 1, 0), { "Junker", "Hatchback" }, "Hatchback")
+	local saved = state(1234, levels(3, 2, 1, 0, 4), { "Junker", "Hatchback" }, "Hatchback")
 	local s = Economy.reconcile(saved, LADDER)
 	Check.eq(s.Cash, 1234)
 	Check.eq(s.Levels.Speed, 3)
 	Check.eq(s.Levels.Jets, 2)
 	Check.eq(s.Levels.Toughness, 1)
+	Check.eq(s.Levels.Brakes, 4)
 	Check.eq(#s.Cars, 2)
 	Check.eq(s.Equipped, "Hatchback")
 end)
@@ -267,6 +288,7 @@ Check.test("reconcile fills missing or bad fields", function()
 	Check.eq(s.Levels.Speed, 2)
 	Check.eq(s.Levels.Jets, 0, "not a number")
 	Check.eq(s.Levels.Grip, 0, "missing")
+	Check.eq(s.Levels.Brakes, 0, "saved before brakes existed")
 	Check.eq(s.Equipped, "Junker")
 end)
 

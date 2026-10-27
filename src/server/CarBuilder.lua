@@ -95,6 +95,15 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 	jet.Force = Vector3.zero
 	jet.Parent = hull
 
+	-- The Brakes upgrade's push against travel on the ground (CarController).
+	local brake = Instance.new("VectorForce")
+	brake.Name = "Brake"
+	brake.Attachment0 = center
+	brake.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
+	brake.ApplyAtCenterOfMass = true
+	brake.Force = Vector3.zero
+	brake.Parent = hull
+
 	-- Holds the car to a city tube's wall (CarController), in world space.
 	local stick = Instance.new("VectorForce")
 	stick.Name = "Stick"

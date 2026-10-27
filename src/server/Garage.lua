@@ -5,14 +5,14 @@
 --
 -- Clients buy through RemoteFunctions in ReplicatedStorage, each returning
 -- (ok, reason) with Economy's reasons, plus "TooSoon" and "NotLoaded":
---   BuyUpgrade(stat)  one level of Speed, Jets, Toughness, or Grip
+--   BuyUpgrade(stat)  one level of Speed, Jets, Toughness, Grip, or Brakes
 --   BuyCar(id)        a ladder car, without equipping it
 --   EquipCar(id)      an owned car
 -- An upgrade or equip changes the car's stats, so the car respawns through
 -- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset.
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
--- per stat level (Speed, Jets, Toughness, Grip), Equipped, and CarsOwned (ids
+-- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
 -- joined by commas). Cash is also in leaderstats.
 --
 -- The panel opens near any model tagged Garage. The hand-placed
@@ -52,6 +52,7 @@ local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Jets", state.Levels.Jets)
 	player:SetAttribute("Toughness", state.Levels.Toughness)
 	player:SetAttribute("Grip", state.Levels.Grip)
+	player:SetAttribute("Brakes", state.Levels.Brakes)
 	player:SetAttribute("Equipped", state.Equipped)
 	player:SetAttribute("CarsOwned", table.concat(state.Cars, ","))
 	player:SetAttribute("LimitedsOwned", table.concat(state.Limiteds, ","))
@@ -120,7 +121,7 @@ local function remote(name: string, handler: (Player, any) -> (boolean, string?)
 end
 
 remote("BuyUpgrade", function(player: Player, stat: any): (boolean, string?)
-	if stat ~= "Speed" and stat ~= "Jets" and stat ~= "Toughness" and stat ~= "Grip" then
+	if stat ~= "Speed" and stat ~= "Jets" and stat ~= "Toughness" and stat ~= "Grip" and stat ~= "Brakes" then
 		return false, "UnknownStat"
 	end
 	return request(player, function(state)

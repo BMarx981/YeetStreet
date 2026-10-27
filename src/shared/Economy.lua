@@ -12,13 +12,14 @@
 
 local Economy = {}
 
-export type StatName = "Speed" | "Jets" | "Toughness" | "Grip"
+export type StatName = "Speed" | "Jets" | "Toughness" | "Grip" | "Brakes"
 
 export type Levels = {
 	Speed: number,
 	Jets: number,
 	Toughness: number,
 	Grip: number,
+	Brakes: number,
 }
 
 export type Car = {
@@ -68,6 +69,7 @@ export type CarStats = {
 	Grip: number,
 	RollUnlocked: boolean,
 	Toughness: number,
+	BrakePower: number,
 }
 
 -- How much each real stat rises per level of the upgrade that drives it.
@@ -79,6 +81,7 @@ export type Steps = {
 	TurnRate: number,
 	Toughness: number,
 	Grip: number,
+	BrakePower: number,
 }
 
 -- The level of one stat, by name.
@@ -89,8 +92,10 @@ function Economy.level(levels: Levels, stat: StatName): number
 		return levels.Jets
 	elseif stat == "Toughness" then
 		return levels.Toughness
-	else
+	elseif stat == "Grip" then
 		return levels.Grip
+	else
+		return levels.Brakes
 	end
 end
 
@@ -102,8 +107,10 @@ local function withLevel(levels: Levels, stat: StatName, value: number): Levels
 		copy.Jets = value
 	elseif stat == "Toughness" then
 		copy.Toughness = value
-	else
+	elseif stat == "Grip" then
 		copy.Grip = value
+	else
+		copy.Brakes = value
 	end
 	return copy
 end
@@ -112,7 +119,7 @@ function Economy.newState(ladder: { Car }): State
 	local first = ladder[1].Id
 	return {
 		Cash = 0,
-		Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0 },
+		Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 },
 		Cars = { first },
 		Equipped = first,
 		Limiteds = {},
@@ -141,6 +148,7 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 		Jets = math.floor(count(levels.Jets)),
 		Toughness = math.floor(count(levels.Toughness)),
 		Grip = math.floor(count(levels.Grip)),
+		Brakes = math.floor(count(levels.Brakes)),
 	}
 	if typeof(saved.Cars) == "table" then
 		for _, id in saved.Cars do
@@ -201,6 +209,7 @@ function Economy.lookLevels(levels: Levels, car: Car): Levels
 		Jets = math.min(levels.Jets, car.Caps.Jets) + car.Bonus,
 		Toughness = math.min(levels.Toughness, car.Caps.Toughness) + car.Bonus,
 		Grip = math.min(levels.Grip, car.Caps.Grip) + car.Bonus,
+		Brakes = math.min(levels.Brakes, car.Caps.Brakes) + car.Bonus,
 	}
 end
 
@@ -211,6 +220,7 @@ function Economy.stats(base: CarStats, levels: Levels, car: Car, steps: Steps): 
 	local jets = counted.Jets
 	local toughness = counted.Toughness
 	local grip = counted.Grip
+	local brakes = counted.Brakes
 	return {
 		TopSpeed = base.TopSpeed + steps.TopSpeed * speed,
 		JetPower = base.JetPower + steps.JetPower * jets,
@@ -220,6 +230,7 @@ function Economy.stats(base: CarStats, levels: Levels, car: Car, steps: Steps): 
 		Grip = base.Grip + steps.Grip * grip,
 		RollUnlocked = base.RollUnlocked,
 		Toughness = base.Toughness + steps.Toughness * toughness,
+		BrakePower = base.BrakePower + steps.BrakePower * brakes,
 	}
 end
 

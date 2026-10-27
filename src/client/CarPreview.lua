@@ -85,7 +85,8 @@ function CarPreview.new(parent: Instance): Preview
 		if model then
 			model:Destroy()
 		end
-		local input = { archetype = car.Archetype, tier = car.Tier, levels = levels }
+		local looks = { Speed = levels.Speed, Jets = levels.Jets, Toughness = levels.Toughness, Grip = levels.Grip }
+		local input = { archetype = car.Archetype, tier = car.Tier, levels = looks }
 		local design = CarDesign.design(Rng.new(car.Seed), input, CarKit, Tuning.CarLooks)
 		local built = Instance.new("Model")
 		built.Name = "Car"
