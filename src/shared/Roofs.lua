@@ -20,8 +20,9 @@
 --
 -- A pool's footprint holds a raised deck (poolLayout): ramps rise Height
 -- over Ramp from the footprint's edge up to the deck, a Rim wide all round
--- a basin sunk to the roof, and a Shallow floor rising out of the basin's
--- far end along its length, so a car that drops in can drive back out.
+-- a basin sunk to the roof. Every wall of the basin slopes up to the deck,
+-- over Shallow at its two ends and Side along its two sides, so a car that
+-- drops in can drive back out any way.
 --
 -- Coordinates are the park's: x and z on the ground.
 
@@ -98,16 +99,22 @@ export type Pool = {
 	Height: number, -- the deck above the roof, and the basin's depth
 	Ramp: number,
 	Rim: number,
-	Shallow: number,
+	Shallow: number, -- the slopes at the basin's ends
+	Side: number, -- the slopes along its sides
+}
+
+-- A slope inside the basin, against the wall it rises toward.
+export type PoolSlope = {
+	rect: Rect,
+	riseX: number,
+	riseZ: number,
 }
 
 export type PoolLayout = {
 	deck: Rect, -- the top of the ramps
 	basin: Rect,
 	rim: { Rect }, -- the deck but for the basin, in four slabs
-	shallow: Rect, -- the floor rising out of the basin
-	riseX: number, -- the way the shallow floor rises
-	riseZ: number,
+	slopes: { PoolSlope }, -- one against each wall, overlapping in the corners
 }
 
 -- An Rng from the shared Rng module (Rng.new).
@@ -268,8 +275,7 @@ function Roofs.solarRows(spot: Rect, solar: Solar): { Row }
 	return rows
 end
 
--- A pool deck on its spot. The shallow floor is at the basin's low-x end
--- (low-z for a spot longer along z), rising toward it.
+-- A pool deck on its spot. The basin's ends are across its long way.
 function Roofs.poolLayout(spot: Rect, pool: Pool): PoolLayout
 	local deck = {
 		x1 = spot.x1 + pool.Ramp,
@@ -290,16 +296,19 @@ function Roofs.poolLayout(spot: Rect, pool: Pool): PoolLayout
 		{ x1 = basin.x2, x2 = deck.x2, z1 = basin.z1, z2 = basin.z2 },
 	}
 	local alongX = spot.x2 - spot.x1 >= spot.z2 - spot.z1
-	local shallow = if alongX
-		then { x1 = basin.x1, x2 = basin.x1 + pool.Shallow, z1 = basin.z1, z2 = basin.z2 }
-		else { x1 = basin.x1, x2 = basin.x2, z1 = basin.z1, z2 = basin.z1 + pool.Shallow }
+	local runX = if alongX then pool.Shallow else pool.Side
+	local runZ = if alongX then pool.Side else pool.Shallow
+	local slopes = {
+		{ rect = { x1 = basin.x1, x2 = basin.x1 + runX, z1 = basin.z1, z2 = basin.z2 }, riseX = -1, riseZ = 0 },
+		{ rect = { x1 = basin.x2 - runX, x2 = basin.x2, z1 = basin.z1, z2 = basin.z2 }, riseX = 1, riseZ = 0 },
+		{ rect = { x1 = basin.x1, x2 = basin.x2, z1 = basin.z1, z2 = basin.z1 + runZ }, riseX = 0, riseZ = -1 },
+		{ rect = { x1 = basin.x1, x2 = basin.x2, z1 = basin.z2 - runZ, z2 = basin.z2 }, riseX = 0, riseZ = 1 },
+	}
 	return {
 		deck = deck,
 		basin = basin,
 		rim = rim,
-		shallow = shallow,
-		riseX = if alongX then -1 else 0,
-		riseZ = if alongX then 0 else -1,
+		slopes = slopes,
 	}
 end
 

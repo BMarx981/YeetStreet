@@ -209,7 +209,7 @@ Check.test("a spot too narrow for a row gets none", function()
 	Check.eq(#Roofs.solarRows({ x1 = 0, x2 = 100, z1 = 0, z2 = 12 }, SOLAR), 0)
 end)
 
-local POOL: Roofs.Pool = { Height = 4, Ramp = 8, Rim = 4, Shallow = 12 }
+local POOL: Roofs.Pool = { Height = 4, Ramp = 8, Rim = 4, Shallow = 12, Side = 8 }
 
 local function area(rect: Roofs.Rect): number
 	return (rect.x2 - rect.x1) * (rect.z2 - rect.z1)
@@ -238,21 +238,44 @@ Check.test("a pool's deck sits inside its ramps, with the basin inside the deck'
 	Check.near(covered, area(pool.deck) - area(pool.basin), "the whole rim")
 end)
 
-Check.test("the shallow end rises out of the long side's low end", function()
-	local pool = Roofs.poolLayout({ x1 = 0, x2 = 80, z1 = 0, z2 = 50 }, POOL)
-	Check.near(pool.shallow.x1, 12)
-	Check.near(pool.shallow.x2, 24, "Shallow long")
-	Check.near(pool.shallow.z1, 12, "the basin's width")
-	Check.near(pool.shallow.z2, 38, "the basin's width")
-	Check.eq(pool.riseX, -1)
-	Check.eq(pool.riseZ, 0)
-
-	local turned = Roofs.poolLayout({ x1 = 0, x2 = 50, z1 = 0, z2 = 80 }, POOL)
-	Check.near(turned.shallow.z1, 12)
-	Check.near(turned.shallow.z2, 24)
-	Check.near(turned.shallow.x2 - turned.shallow.x1, 26)
-	Check.eq(turned.riseX, 0)
-	Check.eq(turned.riseZ, -1)
+Check.test("every wall of the basin slopes up to the deck: Shallow at the ends, Side along the sides", function()
+	for _, spot in { { x1 = 0, x2 = 80, z1 = 0, z2 = 50 }, { x1 = 0, x2 = 50, z1 = 0, z2 = 80 } } do
+		local pool = Roofs.poolLayout(spot, POOL)
+		local basin = pool.basin
+		local alongX = spot.x2 - spot.x1 > spot.z2 - spot.z1
+		Check.eq(#pool.slopes, 4)
+		local outs = {}
+		for _, slope in pool.slopes do
+			local rect = slope.rect
+			outs[`{slope.riseX},{slope.riseZ}`] = true
+			Check.eq(
+				rect.x1 >= basin.x1 and rect.x2 <= basin.x2 and rect.z1 >= basin.z1 and rect.z2 <= basin.z2,
+				true,
+				"inside the basin"
+			)
+			-- Against the wall it rises toward, the whole length of that wall.
+			if slope.riseX ~= 0 then
+				Check.near(
+					if slope.riseX < 0 then rect.x1 else rect.x2,
+					if slope.riseX < 0 then basin.x1 else basin.x2,
+					"at its wall"
+				)
+				Check.near(rect.z2 - rect.z1, basin.z2 - basin.z1, "the wall's length")
+				Check.near(rect.x2 - rect.x1, if alongX then POOL.Shallow else POOL.Side, "run")
+			else
+				Check.near(
+					if slope.riseZ < 0 then rect.z1 else rect.z2,
+					if slope.riseZ < 0 then basin.z1 else basin.z2,
+					"at its wall"
+				)
+				Check.near(rect.x2 - rect.x1, basin.x2 - basin.x1, "the wall's length")
+				Check.near(rect.z2 - rect.z1, if alongX then POOL.Side else POOL.Shallow, "run")
+			end
+		end
+		for _, out in { "-1,0", "1,0", "0,-1", "0,1" } do
+			Check.eq(outs[out], true, out)
+		end
+	end
 end)
 
 Check.finish("Roofs")

@@ -1366,6 +1366,7 @@ Tuning.City = {
 			Ramp = 8,
 			Rim = 4,
 			Shallow = 12,
+			Side = 8,
 			WaterBelow = 0.6,
 		},
 		-- While the game runs: a hull's middle inside a pool's water, or up
@@ -1373,7 +1374,7 @@ Tuning.City = {
 		-- than Speed throws a splash of Drops and Mist on each client
 		-- (WaterTowerSplash).
 		PoolSplash = {
-			Margin = 1,
+			Margin = 4, -- high enough that wheels landing on a slope by the wall still count
 			Speed = 30,
 			Drops = 150,
 			Mist = 40,

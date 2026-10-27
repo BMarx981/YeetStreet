@@ -21,7 +21,7 @@
 --   that lands on it pays the Helipad target (ScoreService). The paint and
 --   lights on it are only looks.
 --   Pool: a raised deck with ramps all round (Roofs.poolLayout) and a basin
---   down to the roof with a shallow floor to drive out. The water is only
+--   down to the roof, every wall sloped to drive out. The water is only
 --   looks, tagged Pool: a car falling into it splashes, and a run that
 --   does pays the Pool target (ScoreService).
 -- Numbers are in Tuning.City.Roofs.
@@ -455,17 +455,20 @@ local function pool(parent: Instance, area: MapLayout.Area, height: number, spot
 
 	local size, center = box(layout.basin, 0, TILE_THICKNESS)
 	part(model, "Tiles", "Part", size, CFrame.new(center), TILE_COLOR, Enum.Material.SmoothPlastic)
-	local rise = Vector3.new(layout.riseX, 0, layout.riseZ)
-	local shallowSize, shallowCenter = box(layout.shallow, TILE_THICKNESS, P.Height)
-	part(
-		model,
-		"Shallow",
-		"WedgePart",
-		if layout.riseX ~= 0 then Vector3.new(shallowSize.Z, shallowSize.Y, shallowSize.X) else shallowSize,
-		CFrame.lookAt(shallowCenter, shallowCenter - rise),
-		TILE_COLOR,
-		Enum.Material.SmoothPlastic
-	)
+	-- A wedge rises toward its +Z end, across its X: look away from the wall.
+	for _, slope in layout.slopes do
+		local rise = Vector3.new(slope.riseX, 0, slope.riseZ)
+		local slopeSize, slopeCenter = box(slope.rect, TILE_THICKNESS, P.Height)
+		part(
+			model,
+			"Slope",
+			"WedgePart",
+			if slope.riseX ~= 0 then Vector3.new(slopeSize.Z, slopeSize.Y, slopeSize.X) else slopeSize,
+			CFrame.lookAt(slopeCenter, slopeCenter - rise),
+			TILE_COLOR,
+			Enum.Material.SmoothPlastic
+		)
+	end
 
 	local waterSize, waterCenter = box(layout.basin, TILE_THICKNESS, P.Height - P.WaterBelow)
 	local water =
