@@ -26,6 +26,10 @@ local STRIPE_WIDTH = 10
 local STRIPE_SPACING = 20
 local STRIPE_COUNT = 64 -- wide enough for any panel
 local STICKER_TILT = -2
+local GLOW_THICKNESS = 4
+local PIP_WIDTH = 18
+local PIP_HEIGHT = 10
+local PIP_GAP = 4
 
 function UiStyle.corner(parent: Instance, radius: number)
 	local c = Instance.new("UICorner")
@@ -101,6 +105,60 @@ function UiStyle.plate(frame: GuiObject)
 		bolt.BorderSizePixel = 0
 		bolt.Parent = frame
 		UiStyle.corner(bolt, 4)
+	end
+end
+
+-- Outlines a plate in yellow, for something the player can buy right now.
+function UiStyle.setGlow(frame: GuiObject, on: boolean)
+	local edge = frame:FindFirstChildWhichIsA("UIStroke")
+	if edge then
+		edge.Color = if on then UiStyle.Yellow else UiStyle.Ink
+		edge.Thickness = if on then GLOW_THICKNESS else 2
+	end
+end
+
+-- A round dark badge with a yellow rim, holding an emoji icon.
+function UiStyle.badge(parent: Instance, icon: string, size: number): TextLabel
+	local badge = Instance.new("TextLabel")
+	badge.Name = "Badge"
+	badge.Text = icon
+	badge.TextSize = math.floor(size * 0.6)
+	badge.BackgroundColor3 = UiStyle.Asphalt
+	badge.Size = UDim2.fromOffset(size, size)
+	badge.Parent = parent
+	UiStyle.corner(badge, size)
+	UiStyle.stroke(badge, 3, UiStyle.Yellow, true)
+	return badge
+end
+
+-- A row of level pips; UiStyle.setPips lights them from the left.
+function UiStyle.pips(parent: Instance, count: number): Frame
+	local bar = Instance.new("Frame")
+	bar.Name = "Pips"
+	bar.BackgroundTransparency = 1
+	bar.Size = UDim2.fromOffset(count * (PIP_WIDTH + PIP_GAP) - PIP_GAP, PIP_HEIGHT)
+	bar.Parent = parent
+	for i = 1, count do
+		local pip = Instance.new("Frame")
+		pip.Name = `Pip{i}`
+		pip.Position = UDim2.fromOffset((i - 1) * (PIP_WIDTH + PIP_GAP), 0)
+		pip.Size = UDim2.fromOffset(PIP_WIDTH, PIP_HEIGHT)
+		pip.BorderSizePixel = 0
+		pip.Parent = bar
+		UiStyle.corner(pip, 3)
+		UiStyle.stroke(pip, 1.5, UiStyle.Ink, true)
+	end
+	UiStyle.setPips(bar, 0)
+	return bar
+end
+
+function UiStyle.setPips(bar: Frame, filled: number)
+	for _, pip in bar:GetChildren() do
+		if pip:IsA("Frame") then
+			local lit = (tonumber(string.match(pip.Name, "%d+")) or 0) <= filled
+			pip.BackgroundColor3 = if lit then UiStyle.Yellow else UiStyle.Asphalt
+			pip.BackgroundTransparency = if lit then 0 else 0.5
+		end
 	end
 end
 

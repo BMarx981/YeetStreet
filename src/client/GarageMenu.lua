@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local Economy = require(ReplicatedStorage.Economy)
+local Pips = require(ReplicatedStorage.Pips)
 local Tuning = require(ReplicatedStorage.Tuning)
 local UiStyle = require(script.Parent.UiStyle)
 
@@ -33,12 +34,19 @@ type Row = {
 	button: TextButton,
 }
 
-local STATS: { { stat: Economy.StatName, about: string } } = {
-	{ stat = "Speed", about = "Top speed on the ground" },
-	{ stat = "Jets", about = "Jet power, fuel, recharge, and air turning" },
-	{ stat = "Toughness", about = "How hard a hit the car takes before it wrecks" },
-	{ stat = "Grip", about = "Tire grip for corners and landings" },
+type StatRow = Row & {
+	pips: Frame,
+	level: TextLabel,
 }
+
+local STATS: { { stat: Economy.StatName, about: string, icon: string } } = {
+	{ stat = "Speed", about = "Top speed on the ground", icon = "⚡" },
+	{ stat = "Jets", about = "Jet power, fuel, recharge, and air turning", icon = "🚀" },
+	{ stat = "Toughness", about = "How hard a hit the car takes before it wrecks", icon = "🛡️" },
+	{ stat = "Grip", about = "Tire grip for corners and landings", icon = "🧲" },
+}
+
+local PIP_COUNT = 10
 
 local REASONS: { [string]: string } = {
 	NotEnoughCash = "Not enough cash yet.",
@@ -64,13 +72,18 @@ local function withCommas(n: number): string
 	return (digits:gsub("^,", ""))
 end
 
-local function setButton(b: TextButton, label: string, enabled: boolean)
+-- `buy` marks a purchase; its row glows while the player can afford it.
+local function setButton(b: TextButton, label: string, enabled: boolean, buy: boolean?)
 	b.Text = label
 	b.Active = enabled
 	b.AutoButtonColor = enabled
 	b.Selectable = enabled
 	UiStyle.setSticker(b, enabled)
 	b.TextTransparency = if enabled then 0 else 0.35
+	local plate = b.Parent
+	if plate and plate:IsA("GuiObject") then
+		UiStyle.setGlow(plate, enabled and buy == true)
+	end
 end
 
 local function number(name: string): number
@@ -208,9 +221,35 @@ local function build()
 		return { frame = frame, detail = detail, button = action }
 	end
 
-	local statRows: { [Economy.StatName]: Row } = {}
+	-- An upgrade row: a taller plate with the stat's icon and a level bar.
+	local function statRow(order: number, name: string, icon: string): StatRow
+		local r = row(upgradesList, order, name)
+		r.frame.Size = UDim2.new(1, -12, 0, 80)
+		local badge = UiStyle.badge(r.frame, icon, 50)
+		badge.AnchorPoint = Vector2.new(0, 0.5)
+		badge.Position = UDim2.new(0, 16, 0.5, 0)
+		local heading = r.frame:FindFirstChild("Name") :: TextLabel
+		heading.Position = UDim2.fromOffset(80, 6)
+		heading.Size = UDim2.new(1, -224, 0, 26)
+		local pips = UiStyle.pips(r.frame, PIP_COUNT)
+		pips.Position = UDim2.fromOffset(80, 36)
+		local level = UiStyle.text("Level", r.frame, 18, true)
+		level.Position = UDim2.fromOffset(80 + pips.Size.X.Offset + 10, 31)
+		level.Size = UDim2.fromOffset(90, 20)
+		r.detail.Position = UDim2.fromOffset(80, 52)
+		r.detail.Size = UDim2.new(1, -224, 0, 20)
+		return {
+			frame = r.frame,
+			detail = r.detail,
+			button = r.button,
+			pips = pips,
+			level = level,
+		}
+	end
+
+	local statRows: { [Economy.StatName]: StatRow } = {}
 	for i, info in STATS do
-		statRows[info.stat] = row(upgradesList, i, info.stat)
+		statRows[info.stat] = statRow(i, info.stat, info.icon)
 	end
 	local carRows: { [string]: Row } = {}
 	local eventRows: { [string]: Row } = {}
@@ -261,14 +300,16 @@ local function build()
 			local r = statRows[info.stat]
 			local level = Economy.level(lv, info.stat)
 			local cap = Economy.level(car.Caps, info.stat)
-			local counts = if level > cap then ` (this car uses {cap})` else ""
-			local free = if car.Bonus > 0 then ` +{car.Bonus} free` else ""
-			r.detail.Text = `Level {level} / {cap}{counts}{free}. {info.about}`
+			local counts = if level > cap then ` This car uses {cap}.` else ""
+			local free = if car.Bonus > 0 then ` +{car.Bonus} free.` else ""
+			r.level.Text = `{level} / {cap}`
+			UiStyle.setPips(r.pips, Pips.filled(level, cap, PIP_COUNT))
+			r.detail.Text = `{info.about}.{counts}{free}`
 			if level >= cap then
 				setButton(r.button, "MAX", false)
 			else
 				local cost = Economy.upgradeCost(level, Tuning.Upgrades)
-				setButton(r.button, `$ {withCommas(cost)}`, loaded and not busy and money >= cost)
+				setButton(r.button, `$ {withCommas(cost)}`, loaded and not busy and money >= cost, true)
 			end
 		end
 
@@ -282,7 +323,7 @@ local function build()
 			elseif table.find(cars, ladderCar.Id) then
 				setButton(r.button, "EQUIP", loaded and not busy)
 			else
-				setButton(r.button, `$ {withCommas(ladderCar.Price)}`, loaded and not busy and money >= ladderCar.Price)
+				setButton(r.button, `$ {withCommas(ladderCar.Price)}`, loaded and not busy and money >= ladderCar.Price, true)
 			end
 		end
 
@@ -314,7 +355,7 @@ local function build()
 				elseif remaining <= 0 then
 					setButton(r.button, "SOLD OUT", false)
 				else
-					setButton(r.button, `$ {withCommas(item.Price)}`, loaded and not busy and money >= item.Price)
+					setButton(r.button, `$ {withCommas(item.Price)}`, loaded and not busy and money >= item.Price, true)
 				end
 			end
 		end
@@ -329,7 +370,7 @@ local function build()
 			if boneOwned then
 				setButton(r.button, "OWNED", false)
 			else
-				setButton(r.button, `{item.BonePrice} bones`, loaded and not busy and boneBalance >= item.BonePrice)
+				setButton(r.button, `{item.BonePrice} bones`, loaded and not busy and boneBalance >= item.BonePrice, true)
 			end
 		end
 
