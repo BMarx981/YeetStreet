@@ -26,7 +26,7 @@ local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 
 local PlaneCar = {}
 
-export type Group = "body" | "nose" | "wingL" | "wingR" | "gunL" | "gunR"
+export type Group = "body" | "nose" | "wingL" | "wingR" | "gunL" | "gunR" | "exhaust"
 
 local WHITE = Color3.fromRGB(242, 243, 242)
 local LIGHT_GREY = Color3.fromRGB(160, 165, 169)
@@ -49,6 +49,7 @@ local groups: { [Group]: { HeliCar.Spec } } = {
 	wingR = {},
 	gunL = {},
 	gunR = {},
+	exhaust = {},
 }
 
 local function add(
@@ -203,17 +204,12 @@ add(
 )
 stud("body", 0, FIN_TOP, 4.6, WHITE, "tail")
 
--- Where the jet flame blows out: the back of the body, under the fin.
-add(
-	"body",
-	"Exhaust",
-	"block",
-	Vector3.new(0.4, 1.0, 1.0),
-	CFrame.new(0, 1.5, BODY_BACK + 0.2) * LENGTHWAYS,
-	WHITE,
-	nil,
-	1
-)
+-- Where the jet flame blows out: the back of the body, under the fin. As a
+-- car it moves behind the fin, which then points back, without turning, so
+-- the flame always blows out the back (PlaneCar.pose).
+local EXHAUST_PLANE = Vector3.new(0, 1.5, BODY_BACK + 0.2)
+local EXHAUST_CAR = Vector3.new(0, 1.6, 6.45)
+add("exhaust", "Exhaust", "block", Vector3.new(0.4, 1.0, 1.0), CFrame.new(EXHAUST_PLANE) * LENGTHWAYS, WHITE, nil, 1)
 
 -- The nose, on a hinge at its root: a grey clip, a white plate, a white tile,
 -- and a dark clear tile on the end with a stud showing through.
@@ -383,6 +379,8 @@ end
 function PlaneCar.pose(group: Group, stages: PlaneMorph.Stages): CFrame
 	if group == "body" then
 		return tipped(stages.tip)
+	elseif group == "exhaust" then
+		return CFrame.new((EXHAUST_CAR - EXHAUST_PLANE) * stages.tip)
 	elseif group == "nose" then
 		return tipped(stages.tip) * about(NOSE_HINGE, CFrame.Angles(-QUARTER * stages.tip, 0, 0))
 	elseif group == "wingL" or group == "wingR" then
