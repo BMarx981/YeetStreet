@@ -55,6 +55,7 @@ local function build()
 	openButton.AnchorPoint = Vector2.new(1, 0)
 	openButton.Position = UDim2.new(0.5, -146, 0, 6)
 	openButton.Size = UDim2.fromOffset(120, 32)
+	UiStyle.springy(openButton)
 
 	local panel, close = UiStyle.panel(gui, "TELEPORT", Vector2.new(380, 560))
 	local top = UiStyle.HeaderHeight
@@ -90,7 +91,7 @@ local function build()
 
 	local function setOpen(value: boolean, byGamepad: boolean)
 		open = value
-		panel.Visible = value
+		UiStyle.show(panel, value)
 		if value then
 			status.Text = ""
 		end
@@ -169,6 +170,9 @@ local function build()
 		goLabel.Parent = b
 		UiStyle.corner(goLabel, 6)
 		UiStyle.stroke(goLabel, 2, Color3.new(1, 1, 1), true)
+		-- The card sits in a list, where growing it would shove the others,
+		-- so its GO sticker does the growing.
+		UiStyle.springy(b, goLabel)
 		b.Activated:Connect(function()
 			go(place.id)
 		end)

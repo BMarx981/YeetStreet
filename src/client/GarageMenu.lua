@@ -147,12 +147,16 @@ local function build()
 	cash.Size = UDim2.new(0.5, 0, 0, 38)
 	cash.TextXAlignment = Enum.TextXAlignment.Right
 	cash.TextColor3 = UiStyle.Cash
+	local setCash = UiStyle.counter(cash, function(n: number): string
+		return `$ {withCommas(n)}`
+	end)
 
 	local function tabButton(name: Tab, x: number): TextButton
 		local b = UiStyle.sticker(`{name}Tab`, panel, string.upper(name))
 		b.Position = UDim2.fromOffset(x, top)
 		b.Size = UDim2.fromOffset(108, 32)
 		b.TextSize = 18
+		UiStyle.springy(b)
 		return b
 	end
 	local upgradesTab = tabButton("Upgrades", 0)
@@ -218,6 +222,7 @@ local function build()
 		action.AnchorPoint = Vector2.new(1, 0.5)
 		action.Position = UDim2.new(1, -16, 0.5, 0)
 		action.Size = UDim2.fromOffset(124, 38)
+		UiStyle.springy(action)
 		return { frame = frame, detail = detail, button = action }
 	end
 
@@ -290,7 +295,11 @@ local function build()
 		local cashValue = player:GetAttribute("Cash")
 		local loaded = typeof(cashValue) == "number"
 		local money = number("Cash")
-		cash.Text = if loaded then `$ {withCommas(money)}` else "$ ..."
+		if loaded then
+			setCash(money)
+		else
+			cash.Text = "$ ..."
+		end
 		local equippedValue = player:GetAttribute("Equipped")
 		local equipped = if typeof(equippedValue) == "string" then equippedValue else Tuning.Ladder[1].Id
 		local car = Economy.findCar(Tuning.Ladder, equipped) or Tuning.Ladder[1]
@@ -411,8 +420,9 @@ local function build()
 		UiStyle.setSticker(eventTab, tab == "Event")
 	end
 
-	-- Sends one request to the server and reports how it went.
-	local function ask(remoteName: string, arg: string, success: string)
+	-- Sends one request to the server and reports how it went. The row it came
+	-- from bounces and flashes when it goes through.
+	local function ask(remoteName: string, arg: string, success: string, r: Row)
 		if busy then
 			return
 		end
@@ -434,12 +444,16 @@ local function build()
 			status.Text = "Couldn't reach the server."
 		end
 		refresh()
+		if ok and done then
+			UiStyle.bounce(r.button)
+			UiStyle.flash(r.frame)
+		end
 	end
 
 	for _, info in STATS do
 		statRows[info.stat].button.Activated:Connect(function()
 			if statRows[info.stat].button.Active then
-				ask("BuyUpgrade", info.stat, `{info.stat} upgraded.`)
+				ask("BuyUpgrade", info.stat, `{info.stat} upgraded.`, statRows[info.stat])
 			end
 		end)
 	end
@@ -451,9 +465,9 @@ local function build()
 				return
 			end
 			if table.find(owned(), ladderCar.Id) then
-				ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}.`)
+				ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}.`, r)
 			else
-				ask("BuyCar", ladderCar.Id, `Bought the {ladderCar.Name}. Equip it to drive it.`)
+				ask("BuyCar", ladderCar.Id, `Bought the {ladderCar.Name}. Equip it to drive it.`, r)
 			end
 		end)
 	end
@@ -469,7 +483,7 @@ local function build()
 					remote:FireServer()
 				end
 			else
-				ask("BuyLimited", item.Id, `Got the {item.Name}!`)
+				ask("BuyLimited", item.Id, `Got the {item.Name}!`, r)
 			end
 		end)
 	end
@@ -479,7 +493,7 @@ local function build()
 			if not r.button.Active then
 				return
 			end
-			ask("BuyBoneShop", item.Id, if item.Mystery then "The egg is hatching... what's inside?" elseif item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`)
+			ask("BuyBoneShop", item.Id, if item.Mystery then "The egg is hatching... what's inside?" elseif item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`, r)
 		end)
 	end
 	for _, ladderCar in Tuning.Ladder do
@@ -495,9 +509,9 @@ local function build()
 					currentEquipped = Tuning.Ladder[1].Id
 				end
 				if ladderCar.Id == currentEquipped then
-					ask("EquipCar", Tuning.Ladder[1].Id, `Unequipped the {ladderCar.Name}.`)
+					ask("EquipCar", Tuning.Ladder[1].Id, `Unequipped the {ladderCar.Name}.`, r)
 				else
-					ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}!`)
+					ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}!`, r)
 				end
 			end)
 		end
@@ -505,7 +519,7 @@ local function build()
 
 	local function setOpen(value: boolean, byGamepad: boolean)
 		open = value
-		panel.Visible = value
+		UiStyle.show(panel, value)
 		if value then
 			status.Text = ""
 			refresh()

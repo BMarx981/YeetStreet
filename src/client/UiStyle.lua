@@ -3,7 +3,9 @@
 -- The street garage look the menus share: an asphalt panel with a hazard
 -- stripe band under its title, steel plate rows with bolts in the corners,
 -- and yellow sticker buttons that tilt a little while they can be pressed.
--- Only looks; each menu still decides what its parts do.
+-- Only looks and motion; each menu still decides what its parts do.
+
+local TweenService = game:GetService("TweenService")
 
 local UiStyle = {}
 
@@ -30,6 +32,20 @@ local GLOW_THICKNESS = 4
 local PIP_WIDTH = 18
 local PIP_HEIGHT = 10
 local PIP_GAP = 4
+
+local POP_FROM = 0.8
+local POP_IN = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local POP_OUT = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+local HOVER_SCALE = 1.08
+local PRESS_SCALE = 0.9
+local SPRING = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local BOUNCE_FROM = 1.2
+local BOUNCE = TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+local FLASH = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local COUNT = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Each panel's latest show or hide, so a slow hide can't undo a quick reopen.
+local showings: { [GuiObject]: number } = {}
 
 function UiStyle.corner(parent: Instance, radius: number)
 	local c = Instance.new("UICorner")
@@ -188,6 +204,146 @@ function UiStyle.setSticker(b: TextButton, lit: boolean)
 	end
 end
 
+-- The UIScale that motion plays on. A UIScale grows a thing around its anchor
+-- point, and in a list layout it pushes the things after it.
+local function scaler(obj: GuiObject): UIScale
+	local existing = obj:FindFirstChild("Spring")
+	if existing and existing:IsA("UIScale") then
+		return existing
+	end
+	local s = Instance.new("UIScale")
+	s.Name = "Spring"
+	s.Parent = obj
+	return s
+end
+
+-- Moves the anchor point to the center without moving the thing, so it grows
+-- in place.
+local function centerAnchor(obj: GuiObject)
+	local a = obj.AnchorPoint
+	local size = obj.Size
+	obj.Position += UDim2.new(
+		(0.5 - a.X) * size.X.Scale,
+		(0.5 - a.X) * size.X.Offset,
+		(0.5 - a.Y) * size.Y.Scale,
+		(0.5 - a.Y) * size.Y.Offset
+	)
+	obj.AnchorPoint = Vector2.new(0.5, 0.5)
+end
+
+-- Shows a panel by popping it in from a little smaller, or hides it by
+-- shrinking it away. The panel's AnchorPoint should be its center.
+function UiStyle.show(panel: GuiObject, visible: boolean)
+	local showing = (showings[panel] or 0) + 1
+	showings[panel] = showing
+	local s = scaler(panel)
+	if visible then
+		if not panel.Visible then
+			s.Scale = POP_FROM
+		end
+		panel.Visible = true
+		TweenService:Create(s, POP_IN, { Scale = 1 }):Play()
+	elseif panel.Visible then
+		local shrink = TweenService:Create(s, POP_OUT, { Scale = POP_FROM })
+		shrink.Completed:Connect(function()
+			if showings[panel] == showing then
+				panel.Visible = false
+			end
+		end)
+		shrink:Play()
+	end
+end
+
+-- Grows `target` (the button itself unless given) while the button is hovered
+-- or gamepad-selected, and squishes it while pressed. Inactive buttons stay
+-- still. Call after the target has its final Position and Size.
+function UiStyle.springy(b: GuiButton, target: GuiObject?)
+	local t = target or b
+	centerAnchor(t)
+	local hovered = false
+	local pressed = false
+	local function update()
+		local scale = if not b.Active then 1 elseif pressed then PRESS_SCALE elseif hovered then HOVER_SCALE else 1
+		TweenService:Create(scaler(t), SPRING, { Scale = scale }):Play()
+	end
+	local function hover(on: boolean)
+		hovered = on
+		if not on then
+			pressed = false
+		end
+		update()
+	end
+	b.MouseEnter:Connect(function()
+		hover(true)
+	end)
+	b.MouseLeave:Connect(function()
+		hover(false)
+	end)
+	b.SelectionGained:Connect(function()
+		hover(true)
+	end)
+	b.SelectionLost:Connect(function()
+		hover(false)
+	end)
+	b.MouseButton1Down:Connect(function()
+		pressed = true
+		update()
+	end)
+	b.MouseButton1Up:Connect(function()
+		pressed = false
+		update()
+	end)
+	b:GetPropertyChangedSignal("Active"):Connect(update)
+end
+
+-- A quick springy bounce, for a purchase that went through.
+function UiStyle.bounce(obj: GuiObject)
+	local s = scaler(obj)
+	s.Scale = BOUNCE_FROM
+	TweenService:Create(s, BOUNCE, { Scale = 1 }):Play()
+end
+
+-- A white flash over a frame that fades away.
+function UiStyle.flash(frame: GuiObject)
+	local f = Instance.new("Frame")
+	f.Name = "Flash"
+	f.BackgroundColor3 = Color3.new(1, 1, 1)
+	f.BackgroundTransparency = 0.2
+	f.BorderSizePixel = 0
+	f.Size = UDim2.fromScale(1, 1)
+	f.ZIndex = 10
+	f.Parent = frame
+	UiStyle.corner(f, 8)
+	local fade = TweenService:Create(f, FLASH, { BackgroundTransparency = 1 })
+	fade.Completed:Connect(function()
+		f:Destroy()
+	end)
+	fade:Play()
+end
+
+-- Returns a setter that makes the label count to each new number instead of
+-- jumping to it. The first number, and any with `instant`, shows at once.
+function UiStyle.counter(label: TextLabel, format: (number) -> string): (number, boolean?) -> ()
+	local value = Instance.new("NumberValue")
+	value.Name = "Count"
+	value.Parent = label
+	value.Changed:Connect(function(v: number)
+		label.Text = format(v)
+	end)
+	local target: number? = nil
+	return function(n: number, instant: boolean?)
+		if target == nil or instant then
+			-- A new tween on the value cancels a count still running.
+			TweenService:Create(value, TweenInfo.new(0), { Value = n }):Play()
+			value.Value = n
+			label.Text = format(n)
+		elseif n ~= target then
+			TweenService:Create(value, COUNT, { Value = n }):Play()
+		end
+		target = n
+	end
+end
+
 -- A hidden menu panel with its title, a red X to close it, and the stripe
 -- band. Content goes from UiStyle.HeaderHeight down.
 function UiStyle.panel(parent: Instance, title: string, maxSize: Vector2): (Frame, TextButton)
@@ -223,6 +379,7 @@ function UiStyle.panel(parent: Instance, title: string, maxSize: Vector2): (Fram
 	close.Size = UDim2.fromOffset(34, 34)
 	close.BackgroundColor3 = UiStyle.Red
 	close.TextColor3 = Color3.new(1, 1, 1)
+	UiStyle.springy(close)
 
 	local band = UiStyle.hazard(panel)
 	band.Position = UDim2.fromOffset(0, 44)
