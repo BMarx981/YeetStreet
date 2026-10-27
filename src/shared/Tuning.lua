@@ -555,6 +555,15 @@ Tuning.Hud = {
 	},
 }
 
+-- Sounds the menus play, only for the player using them (UiStyle).
+Tuning.MenuSounds = {
+	Open = { Id = "rbxassetid://12222200", Pitch = 1.1, Volume = 0.5 }, -- swoosh
+	Close = { Id = "rbxassetid://12222200", Pitch = 0.8, Volume = 0.4 },
+	Click = { Id = "rbxassetid://9119717523", Pitch = 1.2, Volume = 0.5 },
+	Buy = { Id = "rbxassetid://18264787819", Pitch = 1, Volume = 0.6 }, -- cash register ding
+	Denied = { Id = "rbxassetid://87519554692663", Pitch = 1, Volume = 0.5 }, -- can't press or afford
+}
+
 Tuning.Righting = {
 	StartUpY = 0.5, -- lying with no wheels down and tipped past this starts righting
 	EndUpY = 0.95, -- righting stops here, or when LandWheels wheels touch

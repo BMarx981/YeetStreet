@@ -3,11 +3,17 @@
 -- The street garage look the menus share: an asphalt panel with a hazard
 -- stripe band under its title, steel plate rows with bolts in the corners,
 -- and yellow sticker buttons that tilt a little while they can be pressed.
--- Only looks and motion; each menu still decides what its parts do.
+-- Only looks, motion, and sound; each menu still decides what its parts do.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
+local Tuning = require(ReplicatedStorage.Tuning)
+
 local UiStyle = {}
+
+export type SoundName = "Open" | "Close" | "Click" | "Buy" | "Denied"
 
 UiStyle.Yellow = Color3.fromRGB(255, 196, 0)
 UiStyle.Ink = Color3.fromRGB(22, 22, 26)
@@ -43,6 +49,21 @@ local BOUNCE_FROM = 1.2
 local BOUNCE = TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
 local FLASH = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local COUNT = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local SHAKE_ANGLE = 6
+local SHAKE = TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 3, true)
+
+-- Made up front so they have loaded by the first click. Sounds a client
+-- makes stay on that client.
+local sounds: { [string]: Sound } = {}
+for name, spec in Tuning.MenuSounds do
+	local s = Instance.new("Sound")
+	s.Name = `Menu{name}`
+	s.SoundId = spec.Id
+	s.PlaybackSpeed = spec.Pitch
+	s.Volume = spec.Volume
+	s.Parent = SoundService
+	sounds[name] = s
+end
 
 -- Each panel's latest show or hide, so a slow hide can't undo a quick reopen.
 local showings: { [GuiObject]: number } = {}
@@ -231,8 +252,28 @@ local function centerAnchor(obj: GuiObject)
 	obj.AnchorPoint = Vector2.new(0.5, 0.5)
 end
 
+function UiStyle.play(name: SoundName)
+	sounds[name]:Play()
+end
+
+-- A quick side to side wiggle, for a press that can't go through.
+function UiStyle.shake(obj: GuiObject)
+	if obj:GetAttribute("Shaking") then
+		return
+	end
+	obj:SetAttribute("Shaking", true)
+	local rest = obj.Rotation
+	local wiggle = TweenService:Create(obj, SHAKE, { Rotation = rest + SHAKE_ANGLE })
+	wiggle.Completed:Connect(function()
+		obj.Rotation = rest
+		obj:SetAttribute("Shaking", nil)
+	end)
+	wiggle:Play()
+end
+
 -- Shows a panel by popping it in from a little smaller, or hides it by
--- shrinking it away. The panel's AnchorPoint should be its center.
+-- shrinking it away, with a swoosh either way. The panel's AnchorPoint should
+-- be its center.
 function UiStyle.show(panel: GuiObject, visible: boolean)
 	local showing = (showings[panel] or 0) + 1
 	showings[panel] = showing
@@ -240,10 +281,12 @@ function UiStyle.show(panel: GuiObject, visible: boolean)
 	if visible then
 		if not panel.Visible then
 			s.Scale = POP_FROM
+			UiStyle.play("Open")
 		end
 		panel.Visible = true
 		TweenService:Create(s, POP_IN, { Scale = 1 }):Play()
 	elseif panel.Visible then
+		UiStyle.play("Close")
 		local shrink = TweenService:Create(s, POP_OUT, { Scale = POP_FROM })
 		shrink.Completed:Connect(function()
 			if showings[panel] == showing then
@@ -255,8 +298,9 @@ function UiStyle.show(panel: GuiObject, visible: boolean)
 end
 
 -- Grows `target` (the button itself unless given) while the button is hovered
--- or gamepad-selected, and squishes it while pressed. Inactive buttons stay
--- still. Call after the target has its final Position and Size.
+-- or gamepad-selected, and squishes it while pressed, with a click. Inactive
+-- buttons stay still, and pressing one buzzes and wiggles it instead. Call
+-- after the target has its final Position and Size.
 function UiStyle.springy(b: GuiButton, target: GuiObject?)
 	local t = target or b
 	centerAnchor(t)
@@ -294,6 +338,18 @@ function UiStyle.springy(b: GuiButton, target: GuiObject?)
 		update()
 	end)
 	b:GetPropertyChangedSignal("Active"):Connect(update)
+	b.Activated:Connect(function()
+		UiStyle.play("Click")
+	end)
+	-- An inactive button never fires Activated, so catch the raw press.
+	b.InputBegan:Connect(function(input: InputObject)
+		local press = input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		if press and not b.Active then
+			UiStyle.play("Denied")
+			UiStyle.shake(t)
+		end
+	end)
 end
 
 -- A quick springy bounce, for a purchase that went through.

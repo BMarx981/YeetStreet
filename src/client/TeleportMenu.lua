@@ -119,8 +119,10 @@ local function build()
 			setOpen(false, false)
 		elseif ok then
 			status.Text = REASONS[reason] or "Couldn't go there."
+			UiStyle.play("Denied")
 		else
 			status.Text = "Couldn't reach the server."
+			UiStyle.play("Denied")
 		end
 	end
 

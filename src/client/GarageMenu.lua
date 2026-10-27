@@ -447,6 +447,11 @@ local function build()
 		if ok and done then
 			UiStyle.bounce(r.button)
 			UiStyle.flash(r.frame)
+			if string.sub(remoteName, 1, 3) == "Buy" then
+				UiStyle.play("Buy")
+			end
+		else
+			UiStyle.play("Denied")
 		end
 	end
 
