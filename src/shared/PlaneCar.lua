@@ -256,9 +256,8 @@ box(
 	0.35
 )
 
--- The wings: a white plate swept back from the root, four studs along the
--- straight back edge, a grey block under the root, and a round grey mount
--- the gun clips onto.
+-- The wings: a smooth white plate swept back from the root, a grey block
+-- under the root, and a round grey mount the gun clips onto.
 local WING_TOP = HINGE_TOP + 0.4 * U
 local WING_TIP = 9.0
 local TRAILING = 4.48 -- the straight back edge
@@ -295,9 +294,6 @@ for _, side in { -1, 1 } do
 		WHITE,
 		"sides"
 	)
-	for k = 0, 3 do
-		stud(wing, side * (3.2 + k * U), WING_TOP, TRAILING - 0.5 * U, WHITE, "sides")
-	end
 	box(
 		wing,
 		"WingRoot",
