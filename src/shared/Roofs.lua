@@ -24,6 +24,13 @@
 -- over Shallow at its two ends and Side along its two sides, so a car that
 -- drops in can drive back out any way.
 --
+-- A garden's footprint (gardenLayout) is split into four corners by two
+-- paths Path wide crossing its middle. Each corner has a tree TreeInset in
+-- from both its outer edges, a flower bed BedInset in along its outer edge
+-- across x, and two seats SeatOut from the path along x, SeatAlong out from
+-- the other, facing that path: benches in two opposite corners, loungers
+-- in the other two.
+--
 -- Coordinates are the park's: x and z on the ground.
 
 local Roofs = {}
@@ -115,6 +122,31 @@ export type PoolLayout = {
 	basin: Rect,
 	rim: { Rect }, -- the deck but for the basin, in four slabs
 	slopes: { PoolSlope }, -- one against each wall, overlapping in the corners
+}
+
+export type Garden = {
+	Path: number,
+	TreeInset: number,
+	BedLength: number,
+	BedWidth: number,
+	BedInset: number,
+	SeatOut: number,
+	SeatAlong: { number },
+}
+
+export type GardenSeat = {
+	x: number,
+	z: number,
+	faceX: number,
+	faceZ: number,
+	kind: "Bench" | "Lounger",
+}
+
+export type GardenLayout = {
+	paths: { Rect },
+	trees: { { x: number, z: number } },
+	beds: { Rect },
+	seats: { GardenSeat },
 }
 
 -- An Rng from the shared Rng module (Rng.new).
@@ -310,6 +342,45 @@ function Roofs.poolLayout(spot: Rect, pool: Pool): PoolLayout
 		rim = rim,
 		slopes = slopes,
 	}
+end
+
+-- A garden on its spot.
+function Roofs.gardenLayout(spot: Rect, garden: Garden): GardenLayout
+	local cx, cz = (spot.x1 + spot.x2) / 2, (spot.z1 + spot.z2) / 2
+	local hx, hz = (spot.x2 - spot.x1) / 2, (spot.z2 - spot.z1) / 2
+	local path = garden.Path / 2
+	local layout: GardenLayout = {
+		paths = {
+			{ x1 = spot.x1, x2 = spot.x2, z1 = cz - path, z2 = cz + path },
+			{ x1 = cx - path, x2 = cx + path, z1 = spot.z1, z2 = spot.z2 },
+		},
+		trees = {},
+		beds = {},
+		seats = {},
+	}
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			table.insert(layout.trees, { x = cx + sx * (hx - garden.TreeInset), z = cz + sz * (hz - garden.TreeInset) })
+			local u1, u2 = path + garden.BedInset, path + garden.BedInset + garden.BedLength
+			local v1, v2 = hz - garden.BedInset - garden.BedWidth, hz - garden.BedInset
+			table.insert(layout.beds, {
+				x1 = cx + math.min(sx * u1, sx * u2),
+				x2 = cx + math.max(sx * u1, sx * u2),
+				z1 = cz + math.min(sz * v1, sz * v2),
+				z2 = cz + math.max(sz * v1, sz * v2),
+			})
+			for _, along in garden.SeatAlong do
+				table.insert(layout.seats, {
+					x = cx + sx * (path + along),
+					z = cz + sz * (path + garden.SeatOut),
+					faceX = 0,
+					faceZ = -sz,
+					kind = if sx * sz > 0 then "Bench" else "Lounger",
+				})
+			end
+		end
+	end
+	return layout
 end
 
 -- The plan for each roof, in the order given. The Rng picks the kinds, one

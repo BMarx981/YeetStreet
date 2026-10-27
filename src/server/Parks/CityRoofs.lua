@@ -24,16 +24,22 @@
 --   down to the roof, every wall sloped to drive out. The water is only
 --   looks, tagged Pool: a car falling into it splashes, and a run that
 --   does pays the Pool target (ScoreService).
+--   Garden: a lawn with paths, trees, flower beds, benches and loungers
+--   (Roofs.gardenLayout). Each tree, bed and seat is a knockable prop, its
+--   other parts welded to it, so a car plows through and they fly and come
+--   back (PropService). Seats are tagged GardenSeat, with their Kind.
 -- Numbers are in Tuning.City.Roofs.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Roofs = require(ReplicatedStorage.Roofs)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 
 local T = Tuning.City.Roofs
 local FLOOR = Tuning.Map.FloorTop
@@ -57,6 +63,25 @@ local TILE_COLOR = Color3.fromRGB(120, 200, 235)
 local WATER_COLOR = Color3.fromRGB(60, 165, 230)
 local TILE_THICKNESS = 0.2
 local POOL_TAG = "Pool"
+local LAWN_COLOR = Color3.fromRGB(95, 160, 70)
+local PATH_COLOR = Color3.fromRGB(190, 185, 170)
+local TRUNK_COLOR = Color3.fromRGB(110, 80, 55)
+local LEAF_COLOR = Color3.fromRGB(60, 130, 55)
+local BED_COLOR = Color3.fromRGB(140, 100, 65)
+local SOIL_COLOR = Color3.fromRGB(80, 55, 40)
+local FLOWER_COLORS = {
+	Color3.fromRGB(230, 60, 70),
+	Color3.fromRGB(250, 210, 60),
+	Color3.fromRGB(240, 130, 190),
+	Color3.fromRGB(150, 90, 210),
+	Color3.fromRGB(250, 250, 245),
+}
+local BENCH_COLOR = Color3.fromRGB(150, 105, 65)
+local IRON_LEG_COLOR = Color3.fromRGB(45, 45, 50)
+local LOUNGER_COLOR = Color3.fromRGB(245, 245, 240)
+local CUSHION_COLOR = Color3.fromRGB(80, 160, 220)
+local LAWN_THICKNESS = 0.2
+local SEAT_TAG = "GardenSeat"
 
 local CityRoofs = {}
 
@@ -480,6 +505,232 @@ local function pool(parent: Instance, area: MapLayout.Area, height: number, spot
 	model.Parent = parent
 end
 
+-- Makes `root` a knockable prop that flies with `others` welded to it, all
+-- passing through cars.
+local function knockable(root: BasePart, others: { BasePart })
+	root:SetAttribute("ResetTime", T.Garden.ResetTime)
+	root.CollisionGroup = CollisionGroups.Props
+	for _, other in others do
+		other.Anchored = false
+		other.CollisionGroup = CollisionGroups.Props
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = other
+		weld.Parent = other
+	end
+	CollectionService:AddTag(root, "Knockable")
+end
+
+-- A small tree standing on `foot`, a trunk under a few leafy balls.
+local function tree(parent: Instance, foot: Vector3)
+	local G = T.Garden
+	local trunk = part(
+		parent,
+		"Trunk",
+		"Part",
+		Vector3.new(G.TreeHeight, 1.4, 1.4),
+		CFrame.new(foot + Vector3.new(0, G.TreeHeight / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		TRUNK_COLOR,
+		Enum.Material.Wood
+	);
+	(trunk :: Part).Shape = Enum.PartType.Cylinder
+	local top = foot + Vector3.new(0, G.TreeHeight, 0)
+	local leaves = {}
+	for _, ball in { { Vector3.zero, 1 }, { Vector3.new(2.5, -1.5, 1), 0.7 }, { Vector3.new(-2, -1, -2), 0.7 } } do
+		local size = 2 * G.Canopy * ball[2]
+		local leaf = part(
+			parent,
+			"Leaves",
+			"Part",
+			Vector3.one * size,
+			CFrame.new(top + ball[1]),
+			LEAF_COLOR,
+			Enum.Material.Grass
+		);
+		(leaf :: Part).Shape = Enum.PartType.Ball
+		table.insert(leaves, leaf)
+	end
+	knockable(trunk, leaves)
+end
+
+-- A raised flower bed filling `rect`, the roof at `y`.
+local function bed(parent: Instance, area: MapLayout.Area, y: number, rect: Roofs.Rect, index: number)
+	local G = T.Garden
+	local middle = Vector3.new(area.X + (rect.x1 + rect.x2) / 2, y, area.Z + (rect.z1 + rect.z2) / 2)
+	local width, depth = rect.x2 - rect.x1, rect.z2 - rect.z1
+	local box = part(
+		parent,
+		"Bed",
+		"Part",
+		Vector3.new(width, G.BedHeight, depth),
+		CFrame.new(middle + Vector3.new(0, G.BedHeight / 2, 0)),
+		BED_COLOR,
+		Enum.Material.WoodPlanks
+	)
+	local others = {
+		part(
+			parent,
+			"Soil",
+			"Part",
+			Vector3.new(width - 0.6, 0.2, depth - 0.6),
+			CFrame.new(middle + Vector3.new(0, G.BedHeight + 0.1, 0)),
+			SOIL_COLOR,
+			Enum.Material.Ground
+		),
+	}
+	local long = if width >= depth then Vector3.xAxis else Vector3.zAxis
+	local length = math.max(width, depth)
+	local count = math.floor(length / 3)
+	for i = 1, count do
+		local at = middle + long * ((i - 0.5) / count - 0.5) * (length - 1) + Vector3.new(0, G.BedHeight + 0.7, 0)
+		local flower = part(
+			parent,
+			"Flower",
+			"Part",
+			Vector3.one * 1.2,
+			CFrame.new(at),
+			FLOWER_COLORS[(i + index) % #FLOWER_COLORS + 1],
+			Enum.Material.SmoothPlastic
+		);
+		(flower :: Part).Shape = Enum.PartType.Ball
+		table.insert(others, flower)
+	end
+	knockable(box, others)
+end
+
+-- A bench or lounger at `foot`, facing along `face`.
+local function seat(parent: Instance, foot: Vector3, face: Vector3, kind: string)
+	local frame = CFrame.lookAt(foot, foot + face)
+	local root, others
+	if kind == "Bench" then
+		root = part(
+			parent,
+			"Bench",
+			"Part",
+			Vector3.new(6, 0.5, 2),
+			frame * CFrame.new(0, 1.6, 0),
+			BENCH_COLOR,
+			Enum.Material.WoodPlanks
+		)
+		others = {
+			part(
+				parent,
+				"Back",
+				"Part",
+				Vector3.new(6, 2, 0.4),
+				frame * CFrame.new(0, 2.8, 1) * CFrame.Angles(math.rad(-10), 0, 0),
+				BENCH_COLOR,
+				Enum.Material.WoodPlanks
+			),
+		}
+		for _, side in { -1, 1 } do
+			table.insert(
+				others,
+				part(
+					parent,
+					"Leg",
+					"Part",
+					Vector3.new(0.4, 1.4, 1.8),
+					frame * CFrame.new(side * 2.6, 0.7, 0),
+					IRON_LEG_COLOR,
+					Enum.Material.Metal
+				)
+			)
+		end
+	else
+		-- Feet toward `face`, head raised at the back.
+		root = part(
+			parent,
+			"Lounger",
+			"Part",
+			Vector3.new(2.6, 0.4, 5),
+			frame * CFrame.new(0, 1, -0.5),
+			LOUNGER_COLOR,
+			Enum.Material.SmoothPlastic
+		)
+		others = {
+			part(
+				parent,
+				"Cushion",
+				"Part",
+				Vector3.new(2.4, 0.3, 4.8),
+				frame * CFrame.new(0, 1.35, -0.5),
+				CUSHION_COLOR,
+				Enum.Material.Fabric
+			),
+			part(
+				parent,
+				"Back",
+				"Part",
+				Vector3.new(2.6, 0.4, 2.8),
+				frame * CFrame.new(0, 1.8, 2.9) * CFrame.Angles(math.rad(-40), 0, 0),
+				LOUNGER_COLOR,
+				Enum.Material.SmoothPlastic
+			),
+		}
+		for _, z in { -2.6, 1.6 } do
+			table.insert(
+				others,
+				part(
+					parent,
+					"Leg",
+					"Part",
+					Vector3.new(2.4, 0.8, 0.3),
+					frame * CFrame.new(0, 0.4, z),
+					LOUNGER_COLOR,
+					Enum.Material.SmoothPlastic
+				)
+			)
+		end
+	end
+	root:SetAttribute("Kind", kind)
+	CollectionService:AddTag(root, SEAT_TAG)
+	knockable(root, others)
+end
+
+-- A garden filling the spot on the roof `height` up.
+local function garden(parent: Instance, area: MapLayout.Area, height: number, spot: Roofs.Rect)
+	local layout = Roofs.gardenLayout(spot, T.Garden :: any)
+	local model = Instance.new("Model")
+	model.Name = "Garden"
+	local y = FLOOR + height
+	local function point(x: number, z: number): Vector3
+		return Vector3.new(area.X + x, y + LAWN_THICKNESS, area.Z + z)
+	end
+	part(
+		model,
+		"Lawn",
+		"Part",
+		Vector3.new(spot.x2 - spot.x1, LAWN_THICKNESS, spot.z2 - spot.z1),
+		CFrame.new(point((spot.x1 + spot.x2) / 2, (spot.z1 + spot.z2) / 2) - Vector3.new(0, LAWN_THICKNESS / 2, 0)),
+		LAWN_COLOR,
+		Enum.Material.Grass
+	)
+	for _, path in layout.paths do
+		paint(
+			part(
+				model,
+				"Path",
+				"Part",
+				Vector3.new(path.x2 - path.x1, PAINT, path.z2 - path.z1),
+				CFrame.new(point((path.x1 + path.x2) / 2, (path.z1 + path.z2) / 2) + Vector3.new(0, PAINT / 2, 0)),
+				PATH_COLOR,
+				Enum.Material.Slate
+			)
+		)
+	end
+	for _, spotTree in layout.trees do
+		tree(model, point(spotTree.x, spotTree.z))
+	end
+	for i, rect in layout.beds do
+		bed(model, area, height + LAWN_THICKNESS, rect, i)
+	end
+	for _, spotSeat in layout.seats do
+		seat(model, point(spotSeat.x, spotSeat.z), Vector3.new(spotSeat.faceX, 0, spotSeat.faceZ), spotSeat.kind)
+	end
+	model.Parent = parent
+end
+
 function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 	local old = folder:FindFirstChild("Roofs")
 	if old then
@@ -505,6 +756,8 @@ function CityRoofs.build(folder: Instance, area: MapLayout.Area)
 			helipad(roof, area, plan.roof.height, spot)
 		elseif spot and plan.kind == "Pool" then
 			pool(roof, area, plan.roof.height, spot)
+		elseif spot and plan.kind == "Garden" then
+			garden(roof, area, plan.roof.height, spot)
 		end
 		roof.Parent = model
 	end

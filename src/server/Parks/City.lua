@@ -14,7 +14,8 @@
 -- (CityRailway). A kaiju walks the streets hunting cars (CityKaiju), and
 -- walkers on the curbs dive out of cars' way (CityPedestrians). Every
 -- roof has a lip along its edges, and some have a water tower to smash,
--- solar panels to drive up, or a helipad to land on (CityRoofs).
+-- solar panels to drive up, a helipad to land on, a pool to drop into, or a
+-- garden to plow through (CityRoofs).
 -- Numbers are in Tuning.City.
 
 local CollectionService = game:GetService("CollectionService")

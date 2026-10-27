@@ -1369,6 +1369,23 @@ Tuning.City = {
 			Side = 8,
 			WaterBelow = 0.6,
 		},
+		-- A lawn with crossing paths, and in each corner a tree, a flower bed
+		-- and two seats (Roofs.gardenLayout). Trees, beds and seats are
+		-- knockable props, back after ResetTime; the seats are tagged
+		-- GardenSeat.
+		Garden = {
+			Path = 6,
+			TreeInset = 8,
+			BedLength = 26,
+			BedWidth = 5,
+			BedInset = 2,
+			SeatOut = 16,
+			SeatAlong = { 12, 22 },
+			TreeHeight = 10,
+			Canopy = 6, -- the treetop's radius
+			BedHeight = 1.5,
+			ResetTime = 4,
+		},
 		-- While the game runs: a hull's middle inside a pool's water, or up
 		-- to Margin above it, is in the pool (ScoreService). Falling in faster
 		-- than Speed throws a splash of Drops and Mist on each client

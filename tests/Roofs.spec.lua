@@ -278,4 +278,75 @@ Check.test("every wall of the basin slopes up to the deck: Shallow at the ends, 
 	end
 end)
 
+local GARDEN: Roofs.Garden = {
+	Path = 6,
+	TreeInset = 8,
+	BedLength = 26,
+	BedWidth = 5,
+	BedInset = 2,
+	SeatOut = 16,
+	SeatAlong = { 12, 22 },
+}
+
+local function inside(x: number, z: number, rect: Roofs.Rect): boolean
+	return x >= rect.x1 and x <= rect.x2 and z >= rect.z1 and z <= rect.z2
+end
+
+Check.test("a garden has two paths crossing in its middle", function()
+	local garden = Roofs.gardenLayout({ x1 = 0, x2 = 100, z1 = 0, z2 = 100 }, GARDEN)
+	Check.eq(#garden.paths, 2)
+	for _, path in garden.paths do
+		Check.eq(inside(50, 50, path), true, "through the middle")
+		local narrow = math.min(path.x2 - path.x1, path.z2 - path.z1)
+		local long = math.max(path.x2 - path.x1, path.z2 - path.z1)
+		Check.near(narrow, 6, "Path wide")
+		Check.near(long, 100, "end to end")
+	end
+end)
+
+Check.test("each corner gets a tree, a bed and two seats, clear of the paths and of each other", function()
+	local spot = { x1 = 0, x2 = 100, z1 = 0, z2 = 100 }
+	local garden = Roofs.gardenLayout(spot, GARDEN)
+	Check.eq(#garden.trees, 4)
+	Check.eq(#garden.beds, 4)
+	Check.eq(#garden.seats, 8)
+	for _, tree in garden.trees do
+		Check.near(math.abs(tree.x - 50), 42, "TreeInset from the side")
+		Check.near(math.abs(tree.z - 50), 42, "TreeInset from the end")
+	end
+	for _, bed in garden.beds do
+		Check.eq(bed.x1 >= spot.x1 and bed.x2 <= spot.x2 and bed.z1 >= spot.z1 and bed.z2 <= spot.z2, true, "inside")
+		for _, path in garden.paths do
+			Check.eq(
+				bed.x1 < path.x2 and path.x1 < bed.x2 and bed.z1 < path.z2 and path.z1 < bed.z2,
+				false,
+				"off the paths"
+			)
+		end
+		for _, tree in garden.trees do
+			Check.eq(inside(tree.x, tree.z, bed), false, "no tree in a bed")
+		end
+	end
+	local benches, loungers = 0, 0
+	for _, seat in garden.seats do
+		if seat.kind == "Bench" then
+			benches += 1
+		elseif seat.kind == "Lounger" then
+			loungers += 1
+		end
+		for _, path in garden.paths do
+			Check.eq(inside(seat.x, seat.z, path), false, "off the paths")
+		end
+		for _, bed in garden.beds do
+			Check.eq(inside(seat.x, seat.z, bed), false, "out of the beds")
+		end
+		-- Facing the path across the garden, the one along x.
+		Check.eq(seat.faceX, 0)
+		Check.eq(seat.faceZ, if seat.z > 50 then -1 else 1)
+		Check.near(math.abs(seat.z - 50), 3 + 16, "SeatOut from the path")
+	end
+	Check.eq(benches, 4)
+	Check.eq(loungers, 4)
+end)
+
 Check.finish("Roofs")
