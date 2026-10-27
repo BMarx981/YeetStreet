@@ -11,7 +11,7 @@
 --   G.levels("muscle", "Sports", 7)         seed 7, a row per stat, a column per look step
 --   G.clear()
 --
--- show also takes a table of levels: { Speed = 30, Jets = 0, Toughness = 0, Grip = 0 }.
+-- show also takes a table of levels: { Speed = 30, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }.
 -- Archetypes: hatch, pickup, muscle, buggy, wedge, hover, jeep, bus.
 -- Tiers: Junker, Street, Sports, Supercar, Rebirth.
 --
@@ -40,7 +40,7 @@ local SPACING = 10 -- between car centers, sideways
 local ROW_SPACING = 18 -- between rows
 local PER_ROW = 10
 local WHEEL_COLOR = Color3.fromRGB(30, 30, 32)
-local STATS = { "Speed", "Jets", "Toughness", "Grip", "All" }
+local STATS = { "Speed", "Jets", "Toughness", "Grip", "Brakes", "All" }
 
 local function fresh(name: string): any
 	local module = ReplicatedStorage:FindFirstChild(name)
@@ -63,7 +63,13 @@ local function raise(stat: string, level: number): CarDesign.Levels
 	local function at(name: string): number
 		return if stat == name or stat == "All" then level else 0
 	end
-	return { Speed = at("Speed"), Jets = at("Jets"), Toughness = at("Toughness"), Grip = at("Grip") }
+	return {
+		Speed = at("Speed"),
+		Jets = at("Jets"),
+		Toughness = at("Toughness"),
+		Grip = at("Grip"),
+		Brakes = at("Brakes"),
+	}
 end
 
 local function toLevels(levels: (number | CarDesign.Levels)?): CarDesign.Levels

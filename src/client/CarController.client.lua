@@ -502,6 +502,9 @@ local function step(r: Rig, dt: number)
 		if r.model:GetAttribute("JetsBurning") then
 			r.model:SetAttribute("JetsBurning", false)
 		end
+		if r.model:GetAttribute("Braking") then
+			r.model:SetAttribute("Braking", false)
+		end
 		trackRun(reading.sample)
 		local resetPressed = input.reset and not resetHeld
 		resetHeld = input.reset
@@ -565,16 +568,22 @@ local function step(r: Rig, dt: number)
 	local surfaceForward = if onBowl then GravitronRide.surfaceVelocity(cf.Position, now):Dot(cf.LookVector) else 0
 	local wheelSpin: number, torque: number
 	local brakePush = 0
+	local braking = false
 	if airborne then
 		wheelSpin, torque = Drive.freeRoll(forwardSpeed, r.wheelRadius), D.CoastTorque
 	else
 		wheelSpin, torque = Drive.motor(input.throttle, forwardSpeed - surfaceForward, r.topSpeed, r.wheelRadius, D)
 		wheelSpin += surfaceForward / r.wheelRadius
+		braking = Drive.braking(input.throttle, forwardSpeed - surfaceForward, D)
 		brakePush = Drive.brakePush(input.throttle, forwardSpeed - surfaceForward, r.brakePower, D)
 	end
 	-- The hull's nose points along -Z.
 	if r.brake then
 		r.brake.Force = Vector3.new(0, 0, -brakePush * r.mass)
+	end
+	-- Set only on this client; CarVisuals lights the brakes from it.
+	if r.model:GetAttribute("Braking") ~= braking then
+		r.model:SetAttribute("Braking", braking)
 	end
 	-- The faster the gravitron spins, the less the tyres grip, in steps so the
 	-- wheels' friction is not rewritten every frame.
@@ -737,8 +746,11 @@ local function leave()
 	if rig and rig.stick then
 		rig.stick.Force = Vector3.zero
 	end
-	if rig and rig.brake then
-		rig.brake.Force = Vector3.zero
+	if rig then
+		if rig.brake then
+			rig.brake.Force = Vector3.zero
+		end
+		rig.model:SetAttribute("Braking", false)
 	end
 	rig = nil
 	up = Vector3.yAxis

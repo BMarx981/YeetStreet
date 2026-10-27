@@ -11,7 +11,7 @@
 --
 -- A car's looks travel as attributes on its model, set by the server: Seed,
 -- Archetype, Tier, and the levels it shows (LevelSpeed, LevelJets,
--- LevelToughness, LevelGrip). Broken<Slot> (BrokenNose, BrokenTail, ...)
+-- LevelToughness, LevelGrip, LevelBrakes). Broken<Slot> (BrokenNose, BrokenTail, ...)
 -- counts the parts knocked off each slot (CarDamage).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -84,6 +84,7 @@ function CarParts.setLook(car: Model, seed: number, archetype: string, tier: str
 	car:SetAttribute("LevelJets", levels.Jets)
 	car:SetAttribute("LevelToughness", levels.Toughness)
 	car:SetAttribute("LevelGrip", levels.Grip)
+	car:SetAttribute("LevelBrakes", levels.Brakes)
 end
 
 local function number(car: Model, key: string): number?
@@ -100,14 +101,15 @@ function CarParts.designFor(car: Model): CarDesign.Design?
 	local jets = number(car, "LevelJets")
 	local toughness = number(car, "LevelToughness")
 	local grip = number(car, "LevelGrip")
+	local brakes = number(car, "LevelBrakes")
 	if
-		not (seed and speed and jets and toughness and grip)
+		not (seed and speed and jets and toughness and grip and brakes)
 		or typeof(archetype) ~= "string"
 		or typeof(tier) ~= "string"
 	then
 		return nil
 	end
-	local levels = { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip }
+	local levels = { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip, Brakes = brakes }
 	local input = { archetype = archetype, tier = tier, levels = levels }
 	return CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks)
 end

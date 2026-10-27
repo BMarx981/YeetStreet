@@ -16,6 +16,10 @@
 --   Each thruster gets a flame, a smoke trail, and a glow that grow with the
 --   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
 --   attribute is true. CarController sets it on the local player's car.
+--   Wheel brakes (CarDesign parts with a wheel) are welded to that wheel's
+--   hub, so they steer and ride the suspension without spinning. They and
+--   the brake lights glow while the car's Braking attribute is true, also set
+--   by CarController on the local player's car.
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.
@@ -46,6 +50,17 @@ local built: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local function rgb(color: CarDesign.Color): Color3
 	return Color3.fromRGB(color[1], color[2], color[3])
 end
+
+local BRAKE_GLOW = Color3.fromRGB(255, 70, 30)
+local BRAKE_LIGHT_GLOW = Color3.fromRGB(255, 25, 25)
+
+-- A brake part, how it looks unlit, and what it glows while braking.
+type Brake = {
+	part: BasePart,
+	color: Color3,
+	material: Enum.Material,
+	glow: Color3,
+}
 
 -- What a thruster lights up while the jets burn.
 type Jet = {
@@ -443,15 +458,34 @@ local function setUp(car: Model)
 	elseif heli then
 		jets = buildHeliCar(car, hull, folder, rgb(design.flameColor), jetStep)
 	end
+	local brakes: { Brake } = {}
 	for i, part in parts do
+		local spec = design.parts[i]
 		part.CanQuery = false
+		local base = hull
+		local wheel = spec.wheel
+		local hub = if wheel then car:FindFirstChild(`Hub{wheel}`) else nil
+		if wheel and hub and hub:IsA("BasePart") then
+			-- Built for the hub at rest; moved to wherever the hub is now.
+			local center = CarDesign.wheelCenter(wheel, Tuning.CarLooks)
+			local fromHub = CFrame.new(-center.x, -center.y, -center.z) * hull.CFrame:ToObjectSpace(part.CFrame)
+			part.CFrame = hub.CFrame * fromHub
+			base = hub
+		end
 		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = hull
+		weld.Part0 = base
 		weld.Part1 = part
 		weld.Parent = part
 		part.Anchored = false
-		if design.parts[i].role == "thruster" then
+		if spec.role == "thruster" then
 			table.insert(jets, addJet(part, rgb(design.flameColor), jetStep))
+		elseif spec.role == "brake" or spec.role == "brakeLight" then
+			table.insert(brakes, {
+				part = part,
+				color = part.Color,
+				material = part.Material,
+				glow = if spec.role == "brake" then BRAKE_GLOW else BRAKE_LIGHT_GLOW,
+			})
 		end
 	end
 	folder.Parent = car
@@ -483,6 +517,15 @@ local function setUp(car: Model)
 		end
 	end
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
+
+	local function lightBrakes()
+		local braking = car:GetAttribute("Braking") == true
+		for _, brake in brakes do
+			brake.part.Color = if braking then brake.glow else brake.color
+			brake.part.Material = if braking then Enum.Material.Neon else brake.material
+		end
+	end
+	car:GetAttributeChangedSignal("Braking"):Connect(lightBrakes)
 
 	for _, slot in CarParts.Slots do
 		local order = if heli or plane then {} else CarDesign.breakable(design, slot)

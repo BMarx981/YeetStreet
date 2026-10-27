@@ -19,22 +19,28 @@
 --   Jets       more and bigger thrusters, hotter flame
 --   Toughness  bull bar, side armor, roll cage, roof armor
 --   Grip       fender flares front then back, side skirts, front splitter
+--   Brakes     a caliper and disc on each wheel that grow and redden, brake
+--              lights from the second step
 --
 -- Parts with a slot can break off (Toughness hits that slot); thrusters,
--- seats, and the like never do. CarDesign.breakable lists a slot's parts in a
+-- seats, wheel brakes, and the like never do. Parts with a wheel ride on that
+-- wheel's hub, so they steer and move with the suspension; their positions
+-- are for the hub at rest (CarDesign.wheelCenter). CarDesign.breakable lists a slot's parts in a
 -- fixed order, so the server and every client break the same ones.
 
 local CarDesign = {}
 
 export type Slot = "nose" | "tail" | "roof" | "sides" | "underside"
 export type Shape = "block" | "wedge" | "cylinder"
-export type Role = "body" | "glass" | "trim" | "glow" | "thruster"
+export type Wheel = "FL" | "FR" | "RL" | "RR"
+export type Role = "body" | "glass" | "trim" | "glow" | "thruster" | "brake" | "brakeLight"
 export type Vec = { x: number, y: number, z: number }
 export type Color = { number }
 
 export type PartSpec = {
 	name: string,
 	slot: Slot?, -- breakable when set
+	wheel: Wheel?, -- rides on this wheel's hub when set
 	shape: Shape,
 	size: Vec,
 	position: Vec,
@@ -59,6 +65,7 @@ export type Levels = {
 	Jets: number,
 	Toughness: number,
 	Grip: number,
+	Brakes: number,
 }
 
 export type Input = {
@@ -72,6 +79,8 @@ export type Looks = {
 	TrackHalf: number, -- wheel centers from the middle, sideways
 	WheelbaseHalf: number, -- wheel centers from the middle, lengthways
 	WheelRadius: number,
+	WheelY: number, -- wheel centers' height at rest
+	WheelWidth: number,
 	StatSteps: { number }, -- levels where each look step starts
 }
 
@@ -133,6 +142,11 @@ type Paint = { color: Color, material: string, reflectance: number, role: Role }
 
 local HEADLIGHT: Color = { 255, 250, 220 }
 local TAILLIGHT: Color = { 220, 30, 30 }
+local BRAKE_LIGHT: Color = { 110, 15, 15 } -- unlit; CarVisuals lights it while braking
+local CALIPER_GREY: Color = { 130, 130, 135 }
+local CALIPER_RED: Color = { 210, 30, 30 }
+local DISC_STEEL: Color = { 165, 165, 170 }
+local DISC_HOT: Color = { 150, 70, 60 }
 local HOVER_GLOW: Color = { 80, 200, 255 }
 local TIRE: Color = { 30, 30, 32 }
 local BUS_BLACK: Color = { 20, 20, 20 }
@@ -179,6 +193,25 @@ function CarDesign.breakable(design: Design, slot: Slot): { number }
 		end
 	end
 	return indexes
+end
+
+local WHEELS: { { wheel: Wheel, side: number, ends: number } } = {
+	{ wheel = "FL", side = -1, ends = -1 },
+	{ wheel = "FR", side = 1, ends = -1 },
+	{ wheel = "RL", side = -1, ends = 1 },
+	{ wheel = "RR", side = 1, ends = 1 },
+}
+local CALIPER_HEIGHTS = { 0.5, 0.65, 0.8, 0.95 } -- by Brakes look step, from 1
+local DISC_RADII = { 0.55, 0.7, 0.85, 1 }
+
+-- Where a wheel's hub sits at rest, in car space.
+function CarDesign.wheelCenter(wheel: Wheel, looks: Looks): Vec
+	for _, w in WHEELS do
+		if w.wheel == wheel then
+			return { x = w.side * looks.TrackHalf, y = looks.WheelY, z = w.ends * looks.WheelbaseHalf }
+		end
+	end
+	error(`CarDesign: no wheel {wheel}`)
 end
 
 function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Design
@@ -546,6 +579,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	local jets = CarDesign.step(levels.Jets, looks.StatSteps)
 	local toughness = CarDesign.step(levels.Toughness, looks.StatSteps)
 	local grip = CarDesign.step(levels.Grip, looks.StatSteps)
+	local brakes = CarDesign.step(levels.Brakes, looks.StatSteps)
 	local back = length / 2
 	local front = -length / 2
 	local accentTrim: Paint = { color = accent, material = tier.Material, reflectance = tier.Gloss, role = "trim" }
@@ -663,6 +697,46 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	end
 	if grip >= 4 then
 		add("block", "Splitter", "nose", vec(width, 0.15, 0.6), vec(0, bottom + 0.05, front - 0.3), trimPaint)
+	end
+
+	-- Brakes: on the outside face of each wheel, a disc with a caliper at its
+	-- back edge. Hover cars hide their wheels, so they get only the lights.
+	if brakes >= 1 and not shape.Hover then
+		local discRadius = DISC_RADII[brakes]
+		local caliperHeight = CALIPER_HEIGHTS[brakes]
+		local discPaint: Paint = {
+			color = if brakes >= 4 then DISC_HOT else DISC_STEEL,
+			material = "Metal",
+			reflectance = 0.1,
+			role = "brake",
+		}
+		local caliperPaint: Paint = if brakes >= 3
+			then { color = CALIPER_RED, material = "SmoothPlastic", reflectance = 0.1, role = "brake" }
+			else { color = CALIPER_GREY, material = "Metal", reflectance = 0, role = "brake" }
+		local face = looks.WheelWidth / 2
+		for _, w in WHEELS do
+			local center = CarDesign.wheelCenter(w.wheel, looks)
+			local caliperX = center.x + w.side * (face + 0.25)
+			local caliperZ = center.z + discRadius * 0.7
+			local caliperSize = vec(0.3, caliperHeight, caliperHeight * 0.6)
+			add("block", "Caliper", nil, caliperSize, vec(caliperX, center.y, caliperZ), caliperPaint)
+			parts[#parts].wheel = w.wheel
+			local discSize = vec(0.1, 2 * discRadius, 2 * discRadius)
+			local discX = center.x + w.side * (face + 0.05)
+			add("cylinder", "BrakeDisc", nil, discSize, vec(discX, center.y, center.z), discPaint)
+			parts[#parts].wheel = w.wheel
+		end
+	end
+	if brakes >= 2 then
+		local lightPaint: Paint =
+			{ color = BRAKE_LIGHT, material = "SmoothPlastic", reflectance = 0, role = "brakeLight" }
+		local barWidth = math.max(width - 3, 0.6)
+		add("block", "BrakeLight", "tail", vec(barWidth, 0.3, 0.1), vec(0, tailY, back + 0.05), lightPaint)
+		-- A second one up high, where the tail is tall enough.
+		local highY = bottom + heights[count] - 0.15
+		if highY - 0.1 > tailY + 0.2 then
+			add("block", "BrakeLight", "tail", vec(1.2, 0.2, 0.1), vec(0, highY, back + 0.05), lightPaint)
+		end
 	end
 
 	return {

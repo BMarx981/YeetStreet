@@ -38,12 +38,18 @@ function Drive.motor(
 	return target / wheelRadius, tuning.DriveTorque
 end
 
+-- Whether pressing `throttle` brakes the car: against the direction of travel,
+-- and still going faster than BrakeSpeed, below which brake becomes reverse.
+function Drive.braking(throttle: number, forwardSpeed: number, tuning: Tuning): boolean
+	return throttle * forwardSpeed < 0 and math.abs(forwardSpeed) > tuning.BrakeSpeed
+end
+
 -- The Brakes upgrade's push on the car, as acceleration along the nose
 -- (positive is forward). It works with the wheel brake from `motor` whenever
 -- that brakes, and since it pushes the car itself and not the tyres, it still
 -- slows a car that is already skidding. A part press pushes part as hard.
 function Drive.brakePush(throttle: number, forwardSpeed: number, brakePower: number, tuning: Tuning): number
-	if throttle * forwardSpeed >= 0 or math.abs(forwardSpeed) <= tuning.BrakeSpeed then
+	if not Drive.braking(throttle, forwardSpeed, tuning) then
 		return 0
 	end
 	return throttle * brakePower

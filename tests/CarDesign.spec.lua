@@ -9,18 +9,20 @@ local LOOKS: CarDesign.Looks = {
 	TrackHalf = 3.6,
 	WheelbaseHalf = 3.8,
 	WheelRadius = 1.4,
+	WheelY = -0.5,
+	WheelWidth = 1.1,
 	StatSteps = { 5, 12, 20, 30 },
 }
 
 local ARCHETYPES = { "hatch", "pickup", "muscle", "buggy", "wedge", "hover", "jeep", "bus" }
 local TIERS = { "Junker", "Street", "Sports", "Supercar", "Rebirth" }
 
-local function levels(speed: number, jets: number, toughness: number, grip: number): CarDesign.Levels
-	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip }
+local function levels(speed: number, jets: number, toughness: number, grip: number, brakes: number?): CarDesign.Levels
+	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip, Brakes = brakes or 0 }
 end
 
 local ZERO = levels(0, 0, 0, 0)
-local MAX = levels(40, 40, 40, 40)
+local MAX = levels(40, 40, 40, 40, 40)
 
 local function design(seed: number, archetype: string, tier: string, lv: CarDesign.Levels?): CarDesign.Design
 	return CarDesign.design(Rng.new(seed), { archetype = archetype, tier = tier, levels = lv or ZERO }, CarKit, LOOKS)
@@ -30,7 +32,7 @@ local function describe(part: CarDesign.PartSpec): string
 	local function v(x: CarDesign.Vec): string
 		return string.format("%.4f,%.4f,%.4f", x.x, x.y, x.z)
 	end
-	return `{part.name}|{part.slot or "-"}|{part.shape}|{v(part.size)}|{v(part.position)}|{part.turn}|`
+	return `{part.name}|{part.slot or "-"}|{part.wheel or "-"}|{part.shape}|{v(part.size)}|{v(part.position)}|{part.turn}|`
 		.. `{part.color[1]},{part.color[2]},{part.color[3]}|{part.material}|{part.role}`
 end
 
@@ -238,6 +240,106 @@ Check.test("higher steps add more stat parts", function()
 	local lowGrip = #design(12, "hatch", "Street", levels(0, 0, 0, 5)).parts
 	local highGrip = #design(12, "hatch", "Street", levels(0, 0, 0, 30)).parts
 	Check.eq(highGrip > lowGrip, true, "Grip")
+end)
+
+local WHEELS = { "FL", "FR", "RL", "RR" }
+
+Check.test("a wheel's center is where its hub rests", function()
+	local fl = CarDesign.wheelCenter("FL", LOOKS)
+	Check.eq(fl.x, -3.6, "front left is on the left")
+	Check.eq(fl.y, -0.5)
+	Check.eq(fl.z, -3.8, "front is toward -z")
+	local rr = CarDesign.wheelCenter("RR", LOOKS)
+	Check.eq(rr.x, 3.6)
+	Check.eq(rr.z, 3.8)
+end)
+
+Check.test("Brakes adds a caliper and a disc on every wheel, and they never break off", function()
+	Check.eq(#withRole(design(12, "hatch", "Street", ZERO), "brake"), 0, "no brake parts at 0")
+	local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, 5))
+	for _, name in { "Caliper", "BrakeDisc" } do
+		local found = named(d, name)
+		Check.eq(#found, 4, `{name} count`)
+		for i, part in found do
+			Check.eq(part.wheel, WHEELS[i], `{name} {i} rides on its wheel`)
+			Check.eq(part.slot, nil, `{name} {i} never breaks off`)
+			Check.eq(part.role, "brake", `{name} {i} glows when braking`)
+		end
+	end
+end)
+
+Check.test("brake parts sit on the outside face of their wheel", function()
+	local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, 30))
+	for _, part in withRole(d, "brake") do
+		local wheel = part.wheel
+		assert(wheel, `{part.name} has a wheel`)
+		local center = CarDesign.wheelCenter(wheel, LOOKS)
+		local outward = math.sign(center.x)
+		local inner = outward * (part.position.x - center.x) - part.size.x / 2
+		Check.eq(inner >= LOOKS.WheelWidth / 2 - 1e-6, true, `{part.name} {wheel} outside the tire`)
+		local reach = math.max(math.abs(part.position.y - center.y), math.abs(part.position.z - center.z))
+		Check.eq(reach <= LOOKS.WheelRadius, true, `{part.name} {wheel} within the tire`)
+	end
+end)
+
+Check.test("wheel brakes grow and turn red as Brakes steps up", function()
+	local sizes = {}
+	local colors = {}
+	for _, brakes in { 5, 12, 20, 30 } do
+		local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, brakes))
+		local caliper = named(d, "Caliper")[1]
+		local disc = named(d, "BrakeDisc")[1]
+		table.insert(sizes, { caliper = caliper.size.y, disc = disc.size.y })
+		table.insert(colors, caliper.color)
+	end
+	for i = 2, 4 do
+		Check.eq(sizes[i].caliper > sizes[i - 1].caliper, true, `caliper grows at step {i}`)
+		Check.eq(sizes[i].disc > sizes[i - 1].disc, true, `disc grows at step {i}`)
+	end
+	Check.eq(colors[1][1] < colors[4][1] and colors[4][1] > colors[4][2] * 2, true, "the top calipers are red")
+end)
+
+Check.test("brake lights come halfway up the Brakes steps, on the tail", function()
+	Check.eq(#named(design(12, "hatch", "Street", levels(0, 0, 0, 0, 5)), "BrakeLight"), 0, "none at step 1")
+	local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, 12))
+	local lights = named(d, "BrakeLight")
+	Check.eq(#lights > 0, true, "lights at step 2")
+	for _, light in lights do
+		Check.eq(light.slot, "tail")
+		Check.eq(light.role, "brakeLight")
+		Check.eq(light.position.z > d.length / 2, true, "behind the body")
+	end
+end)
+
+Check.test("brake lights never overlap each other or the taillights", function()
+	local function overlap(a: CarDesign.PartSpec, b: CarDesign.PartSpec): boolean
+		return math.abs(a.position.x - b.position.x) < (a.size.x + b.size.x) / 2
+			and math.abs(a.position.y - b.position.y) < (a.size.y + b.size.y) / 2
+	end
+	for _, archetype in ARCHETYPES do
+		for seed = 1, 10 do
+			local d = design(seed, archetype, "Street", MAX)
+			local lights = named(d, "BrakeLight")
+			local others = table.clone(lights)
+			for _, taillight in named(d, "Taillight") do
+				table.insert(others, taillight)
+			end
+			for i, light in lights do
+				for j, other in others do
+					if i ~= j then
+						local label = `{archetype} seed {seed} brake light {i} and {other.name} {j}`
+						Check.eq(overlap(light, other), false, label)
+					end
+				end
+			end
+		end
+	end
+end)
+
+Check.test("hover cars get brake lights but no wheel brakes", function()
+	local d = design(4, "hover", "Supercar", levels(0, 0, 0, 0, 30))
+	Check.eq(#withRole(d, "brake"), 0, "no wheels to brake")
+	Check.eq(#named(d, "BrakeLight") > 0, true, "brake lights")
 end)
 
 Check.test("only hover cars hide their wheels, and they get hover pads", function()

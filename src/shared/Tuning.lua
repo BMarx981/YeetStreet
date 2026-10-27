@@ -316,6 +316,8 @@ Tuning.CarLooks = {
 	TrackHalf = Tuning.Chassis.TrackHalf,
 	WheelbaseHalf = Tuning.Chassis.WheelbaseHalf,
 	WheelRadius = Tuning.Chassis.WheelRadius,
+	WheelY = Tuning.Chassis.MountY + Tuning.Chassis.SlideLow + Tuning.Chassis.SuspensionSag,
+	WheelWidth = Tuning.Chassis.WheelWidth,
 	StatSteps = { 5, 12, 20, 30 },
 }
 
