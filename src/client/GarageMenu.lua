@@ -15,11 +15,13 @@ local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Economy = require(ReplicatedStorage.Economy)
 local Pips = require(ReplicatedStorage.Pips)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CarPreview = require(script.Parent.CarPreview)
 local UiStyle = require(script.Parent.UiStyle)
 
 local GarageMenu = {}
@@ -37,6 +39,10 @@ type Row = {
 type StatRow = Row & {
 	pips: Frame,
 	level: TextLabel,
+}
+
+type CarRow = Row & {
+	preview: CarPreview.Preview,
 }
 
 local STATS: { { stat: Economy.StatName, about: string, icon: string } } = {
@@ -256,13 +262,43 @@ local function build()
 	for i, info in STATS do
 		statRows[info.stat] = statRow(i, info.stat, info.icon)
 	end
-	local carRows: { [string]: Row } = {}
+
+	-- A car row: a taller plate with a dark window showing the car spinning.
+	local function carRow(order: number, name: string): CarRow
+		local r = row(carsList, order, name)
+		r.frame.Size = UDim2.new(1, -12, 0, 96)
+		local window = Instance.new("Frame")
+		window.Name = "Window"
+		window.AnchorPoint = Vector2.new(0, 0.5)
+		window.Position = UDim2.new(0, 16, 0.5, 0)
+		window.Size = UDim2.fromOffset(140, 80)
+		window.BackgroundColor3 = UiStyle.Asphalt
+		window.Parent = r.frame
+		UiStyle.corner(window, 6)
+		UiStyle.stroke(window, 2, UiStyle.Ink, true)
+		local preview = CarPreview.new(window)
+		local heading = r.frame:FindFirstChild("Name") :: TextLabel
+		heading.Position = UDim2.fromOffset(168, 10)
+		heading.Size = UDim2.new(1, -312, 0, 26)
+		r.detail.Position = UDim2.fromOffset(168, 40)
+		r.detail.Size = UDim2.new(1, -312, 0, 36)
+		r.detail.TextWrapped = true
+		r.detail.TextYAlignment = Enum.TextYAlignment.Top
+		return {
+			frame = r.frame,
+			detail = r.detail,
+			button = r.button,
+			preview = preview,
+		}
+	end
+
+	local carRows: { [string]: CarRow } = {}
 	local eventRows: { [string]: Row } = {}
 	for i, car in Tuning.Ladder do
 		if car.Tier == "Dino" then
 			eventRows[car.Id] = row(eventList, i, car.Name)
 		else
-			carRows[car.Id] = row(carsList, i, car.Name)
+			carRows[car.Id] = carRow(i, car.Name)
 		end
 	end
 	local limitedRows: { [string]: Row } = {}
@@ -327,6 +363,11 @@ local function build()
 			local r = carRows[ladderCar.Id]
 			if not r then continue end
 			r.detail.Text = carText(ladderCar)
+			-- Built the first time the Cars tab shows, with the player's levels
+			-- as that car would count them.
+			if open and tab == "Cars" then
+				r.preview.set(ladderCar, Economy.lookLevels(lv, ladderCar))
+			end
 			if ladderCar.Id == equipped then
 				setButton(r.button, "DRIVING", false)
 			elseif table.find(cars, ladderCar.Id) then
@@ -599,6 +640,15 @@ local function build()
 			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then
 			setOpen(false, true)
+		end
+	end)
+
+	-- The car previews only spin while someone can see them.
+	RunService.RenderStepped:Connect(function(dt: number)
+		if open and tab == "Cars" then
+			for _, r in carRows do
+				r.preview.spin(dt)
+			end
 		end
 	end)
 
