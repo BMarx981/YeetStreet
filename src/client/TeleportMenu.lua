@@ -15,6 +15,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local UiStyle = require(script.Parent.UiStyle)
 
 local TeleportMenu = {}
 
@@ -25,34 +26,10 @@ local REASONS: { [string]: string } = {
 	NotReady = "Wait for your car to spawn.",
 }
 
-local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
-local GO_COLOR = Color3.fromRGB(60, 120, 200)
-local OFF_COLOR = Color3.fromRGB(70, 70, 80)
-
 local player = Players.LocalPlayer :: Player
 local started = false
 local open = false
 local busy = false
-
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
-
-local function button(name: string, parent: Instance, label: string): TextButton
-	local b = Instance.new("TextButton")
-	b.Name = name
-	b.Text = label
-	b.Font = Enum.Font.GothamBlack
-	b.TextSize = 18
-	b.TextColor3 = Color3.new(1, 1, 1)
-	b.BackgroundColor3 = GO_COLOR
-	b.AutoButtonColor = true
-	b.Parent = parent
-	corner(b, 8)
-	return b
-end
 
 local function build()
 	local gui = Instance.new("ScreenGui")
@@ -61,78 +38,42 @@ local function build()
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
 	-- Where the garage panel's hidden GARAGE button was, left of the fuel bar.
-	local openButton = button("Open", gui, "TELEPORT")
+	local openButton = UiStyle.sticker("Open", gui, "TELEPORT")
 	openButton.AnchorPoint = Vector2.new(1, 0)
 	openButton.Position = UDim2.new(0.5, -146, 0, 6)
 	openButton.Size = UDim2.fromOffset(120, 32)
-	openButton.BackgroundColor3 = PANEL_COLOR
-	openButton.BackgroundTransparency = 0.3
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(0.8, 0.8)
-	panel.BackgroundColor3 = PANEL_COLOR
-	panel.BackgroundTransparency = 0.1
-	panel.Active = true
-	panel.Visible = false
-	panel.Parent = gui
-	corner(panel, 14)
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(320, 380)
-	limit.Parent = panel
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 10)
-	padding.PaddingBottom = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 12)
-	padding.PaddingRight = UDim.new(0, 12)
-	padding.Parent = panel
+	local panel, close = UiStyle.panel(gui, "TELEPORT", Vector2.new(340, 440))
+	local top = UiStyle.HeaderHeight
 
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBlack
-	title.TextSize = 24
-	title.TextColor3 = Color3.new(1, 1, 1)
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "TELEPORT"
-	title.Size = UDim2.new(1, -40, 0, 32)
-	title.Parent = panel
-
-	local close = button("Close", panel, "X")
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.fromScale(1, 0)
-	close.Size = UDim2.fromOffset(32, 32)
-	close.BackgroundColor3 = OFF_COLOR
-
-	local status = Instance.new("TextLabel")
-	status.Name = "Status"
-	status.BackgroundTransparency = 1
-	status.Font = Enum.Font.GothamBold
-	status.TextSize = 16
-	status.TextColor3 = Color3.new(1, 1, 1)
-	status.TextXAlignment = Enum.TextXAlignment.Left
+	local status = UiStyle.text("Status", panel, 16, false)
+	status.TextColor3 = UiStyle.Yellow
 	status.AnchorPoint = Vector2.new(0, 1)
 	status.Position = UDim2.fromScale(0, 1)
 	status.Size = UDim2.new(1, 0, 0, 22)
 	status.Text = ""
-	status.Parent = panel
 
 	local list = Instance.new("ScrollingFrame")
 	list.Name = "Places"
 	list.BackgroundTransparency = 1
 	list.BorderSizePixel = 0
-	list.Position = UDim2.fromOffset(0, 42)
-	list.Size = UDim2.new(1, 0, 1, -70)
+	list.Position = UDim2.fromOffset(0, top)
+	list.Size = UDim2.new(1, 0, 1, -top - 28)
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	list.CanvasSize = UDim2.new()
 	list.ScrollBarThickness = 6
+	list.ScrollBarImageColor3 = UiStyle.Yellow
 	list.Parent = panel
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = list
+	-- Room for the plates' outlines, which would clip at the edges.
+	local inset = Instance.new("UIPadding")
+	inset.PaddingTop = UDim.new(0, 3)
+	inset.PaddingBottom = UDim.new(0, 3)
+	inset.PaddingLeft = UDim.new(0, 3)
+	inset.Parent = list
 
 	local function setOpen(value: boolean, byGamepad: boolean)
 		open = value
@@ -174,9 +115,17 @@ local function build()
 		table.insert(places, { id = area.Id, label = area.Name })
 	end
 	for i, place in places do
-		local b = button(place.id, list, place.label)
+		local b = Instance.new("TextButton")
+		b.Name = place.id
+		b.Text = string.upper(place.label)
+		b.Font = UiStyle.TitleFont
+		b.TextSize = 22
+		b.TextColor3 = UiStyle.Ink
+		b.AutoButtonColor = true
 		b.LayoutOrder = i
-		b.Size = UDim2.new(1, -10, 0, 44)
+		b.Size = UDim2.new(1, -12, 0, 46)
+		b.Parent = list
+		UiStyle.plate(b)
 		b.Activated:Connect(function()
 			go(place.id)
 		end)

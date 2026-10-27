@@ -19,6 +19,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Economy = require(ReplicatedStorage.Economy)
 local Tuning = require(ReplicatedStorage.Tuning)
+local UiStyle = require(script.Parent.UiStyle)
 
 local GarageMenu = {}
 
@@ -52,12 +53,6 @@ local REASONS: { [string]: string } = {
 	UnknownBoneShop = "That trade doesn't exist.",
 }
 
-local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
-local ROW_COLOR = Color3.fromRGB(40, 40, 52)
-local BUY_COLOR = Color3.fromRGB(60, 170, 80)
-local OFF_COLOR = Color3.fromRGB(70, 70, 80)
-local CASH_COLOR = Color3.fromRGB(120, 230, 120)
-
 local player = Players.LocalPlayer :: Player
 local started = false
 local open = false
@@ -69,44 +64,12 @@ local function withCommas(n: number): string
 	return (digits:gsub("^,", ""))
 end
 
-local function corner(parent: Instance, radius: number)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius)
-	c.Parent = parent
-end
-
-local function text(name: string, parent: Instance, size: number, font: Enum.Font): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.BackgroundTransparency = 1
-	label.Font = font
-	label.TextSize = size
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.Parent = parent
-	return label
-end
-
-local function button(name: string, parent: Instance, label: string): TextButton
-	local b = Instance.new("TextButton")
-	b.Name = name
-	b.Text = label
-	b.Font = Enum.Font.GothamBlack
-	b.TextSize = 18
-	b.TextColor3 = Color3.new(1, 1, 1)
-	b.BackgroundColor3 = BUY_COLOR
-	b.AutoButtonColor = true
-	b.Parent = parent
-	corner(b, 8)
-	return b
-end
-
 local function setButton(b: TextButton, label: string, enabled: boolean)
 	b.Text = label
 	b.Active = enabled
 	b.AutoButtonColor = enabled
 	b.Selectable = enabled
-	b.BackgroundColor3 = if enabled then BUY_COLOR else OFF_COLOR
+	UiStyle.setSticker(b, enabled)
 	b.TextTransparency = if enabled then 0 else 0.35
 end
 
@@ -154,89 +117,66 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
-	local openButton = button("Open", gui, "GARAGE")
+	local openButton = UiStyle.sticker("Open", gui, "GARAGE")
 	openButton.AnchorPoint = Vector2.new(1, 0)
 	openButton.Position = UDim2.new(0.5, -146, 0, 6)
 	openButton.Size = UDim2.fromOffset(110, 32)
-	openButton.BackgroundColor3 = PANEL_COLOR
-	openButton.BackgroundTransparency = 0.3
 	openButton.Visible = false
 	openButton.Active = false
 	openButton.Selectable = false
 
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromScale(0.9, 0.85)
-	panel.BackgroundColor3 = PANEL_COLOR
-	panel.BackgroundTransparency = 0.1
-	panel.Active = true
-	panel.Visible = false
-	panel.Parent = gui
-	corner(panel, 14)
-	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(560, 420)
-	limit.Parent = panel
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 10)
-	padding.PaddingBottom = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 12)
-	padding.PaddingRight = UDim.new(0, 12)
-	padding.Parent = panel
+	local panel, close = UiStyle.panel(gui, "GARAGE", Vector2.new(600, 460))
+	local top = UiStyle.HeaderHeight
 
-	local title = text("Title", panel, 24, Enum.Font.GothamBlack)
-	title.Text = "GARAGE"
-	title.Size = UDim2.new(0.4, 0, 0, 32)
-
-	local cash = text("Cash", panel, 22, Enum.Font.GothamBlack)
+	local cash = UiStyle.text("Cash", panel, 28, true)
 	cash.AnchorPoint = Vector2.new(1, 0)
-	cash.Position = UDim2.new(1, -44, 0, 0)
-	cash.Size = UDim2.new(0.5, 0, 0, 32)
+	cash.Position = UDim2.new(1, -48, 0, 0)
+	cash.Size = UDim2.new(0.5, 0, 0, 38)
 	cash.TextXAlignment = Enum.TextXAlignment.Right
-	cash.TextColor3 = CASH_COLOR
-
-	local close = button("Close", panel, "X")
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.fromScale(1, 0)
-	close.Size = UDim2.fromOffset(32, 32)
-	close.BackgroundColor3 = OFF_COLOR
+	cash.TextColor3 = UiStyle.Cash
 
 	local function tabButton(name: Tab, x: number): TextButton
-		local b = button(`{name}Tab`, panel, string.upper(name))
-		b.Position = UDim2.fromOffset(x, 40)
-		b.Size = UDim2.fromOffset(100, 30)
-		b.TextSize = 16
+		local b = UiStyle.sticker(`{name}Tab`, panel, string.upper(name))
+		b.Position = UDim2.fromOffset(x, top)
+		b.Size = UDim2.fromOffset(108, 32)
+		b.TextSize = 18
 		return b
 	end
 	local upgradesTab = tabButton("Upgrades", 0)
-	local carsTab = tabButton("Cars", 100)
-	local limitedsTab = tabButton("Limiteds", 200)
-	local eventTab = tabButton("Event", 300)
-	local bonesTab = tabButton("Bones", 400)
+	local carsTab = tabButton("Cars", 114)
+	local limitedsTab = tabButton("Limiteds", 228)
+	local eventTab = tabButton("Event", 342)
+	local bonesTab = tabButton("Bones", 456)
 
-	local status = text("Status", panel, 16, Enum.Font.GothamBold)
+	local status = UiStyle.text("Status", panel, 16, false)
 	status.AnchorPoint = Vector2.new(0, 1)
 	status.Position = UDim2.fromScale(0, 1)
 	status.Size = UDim2.new(1, 0, 0, 22)
-	status.TextColor3 = Color3.fromRGB(255, 200, 120)
+	status.TextColor3 = UiStyle.Yellow
 	status.Text = ""
 
 	local function tabList(name: Tab): ScrollingFrame
 		local list = Instance.new("ScrollingFrame")
 		list.Name = `{name}List`
-		list.Position = UDim2.fromOffset(0, 78)
-		list.Size = UDim2.new(1, 0, 1, -78 - 26)
+		list.Position = UDim2.fromOffset(0, top + 42)
+		list.Size = UDim2.new(1, 0, 1, -(top + 42) - 26)
 		list.BackgroundTransparency = 1
 		list.BorderSizePixel = 0
 		list.ScrollBarThickness = 6
+		list.ScrollBarImageColor3 = UiStyle.Yellow
 		list.CanvasSize = UDim2.new()
 		list.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		list.Parent = panel
 		local layout = Instance.new("UIListLayout")
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
-		layout.Padding = UDim.new(0, 6)
+		layout.Padding = UDim.new(0, 8)
 		layout.Parent = list
+		-- Room for the plates' outlines, which would clip at the edges.
+		local inset = Instance.new("UIPadding")
+		inset.PaddingTop = UDim.new(0, 3)
+		inset.PaddingBottom = UDim.new(0, 3)
+		inset.PaddingLeft = UDim.new(0, 3)
+		inset.Parent = list
 		return list
 	end
 	local upgradesList = tabList("Upgrades")
@@ -249,21 +189,21 @@ local function build()
 		local frame = Instance.new("Frame")
 		frame.Name = name
 		frame.LayoutOrder = order
-		frame.Size = UDim2.new(1, -8, 0, 58)
-		frame.BackgroundColor3 = ROW_COLOR
+		frame.Size = UDim2.new(1, -12, 0, 62)
 		frame.Parent = list
-		corner(frame, 10)
-		local heading = text("Name", frame, 20, Enum.Font.GothamBlack)
-		heading.Text = name
-		heading.Position = UDim2.fromOffset(12, 6)
-		heading.Size = UDim2.new(1, -150, 0, 24)
-		local detail = text("Detail", frame, 14, Enum.Font.GothamMedium)
-		detail.Position = UDim2.fromOffset(12, 30)
-		detail.Size = UDim2.new(1, -150, 0, 22)
+		UiStyle.plate(frame)
+		local heading = UiStyle.text("Name", frame, 24, true)
+		heading.Text = string.upper(name)
+		heading.Position = UDim2.fromOffset(22, 6)
+		heading.Size = UDim2.new(1, -166, 0, 26)
+		local detail = UiStyle.text("Detail", frame, 14, false)
+		detail.TextColor3 = UiStyle.Ink
+		detail.Position = UDim2.fromOffset(22, 34)
+		detail.Size = UDim2.new(1, -166, 0, 20)
 		detail.TextTruncate = Enum.TextTruncate.AtEnd
-		local action = button("Action", frame, "")
+		local action = UiStyle.sticker("Action", frame, "")
 		action.AnchorPoint = Vector2.new(1, 0.5)
-		action.Position = UDim2.new(1, -10, 0.5, 0)
+		action.Position = UDim2.new(1, -16, 0.5, 0)
 		action.Size = UDim2.fromOffset(124, 38)
 		return { frame = frame, detail = detail, button = action }
 	end
@@ -423,11 +363,11 @@ local function build()
 		limitedsList.Visible = tab == "Limiteds"
 		bonesList.Visible = tab == "Bones" and atBoneTrader
 		eventList.Visible = tab == "Event"
-		upgradesTab.BackgroundColor3 = if tab == "Upgrades" then BUY_COLOR else OFF_COLOR
-		carsTab.BackgroundColor3 = if tab == "Cars" then BUY_COLOR else OFF_COLOR
-		limitedsTab.BackgroundColor3 = if tab == "Limiteds" then BUY_COLOR else OFF_COLOR
-		bonesTab.BackgroundColor3 = if tab == "Bones" then BUY_COLOR else OFF_COLOR
-		eventTab.BackgroundColor3 = if tab == "Event" then BUY_COLOR else OFF_COLOR
+		UiStyle.setSticker(upgradesTab, tab == "Upgrades")
+		UiStyle.setSticker(carsTab, tab == "Cars")
+		UiStyle.setSticker(limitedsTab, tab == "Limiteds")
+		UiStyle.setSticker(bonesTab, tab == "Bones")
+		UiStyle.setSticker(eventTab, tab == "Event")
 	end
 
 	-- Sends one request to the server and reports how it went.
