@@ -280,7 +280,6 @@ local function endRun(result: RunTracker.Result)
 	Hud.result(result, Scoring.score(result, Tuning.Score), false)
 	Hud.live(nil)
 	tricksShown = 0
-	ReplayRecorder.finish()
 end
 
 -- Feeds this step to RunTracker, from the same CarSensor sample the server
@@ -833,7 +832,7 @@ RunService.PreSimulation:Connect(function(dt: number)
 	end
 	if current then
 		step(current, dt)
-		ReplayRecorder.step(current.hull, run.phase == "flying")
+		ReplayRecorder.step(current.hull, current.sensor.contact.airborne or run.phase == "flying")
 	end
 end)
 

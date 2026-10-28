@@ -8,6 +8,12 @@
 -- over, window says which stretch of the tape shows it, and cut copies that
 -- stretch into a clip whose time starts at zero, so the tape can record on.
 --
+-- The tape also follows whether the car is in the air (fly), so any flight
+-- gets a clip, not only scored runs: driving off a roof counts too. A flight
+-- of at least MinAirtime waits Tail seconds after it lands, then due hands
+-- out its window. Lifting off again before then carries on the same flight,
+-- so a bounce or a scrape along a wall doesn't split a jump in two.
+--
 -- A pose is whatever the caller records; the client records the hull's
 -- CFrame. sample gives the two poses around a time and how far between them
 -- it is, for the caller to blend.
@@ -33,9 +39,18 @@ export type Mark = {
 	slot: string, -- the CarDesign slot a part broke off
 }
 
+-- A finished flight waiting for its tail to be recorded.
+export type Window = {
+	start: number, -- liftoff
+	from: number,
+	to: number,
+}
+
 export type Tape<P> = {
 	frames: { Frame<P> },
 	marks: { Mark },
+	liftoff: number?, -- when the flight under way lifted off, nil on the ground
+	waiting: Window?,
 }
 
 export type Clip<P> = {
@@ -151,6 +166,38 @@ end
 -- clip, so a hop while rolling after a landing doesn't replace the jump.
 function ReplayTape.keeps(startT: number, endT: number, tuning: Tuning): boolean
 	return endT - startT >= tuning.MinAirtime
+end
+
+-- Notes whether the car is in the air at time `t`.
+function ReplayTape.fly<P>(tape: Tape<P>, t: number, inAir: boolean, tuning: Tuning)
+	if inAir then
+		if not tape.liftoff then
+			local waiting = tape.waiting
+			tape.liftoff = if waiting then waiting.start else t
+			tape.waiting = nil
+		end
+		return
+	end
+	local start = tape.liftoff
+	if not start then
+		return
+	end
+	tape.liftoff = nil
+	if ReplayTape.keeps(start, t, tuning) then
+		local from, to = ReplayTape.window(start, t, tuning)
+		tape.waiting = { start = start, from = from, to = to }
+	end
+end
+
+-- The window of the last flight once its tail is recorded by time `t`, or
+-- at once if `force` (the car is gone). Each window is handed out once.
+function ReplayTape.due<P>(tape: Tape<P>, t: number, force: boolean): Window?
+	local waiting = tape.waiting
+	if waiting and (force or t >= waiting.to) then
+		tape.waiting = nil
+		return waiting
+	end
+	return nil
 end
 
 -- Whether a run with this total plays its replay without being asked.

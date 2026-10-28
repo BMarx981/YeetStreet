@@ -149,6 +149,71 @@ Check.test("a run is kept from MinAirtime in the air up", function()
 	Check.eq(ReplayTape.keeps(10, 25, TUNING), true, "a big jump")
 end)
 
+-- Follows a tape through a list of (time, in the air) steps.
+local function flown(steps: { { any } }): ReplayTape.Tape<number>
+	local tape = ReplayTape.new()
+	for _, step in steps do
+		ReplayTape.fly(tape, step[1], step[2], TUNING)
+	end
+	return tape
+end
+
+Check.test("a flight is due Tail after it lands, not before", function()
+	local tape = flown({ { 10, true }, { 13, false } })
+	Check.eq(ReplayTape.due(tape, 14.9, false), nil, "tail not recorded yet")
+	local window = ReplayTape.due(tape, 15, false)
+	assert(window, "due")
+	Check.eq(window.from, 9, "from")
+	Check.eq(window.to, 15, "to")
+end)
+
+Check.test("a due window is handed out once", function()
+	local tape = flown({ { 10, true }, { 13, false } })
+	Check.eq(ReplayTape.due(tape, 15, false) ~= nil, true, "first")
+	Check.eq(ReplayTape.due(tape, 16, false), nil, "second")
+end)
+
+Check.test("staying on the ground is never due", function()
+	local tape = flown({ { 1, false }, { 2, false }, { 3, false } })
+	Check.eq(ReplayTape.due(tape, 10, true), nil, "nothing flew")
+end)
+
+Check.test("a hop shorter than MinAirtime is never due", function()
+	local tape = flown({ { 10, true }, { 10.5, false } })
+	Check.eq(ReplayTape.due(tape, 20, false), nil, "hop")
+end)
+
+Check.test("lifting off again within the tail carries on the same flight", function()
+	local tape = flown({ { 10, true }, { 13, false }, { 14, true }, { 14.3, false } })
+	Check.eq(ReplayTape.due(tape, 15, false), nil, "the bounce pushed the tail back")
+	local window = ReplayTape.due(tape, 16.3, false)
+	assert(window, "due")
+	Check.eq(window.from, 9, "from the first liftoff")
+	Check.eq(window.to, 16.3, "to Tail after the bounce")
+end)
+
+Check.test("a hop after the tail is its own flight and keeps the jump's clip", function()
+	local tape = flown({ { 10, true }, { 13, false } })
+	local jump = ReplayTape.due(tape, 15, false)
+	assert(jump, "jump")
+	ReplayTape.fly(tape, 16, true, TUNING)
+	ReplayTape.fly(tape, 16.4, false, TUNING)
+	Check.eq(ReplayTape.due(tape, 30, false), nil, "hop")
+end)
+
+Check.test("forcing ends a flight in the air and hands out its window at once", function()
+	local tape = flown({ { 10, true }, { 12, true } })
+	ReplayTape.fly(tape, 12.5, false, TUNING)
+	local window = ReplayTape.due(tape, 12.5, true)
+	assert(window, "due")
+	Check.eq(window.from, 9, "from")
+	Check.eq(window.to, 14.5, "to")
+end)
+
+Check.test("forcing with nothing waiting hands out nothing", function()
+	Check.eq(ReplayTape.due(ReplayTape.new(), 5, true), nil, "empty")
+end)
+
 Check.test("a run is big from BigScore up", function()
 	Check.eq(ReplayTape.isBig(4999, TUNING), false, "just under")
 	Check.eq(ReplayTape.isBig(5000, TUNING), true, "at")

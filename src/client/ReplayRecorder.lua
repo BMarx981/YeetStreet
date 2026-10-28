@@ -1,13 +1,14 @@
 --!strict
 -- ReplayRecorder (ModuleScript) -> StarterPlayerScripts.ReplayRecorder
--- Records the local player's car onto a ReplayTape and keeps the clip of the
--- last run, for the replay to play. CarController tells it when the car
--- changes (start, stop), each physics step (step), and when a run ends
--- (finish).
+-- Records the local player's car onto a ReplayTape and keeps the clip of its
+-- last flight, for the replay to play. CarController tells it when the car
+-- changes (start, stop) and, each physics step, where the car is and whether
+-- it is in the air or on a run (step).
 --
--- The clip is cut Tail seconds after the run ends, or at once if the car
--- goes first (a wreck, reset, or exit), so it never shows the next car. A
--- run still in the air when the car goes, as in a wreck, ends there.
+-- The clip is cut Tail seconds after the flight ends (ReplayTape.due), or at
+-- once if the car goes first (a wreck, reset, or exit), so it never shows the
+-- next car. A flight still in the air when the car goes, as in a wreck, ends
+-- there.
 --
 -- A replay carries the car's attributes (CarParts) as they were at the start
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
@@ -33,18 +34,12 @@ local ReplayRecorder = {}
 local tape: ReplayTape.Tape<CFrame> = ReplayTape.new()
 local look: { [string]: any } = {}
 local connections: { RBXScriptConnection } = {}
-local wasFlying = false
-local liftoffAt = 0
--- The window of the run that ended, waiting for its tail to be recorded.
-local pending: { from: number, to: number }? = nil
 local last: Replay? = nil
 
-local function cut()
-	local window = pending
+local function cut(window: ReplayTape.Window?)
 	if not window then
 		return
 	end
-	pending = nil
 	local clip = ReplayTape.cut(tape, window.from, window.to)
 	if not clip then
 		return
@@ -63,7 +58,6 @@ function ReplayRecorder.start(model: Model)
 	ReplayRecorder.stop()
 	tape = ReplayTape.new()
 	look = model:GetAttributes()
-	wasFlying = false
 	table.insert(
 		connections,
 		model.AttributeChanged:Connect(function(attribute: string)
@@ -83,46 +77,27 @@ function ReplayRecorder.start(model: Model)
 	)
 end
 
--- Stops recording the car, cutting the last run's clip if it was waiting.
+-- Stops recording the car, cutting the last flight's clip if it was waiting.
 function ReplayRecorder.stop()
-	if wasFlying then
-		ReplayRecorder.finish()
-		wasFlying = false
-	end
-	cut()
+	local now = os.clock()
+	ReplayTape.fly(tape, now, false, R)
+	cut(ReplayTape.due(tape, now, true))
 	for _, connection in connections do
 		connection:Disconnect()
 	end
 	table.clear(connections)
 end
 
--- Records this physics step. `flying` is whether a run is under way.
+-- Records this physics step. `flying` is whether the car is in the air or on
+-- a run, such as riding a rail.
 function ReplayRecorder.step(hull: BasePart, flying: boolean)
 	local now = os.clock()
-	if flying and not wasFlying then
-		liftoffAt = now
-	end
-	wasFlying = flying
 	ReplayTape.record(tape, now, hull.CFrame, R)
-	local window = pending
-	if window and now >= window.to then
-		cut()
-	end
+	ReplayTape.fly(tape, now, flying, R)
+	cut(ReplayTape.due(tape, now, false))
 end
 
--- Notes that a run just ended; its clip is cut once the tail is recorded.
--- A run shorter than MinAirtime keeps the last clip instead.
-function ReplayRecorder.finish()
-	local now = os.clock()
-	local start = if wasFlying then liftoffAt else now
-	if not ReplayTape.keeps(start, now, R) then
-		return
-	end
-	local from, to = ReplayTape.window(start, now, R)
-	pending = { from = from, to = to }
-end
-
--- The last run's replay, nil until a run has ended and its clip was cut.
+-- The last flight's replay, nil until one has ended and its clip was cut.
 function ReplayRecorder.last(): Replay?
 	return last
 end

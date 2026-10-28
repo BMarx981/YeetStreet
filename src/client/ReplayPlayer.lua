@@ -14,8 +14,13 @@
 -- there (ReplayCamera). The last frame holds for EndHold, then the replay
 -- closes.
 --
+-- With streaming on, this client only has the map near the real car, so as
+-- a replay starts it asks for the map along the ghost's path, every
+-- StreamSpacing studs.
+--
 -- HeliCar and PlaneCar replay with their generated look.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -113,6 +118,31 @@ local function startOrbit(clip: ReplayTape.Clip<CFrame>): ReplayOrbit.Orbit
 	return ReplayOrbit.new(ReplayOrbit.facing(flat.X, flat.Z), math.rad(R.CameraPitch), R.CameraDistance, R)
 end
 
+local function streamAlong(clip: ReplayTape.Clip<CFrame>)
+	if not workspace.StreamingEnabled then
+		return
+	end
+	local points: { Vector3 } = {}
+	local last: Vector3? = nil
+	for _, frame in clip.frames do
+		local at = frame.pose.Position
+		if not last or (at - last).Magnitude >= R.StreamSpacing then
+			table.insert(points, at)
+			last = at
+		end
+	end
+	table.insert(points, clip.frames[#clip.frames].pose.Position)
+	local player = Players.LocalPlayer
+	for _, at in points do
+		task.spawn(function()
+			local ok, err = pcall(player.RequestStreamAroundAsync, player, at)
+			if not ok then
+				warn(`ReplayPlayer: could not stream the map around {at}: {err}`)
+			end
+		end)
+	end
+end
+
 local function show(now: Playing, dt: number)
 	local a, b, alpha = ReplayTape.sample(now.replay.clip, now.time)
 	now.root.CFrame = a:Lerp(b, alpha)
@@ -166,6 +196,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		time = 0,
 	}
 	playing = now
+	streamAlong(replay.clip)
 	ReplayCamera.start(startOrbit(replay.clip))
 	-- In the workspace before it moves: welds keep the offsets their parts
 	-- have when they get there.

@@ -699,6 +699,7 @@ Tuning.Replay = {
 	TouchTurn = 0.01, -- radians per pixel dragged
 	StickTurn = 3, -- radians per second with the right stick all the way over
 	WheelZoom = 0.85, -- distance times this per wheel notch toward the screen
+	StreamSpacing = 256, -- studs between the places along a replay's path asked to stream in
 	EndHold = 1, -- seconds the last frame holds before the replay closes
 }
 
