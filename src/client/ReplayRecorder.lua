@@ -14,7 +14,8 @@
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
 -- those from before the clip; the clip's marks say when the rest broke off.
 -- The attributes are copied as they change rather than read at the cut, since
--- by then a wrecked car is gone.
+-- by then a wrecked car is gone. It also carries the server's time at the
+-- start of the clip, so the world can be drawn as it was then (ReplayWorld).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -27,6 +28,7 @@ local R = Tuning.Replay
 export type Replay = {
 	clip: ReplayTape.Clip<CFrame>,
 	look: { [string]: any }, -- the car's attributes at the start of the clip
+	serverStart: number, -- the server's time at the start of the clip
 }
 
 local ReplayRecorder = {}
@@ -50,7 +52,9 @@ local function cut(window: ReplayTape.Window?)
 		local now = before[attribute]
 		before[attribute] = math.max((if typeof(now) == "number" then now else 0) - count, 0)
 	end
-	last = { clip = clip, look = before }
+	-- The tape runs on os.clock.
+	local serverStart = clip.start + workspace:GetServerTimeNow() - os.clock()
+	last = { clip = clip, look = before, serverStart = serverStart }
 end
 
 -- Starts recording `model`, the car the local player just got into.

@@ -43,6 +43,13 @@ Check.test("a clip starts at zero and lasts from its first frame to its last", f
 	Check.eq(clip.duration, 7, "duration")
 end)
 
+Check.test("a clip remembers the tape time of its first frame", function()
+	local tape = filled(0, 30, 0.5)
+	local clip = ReplayTape.cut(tape, 21.8, 29)
+	assert(clip, "clip")
+	Check.eq(clip.start, 22, "first frame in the window")
+end)
+
 Check.test("a clip keeps its frames when the tape records on", function()
 	local tape = filled(0, 10, 1)
 	local clip = ReplayTape.cut(tape, 2, 5)

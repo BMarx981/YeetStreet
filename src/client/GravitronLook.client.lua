@@ -6,13 +6,15 @@
 -- round its axis on the server's clock, like everyone else's (Gravitron
 -- striped). The stripes run from blue at the slowest stop to red at the
 -- fastest, and flash there. The paint is this client's only, so the
--- server's bowl stays plain.
+-- server's bowl stays plain. During a replay they turn as they were at the
+-- moment being watched (ReplayWorld).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Gravitron = require(ReplicatedStorage.Gravitron)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local STRIPES = 12
 local SLOW_COLOR = Color3.fromRGB(60, 140, 255)
@@ -63,7 +65,7 @@ task.spawn(function()
 		if not camera or (camera.CFrame.Position - bowl.Position).Magnitude > DRAW_RANGE then
 			return
 		end
-		local time = workspace:GetServerTimeNow()
+		local time = ReplayWorld.serverTime()
 		local turned = GravitronRide.angle(time)
 		local level = Gravitron.level(GravitronRide.spin, GravitronRide.speed(time))
 		local color = colorAt(math.floor(level * LEVELS + 0.5) / LEVELS)

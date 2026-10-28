@@ -4,7 +4,8 @@
 -- moves them every frame from the server's clock (Trains), so every player
 -- sees them in the same place. The server has no trains. They never touch
 -- anything: CarController asks TrainSet.push how a train pushes its car
--- instead.
+-- instead. During a replay they are drawn where they were at the moment
+-- being watched (ReplayWorld), but still push from where they are now.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -12,6 +13,7 @@ local RunService = game:GetService("RunService")
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Trains = require(ReplicatedStorage.Trains)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local TrainSet = {}
 
@@ -24,7 +26,8 @@ local LAMP_COLOR = Color3.fromRGB(255, 240, 200)
 
 local area = MapLayout.find(Tuning.Map.Areas :: any, "City")
 
--- Each carriage's model, and where they were all put last.
+-- Each carriage's model, and where they all are now, which may not be
+-- where they are drawn.
 local carriages: { Model } = {}
 local frames: { CFrame } = {}
 
@@ -78,9 +81,9 @@ local function build(parent: Instance, first: boolean): Model
 	return model
 end
 
-local function place(time: number)
-	frames = Trains.frames(time)
-	for i, frame in frames do
+local function place()
+	frames = Trains.frames(workspace:GetServerTimeNow())
+	for i, frame in if ReplayWorld.isWatching() then Trains.frames(ReplayWorld.serverTime()) else frames do
 		carriages[i]:PivotTo(frame)
 	end
 end
@@ -101,10 +104,8 @@ function TrainSet.start()
 		carriages[i] = build(folder, Trains.isNose(i))
 	end
 	folder.Parent = workspace
-	place(workspace:GetServerTimeNow())
-	RunService.RenderStepped:Connect(function()
-		place(workspace:GetServerTimeNow())
-	end)
+	place()
+	RunService.RenderStepped:Connect(place)
 end
 
 return TrainSet

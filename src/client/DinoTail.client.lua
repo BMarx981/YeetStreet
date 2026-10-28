@@ -8,7 +8,8 @@
 -- ground there, and runs back over the path's start to Length past it. Dark
 -- spots and booster stripes carry on along it from the back. This client
 -- builds and moves its own, timed from the server's clock so every player
--- sees the same swish. Only for looks: cars drive straight through it.
+-- sees the same swish, or the swish at the moment being watched during a
+-- replay (ReplayWorld). Only for looks: cars drive straight through it.
 -- Numbers are in Tuning.Dino.Bronto.Tail.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +18,7 @@ local RunService = game:GetService("RunService")
 local Bronto = require(ReplicatedStorage.Bronto)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local B = Tuning.Dino.Bronto
 local T = B.Tail
@@ -131,7 +133,7 @@ end
 -- before it, so a wave runs out to the tip.
 local still = math.floor(rise / length + 0.5)
 RunService.RenderStepped:Connect(function()
-	local phase = workspace:GetServerTimeNow() * 2 * math.pi / T.Period
+	local phase = ReplayWorld.serverTime() * 2 * math.pi / T.Period
 	local bend = math.rad(T.Swing) / (segments - still)
 	local joint = root
 	for i, part in blocks do

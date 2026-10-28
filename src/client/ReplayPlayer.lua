@@ -21,6 +21,9 @@
 -- closes, unless it is paused. ReplayControls pauses, seeks, and changes the
 -- speed on its clock (ReplayClock).
 --
+-- Things drawn on the server's clock, like the trains, are drawn at the
+-- replay's moment while it plays (ReplayWorld).
+--
 -- With streaming on, this client only has the map near the real car, so as
 -- a replay starts it asks for the map along the ghost's path, every
 -- StreamSpacing studs. That map streams out again while the real car is far
@@ -44,6 +47,7 @@ local CarPreview = require(script.Parent.CarPreview)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local R = Tuning.Replay
 local T = Tuning.Toughness
@@ -194,6 +198,7 @@ end
 
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
+	ReplayWorld.watch(now.replay.serverStart + time)
 	local pose = poseAt(now.replay.clip, time)
 	for i, piece in now.pieces do
 		local breakAt = piece.breakAt
@@ -233,6 +238,7 @@ function ReplayPlayer.stop()
 	end
 	playing = nil
 	RunService:UnbindFromRenderStep(RENDER_NAME)
+	ReplayWorld.watch(nil)
 	ReplayCamera.stop()
 	now.ghost:Destroy()
 	for _, part in now.hidden do

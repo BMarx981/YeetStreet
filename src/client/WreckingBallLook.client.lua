@@ -3,13 +3,15 @@
 -- Draws a ball and its cable under every Downtown crane's jib
 -- (WreckingBalls) and swings them every frame from the server's clock, so
 -- every player sees them in the same place. They never touch anything:
--- CarController asks WreckingBalls.push how a ball smacks its car.
+-- CarController asks WreckingBalls.push how a ball smacks its car. During a
+-- replay they swing as they were at the moment being watched (ReplayWorld).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local BALL_COLOR = Color3.fromRGB(45, 45, 50)
 local CABLE_COLOR = Color3.fromRGB(25, 25, 25)
@@ -67,7 +69,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 	local radius = Tuning.City.Cranes.Ball.Radius
-	local time = workspace:GetServerTimeNow()
+	local time = ReplayWorld.serverTime()
 	table.clear(parts)
 	table.clear(frames)
 	for pivot, entry in all do

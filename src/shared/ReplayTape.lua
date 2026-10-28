@@ -56,6 +56,7 @@ export type Clip<P> = {
 	frames: { Frame<P> }, -- at least two, the first at t = 0
 	marks: { Mark },
 	duration: number,
+	start: number, -- the tape time of its first frame
 }
 
 -- Old frames are dropped in batches about this many seconds long, so the
@@ -124,7 +125,7 @@ function ReplayTape.cut<P>(tape: Tape<P>, from: number, to: number): Clip<P>?
 			table.insert(marks, { t = mark.t - zero, slot = mark.slot })
 		end
 	end
-	return { frames = shifted, marks = marks, duration = shifted[#shifted].t }
+	return { frames = shifted, marks = marks, duration = shifted[#shifted].t, start = zero }
 end
 
 -- The poses just before and after `t` in the clip, and how far between them

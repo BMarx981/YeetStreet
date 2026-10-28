@@ -8,7 +8,8 @@
 --
 -- Every walker's place comes from the server's clock (Pedestrians) and its
 -- Configuration in workspace.Parks.City.Pedestrians (Pedestrian.State as
--- attributes), so nothing is sent each frame. Only the nearest DrawCount
+-- attributes), so nothing is sent each frame. During a replay the clock is
+-- the moment being watched (ReplayWorld). Only the nearest DrawCount
 -- within DrawRange of the camera are drawn, by a fixed set of figures; a
 -- walker keeps its figure while it stays among the nearest.
 --
@@ -36,6 +37,7 @@ local Pedestrian = require(ReplicatedStorage.Pedestrian)
 local Pedestrians = require(ReplicatedStorage.Pedestrians)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local C = Tuning.City
 local P = C.Pedestrians
@@ -682,7 +684,7 @@ RunService.RenderStepped:Connect(function()
 	if not camera then
 		return
 	end
-	local now = workspace:GetServerTimeNow()
+	local now = ReplayWorld.serverTime()
 	local eye = camera.CFrame.Position
 
 	-- The nearest DrawCount people in range.
