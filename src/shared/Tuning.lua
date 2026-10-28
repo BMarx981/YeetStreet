@@ -2191,6 +2191,7 @@ Tuning.Dino = {
 			RoarVolume = 1,
 			RoarHearing = 600,
 			Smooth = 15,
+			Snap = 50, -- studs from where it is drawn past which it jumps there, as a replay starts or scrubs
 			MinStride = 16,
 			MaxStride = 50,
 			StridePerSpeed = 0.6,

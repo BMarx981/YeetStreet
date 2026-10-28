@@ -17,6 +17,10 @@
 -- the head is drawn where their spot in its jaws is, so they never drift
 -- from them on screen. It roars as it spots a car and gives chase.
 -- The model, Root and Head are recorded for replays (ReplayWorld.follow).
+-- During one it is drawn from the recording, on the replay's clock, jumping
+-- there (Look.Snap) as the replay starts or scrubs; it holds the ghost car
+-- if it held the replayed car, and roars as the replay passes the moment it
+-- spotted a car. Its roar comes from its drawn head.
 -- Numbers are in Tuning.Dino.Rex (Head, Look).
 
 local Players = game:GetService("Players")
@@ -158,7 +162,7 @@ local throat = add("neck", Vector3.new(12, 1, 1), CFrame.new(0, -NECK_SIZE.Y / 2
 -- Head, facing -Z, its front at -Size.Z / 2.
 local CRANIUM = CFrame.new(0, 3, 9)
 local CRANIUM_SIZE = Vector3.new(22, 12, 16)
-add("head", CRANIUM_SIZE, CRANIUM, SKIN_COLOR)
+local cranium = add("head", CRANIUM_SIZE, CRANIUM, SKIN_COLOR)
 add("head", Vector3.new(18, 9, 22), CFrame.new(0, 1.5, -7), SKIN_COLOR)
 add("head", Vector3.new(16, 1, 20), CFrame.new(0, -3.2, -7), MOUTH_COLOR)
 for _, z in { 6, 11 } do
@@ -257,21 +261,30 @@ rex:GetAttributeChangedSignal("Chewing"):Connect(function()
 	chewStart = os.clock()
 end)
 
--- It roars as it spots a car and gives chase, from its head.
+-- It roars as it spots a car and gives chase, from its head. While a
+-- replay plays, the roar comes from the recording instead.
 local roar = Instance.new("Sound")
 roar.SoundId = L.Roar
 roar.PlaybackSpeed = L.RoarPitch
 roar.Volume = L.RoarVolume
 roar.RollOffMaxDistance = L.RoarHearing
-roar.Parent = serverHead
+roar.Parent = cranium
 local lastMode = rex:GetAttribute("Mode")
 rex:GetAttributeChangedSignal("Mode"):Connect(function()
 	local mode = rex:GetAttribute("Mode")
-	if lastMode == "roam" and mode == "chase" then
+	if lastMode == "roam" and mode == "chase" and not ReplayWorld.isWatching() then
 		roar:Play()
 	end
 	lastMode = mode
 end)
+
+-- Roars if the replay went past it spotting a car since the frame before.
+local function replayRoar()
+	local mode, fromMode = ReplayWorld.lastChange(rex, "Mode")
+	if mode and fromMode == "roam" and mode.value == "chase" and #ReplayWorld.passed(rex, "Mode") > 0 then
+		roar:Play()
+	end
+end
 
 RunService.RenderStepped:Connect(function(dt: number)
 	if dt <= 0 then
@@ -286,24 +299,47 @@ RunService.RenderStepped:Connect(function(dt: number)
 	if not shown then
 		return
 	end
-	local mode = rex:GetAttribute("Mode")
+	-- In a replay it is drawn from the recording (ReplayWorld), on the
+	-- replay's clock.
+	local watching = ReplayWorld.isWatching()
+	local clock = ReplayWorld.time()
+	local chewFrom = chewStart
+	if watching then
+		local chew = ReplayWorld.lastChange(rex, "Chewing")
+		chewFrom = if chew then chew.t else 0
+		replayRoar()
+	end
+	local mode = ReplayWorld.attribute(rex, "Mode")
 	local smooth = 1 - math.exp(-L.Smooth * dt)
+	local target = ReplayWorld.cframe(serverRoot)
 	local lastRoot = root
-	root = root:Lerp(serverRoot.CFrame, smooth)
-	local heldName = rex:GetAttribute("HeldCar")
-	local held = if typeof(heldName) == "string" and heldName ~= "" then carsFolder:FindFirstChild(heldName) else nil
-	local playerName = rex:GetAttribute("HeldPlayer")
+	if (target.Position - root.Position).Magnitude > L.Snap then
+		root, lastRoot = target, target
+		head = ReplayWorld.cframe(serverHead)
+	else
+		root = root:Lerp(target, smooth)
+	end
+	local heldName = ReplayWorld.attribute(rex, "HeldCar")
+	local holding = typeof(heldName) == "string" and heldName ~= ""
+	local ghost = if holding then ReplayWorld.car(heldName) else nil
+	local held = if holding and not watching then carsFolder:FindFirstChild(heldName) else nil
+	local playerName = if watching then nil else rex:GetAttribute("HeldPlayer")
 	local person = if typeof(playerName) == "string" and playerName ~= ""
 		then Players:FindFirstChild(playerName)
 		else nil
 	local character = if person and person:IsA("Player") then person.Character else nil
 	local personRoot = character and character:FindFirstChild("HumanoidRootPart")
-	if held and held:IsA("Model") and held.PrimaryPart and held.PrimaryPart.Anchored then
+	if ghost then
+		head = ghost * HELD_AT:Inverse()
+	elseif held and held:IsA("Model") and held.PrimaryPart and held.PrimaryPart.Anchored then
 		head = held:GetPivot() * HELD_AT:Inverse()
 	elseif personRoot and personRoot:IsA("BasePart") and personRoot.Anchored then
 		head = personRoot.CFrame * HELD_PERSON:Inverse()
 	else
-		head = head:Lerp(serverHead.CFrame, if mode == "lunge" then 1 - math.exp(-2 * L.Smooth * dt) else smooth)
+		head = head:Lerp(
+			ReplayWorld.cframe(serverHead),
+			if mode == "lunge" then 1 - math.exp(-2 * L.Smooth * dt) else smooth
+		)
 	end
 	local moved = (root.Position - lastRoot.Position).Magnitude
 	speed += (moved / dt - speed) * smooth
@@ -344,7 +380,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 		bones["meta" .. side] = along(ankleW, ballW, right)
 		bones["foot" .. side] = CFrame.new(ballW) * root.Rotation
 
-		local wiggle = math.rad(10) * math.sin(os.clock() * 4 + k)
+		local wiggle = math.rad(10) * math.sin(clock * 4 + k)
 		local shoulder = body * CFrame.new(x * 12, 2, -46) * CFrame.Angles(math.rad(-60) + wiggle, 0, 0)
 		bones["upperArm" .. side] = shoulder
 		bones["foreArm" .. side] = shoulder * CFrame.new(0, 0, -10) * CFrame.Angles(math.rad(70), 0, 0)
@@ -359,12 +395,12 @@ RunService.RenderStepped:Connect(function(dt: number)
 	throat.Size = Vector3.new(12, 1, reach)
 
 	-- Jaw.
-	local chewing = rex:GetAttribute("Chewing") == true
+	local chewing = ReplayWorld.attribute(rex, "Chewing") == true
 	local goal = 0
 	if mode == "lunge" then
 		goal = L.JawOpen
 	elseif mode == "hold" and chewing then
-		goal = L.ChompOpen * (1 - math.abs(math.sin(math.pi * L.ChompRate * (os.clock() - chewStart))))
+		goal = L.ChompOpen * (1 - math.abs(math.sin(math.pi * L.ChompRate * (clock - chewFrom))))
 	elseif mode == "hold" then
 		goal = L.Grip
 	elseif mode == "chase" then
@@ -378,7 +414,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	local sway = math.rad(L.TailSway) * (1 - 0.5 * running)
 	local bone = body * TAIL_BASE
 	for i, size in TAIL do
-		local yaw = sway * math.sin(2 * math.pi * L.TailRate * os.clock() - 0.8 * i) + swing
+		local yaw = sway * math.sin(2 * math.pi * L.TailRate * clock - 0.8 * i) + swing
 		bone = bone * CFrame.Angles(TAIL_DROOP, yaw, 0)
 		bones["tail" .. i] = bone
 		bone = bone * CFrame.new(0, 0, size.Z)
