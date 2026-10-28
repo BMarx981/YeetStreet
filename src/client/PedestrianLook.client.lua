@@ -8,8 +8,10 @@
 --
 -- Every walker's place comes from the server's clock (Pedestrians) and its
 -- Configuration in workspace.Parks.City.Pedestrians (Pedestrian.State as
--- attributes), so nothing is sent each frame. During a replay the clock is
--- the moment being watched (ReplayWorld). Only the nearest DrawCount
+-- attributes), so nothing is sent each frame. Each Configuration is
+-- recorded for replays (ReplayWorld.follow); during one the clock is the
+-- moment being watched and the attributes are as they were then, so people
+-- dive and flop where they did. Only the nearest DrawCount
 -- within DrawRange of the camera are drawn, by a fixed set of figures; a
 -- walker keeps its figure while it stays among the nearest.
 --
@@ -110,14 +112,24 @@ local areaZ = model:GetAttribute("AreaZ") :: number
 local routes = Pedestrians.routes(Pedestrians.layout(C :: any), P)
 local walkers = Pedestrians.walkers(routes, P, Rng.new(P.Seed))
 
--- Each walker's state, kept up from its Configuration's attributes.
+-- Each walker's state, kept up from its Configuration's attributes. In a
+-- replay, each person's state is read from the recording into
+-- replayStates instead, each frame, and drawn from there.
 local states: { Pedestrian.State } = {}
-local function read(config: Instance, s: Pedestrian.State)
+local replayStates: { Pedestrian.State } = {}
+local configs: { [number]: Instance } = {}
+local shownStates = states
+
+local function live(config: Instance, name: string): any
+	return config:GetAttribute(name)
+end
+
+local function read(config: Instance, s: Pedestrian.State, get: (Instance, string) -> any)
 	local function number(name: string, default: number): number
-		local value = config:GetAttribute(name)
+		local value = get(config, name)
 		return if typeof(value) == "number" then value else default
 	end
-	local mode = config:GetAttribute("Mode")
+	local mode = get(config, "Mode")
 	s.mode = if mode == "flee" or mode == "dive" or mode == "flop" then mode else "walk"
 	s.since = number("Since", 0)
 	s.startX, s.startZ = number("StartX", 0), number("StartZ", 0)
@@ -142,12 +154,15 @@ end
 for i in walkers do
 	local s = Pedestrian.new()
 	states[i] = s
+	replayStates[i] = Pedestrian.new()
 	styles[i] = styleFor(i)
 	task.spawn(function()
 		local config = model:WaitForChild(tostring(i))
-		read(config, s)
+		configs[i] = config
+		ReplayWorld.follow(config)
+		read(config, s, live)
 		config.AttributeChanged:Connect(function()
-			read(config, s)
+			read(config, s, live)
 		end)
 	end)
 end
@@ -178,10 +193,13 @@ local function addSitter(config: Instance)
 	}
 	local s = Pedestrian.new()
 	states[i] = s
+	replayStates[i] = Pedestrian.new()
 	styles[i] = styleFor(i)
-	read(config, s)
+	configs[i] = config
+	ReplayWorld.follow(config)
+	read(config, s, live)
 	config.AttributeChanged:Connect(function()
-		read(config, s)
+		read(config, s, live)
 	end)
 end
 for _, config in model:GetChildren() do
@@ -456,7 +474,7 @@ local FLY_TIME = D.FlopTime + L.FlyExtra
 
 local function draw(figure: Figure, i: number, now: number)
 	local seat = seats[i]
-	local s = states[i]
+	local s = shownStates[i]
 	local style = styles[i]
 	local clock = Pedestrian.clock(s, now, D)
 	-- Where its loop has it: walking or fleeing, where it is; otherwise
@@ -686,12 +704,19 @@ RunService.RenderStepped:Connect(function()
 	end
 	local now = ReplayWorld.serverTime()
 	local eye = camera.CFrame.Position
+	shownStates = states
+	if ReplayWorld.isWatching() then
+		for i, config in configs do
+			read(config, replayStates[i], ReplayWorld.attribute)
+		end
+		shownStates = replayStates
+	end
 
 	-- The nearest DrawCount people in range.
 	local near: { { gap: number, index: number } } = {}
 	local range2 = P.DrawRange * P.DrawRange
 	for i = 1, count do
-		local s = states[i]
+		local s = shownStates[i]
 		local x, z
 		if Pedestrian.onLoop(s) then
 			local pose = poseOf(i, Pedestrian.clock(s, now, D))

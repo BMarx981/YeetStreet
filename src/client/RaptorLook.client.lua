@@ -16,6 +16,10 @@
 -- behind a fast car. Each screeches as its pack springs an ambush (Mode hide
 -- to chase), and each bite snaps.
 -- Each part and its Target are recorded for replays (ReplayWorld.follow).
+-- During one they are drawn from the recording, on the replay's clock,
+-- jumping there (Tuning.Replay.Jump) as the replay starts or scrubs; one
+-- latched onto the replayed car rides the ghost car, and their bites and
+-- screeches play as the replay passes them.
 -- Numbers are in Tuning.Dino.Raptors.Look.
 
 local RunService = game:GetService("RunService")
@@ -78,6 +82,7 @@ type Look = {
 	wasLatched: boolean,
 	sway: number, -- its own tail beat, so the pack's tails differ
 	snap: Sound,
+	screech: Sound,
 }
 
 local looks: { Look } = {}
@@ -151,7 +156,7 @@ local function newLook(marker: BasePart, index: number): Look
 	local mode = marker:GetAttribute("Mode")
 	marker:GetAttributeChangedSignal("Mode"):Connect(function()
 		local now = marker:GetAttribute("Mode")
-		if mode == "hide" and now == "chase" then
+		if mode == "hide" and now == "chase" and not ReplayWorld.isWatching() then
 			task.delay(random:NextNumber(0, L.ScreechDelay), function()
 				screech.PlaybackSpeed = random:NextNumber(L.MinPitch, L.MaxPitch)
 				screech:Play()
@@ -175,6 +180,7 @@ local function newLook(marker: BasePart, index: number): Look
 		wasLatched = false,
 		sway = index * 2.1,
 		snap = sound(body, L.Snap, L.SnapVolume),
+		screech = screech,
 	}
 end
 
@@ -196,10 +202,14 @@ end
 raptorsFolder.ChildAdded:Connect(addMarker)
 
 -- Where a latched raptor's car or player is on this client, if it can see
--- them.
+-- them. In a replay, that is the ghost car if it latched onto the replayed
+-- car, and nothing otherwise.
 local function targetFrame(marker: BasePart): CFrame?
 	local target = marker:FindFirstChild("Target")
-	local thing = if target and target:IsA("ObjectValue") then target.Value else nil
+	local thing = if target and target:IsA("ObjectValue") then ReplayWorld.value(target) else nil
+	if ReplayWorld.isWatching() then
+		return if thing and thing:IsA("Model") then ReplayWorld.car(thing.Name) else nil
+	end
 	if not (thing and thing:IsA("Model") and thing:IsDescendantOf(workspace)) then
 		return nil
 	end
@@ -224,28 +234,43 @@ RunService.RenderStepped:Connect(function(dt: number)
 	if not shown then
 		return
 	end
-	local now = os.clock()
+	-- In a replay they are drawn from the recording (ReplayWorld), on the
+	-- replay's clock.
+	local watching = ReplayWorld.isWatching()
+	local now = ReplayWorld.time()
 	local smooth = 1 - math.exp(-L.Smooth * dt)
 	table.clear(cframes)
 	local parts: { BasePart } = {}
 
 	for _, look in looks do
 		local marker = look.marker
-		local mode = marker:GetAttribute("Mode")
-		local slot = marker:GetAttribute("Slot")
+		local mode = ReplayWorld.attribute(marker, "Mode")
+		local slot = ReplayWorld.attribute(marker, "Slot")
 		local riding = mode == "latch" and typeof(slot) == "string" and SLOTS[slot] ~= nil
 		local onCar = if riding then targetFrame(marker) else nil
+		local target = ReplayWorld.cframe(marker)
+		if (target.Position - look.frame.Position).Magnitude > Tuning.Replay.Jump then
+			look.frame = target
+		end
 		local last = look.frame
 
 		if onCar and riding then
 			if not look.wasLatched then
 				look.latchAt = now
 			end
+			local latchFrom = look.latchAt
+			if watching then
+				local latched = ReplayWorld.lastChange(marker, "Mode")
+				latchFrom = if latched and latched.value == "latch" then latched.t else now
+			end
 			local goal = onCar * CFrame.new(SLOTS[slot :: string])
-			local blend = math.clamp((now - look.latchAt) / L.LatchBlend, 0, 1)
+			local blend = math.clamp((now - latchFrom) / L.LatchBlend, 0, 1)
 			look.frame = if blend >= 1 then goal else look.frame:Lerp(goal, math.max(blend, smooth))
 		else
-			look.frame = look.frame:Lerp(marker.CFrame, smooth)
+			look.frame = look.frame:Lerp(target, smooth)
+		end
+		if (look.frame.Position - last.Position).Magnitude > Tuning.Replay.Jump then
+			last = look.frame
 		end
 		look.wasLatched = onCar ~= nil
 
@@ -259,13 +284,28 @@ RunService.RenderStepped:Connect(function(dt: number)
 		look.crouch += (crouchGoal - look.crouch) * smooth
 
 		local bites = marker:GetAttribute("Bites")
-		if typeof(bites) == "number" and bites > look.bites then
+		local biteAt = look.biteAt
+		if watching then
+			local bite, fromBites = ReplayWorld.lastChange(marker, "Bites")
+			biteAt = if bite and fromBites ~= nil then bite.t else -math.huge
+			if #ReplayWorld.passed(marker, "Bites") > 0 then
+				look.snap.PlaybackSpeed = random:NextNumber(L.SnapMinPitch, L.SnapMaxPitch)
+				look.snap:Play()
+			end
+			local screeched, fromMode = ReplayWorld.lastChange(marker, "Mode")
+			local spotted = screeched and fromMode == "hide" and screeched.value == "chase"
+			if spotted and #ReplayWorld.passed(marker, "Mode") > 0 then
+				look.screech.PlaybackSpeed = random:NextNumber(L.MinPitch, L.MaxPitch)
+				look.screech:Play()
+			end
+		elseif typeof(bites) == "number" and bites > look.bites then
 			look.biteAt = now
+			biteAt = now
 			look.snap.PlaybackSpeed = random:NextNumber(L.SnapMinPitch, L.SnapMaxPitch)
 			look.snap:Play()
 		end
 		look.bites = if typeof(bites) == "number" then bites else look.bites
-		local sinceBite = now - look.biteAt
+		local sinceBite = now - biteAt
 		local jawGoal = if sinceBite < L.BiteOpen
 			then 1
 			elseif mode == "chase" then 0.35

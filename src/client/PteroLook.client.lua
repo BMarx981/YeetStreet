@@ -18,6 +18,11 @@
 -- it starts a swoop.
 -- While the park is put away (the :dino admin command), so is the drawing.
 -- The model and Talons are recorded for replays (ReplayWorld.follow).
+-- During one it is drawn from the recording, jumping there
+-- (Tuning.Replay.Jump) as the replay starts or scrubs, with its wings beating
+-- on the replay's clock; it carries the ghost car if it carried the replayed
+-- car, and screeches as the replay passes the start of a swoop. Its screech
+-- comes from its body.
 -- Numbers are in Tuning.Dino.Ptero (Look).
 
 local RunService = game:GetService("RunService")
@@ -113,7 +118,7 @@ local function add(bone: string, size: Vector3, offset: CFrame, color: Color3): 
 end
 
 -- Body.
-add("body", Vector3.new(6, 5.5, 14), CFrame.identity, BODY_COLOR)
+local torso = add("body", Vector3.new(6, 5.5, 14), CFrame.identity, BODY_COLOR)
 add("body", Vector3.new(4.6, 0.6, 11), CFrame.new(0, -2.9, 0.5), BELLY_COLOR)
 add("body", Vector3.new(3, 3, 7), CFrame.new(0, 2, -8.5) * CFrame.Angles(math.rad(25), 0, 0), BODY_COLOR) -- neck
 add("body", Vector3.new(1, 1, 7), CFrame.new(0, 0.5, 10.5), BODY_COLOR) -- tail
@@ -190,23 +195,34 @@ local function poseFor(mode: any, vy: number): Pose
 	return CIRCLING
 end
 
--- It screeches as it starts a swoop, from its talons.
+-- It screeches as it starts a swoop, from its body. While a replay plays,
+-- the screech comes from the recording instead.
 local screech = Instance.new("Sound")
 screech.SoundId = L.Screech
 screech.PlaybackSpeed = L.ScreechPitch
 screech.Volume = L.ScreechVolume
 screech.RollOffMaxDistance = L.ScreechHearing
-screech.Parent = serverTalons
+screech.Parent = torso
 local lastMode = pterodactyl:GetAttribute("Mode")
 pterodactyl:GetAttributeChangedSignal("Mode"):Connect(function()
 	local mode = pterodactyl:GetAttribute("Mode")
-	if mode == "swoop" and lastMode ~= "swoop" then
+	if mode == "swoop" and lastMode ~= "swoop" and not ReplayWorld.isWatching() then
 		screech:Play()
 	end
 	lastMode = mode
 end)
 
+-- Screeches if the replay went past it starting a swoop since the frame
+-- before.
+local function replayScreech()
+	local mode, fromMode = ReplayWorld.lastChange(pterodactyl, "Mode")
+	if mode and mode.value == "swoop" and fromMode ~= "swoop" and #ReplayWorld.passed(pterodactyl, "Mode") > 0 then
+		screech:Play()
+	end
+end
+
 local talons = serverTalons.CFrame
+local lastClock = ReplayWorld.time()
 local velocity = Vector3.zero
 local yawRate = 0
 local pose: Pose = table.clone(FOLDED)
@@ -225,17 +241,35 @@ RunService.RenderStepped:Connect(function(dt: number)
 	if not shown then
 		return
 	end
-	local mode = pterodactyl:GetAttribute("Mode")
+	-- In a replay it is drawn from the recording (ReplayWorld), and its
+	-- wings beat on the replay's clock, so they stop while it is paused.
+	local watching = ReplayWorld.isWatching()
+	local clock = ReplayWorld.time()
+	local tick = if watching then math.max(clock - lastClock, 0) else dt
+	lastClock = clock
+	if watching then
+		replayScreech()
+	end
+	local mode = ReplayWorld.attribute(pterodactyl, "Mode")
 	local smooth = 1 - math.exp(-L.Smooth * dt)
+	local target = ReplayWorld.cframe(serverTalons)
+	if (target.Position - talons.Position).Magnitude > Tuning.Replay.Jump then
+		talons = target
+	end
 	local last = talons
-	local carriedName = pterodactyl:GetAttribute("CarriedCar")
-	local carried = if typeof(carriedName) == "string" and carriedName ~= ""
-		then carsFolder:FindFirstChild(carriedName)
-		else nil
-	if carried and carried:IsA("Model") and carried.PrimaryPart and carried.PrimaryPart.Anchored then
+	local carriedName = ReplayWorld.attribute(pterodactyl, "CarriedCar")
+	local carrying = typeof(carriedName) == "string" and carriedName ~= ""
+	local ghost = if carrying then ReplayWorld.car(carriedName) else nil
+	local carried = if carrying and not watching then carsFolder:FindFirstChild(carriedName) else nil
+	if ghost then
+		talons = ghost * CFrame.new(0, P.CarTop, 0)
+	elseif carried and carried:IsA("Model") and carried.PrimaryPart and carried.PrimaryPart.Anchored then
 		talons = carried:GetPivot() * CFrame.new(0, P.CarTop, 0)
 	else
-		talons = talons:Lerp(serverTalons.CFrame, if mode == "swoop" then 1 - math.exp(-2 * L.Smooth * dt) else smooth)
+		talons = talons:Lerp(target, if mode == "swoop" then 1 - math.exp(-2 * L.Smooth * dt) else smooth)
+	end
+	if (talons.Position - last.Position).Magnitude > Tuning.Replay.Jump then
+		last = talons
 	end
 	velocity = velocity:Lerp((talons.Position - last.Position) / dt, smooth)
 	local turned = math.atan2(last.LookVector:Cross(talons.LookVector).Y, last.LookVector:Dot(talons.LookVector))
@@ -258,7 +292,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	for key, value in goal :: any do
 		current[key] += (value - current[key]) * change
 	end
-	beat = (beat + pose.rate * dt) % 1
+	beat = (beat + pose.rate * tick) % 1
 	local wave = math.sin(2 * math.pi * beat)
 	local flap = math.rad(pose.base + pose.angle * wave)
 	local fingerFlap = math.rad(pose.base * 0.3 + pose.angle * 0.6 * math.sin(2 * math.pi * beat - 0.8))
@@ -269,7 +303,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	headDown += (down - headDown) * change
 	bones.head = body * HEAD_AT * CFrame.Angles(-headDown, 0, 0)
 
-	local gripping = mode == "perch" or carried ~= nil
+	local gripping = mode == "perch" or ghost ~= nil or carried ~= nil
 	for _, side in { "L", "R" } do
 		local x = if side == "L" then -1 else 1
 		local arm = body

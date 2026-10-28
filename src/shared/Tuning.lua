@@ -703,6 +703,10 @@ Tuning.Replay = {
 	StreamSpacing = 256, -- studs between the places along a replay's path asked to stream in
 	StreamRefresh = 1, -- seconds between asking again for the map round the ghost car
 	StreamAhead = 1, -- replay seconds ahead of the ghost car also asked for
+	-- Studs a creature is drawn from where the replay has it past which it
+	-- jumps there instead of gliding, as a replay starts or scrubs (KaijuLook,
+	-- TRexLook, RaptorLook, PteroLook).
+	Jump = 50,
 	EndHold = 1, -- seconds the last frame holds before the replay closes
 	Speeds = { 1, 0.5, 0.25 }, -- what the speed button steps through (ReplayControls)
 	-- Parts breaking off the ghost car (ReplayDebris). They are thrown like
@@ -1543,7 +1547,6 @@ Tuning.City = {
 		Look = {
 			ChompRate = 3,
 			Smooth = 15,
-			Snap = 50, -- studs from where it is drawn past which it jumps there, as a replay starts or scrubs
 			MinStride = 18,
 			MaxStride = 56,
 			StridePerSpeed = 0.7,
@@ -2191,7 +2194,6 @@ Tuning.Dino = {
 			RoarVolume = 1,
 			RoarHearing = 600,
 			Smooth = 15,
-			Snap = 50, -- studs from where it is drawn past which it jumps there, as a replay starts or scrubs
 			MinStride = 16,
 			MaxStride = 50,
 			StridePerSpeed = 0.6,

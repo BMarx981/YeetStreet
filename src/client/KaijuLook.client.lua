@@ -21,9 +21,9 @@
 -- it stopped (LaserEnd), fading over BeamTime, with a blast sound.
 -- The model, Root and Head are recorded for replays (ReplayWorld.follow).
 -- During one it is drawn from the recording, on the replay's clock, jumping
--- there (Look.Snap) as the replay starts or scrubs; it holds the ghost car
--- if it held the replayed car, and its sounds play as the replay passes
--- them going forward. Its sounds come from its drawn head.
+-- there (Tuning.Replay.Jump) as the replay starts or scrubs; it holds the
+-- ghost car if it held the replayed car, and its sounds play as the replay
+-- passes them going forward. Its sounds come from its drawn head.
 -- Numbers are in Tuning.City.Kaiju (Head, Look, Laser).
 
 local Players = game:GetService("Players")
@@ -433,7 +433,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	local smooth = 1 - math.exp(-L.Smooth * dt)
 	local target = ReplayWorld.cframe(serverRoot)
 	local lastRoot = root
-	if (target.Position - root.Position).Magnitude > L.Snap then
+	if (target.Position - root.Position).Magnitude > Tuning.Replay.Jump then
 		root, lastRoot = target, target
 		head = ReplayWorld.cframe(serverHead)
 	else
