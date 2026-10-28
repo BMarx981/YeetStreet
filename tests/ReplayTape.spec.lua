@@ -7,6 +7,7 @@ local TUNING: ReplayTape.Tuning = {
 	Tail = 2,
 	MaxLength = 10,
 	BigScore = 5000,
+	MinAirtime = 1,
 }
 
 -- A tape with one pose every `step` seconds from `from` to `to`, each pose
@@ -139,6 +140,13 @@ Check.test("the tape forgets breaks older than MaxLength", function()
 		ReplayTape.record(tape, t, t, TUNING)
 	end
 	Check.eq(#tape.marks, 0, "marks")
+end)
+
+Check.test("a run is kept from MinAirtime in the air up", function()
+	Check.eq(ReplayTape.keeps(10, 10.4, TUNING), false, "a hop")
+	Check.eq(ReplayTape.keeps(10, 10.999, TUNING), false, "just under")
+	Check.eq(ReplayTape.keeps(10, 11, TUNING), true, "at")
+	Check.eq(ReplayTape.keeps(10, 25, TUNING), true, "a big jump")
 end)
 
 Check.test("a run is big from BigScore up", function()

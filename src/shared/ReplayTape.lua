@@ -20,6 +20,7 @@ export type Tuning = {
 	Tail: number, -- seconds of the clip after the run ends
 	MaxLength: number, -- longest clip, in seconds; also how much the tape keeps
 	BigScore: number, -- run total from which a replay plays on its own
+	MinAirtime: number, -- seconds from liftoff a run lasts to replace the last clip
 }
 
 export type Frame<P> = {
@@ -144,6 +145,12 @@ function ReplayTape.broken<P>(clip: Clip<P>, t: number): { [string]: number }
 		end
 	end
 	return counts
+end
+
+-- Whether a run that lifted off at `startT` and ended at `endT` is worth a
+-- clip, so a hop while rolling after a landing doesn't replace the jump.
+function ReplayTape.keeps(startT: number, endT: number, tuning: Tuning): boolean
+	return endT - startT >= tuning.MinAirtime
 end
 
 -- Whether a run with this total plays its replay without being asked.

@@ -111,9 +111,14 @@ function ReplayRecorder.step(hull: BasePart, flying: boolean)
 end
 
 -- Notes that a run just ended; its clip is cut once the tail is recorded.
+-- A run shorter than MinAirtime keeps the last clip instead.
 function ReplayRecorder.finish()
 	local now = os.clock()
-	local from, to = ReplayTape.window(if wasFlying then liftoffAt else now, now, R)
+	local start = if wasFlying then liftoffAt else now
+	if not ReplayTape.keeps(start, now, R) then
+		return
+	end
+	local from, to = ReplayTape.window(start, now, R)
 	pending = { from = from, to = to }
 end
 

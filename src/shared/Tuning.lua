@@ -685,6 +685,7 @@ Tuning.Replay = {
 	Tail = 2, -- seconds of the clip after the run ends
 	MaxLength = 20, -- longest clip in seconds, keeping the end; also how much the tape keeps
 	BigScore = 3000, -- run total from which a replay plays on its own
+	MinAirtime = 1, -- seconds from liftoff a run lasts to replace the last clip
 	CameraDistance = 40, -- studs from the ghost car
 	CameraHeight = 12, -- studs above it
 	CameraAngle = 35, -- degrees round from side on toward behind the way the run went
