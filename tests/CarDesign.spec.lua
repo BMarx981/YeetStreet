@@ -15,7 +15,7 @@ local LOOKS: CarDesign.Looks = {
 }
 
 local ARCHETYPES = { "hatch", "pickup", "muscle", "buggy", "wedge", "hover", "jeep", "bus" }
-local TIERS = { "Junker", "Street", "Sports", "Supercar", "Rebirth" }
+local TIERS = { "Junker", "Street", "Sports", "Supercar", "Rebirth", "Squad" }
 
 local function levels(speed: number, jets: number, toughness: number, grip: number, brakes: number?): CarDesign.Levels
 	return { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip, Brakes = brakes or 0 }

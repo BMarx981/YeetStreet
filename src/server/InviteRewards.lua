@@ -12,6 +12,7 @@
 -- MessagingService tells the inviter's server, wherever it is. An inviter
 -- has their credits checked when they join, on that message, and every
 -- Tuning.Invites.CheckInterval, and is paid for friends not yet credited.
+-- A car milestone adds that car to their garage (Garage.giveCar).
 --
 -- Roblox friends in the same server boost each other's run payouts
 -- (squadBoost, used by ScoreService). Each player's count of friends here
@@ -109,6 +110,9 @@ function InviteRewards.check(player: Player)
 	player:SetAttribute("InviteFriends", #state.Friends)
 	local prizes = {}
 	for _, prize in payout.Prizes do
+		if prize.Kind == "Car" and prize.CarId then
+			Garage.giveCar(player, prize.CarId)
+		end
 		table.insert(prizes, prize.Label)
 	end
 	inviteReward:FireClient(player, {

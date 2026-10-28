@@ -48,7 +48,7 @@ Tuning.Invites = {
 		{ Friends = 1, Kind = "Cash", Amount = 5000, Label = "$5,000 bonus" },
 		{ Friends = 3, Kind = "Cash", Amount = 15000, Label = "$15,000 bonus" },
 		{ Friends = 5, Kind = "Cash", Amount = 40000, Label = "$40,000 bonus" },
-		{ Friends = 10, Kind = "Cash", Amount = 100000, Label = "$100,000 bonus" },
+		{ Friends = 10, Kind = "Car", CarId = "Squad", Label = "the Squad Hover car" },
 	},
 	-- Each Roblox friend in the same server adds this to run payouts, up to
 	-- SquadBoostMaxFriends friends.
@@ -152,6 +152,18 @@ Tuning.Ladder = {
 		Archetype = "wedge",
 		Tier = "Supercar",
 	},
+	-- Won by bringing in Tuning.Invites' last milestone of friends.
+	{
+		Id = "Squad",
+		Name = "Squad Hover",
+		Price = 0,
+		Bonus = 10,
+		Caps = { Speed = 34, Jets = 28, Toughness = 32, Grip = 28, Brakes = 28 },
+		Seed = 1,
+		Archetype = "hover",
+		Tier = "Squad",
+		ForSale = false,
+	},
 	-- Dino cars: only obtainable from the Dino Mystery Box at the Bone Trader.
 	{
 		Id = "Velociraptor",
@@ -162,6 +174,7 @@ Tuning.Ladder = {
 		Seed = 11,
 		Archetype = "buggy",
 		Tier = "Dino",
+		ForSale = false,
 	},
 	{
 		Id = "Triceratops",
@@ -172,6 +185,7 @@ Tuning.Ladder = {
 		Seed = 12,
 		Archetype = "triceratops",
 		Tier = "Dino",
+		ForSale = false,
 	},
 	{
 		Id = "Brachiosaurus",
@@ -182,6 +196,7 @@ Tuning.Ladder = {
 		Seed = 13,
 		Archetype = "brachiosaurus",
 		Tier = "Dino",
+		ForSale = false,
 	},
 	{
 		Id = "Spinosaurus",
@@ -192,6 +207,7 @@ Tuning.Ladder = {
 		Seed = 14,
 		Archetype = "spinosaurus",
 		Tier = "Dino",
+		ForSale = false,
 	},
 	{
 		Id = "TRex",
@@ -202,6 +218,7 @@ Tuning.Ladder = {
 		Seed = 7,
 		Archetype = "trex",
 		Tier = "Dino",
+		ForSale = false,
 	},
 }
 

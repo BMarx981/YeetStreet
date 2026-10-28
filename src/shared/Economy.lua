@@ -32,6 +32,7 @@ export type Car = {
 	Seed: number,
 	Archetype: string,
 	Tier: string,
+	ForSale: boolean?, -- false for cars only won, never bought (dino cars, invite prize)
 }
 
 -- A limited edition item from Tuning.Limiteds.
@@ -254,7 +255,8 @@ function Economy.upgrade(state: State, stat: StatName, ladder: { Car }, tuning: 
 	return after, nil
 end
 
--- Buys a car without equipping it. Fails with "UnknownCar", "Owned", or "NotEnoughCash".
+-- Buys a car without equipping it. Fails with "UnknownCar", "Owned", "NotForSale",
+-- or "NotEnoughCash".
 function Economy.buyCar(state: State, id: string, ladder: { Car }): (State?, string?)
 	local car = Economy.findCar(ladder, id)
 	if not car then
@@ -262,6 +264,9 @@ function Economy.buyCar(state: State, id: string, ladder: { Car }): (State?, str
 	end
 	if table.find(state.Cars, id) then
 		return nil, "Owned"
+	end
+	if car.ForSale == false then
+		return nil, "NotForSale"
 	end
 	if state.Cash < car.Price then
 		return nil, "NotEnoughCash"

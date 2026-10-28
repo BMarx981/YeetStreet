@@ -276,6 +276,19 @@ function Garage.giveLimited(player: Player, id: string)
 	end
 end
 
+-- Grants a ladder car without charge, such as an invite prize
+-- (InviteRewards). Adds it to the player's cars without equipping it.
+function Garage.giveCar(player: Player, id: string)
+	local data = PlayerData.get(player)
+	if not data or not Economy.findCar(Tuning.Ladder, id) then
+		return
+	end
+	if not table.find(data.Economy.Cars, id) then
+		table.insert(data.Economy.Cars, id)
+		publish(player, data.Economy)
+	end
+end
+
 local function onPlayerAdded(player: Player)
 	Leaderstats.value(player, "Cash")
 	local data = PlayerData.waitFor(player)

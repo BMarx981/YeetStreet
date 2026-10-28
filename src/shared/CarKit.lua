@@ -314,6 +314,23 @@ CarKit.Tiers = (
 			Trim = { 10, 10, 14 },
 			Glass = { 15, 20, 30 },
 		},
+		-- Bright team colors with neon trim, for the invite prize.
+		Squad = {
+			Paints = {
+				{ 30, 110, 255 },
+				{ 255, 190, 0 },
+				{ 0, 190, 120 },
+				{ 240, 60, 60 },
+			},
+			Glows = {
+				{ 0, 255, 255 },
+				{ 255, 240, 80 },
+			},
+			Material = "SmoothPlastic",
+			Gloss = 0.3,
+			Trim = { 240, 240, 245 },
+			Glass = { 20, 30, 45 },
+		},
 		-- Prehistoric greens with amber accents.
 		Dino = {
 			Paints = {
@@ -351,6 +368,7 @@ CarKit.Names = {
 	Sports = { "Thunderbolt", "Red Line", "Streak", "Burnout", "Fury", "Afterburner" },
 	Supercar = { "Zenith", "Vortex", "Apex", "Nova", "Razor", "Hyperdrive" },
 	Rebirth = { "Phoenix", "Comet", "Eclipse", "Singularity", "Starfall", "Reborn" },
+	Squad = { "Wingman", "Convoy", "Posse", "Crew Cab", "Ride or Die", "Squad Goals" },
 	Dino = { "T-Rex", "Raptor", "Fossil", "Prehistoric", "Dino Rumble", "Extinction" },
 }
 CarKit.NameSuffixes = { "Mk II", "Mk III", "GT", "X", "Turbo", "Deluxe" }

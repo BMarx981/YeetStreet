@@ -231,6 +231,21 @@ Check.test("a car can't be bought twice, without the cash, or if it isn't on the
 	Check.eq(broke, "NotEnoughCash")
 end)
 
+Check.test("a car that isn't for sale can't be bought, even for free", function()
+	local prize = table.clone(LADDER[2])
+	prize.Id = "Prize"
+	prize.Price = 0
+	prize.ForSale = false
+	local ladder = table.clone(LADDER)
+	table.insert(ladder, prize)
+	local s = state(100000, levels(0, 0, 0, 0), { "Junker" }, "Junker")
+	local after, reason = Economy.buyCar(s, "Prize", ladder)
+	Check.eq(after, nil)
+	Check.eq(reason, "NotForSale")
+	local bought = Economy.buyCar(s, "Hatchback", ladder)
+	assert(bought, "a car without ForSale is for sale")
+end)
+
 Check.test("only an owned car can be equipped", function()
 	local s = state(0, levels(0, 0, 0, 0), { "Junker", "Hatchback" }, "Junker")
 	local after = Economy.equip(s, "Hatchback")

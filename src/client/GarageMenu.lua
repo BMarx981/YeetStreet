@@ -60,6 +60,7 @@ local REASONS: { [string]: string } = {
 	AtCap = "This car is maxed out there. A better car raises the limit.",
 	Owned = "You already own that.",
 	NotOwned = "Buy that car first.",
+	NotForSale = "That car can't be bought. Invite friends to win it!",
 	TooSoon = "One moment...",
 	NotLoaded = "Your garage is still loading.",
 	SoldOut = "That item is sold out.",
@@ -135,6 +136,16 @@ local function carText(car: Economy.Car): string
 		return `{free}Max level {caps.Speed} on every stat`
 	end
 	return `{free}Max: Speed {caps.Speed}, Jets {caps.Jets}, Tough {caps.Toughness}, Grip {caps.Grip}, Brakes {caps.Brakes}`
+end
+
+-- How many invited friends win the car, if it is an invite prize.
+local function prizeFriends(id: string): number?
+	for _, milestone in Tuning.Invites.Milestones do
+		if milestone.CarId == id then
+			return milestone.Friends
+		end
+	end
+	return nil
 end
 
 local function build()
@@ -379,6 +390,9 @@ local function build()
 				setButton(r.button, "DRIVING", false)
 			elseif table.find(cars, ladderCar.Id) then
 				setButton(r.button, "EQUIP", loaded and not busy)
+			elseif ladderCar.ForSale == false then
+				local friends = prizeFriends(ladderCar.Id)
+				setButton(r.button, if friends then `{friends} FRIENDS` else "LOCKED", false)
 			else
 				setButton(r.button, `$ {withCommas(ladderCar.Price)}`, loaded and not busy and money >= ladderCar.Price, true)
 			end
