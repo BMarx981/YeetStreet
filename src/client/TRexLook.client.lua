@@ -16,6 +16,7 @@
 -- While the T-Rex holds a car (HeldCar) or a player on foot (HeldPlayer),
 -- the head is drawn where their spot in its jaws is, so they never drift
 -- from them on screen. It roars as it spots a car and gives chase.
+-- The model, Root and Head are recorded for replays (ReplayWorld.follow).
 -- Numbers are in Tuning.Dino.Rex (Head, Look).
 
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local R = Tuning.Dino.Rex
 local H = R.Head
@@ -86,6 +88,9 @@ local WALK_FROM = 8
 local rex = workspace:WaitForChild("Parks"):WaitForChild("Dino"):WaitForChild("TRex")
 local serverRoot = rex:WaitForChild("Root") :: BasePart
 local serverHead = rex:WaitForChild("Head") :: BasePart
+for _, followed in { rex, serverRoot, serverHead } do
+	ReplayWorld.follow(followed)
+end
 local carsFolder = workspace:WaitForChild("Cars")
 
 -- Rojo has synced some scripts into Studio twice; only one copy draws.

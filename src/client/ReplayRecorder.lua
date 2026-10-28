@@ -15,13 +15,15 @@
 -- those from before the clip; the clip's marks say when the rest broke off.
 -- The attributes are copied as they change rather than read at the cut, since
 -- by then a wrecked car is gone. It also carries the server's time at the
--- start of the clip, so the world can be drawn as it was then (ReplayWorld).
+-- start of the clip and what ReplayWorld recorded over it, so the world can
+-- be drawn as it was then.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CarParts = require(ReplicatedStorage.CarParts)
 local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local R = Tuning.Replay
 
@@ -29,6 +31,7 @@ export type Replay = {
 	clip: ReplayTape.Clip<CFrame>,
 	look: { [string]: any }, -- the car's attributes at the start of the clip
 	serverStart: number, -- the server's time at the start of the clip
+	world: ReplayWorld.World, -- creatures and the like over the clip
 }
 
 local ReplayRecorder = {}
@@ -54,7 +57,12 @@ local function cut(window: ReplayTape.Window?)
 	end
 	-- The tape runs on os.clock.
 	local serverStart = clip.start + workspace:GetServerTimeNow() - os.clock()
-	last = { clip = clip, look = before, serverStart = serverStart }
+	last = {
+		clip = clip,
+		look = before,
+		serverStart = serverStart,
+		world = ReplayWorld.cut(window.from, window.to, clip.start),
+	}
 end
 
 -- Starts recording `model`, the car the local player just got into.
@@ -97,6 +105,7 @@ end
 function ReplayRecorder.step(hull: BasePart, flying: boolean)
 	local now = os.clock()
 	ReplayTape.record(tape, now, hull.CFrame, R)
+	ReplayWorld.record(now)
 	ReplayTape.fly(tape, now, flying, R)
 	cut(ReplayTape.due(tape, now, false))
 end

@@ -15,12 +15,14 @@
 -- player its Target points at, as this client sees them, so it never trails
 -- behind a fast car. Each screeches as its pack springs an ambush (Mode hide
 -- to chase), and each bite snaps.
+-- Each part and its Target are recorded for replays (ReplayWorld.follow).
 -- Numbers are in Tuning.Dino.Raptors.Look.
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local R = Tuning.Dino.Raptors
 local L = R.Look
@@ -179,6 +181,13 @@ end
 local function addMarker(marker: Instance)
 	if marker:IsA("BasePart") then
 		table.insert(looks, newLook(marker, #looks + 1))
+		ReplayWorld.follow(marker)
+		task.spawn(function()
+			local target = marker:WaitForChild("Target", 10)
+			if target then
+				ReplayWorld.follow(target)
+			end
+		end)
 	end
 end
 for _, marker in raptorsFolder:GetChildren() do

@@ -198,7 +198,7 @@ end
 
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
-	ReplayWorld.watch(now.replay.serverStart + time)
+	ReplayWorld.watch(now.replay.world, time, now.replay.serverStart + time)
 	local pose = poseAt(now.replay.clip, time)
 	for i, piece in now.pieces do
 		local breakAt = piece.breakAt
@@ -238,7 +238,7 @@ function ReplayPlayer.stop()
 	end
 	playing = nil
 	RunService:UnbindFromRenderStep(RENDER_NAME)
-	ReplayWorld.watch(nil)
+	ReplayWorld.stopWatching()
 	ReplayCamera.stop()
 	now.ghost:Destroy()
 	for _, part in now.hidden do

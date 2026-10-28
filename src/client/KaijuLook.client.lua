@@ -19,6 +19,7 @@
 -- tip up to the head, a faint line runs to where it aims (LaserAim), and a
 -- charge hums. Each shot (LaserShots) flashes a beam from each eye to where
 -- it stopped (LaserEnd), fading over BeamTime, with a blast sound.
+-- The model, Root and Head are recorded for replays (ReplayWorld.follow).
 -- Numbers are in Tuning.City.Kaiju (Head, Look, Laser).
 
 local Players = game:GetService("Players")
@@ -26,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local K = Tuning.City.Kaiju
 local H = K.Head
@@ -99,6 +101,9 @@ local BEAM_WIDTH = 3
 local kaiju = workspace:WaitForChild("Parks"):WaitForChild("City"):WaitForChild("Kaiju")
 local serverRoot = kaiju:WaitForChild("Root") :: BasePart
 local serverHead = kaiju:WaitForChild("Head") :: BasePart
+for _, followed in { kaiju, serverRoot, serverHead } do
+	ReplayWorld.follow(followed)
+end
 local carsFolder = workspace:WaitForChild("Cars")
 
 -- Rojo has synced some scripts into Studio twice; only one copy draws.

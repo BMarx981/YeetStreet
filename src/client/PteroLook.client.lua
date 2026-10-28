@@ -17,12 +17,14 @@
 -- lies on the ground under it, darker the lower it flies. It screeches as
 -- it starts a swoop.
 -- While the park is put away (the :dino admin command), so is the drawing.
+-- The model and Talons are recorded for replays (ReplayWorld.follow).
 -- Numbers are in Tuning.Dino.Ptero (Look).
 
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local P = Tuning.Dino.Ptero
 local L = P.Look
@@ -77,6 +79,8 @@ local SHADOW_FADE = 400
 
 local pterodactyl = workspace:WaitForChild("Parks"):WaitForChild("Dino"):WaitForChild("Pterodactyl")
 local serverTalons = pterodactyl:WaitForChild("Talons") :: BasePart
+ReplayWorld.follow(pterodactyl)
+ReplayWorld.follow(serverTalons)
 local carsFolder = workspace:WaitForChild("Cars")
 
 -- Rojo has synced some scripts into Studio twice; only one copy draws.
