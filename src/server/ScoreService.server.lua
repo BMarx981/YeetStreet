@@ -9,6 +9,8 @@
 -- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
 -- the PayScale of the launch pad the run started from, and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
+-- InviteRewards hears of every run that ends, so a first run can credit the
+-- player's inviter.
 --
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
 -- placed on a slot (Impact). Body hits during a run drain the car's
@@ -95,6 +97,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local CarDamage = require(ServerScriptService.CarDamage)
 local Garage = require(ServerScriptService.Garage)
+local InviteRewards = require(ServerScriptService.InviteRewards)
 local Leaderstats = require(ServerScriptService.Leaderstats)
 local PlayerData = require(ServerScriptService.PlayerData)
 
@@ -299,6 +302,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	Garage.pay(watch.player, Economy.payout(score.total, Tuning.Cash.PerPoint * watch.payScale))
 	watch.payScale = 1
 	runResult:FireClient(watch.player, result, score)
+	InviteRewards.ranRun(watch.player)
 end
 
 local carsFolder = workspace:WaitForChild("Cars")

@@ -54,6 +54,8 @@ Tuning.Invites = {
 	-- SquadBoostMaxFriends friends.
 	SquadBoostPerFriend = 0.1,
 	SquadBoostMaxFriends = 3,
+	-- Seconds between checks for credits a MessagingService message missed.
+	CheckInterval = 300,
 }
 
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps

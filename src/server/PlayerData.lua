@@ -14,6 +14,10 @@
 --
 -- Other scripts read with PlayerData.get or wait with PlayerData.waitFor, and
 -- change data with PlayerData.update.
+--
+-- It also keeps invite credits (InviteRewards) in a store of their own, keyed
+-- by the inviter: the UserIds of friends they brought in. A friend's server
+-- adds to it, since the inviter's record is locked to their own server.
 
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -22,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Economy = require(ReplicatedStorage.Economy)
+local Invites = require(ReplicatedStorage.Invites)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
 local Tuning = require(ReplicatedStorage.Tuning)
 
@@ -30,16 +35,19 @@ local S = Tuning.Save
 -- Bump only for a change old saves can't be reconciled from.
 local STORE_NAME = "PlayerData1"
 local VERSION = 1
+local CREDIT_STORE_NAME = "InviteCredits1"
 
 export type Data = {
 	Version: number,
 	Economy: Economy.State,
 	Best: number, -- best run score
+	Invites: Invites.State,
 }
 
 type Session = {
 	data: Data,
 	saves: boolean, -- false when the load failed: this data is never written
+	new: boolean, -- true when the player had no saved record
 }
 
 local PlayerData = {}
@@ -67,6 +75,7 @@ end
 if not storeOk then
 	warn(`PlayerData: no DataStore, progress won't save ({storeProblem})`)
 end
+local creditStore = if storeOk then DataStoreService:GetDataStore(CREDIT_STORE_NAME) else nil
 
 local function key(player: Player): string
 	return `Player_{player.UserId}`
@@ -79,6 +88,7 @@ local function reconcile(saved: any): Data
 		Version = VERSION,
 		Economy = Economy.reconcile(raw.Economy, Tuning.Ladder),
 		Best = if typeof(best) == "number" and best >= 0 then best else 0,
+		Invites = Invites.reconcile(raw.Invites),
 	}
 end
 
@@ -151,6 +161,7 @@ local function onPlayerAdded(player: Player)
 	local session: Session = {
 		data = reconcile(saved),
 		saves = claimed,
+		new = claimed and saved == nil,
 	}
 	if not player.Parent or leaving[player] then
 		save(player, session, true)
@@ -180,6 +191,46 @@ function PlayerData.update(player: Player, change: (Data) -> ())
 	if session then
 		change(session.data)
 	end
+end
+
+-- Whether this is the player's first time in the game: their record loaded
+-- and nothing was saved in it before. False when the load failed.
+function PlayerData.isNew(player: Player): boolean
+	local session = sessions[player]
+	return session ~= nil and session.new
+end
+
+-- Adds `friendId` to `inviterId`'s invite credits. Returns whether it saved.
+function PlayerData.addInviteCredit(inviterId: number, friendId: number): boolean
+	if not creditStore then
+		return false
+	end
+	local ok, err = pcall(function()
+		creditStore:UpdateAsync(`Inviter_{inviterId}`, function(stored: any): { number }
+			local friends = if typeof(stored) == "table" then stored else {}
+			if not table.find(friends, friendId) then
+				table.insert(friends, friendId)
+			end
+			return friends
+		end)
+	end)
+	if not ok then
+		warn(`PlayerData: couldn't save an invite credit for {inviterId} ({err})`)
+	end
+	return ok
+end
+
+-- `inviterId`'s invite credits, or nil if they can't be read.
+function PlayerData.inviteCredits(inviterId: number): { number }?
+	if not creditStore then
+		return nil
+	end
+	local ok, stored = pcall(creditStore.GetAsync, creditStore, `Inviter_{inviterId}`)
+	if not ok then
+		warn(`PlayerData: couldn't read invite credits for {inviterId} ({stored})`)
+		return nil
+	end
+	return if typeof(stored) == "table" then stored else {}
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
