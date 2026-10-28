@@ -9,9 +9,10 @@
 --
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
--- HUD alone. The camera looks at the ghost from the side, a little behind
--- the way the run went (Tuning.Replay). The last frame holds for EndHold,
--- then the replay closes.
+-- HUD alone. The camera starts on the ghost from the side, a little behind
+-- the way the run went (Tuning.Replay), and the player can circle it from
+-- there (ReplayCamera). The last frame holds for EndHold, then the replay
+-- closes.
 --
 -- HeliCar and PlaneCar replay with their generated look.
 
@@ -20,9 +21,11 @@ local RunService = game:GetService("RunService")
 
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
+local ReplayOrbit = require(ReplicatedStorage.ReplayOrbit)
 local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
+local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
 
 local R = Tuning.Replay
@@ -36,7 +39,6 @@ type Playing = {
 	ghost: Model,
 	root: BasePart,
 	hidden: { BasePart },
-	offset: Vector3, -- camera position from the ghost
 	time: number,
 }
 
@@ -92,9 +94,9 @@ local function buildGhost(look: { [string]: any }): (Model?, BasePart?)
 	return ghost, root
 end
 
--- Where the camera sits from the ghost: side on to the way the run went,
--- turned CameraAngle toward behind it.
-local function cameraOffset(clip: ReplayTape.Clip<CFrame>): Vector3
+-- Where the camera starts: side on to the way the run went, turned
+-- CameraAngle toward behind it.
+local function startOrbit(clip: ReplayTape.Clip<CFrame>): ReplayOrbit.Orbit
 	local first = clip.frames[1].pose
 	local last = clip.frames[#clip.frames].pose
 	local travel = (last.Position - first.Position) * Vector3.new(1, 0, 1)
@@ -108,16 +110,13 @@ local function cameraOffset(clip: ReplayTape.Clip<CFrame>): Vector3
 	local side = travel:Cross(Vector3.yAxis)
 	local angle = math.rad(R.CameraAngle)
 	local flat = side * math.cos(angle) - travel * math.sin(angle)
-	return flat * R.CameraDistance + Vector3.yAxis * R.CameraHeight
+	return ReplayOrbit.new(ReplayOrbit.facing(flat.X, flat.Z), math.rad(R.CameraPitch), R.CameraDistance, R)
 end
 
-local function show(now: Playing)
+local function show(now: Playing, dt: number)
 	local a, b, alpha = ReplayTape.sample(now.replay.clip, now.time)
 	now.root.CFrame = a:Lerp(b, alpha)
-	local camera = workspace.CurrentCamera
-	camera.CameraType = Enum.CameraType.Scriptable
-	local focus = now.root.Position
-	camera.CFrame = CFrame.lookAt(focus + now.offset, focus)
+	ReplayCamera.update(now.root.Position, dt)
 end
 
 -- Whether a replay is playing.
@@ -133,6 +132,7 @@ function ReplayPlayer.stop()
 	end
 	playing = nil
 	RunService:UnbindFromRenderStep(RENDER_NAME)
+	ReplayCamera.stop()
 	now.ghost:Destroy()
 	for _, part in now.hidden do
 		part.LocalTransparencyModifier = 0
@@ -163,14 +163,14 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		ghost = ghost,
 		root = root,
 		hidden = hidden,
-		offset = cameraOffset(replay.clip),
 		time = 0,
 	}
 	playing = now
+	ReplayCamera.start(startOrbit(replay.clip))
 	-- In the workspace before it moves: welds keep the offsets their parts
 	-- have when they get there.
 	ghost.Parent = workspace
-	show(now)
+	show(now, 0)
 	workspace.CurrentCamera.FieldOfView = Tuning.Camera.Fov
 	RunService:BindToRenderStep(RENDER_NAME, Enum.RenderPriority.Camera.Value + 1, function(dt: number)
 		now.time += dt
@@ -178,7 +178,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 			ReplayPlayer.stop()
 			return
 		end
-		show(now)
+		show(now, dt)
 	end)
 end
 

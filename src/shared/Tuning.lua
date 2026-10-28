@@ -686,9 +686,19 @@ Tuning.Replay = {
 	MaxLength = 20, -- longest clip in seconds, keeping the end; also how much the tape keeps
 	BigScore = 3000, -- run total from which a replay plays on its own
 	MinAirtime = 1, -- seconds from liftoff a run lasts to replace the last clip
-	CameraDistance = 40, -- studs from the ghost car
-	CameraHeight = 12, -- studs above it
+	-- Where the camera starts (ReplayPlayer), then the player circles it
+	-- round the ghost car (ReplayCamera, ReplayOrbit).
+	CameraDistance = 42, -- studs from the ghost car
+	CameraPitch = 17, -- degrees above level
 	CameraAngle = 35, -- degrees round from side on toward behind the way the run went
+	MinPitch = 5, -- degrees; lower would put the camera under the ground
+	MaxPitch = 80,
+	MinDistance = 12,
+	MaxDistance = 200,
+	MouseTurn = 0.008, -- radians per pixel dragged
+	TouchTurn = 0.01, -- radians per pixel dragged
+	StickTurn = 3, -- radians per second with the right stick all the way over
+	WheelZoom = 0.85, -- distance times this per wheel notch toward the screen
 	EndHold = 1, -- seconds the last frame holds before the replay closes
 }
 
