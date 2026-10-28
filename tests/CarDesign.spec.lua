@@ -311,6 +311,17 @@ Check.test("brake lights come halfway up the Brakes steps, on the tail", functio
 	end
 end)
 
+Check.test("taillights stay unlit, and light with the brakes from step 2", function()
+	for _, taillight in named(design(12, "hatch", "Street", levels(0, 0, 0, 0, 5)), "Taillight") do
+		Check.eq(taillight.material ~= "Neon", true, "unlit")
+		Check.eq(taillight.role, "trim", "no brake glow at step 1")
+	end
+	for _, taillight in named(design(12, "hatch", "Street", levels(0, 0, 0, 0, 12)), "Taillight") do
+		Check.eq(taillight.material ~= "Neon", true, "unlit")
+		Check.eq(taillight.role, "brakeLight", "glows with the brakes at step 2")
+	end
+end)
+
 Check.test("brake lights never overlap each other or the taillights", function()
 	local function overlap(a: CarDesign.PartSpec, b: CarDesign.PartSpec): boolean
 		return math.abs(a.position.x - b.position.x) < (a.size.x + b.size.x) / 2

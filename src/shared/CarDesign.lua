@@ -141,7 +141,7 @@ export type Kit = {
 type Paint = { color: Color, material: string, reflectance: number, role: Role }
 
 local HEADLIGHT: Color = { 255, 250, 220 }
-local TAILLIGHT: Color = { 220, 30, 30 }
+local TAILLIGHT: Color = { 150, 20, 20 } -- unlit, like the brake lights
 local BRAKE_LIGHT: Color = { 110, 15, 15 } -- unlit; CarVisuals lights it while braking
 local CALIPER_GREY: Color = { 130, 130, 135 }
 local CALIPER_RED: Color = { 210, 30, 30 }
@@ -452,10 +452,12 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	-- Lights.
 	local lightY = bottom + heights[1] * 0.35
 	local tailY = bottom + heights[count] * 0.6
+	-- Once the car has brake lights, the taillights light with them.
+	local tailRole: Role = if CarDesign.step(input.levels.Brakes, looks.StatSteps) >= 2 then "brakeLight" else "trim"
 	for _, side in { -1, 1 } do
 		local x = side * (width / 2 - 0.8)
 		local headPaint: Paint = { color = HEADLIGHT, material = "Neon", reflectance = 0, role = "trim" }
-		local tailPaint: Paint = { color = TAILLIGHT, material = "Neon", reflectance = 0, role = "trim" }
+		local tailPaint: Paint = { color = TAILLIGHT, material = "SmoothPlastic", reflectance = 0, role = tailRole }
 		add("block", "Headlight", "nose", vec(1, 0.35, 0.1), vec(x, lightY, -length / 2 - 0.05), headPaint)
 		add("block", "Taillight", "tail", vec(1, 0.3, 0.1), vec(x, tailY, length / 2 + 0.05), tailPaint)
 	end
