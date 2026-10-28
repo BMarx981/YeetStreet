@@ -1,0 +1,233 @@
+--!strict
+-- ReplayControls (ModuleScript) -> StarterPlayerScripts.ReplayControls
+-- The buttons for replays, in the menus' street garage look (UiStyle).
+--
+-- While driving, a REPLAY sticker under TELEPORT plays the last flight
+-- (ReplayRecorder). It shows once there is one, and bounces when a new one
+-- is ready. While a replay plays, a bar along the bottom has play/pause, a
+-- scrub bar to drag through the clip, the speed (Tuning.Replay.Speeds), and
+-- close, with the time above it.
+--
+--   Keyboard  V plays or closes (CarController); driving keys close it
+--   Gamepad   D-pad down plays or closes (CarController), A pauses, B closes
+--
+-- What pressing REPLAY does belongs to CarController (start's `toggle`),
+-- since it has the car to hide and hold.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local ReplayClock = require(ReplicatedStorage.ReplayClock)
+local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayPlayer = require(script.Parent.ReplayPlayer)
+local ReplayRecorder = require(script.Parent.ReplayRecorder)
+local UiStyle = require(script.Parent.UiStyle)
+
+local R = Tuning.Replay
+local K = Enum.KeyCode
+
+-- Keys that drive the car. Pressing one closes the replay to drive on.
+local DRIVE_KEYS = { K.W, K.A, K.S, K.D, K.Up, K.Down, K.Left, K.Right, K.Space, K.LeftShift, K.ButtonR2, K.ButtonL2 }
+
+local BAR_WIDTH = 560
+local BAR_HEIGHT = 60
+local BUTTON = 44
+local SPEED_WIDTH = 64
+local GAP = 8
+local SCRUB_HEIGHT = 14
+local KNOB = 22
+-- Symbols the sticker font draws; ❚❚ and ✕ come out blank in it.
+local PLAY = "▶"
+local PAUSE = "II"
+local CLOSE = "✖"
+
+local ReplayControls = {}
+
+local started = false
+local driving = false
+
+local function isPress(input: InputObject): boolean
+	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
+end
+
+local function speedLabel(speed: number): string
+	return if speed < 1 then `1/{math.floor(1 / speed + 0.5)}x` else `{string.format("%g", speed)}x`
+end
+
+local function symbol(name: string, parent: Instance, text: string, width: number): TextButton
+	local b = UiStyle.sticker(name, parent, text)
+	b.Size = UDim2.fromOffset(width, BUTTON)
+	return b
+end
+
+local function build(toggle: () -> ())
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "ReplayControls"
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 5 -- above the HUD and touch buttons
+
+	-- Under the TELEPORT button, left of the fuel bar.
+	local open = UiStyle.sticker("Open", gui, "REPLAY")
+	open.AnchorPoint = Vector2.new(1, 0)
+	open.Position = UDim2.new(0.5, -146, 0, 44)
+	open.Size = UDim2.fromOffset(120, 32)
+	open.Visible = false
+	UiStyle.springy(open)
+	open.Activated:Connect(toggle)
+
+	-- Above the bottom edge, clear of the admin command bar.
+	local bar = Instance.new("Frame")
+	bar.Name = "Bar"
+	bar.AnchorPoint = Vector2.new(0.5, 1)
+	bar.Position = UDim2.new(0.5, 0, 1, -96)
+	bar.Size = UDim2.new(0.95, 0, 0, BAR_HEIGHT)
+	bar.BackgroundColor3 = UiStyle.Asphalt
+	bar.Visible = false
+	bar.Parent = gui
+	UiStyle.corner(bar, 12)
+	UiStyle.stroke(bar, 3, UiStyle.Ink, true)
+	local most = Instance.new("UISizeConstraint")
+	most.MaxSize = Vector2.new(BAR_WIDTH, BAR_HEIGHT)
+	most.Parent = bar
+
+	local status = UiStyle.text("Status", bar, 18, true)
+	status.AnchorPoint = Vector2.new(0, 1)
+	status.Position = UDim2.new(0, 4, 0, -6)
+	status.Size = UDim2.new(1, -8, 0, 22)
+
+	local pause = symbol("Pause", bar, PAUSE, BUTTON)
+	pause.AnchorPoint = Vector2.new(0, 0.5)
+	pause.Position = UDim2.new(0, GAP, 0.5, 0)
+	UiStyle.springy(pause)
+
+	local close = symbol("Close", bar, CLOSE, BUTTON)
+	close.AnchorPoint = Vector2.new(1, 0.5)
+	close.Position = UDim2.new(1, -GAP, 0.5, 0)
+	UiStyle.springy(close)
+
+	local speed = symbol("Speed", bar, speedLabel(1), SPEED_WIDTH)
+	speed.AnchorPoint = Vector2.new(1, 0.5)
+	speed.Position = UDim2.new(1, -(2 * GAP + BUTTON), 0.5, 0)
+	UiStyle.springy(speed)
+
+	-- A button, so presses on it never reach the camera's drag.
+	local left = 2 * GAP + BUTTON
+	local right = 4 * GAP + BUTTON + SPEED_WIDTH
+	local scrub = Instance.new("TextButton")
+	scrub.Name = "Scrub"
+	scrub.Text = ""
+	scrub.AutoButtonColor = false
+	scrub.AnchorPoint = Vector2.new(0, 0.5)
+	scrub.Position = UDim2.new(0, left + KNOB / 2, 0.5, 0)
+	scrub.Size = UDim2.new(1, -(left + right + KNOB), 0, SCRUB_HEIGHT)
+	scrub.BackgroundColor3 = UiStyle.Ink
+	scrub.Parent = bar
+	UiStyle.corner(scrub, SCRUB_HEIGHT // 2)
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = UiStyle.Yellow
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.Parent = scrub
+	UiStyle.corner(fill, SCRUB_HEIGHT // 2)
+	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.AnchorPoint = Vector2.new(0.5, 0.5)
+	knob.Size = UDim2.fromOffset(KNOB, KNOB)
+	knob.BackgroundColor3 = Color3.new(1, 1, 1)
+	knob.Parent = scrub
+	UiStyle.corner(knob, KNOB // 2)
+	UiStyle.stroke(knob, 2, UiStyle.Ink, true)
+
+	pause.Activated:Connect(function()
+		local clock = ReplayPlayer.clock()
+		if clock then
+			ReplayClock.togglePause(clock)
+		end
+	end)
+	speed.Activated:Connect(function()
+		local clock = ReplayPlayer.clock()
+		if clock then
+			clock.speed = ReplayClock.nextSpeed(clock.speed, R.Speeds)
+		end
+	end)
+	close.Activated:Connect(ReplayPlayer.stop)
+
+	local scrubbing = false
+	local function seekTo(x: number)
+		local clock = ReplayPlayer.clock()
+		if clock and scrub.AbsoluteSize.X > 0 then
+			ReplayClock.seek(clock, (x - scrub.AbsolutePosition.X) / scrub.AbsoluteSize.X)
+		end
+	end
+	scrub.InputBegan:Connect(function(input: InputObject)
+		if isPress(input) then
+			scrubbing = true
+			seekTo(input.Position.X)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input: InputObject)
+		local moving = input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch
+		if scrubbing and moving then
+			seekTo(input.Position.X)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input: InputObject)
+		if isPress(input) then
+			scrubbing = false
+		end
+	end)
+
+	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+		local clock = ReplayPlayer.clock()
+		if not clock or processed then
+			return
+		end
+		if table.find(DRIVE_KEYS, input.KeyCode) or input.KeyCode == K.ButtonB then
+			ReplayPlayer.stop()
+		elseif input.KeyCode == K.ButtonA then
+			ReplayClock.togglePause(clock)
+		end
+	end)
+
+	local shown: ReplayRecorder.Replay? = nil
+	RunService.RenderStepped:Connect(function()
+		local clock = ReplayPlayer.clock()
+		local last = ReplayRecorder.last()
+		open.Visible = driving and last ~= nil and clock == nil
+		if last ~= shown then
+			shown = last
+			if open.Visible then
+				UiStyle.bounce(open)
+			end
+		end
+		bar.Visible = clock ~= nil
+		if clock then
+			local played = ReplayClock.fraction(clock)
+			fill.Size = UDim2.fromScale(played, 1)
+			knob.Position = UDim2.fromScale(played, 0.5)
+			pause.Text = if clock.paused then PLAY else PAUSE
+			speed.Text = speedLabel(clock.speed)
+			status.Text = string.format("REPLAY  %.1f / %.1f s", math.min(clock.time, clock.duration), clock.duration)
+		end
+	end)
+
+	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
+end
+
+-- Builds the buttons, once. `toggle` plays the last replay or closes one.
+function ReplayControls.start(toggle: () -> ())
+	if not started then
+		started = true
+		build(toggle)
+	end
+end
+
+-- Shows the REPLAY button while the player drives.
+function ReplayControls.setDriving(on: boolean)
+	driving = on
+end
+
+return ReplayControls

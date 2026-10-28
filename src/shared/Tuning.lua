@@ -700,7 +700,17 @@ Tuning.Replay = {
 	StickTurn = 3, -- radians per second with the right stick all the way over
 	WheelZoom = 0.85, -- distance times this per wheel notch toward the screen
 	StreamSpacing = 256, -- studs between the places along a replay's path asked to stream in
+	StreamRefresh = 1, -- seconds between asking again for the map round the ghost car
+	StreamAhead = 1, -- replay seconds ahead of the ghost car also asked for
 	EndHold = 1, -- seconds the last frame holds before the replay closes
+	Speeds = { 1, 0.5, 0.25 }, -- what the speed button steps through (ReplayControls)
+	-- Parts breaking off the ghost car (ReplayDebris). They are thrown like
+	-- real ones (Tuning.Toughness BreakPop) and gone after PartLifetime.
+	DebrisStep = 1 / 30, -- seconds between the points of a broken part's path
+	DebrisSpin = 8, -- radians per second a broken part tumbles
+	DebrisBounce = 0.35, -- share of its speed into a surface a part bounces back with
+	DebrisFriction = 0.15, -- share of its speed along a surface a part loses each bounce
+	DebrisRest = 4, -- studs per second below which a bouncing part stops
 }
 
 Tuning.TestPark = {

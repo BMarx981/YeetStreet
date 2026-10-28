@@ -162,6 +162,17 @@ function ReplayTape.broken<P>(clip: Clip<P>, t: number): { [string]: number }
 	return counts
 end
 
+-- When parts broke off each slot in the clip, in order.
+function ReplayTape.breaks<P>(clip: Clip<P>): { [string]: { number } }
+	local times: { [string]: { number } } = {}
+	for _, mark in clip.marks do
+		local list = times[mark.slot] or {}
+		table.insert(list, mark.t)
+		times[mark.slot] = list
+	end
+	return times
+end
+
 -- Whether a run that lifted off at `startT` and ended at `endT` is worth a
 -- clip, so a hop while rolling after a landing doesn't replace the jump.
 function ReplayTape.keeps(startT: number, endT: number, tuning: Tuning): boolean
