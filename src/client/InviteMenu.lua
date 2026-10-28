@@ -7,6 +7,9 @@
 -- screen opens and closes it; so do the panel's X button and gamepad B.
 -- While the panel is open the car gets no input (Controls).
 --
+-- Under the INVITE button, a SQUAD badge shows the run payout bonus while
+-- Roblox friends play in the same server (the SquadFriends attribute).
+--
 -- Rewards arriving on ReplicatedStorage.InviteReward show as a notification
 -- with the purchase sound.
 
@@ -71,6 +74,27 @@ local function build()
 	openButton.Size = UDim2.fromOffset(120, 32)
 	UiStyle.springy(openButton)
 
+	local squad = UiStyle.text("Squad", gui, 18, true)
+	squad.TextColor3 = UiStyle.Cash
+	squad.TextXAlignment = Enum.TextXAlignment.Right
+	squad.AnchorPoint = Vector2.new(1, 0)
+	squad.Position = UDim2.new(0.5, -146, 0, 120)
+	squad.Size = UDim2.fromOffset(160, 24)
+	squad.Visible = false
+
+	local function refreshSquad()
+		local friends = player:GetAttribute("SquadFriends")
+		local n = if typeof(friends) == "number" then friends else 0
+		local percent = math.floor((Invites.squadBoost(n, T) - 1) * 100 + 0.5)
+		squad.Text = `SQUAD +{percent}% CASH`
+		if n > 0 and not squad.Visible then
+			UiStyle.bounce(squad)
+		end
+		squad.Visible = n > 0
+	end
+	refreshSquad()
+	player:GetAttributeChangedSignal("SquadFriends"):Connect(refreshSquad)
+
 	local panel, close = UiStyle.panel(gui, "INVITE", Vector2.new(380, 520))
 	local top = UiStyle.HeaderHeight
 
@@ -116,6 +140,11 @@ local function build()
 
 	local blurb = line("Blurb", 14, false, 38)
 	blurb.Text = `Bring a friend who's new to Yeet Street. After their first launch you get {money(T.PerFriend)}, and they start with {money(T.WelcomeCash)}.`
+
+	local maxPercent = math.floor(T.SquadBoostPerFriend * T.SquadBoostMaxFriends * 100 + 0.5)
+	local squadLine = line("SquadBoost", 14, false, 38)
+	squadLine.TextColor3 = UiStyle.Cash
+	squadLine.Text = `Play in the same server as friends: +{math.floor(T.SquadBoostPerFriend * 100 + 0.5)}% run cash for each, up to +{maxPercent}%.`
 
 	local count = line("Count", 26, true, 32)
 	count.TextColor3 = UiStyle.Yellow

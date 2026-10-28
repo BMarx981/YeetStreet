@@ -13,6 +13,10 @@
 -- has their credits checked when they join, on that message, and every
 -- Tuning.Invites.CheckInterval, and is paid for friends not yet credited.
 --
+-- Roblox friends in the same server boost each other's run payouts
+-- (squadBoost, used by ScoreService). Each player's count of friends here
+-- shows as their SquadFriends attribute.
+--
 -- Each player's friend count shows as their InviteFriends attribute. Rewards
 -- go to the player on ReplicatedStorage.InviteReward as a table: Welcome
 -- (cash) for the invited player, or Added, Cash, Prizes (labels), and
@@ -39,6 +43,41 @@ inviteReward.Parent = ReplicatedStorage
 
 -- Players whose credit is being saved, so runs ending meanwhile don't repeat it.
 local reporting: { [Player]: boolean } = {}
+
+-- Each player's Roblox friends in this server, found when either joins.
+local friendsHere: { [Player]: { [Player]: boolean } } = {}
+
+local function squadSize(player: Player): number
+	local count = 0
+	local friends = friendsHere[player]
+	if friends then
+		for _ in friends do
+			count += 1
+		end
+	end
+	return count
+end
+
+local function findFriends(player: Player)
+	friendsHere[player] = {}
+	for _, other in Players:GetPlayers() do
+		if other ~= player and friendsHere[other] then
+			local ok, friends = pcall(player.IsFriendsWithAsync, player, other.UserId)
+			local mine, theirs = friendsHere[player], friendsHere[other]
+			if ok and friends and mine and theirs then
+				mine[other] = true
+				theirs[player] = true
+				other:SetAttribute("SquadFriends", squadSize(other))
+			end
+		end
+	end
+	player:SetAttribute("SquadFriends", squadSize(player))
+end
+
+-- The multiplier on the player's run payouts for friends in the server.
+function InviteRewards.squadBoost(player: Player): number
+	return Invites.squadBoost(squadSize(player), T)
+end
 
 local function inviterOf(player: Player): number?
 	local ok, join: any = pcall(player.GetJoinData, player)
@@ -105,6 +144,7 @@ function InviteRewards.ranRun(player: Player)
 end
 
 local function onPlayerAdded(player: Player)
+	task.spawn(findFriends, player)
 	local data = PlayerData.waitFor(player)
 	if not data then
 		return
@@ -127,6 +167,17 @@ for _, player in Players:GetPlayers() do
 end
 Players.PlayerRemoving:Connect(function(player: Player)
 	reporting[player] = nil
+	local friends = friendsHere[player]
+	friendsHere[player] = nil
+	if friends then
+		for other in friends do
+			local theirs = friendsHere[other]
+			if theirs then
+				theirs[player] = nil
+				other:SetAttribute("SquadFriends", squadSize(other))
+			end
+		end
+	end
 end)
 
 local subscribed, problem = pcall(MessagingService.SubscribeAsync, MessagingService, TOPIC, function(message)

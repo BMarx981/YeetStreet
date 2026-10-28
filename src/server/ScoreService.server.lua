@@ -7,7 +7,8 @@
 --
 -- When a run ends, the driver's client gets the server's result on
 -- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
--- the PayScale of the launch pad the run started from, and a
+-- the PayScale of the launch pad the run started from and by the squad boost
+-- for friends in the server (InviteRewards), and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 -- InviteRewards hears of every run that ends, so a first run can credit the
 -- player's inviter.
@@ -299,7 +300,8 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	PlayerData.update(watch.player, function(data)
 		data.Best = math.max(data.Best, score.total)
 	end)
-	Garage.pay(watch.player, Economy.payout(score.total, Tuning.Cash.PerPoint * watch.payScale))
+	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player)
+	Garage.pay(watch.player, Economy.payout(score.total, rate))
 	watch.payScale = 1
 	runResult:FireClient(watch.player, result, score)
 	InviteRewards.ranRun(watch.player)
