@@ -39,6 +39,23 @@ Tuning.Cash = {
 	StudioCash = 1_000_000,
 }
 
+-- Invite rewards (see Invites). A friend counts once they have never played,
+-- join from the player's invite, and do their first launch.
+Tuning.Invites = {
+	PerFriend = 5000,
+	WelcomeCash = 1500,
+	Milestones = {
+		{ Friends = 1, Kind = "Cash", Amount = 5000, Label = "$5,000 bonus" },
+		{ Friends = 3, Kind = "Cash", Amount = 15000, Label = "$15,000 bonus" },
+		{ Friends = 5, Kind = "Cash", Amount = 40000, Label = "$40,000 bonus" },
+		{ Friends = 10, Kind = "Cash", Amount = 100000, Label = "$100,000 bonus" },
+	},
+	-- Each Roblox friend in the same server adds this to run payouts, up to
+	-- SquadBoostMaxFriends friends.
+	SquadBoostPerFriend = 0.1,
+	SquadBoostMaxFriends = 3,
+}
+
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
 -- to the real stats its upgrade drives: Speed drives TopSpeed; Jets drives
 -- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive

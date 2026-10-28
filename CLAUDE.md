@@ -73,4 +73,4 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 ## Current milestone
 
-M3 World: the hub and 5 to 8 launchers across the first stunt parks. Done when a new player finds a launcher within 30 seconds. The skate park comes first. No parked cars to grab. Players can reach a garage from anywhere, through garages around the map and a teleport menu, usable at any time, that goes to a garage and back to any park.
+M4 Obby: obby world 1 with checkpoints. Done when all 20 stages can be cleared with mid tier Jets.
