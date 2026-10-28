@@ -679,6 +679,14 @@ Tuning.Camera = {
 	FovFullSpeed = 300, -- speed where the FOV boost is fully applied
 }
 
+-- Watching the last run again (ReplayTape, ReplayRecorder).
+Tuning.Replay = {
+	LeadIn = 1.5, -- seconds of the clip before liftoff
+	Tail = 2, -- seconds of the clip after the run ends
+	MaxLength = 20, -- longest clip in seconds, keeping the end; also how much the tape keeps
+	BigScore = 3000, -- run total from which a replay plays on its own
+}
+
 Tuning.TestPark = {
 	-- Ground rectangle, tiled because a part is at most 2048 studs on a side.
 	-- Jets can carry a run well past 4000 studs from the lip.

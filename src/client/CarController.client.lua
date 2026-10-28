@@ -71,6 +71,7 @@ local GarageMenu = require(script.Parent.GarageMenu)
 local GrindRide = require(script.Parent.GrindRide)
 local GunFx = require(script.Parent.GunFx)
 local Hud = require(script.Parent.Hud)
+local ReplayRecorder = require(script.Parent.ReplayRecorder)
 local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
@@ -277,6 +278,7 @@ local function endRun(result: RunTracker.Result)
 	Hud.result(result, Scoring.score(result, Tuning.Score), false)
 	Hud.live(nil)
 	tricksShown = 0
+	ReplayRecorder.finish()
 end
 
 -- Feeds this step to RunTracker, from the same CarSensor sample the server
@@ -721,6 +723,7 @@ local function enter(r: Rig)
 	righting = false
 	tubeAt = -math.huge
 	run = RunTracker.new()
+	ReplayRecorder.start(r.model)
 	tricksShown = 0
 	resetAskedAt = -math.huge
 	carGoneAt = nil
@@ -753,6 +756,7 @@ local function leave()
 		rig.model:SetAttribute("Braking", false)
 	end
 	rig = nil
+	ReplayRecorder.stop()
 	up = Vector3.yAxis
 	GrindRide.stop()
 	SwingRide.stop()
@@ -826,6 +830,7 @@ RunService.PreSimulation:Connect(function(dt: number)
 	end
 	if current then
 		step(current, dt)
+		ReplayRecorder.step(current.hull, run.phase == "flying")
 	end
 end)
 
