@@ -20,6 +20,10 @@
 -- charge hums. Each shot (LaserShots) flashes a beam from each eye to where
 -- it stopped (LaserEnd), fading over BeamTime, with a blast sound.
 -- The model, Root and Head are recorded for replays (ReplayWorld.follow).
+-- During one it is drawn from the recording, on the replay's clock, jumping
+-- there (Look.Snap) as the replay starts or scrubs; it holds the ghost car
+-- if it held the replayed car, and its sounds play as the replay passes
+-- them going forward. Its sounds come from its drawn head.
 -- Numbers are in Tuning.City.Kaiju (Head, Look, Laser).
 
 local Players = game:GetService("Players")
@@ -190,7 +194,7 @@ local throat = add("neck", Vector3.new(14, 1, 1), CFrame.new(0, -NECK_SIZE.Y / 2
 
 -- Head, facing -Z, its front at -Size.Z / 2.
 local CRANIUM = CFrame.new(0, 4, 6)
-add("head", Vector3.new(22, 16, 18), CRANIUM, SKIN_COLOR)
+local cranium = add("head", Vector3.new(22, 16, 18), CRANIUM, SKIN_COLOR)
 add("head", Vector3.new(18, 11, 18), CFrame.new(0, 1, -10), SKIN_COLOR)
 add("head", Vector3.new(22, 3.5, 5), CFrame.new(0, 10, -1), DARK_COLOR) -- brow
 add("head", Vector3.new(16, 1, 18), CFrame.new(0, -4.2, -9), MOUTH_COLOR)
@@ -310,7 +314,7 @@ local function sound(id: string, pitch: number, volume: number, hearing: number)
 	s.PlaybackSpeed = pitch
 	s.Volume = volume
 	s.RollOffMaxDistance = hearing
-	s.Parent = serverHead
+	s.Parent = cranium
 	return s
 end
 
@@ -330,14 +334,17 @@ kaiju:GetAttributeChangedSignal("Chewing"):Connect(function()
 	chewStart = os.clock()
 end)
 
--- It roars as it spots a car and gives chase.
+-- It roars as it spots a car and gives chase. While a replay plays, its
+-- sounds come from the recording instead (replaySounds).
 local roar = sound(L.Roar, L.RoarPitch, L.RoarVolume, L.RoarHearing)
 local lastMode = kaiju:GetAttribute("Mode")
 kaiju:GetAttributeChangedSignal("Mode"):Connect(function()
 	local mode = kaiju:GetAttribute("Mode")
 	if lastMode == "roam" and mode == "chase" then
-		roar:Play()
 		roarUntil = os.clock() + L.RoarJaw
+		if not ReplayWorld.isWatching() then
+			roar:Play()
+		end
 	end
 	lastMode = mode
 end)
@@ -347,15 +354,54 @@ local shot = sound(L.Shot, 1, L.LaserVolume, L.LaserHearing)
 kaiju:GetAttributeChangedSignal("LaserCharge"):Connect(function()
 	if kaiju:GetAttribute("LaserCharge") == true then
 		chargeStart = os.clock()
-		charge:Play()
-	else
+		if not ReplayWorld.isWatching() then
+			charge:Play()
+		end
+	elseif not ReplayWorld.isWatching() then
 		charge:Stop()
 	end
 end)
 kaiju:GetAttributeChangedSignal("LaserShots"):Connect(function()
 	shotAt = os.clock()
-	shot:Play()
+	if not ReplayWorld.isWatching() then
+		shot:Play()
+	end
 end)
+
+-- In the replay being watched, when it last started chewing, the end of
+-- its roar's open jaw, when its eyes last started charging, and when it
+-- last shot, in the replay's time, like chewStart, roarUntil, chargeStart
+-- and shotAt. A value the clip started with is not a change in it.
+local function replayTimes(): (number, number, number, number)
+	local chew = ReplayWorld.lastChange(kaiju, "Chewing")
+	local mode, fromMode = ReplayWorld.lastChange(kaiju, "Mode")
+	local charging = ReplayWorld.lastChange(kaiju, "LaserCharge")
+	local shots, fromShots = ReplayWorld.lastChange(kaiju, "LaserShots")
+	return if chew then chew.t else 0,
+		if mode and fromMode == "roam" and mode.value == "chase" then mode.t + L.RoarJaw else -math.huge,
+		if charging then charging.t else 0,
+		if shots and fromShots ~= nil then shots.t else -math.huge
+end
+
+-- Plays the sounds of what the replay went past since the frame before.
+local function replaySounds()
+	for _, change in ReplayWorld.passed(kaiju, "LaserCharge") do
+		if change.value == true then
+			charge:Play()
+		else
+			charge:Stop()
+		end
+	end
+	if #ReplayWorld.passed(kaiju, "LaserShots") > 0 then
+		shot:Play()
+	end
+	local mode, fromMode = ReplayWorld.lastChange(kaiju, "Mode")
+	if mode and fromMode == "roam" and mode.value == "chase" and #ReplayWorld.passed(kaiju, "Mode") > 0 then
+		roar:Play()
+	end
+end
+
+local wasWatching = false
 
 RunService.RenderStepped:Connect(function(dt: number)
 	if dt <= 0 then
@@ -370,24 +416,50 @@ RunService.RenderStepped:Connect(function(dt: number)
 	if not shown then
 		return
 	end
-	local mode = kaiju:GetAttribute("Mode")
+	-- In a replay it is drawn from the recording (ReplayWorld), on the
+	-- replay's clock.
+	local watching = ReplayWorld.isWatching()
+	if watching ~= wasWatching then
+		wasWatching = watching
+		charge:Stop()
+	end
+	local clock = ReplayWorld.time()
+	local chewFrom, roarTill, chargeFrom, shotFrom = chewStart, roarUntil, chargeStart, shotAt
+	if watching then
+		chewFrom, roarTill, chargeFrom, shotFrom = replayTimes()
+		replaySounds()
+	end
+	local mode = ReplayWorld.attribute(kaiju, "Mode")
 	local smooth = 1 - math.exp(-L.Smooth * dt)
+	local target = ReplayWorld.cframe(serverRoot)
 	local lastRoot = root
-	root = root:Lerp(serverRoot.CFrame, smooth)
-	local heldName = kaiju:GetAttribute("HeldCar")
-	local held = if typeof(heldName) == "string" and heldName ~= "" then carsFolder:FindFirstChild(heldName) else nil
-	local playerName = kaiju:GetAttribute("HeldPlayer")
+	if (target.Position - root.Position).Magnitude > L.Snap then
+		root, lastRoot = target, target
+		head = ReplayWorld.cframe(serverHead)
+	else
+		root = root:Lerp(target, smooth)
+	end
+	local heldName = ReplayWorld.attribute(kaiju, "HeldCar")
+	local holding = typeof(heldName) == "string" and heldName ~= ""
+	local ghost = if holding then ReplayWorld.car(heldName) else nil
+	local held = if holding and not watching then carsFolder:FindFirstChild(heldName) else nil
+	local playerName = if watching then nil else kaiju:GetAttribute("HeldPlayer")
 	local person = if typeof(playerName) == "string" and playerName ~= ""
 		then Players:FindFirstChild(playerName)
 		else nil
 	local character = if person and person:IsA("Player") then person.Character else nil
 	local personRoot = character and character:FindFirstChild("HumanoidRootPart")
-	if held and held:IsA("Model") and held.PrimaryPart and held.PrimaryPart.Anchored then
+	if ghost then
+		head = ghost * HELD_AT:Inverse()
+	elseif held and held:IsA("Model") and held.PrimaryPart and held.PrimaryPart.Anchored then
 		head = held:GetPivot() * HELD_AT:Inverse()
 	elseif personRoot and personRoot:IsA("BasePart") and personRoot.Anchored then
 		head = personRoot.CFrame * HELD_PERSON:Inverse()
 	else
-		head = head:Lerp(serverHead.CFrame, if mode == "lunge" then 1 - math.exp(-2 * L.Smooth * dt) else smooth)
+		head = head:Lerp(
+			ReplayWorld.cframe(serverHead),
+			if mode == "lunge" then 1 - math.exp(-2 * L.Smooth * dt) else smooth
+		)
 	end
 	local moved = (root.Position - lastRoot.Position).Magnitude
 	speed += (moved / dt - speed) * smooth
@@ -428,7 +500,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 		bones["meta" .. side] = along(ankleW, ballW, right)
 		bones["foot" .. side] = CFrame.new(ballW) * root.Rotation
 
-		local wiggle = math.rad(8) * math.sin(os.clock() * 3 + k)
+		local wiggle = math.rad(8) * math.sin(clock * 3 + k)
 		local shoulder = body * CFrame.new(x * 20, 62, -18) * CFrame.Angles(math.rad(-50) + wiggle, 0, 0)
 		bones["upperArm" .. side] = shoulder
 		bones["foreArm" .. side] = shoulder * CFrame.new(0, 0, -16) * CFrame.Angles(math.rad(60), 0, 0)
@@ -443,12 +515,12 @@ RunService.RenderStepped:Connect(function(dt: number)
 	throat.Size = Vector3.new(14, 1, reach)
 
 	-- Jaw.
-	local chewing = kaiju:GetAttribute("Chewing") == true
+	local chewing = ReplayWorld.attribute(kaiju, "Chewing") == true
 	local goal = 0
-	if mode == "lunge" or os.clock() < roarUntil then
+	if mode == "lunge" or clock < roarTill then
 		goal = L.JawOpen
 	elseif mode == "hold" and chewing then
-		goal = L.ChompOpen * (1 - math.abs(math.sin(math.pi * L.ChompRate * (os.clock() - chewStart))))
+		goal = L.ChompOpen * (1 - math.abs(math.sin(math.pi * L.ChompRate * (clock - chewFrom))))
 	elseif mode == "hold" then
 		goal = L.Grip
 	elseif mode == "chase" then
@@ -462,7 +534,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	local sway = math.rad(L.TailSway) * (1 - 0.5 * running)
 	local bone = body * PELVIS * TAIL_BASE
 	for i, size in TAIL do
-		local yaw = sway * math.sin(2 * math.pi * L.TailRate * os.clock() - 0.8 * i) + swing
+		local yaw = sway * math.sin(2 * math.pi * L.TailRate * clock - 0.8 * i) + swing
 		bone = bone * CFrame.Angles(TAIL_DROOP, yaw, 0)
 		bones["tail" .. i] = bone
 		bone = bone * CFrame.new(0, 0, size.Z)
@@ -475,13 +547,13 @@ RunService.RenderStepped:Connect(function(dt: number)
 
 	-- Charging: the eyes pulse hotter, the plates light up the back, and
 	-- the line shows where they aim.
-	local charging = kaiju:GetAttribute("LaserCharge") == true
-	local heat = if charging then 0.5 + 0.5 * math.sin(os.clock() * PULSE_RATE * 2 * math.pi) else 0
+	local charging = ReplayWorld.attribute(kaiju, "LaserCharge") == true
+	local heat = if charging then 0.5 + 0.5 * math.sin(clock * PULSE_RATE * 2 * math.pi) else 0
 	for _, eye in eyes do
 		eye.part.Color = EYE_COLOR:Lerp(HOT_COLOR, heat)
 	end
 	glow.Brightness = heat * GLOW_BRIGHTNESS
-	local risen = if charging then (os.clock() - chargeStart) / (LASER.Charge * SPINE_RISE) else -1
+	local risen = if charging then (clock - chargeFrom) / (LASER.Charge * SPINE_RISE) else -1
 	for k, plate in spines do
 		local lit = risen >= (k - 1) / #spines
 		plate.Material = if lit then Enum.Material.Neon else Enum.Material.SmoothPlastic
@@ -489,7 +561,7 @@ RunService.RenderStepped:Connect(function(dt: number)
 	end
 	table.clear(laserParts)
 	table.clear(laserFrames)
-	local aim = kaiju:GetAttribute("LaserAim")
+	local aim = ReplayWorld.attribute(kaiju, "LaserAim")
 	aimLine.Transparency = if charging and typeof(aim) == "Vector3" then 0.75 else 1
 	if typeof(aim) == "Vector3" then
 		table.insert(laserParts, aimLine)
@@ -497,8 +569,8 @@ RunService.RenderStepped:Connect(function(dt: number)
 	end
 
 	-- A shot: a beam from each eye to where it stopped, fading out.
-	local since = os.clock() - shotAt
-	local finish = kaiju:GetAttribute("LaserEnd")
+	local since = clock - shotFrom
+	local finish = ReplayWorld.attribute(kaiju, "LaserEnd")
 	local beaming = since < LASER.BeamTime and typeof(finish) == "Vector3"
 	for i, eye in eyes do
 		local part = beams[i]

@@ -21,8 +21,8 @@
 -- closes, unless it is paused. ReplayControls pauses, seeks, and changes the
 -- speed on its clock (ReplayClock).
 --
--- Things drawn on the server's clock, like the trains, are drawn at the
--- replay's moment while it plays (ReplayWorld).
+-- While it plays, the world is drawn at the replay's moment (ReplayWorld):
+-- things on the server's clock, like the trains, and recorded creatures.
 --
 -- With streaming on, this client only has the map near the real car, so as
 -- a replay starts it asks for the map along the ghost's path, every
@@ -198,8 +198,14 @@ end
 
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
-	ReplayWorld.watch(now.replay.world, time, now.replay.serverStart + time)
 	local pose = poseAt(now.replay.clip, time)
+	ReplayWorld.watch({
+		world = now.replay.world,
+		time = time,
+		serverTime = now.replay.serverStart + time,
+		car = now.replay.car,
+		carPose = pose,
+	})
 	for i, piece in now.pieces do
 		local breakAt = piece.breakAt
 		if breakAt and time >= breakAt then
@@ -238,7 +244,7 @@ function ReplayPlayer.stop()
 	end
 	playing = nil
 	RunService:UnbindFromRenderStep(RENDER_NAME)
-	ReplayWorld.stopWatching()
+	ReplayWorld.watch(nil)
 	ReplayCamera.stop()
 	now.ghost:Destroy()
 	for _, part in now.hidden do

@@ -32,12 +32,14 @@ export type Replay = {
 	look: { [string]: any }, -- the car's attributes at the start of the clip
 	serverStart: number, -- the server's time at the start of the clip
 	world: ReplayWorld.World, -- creatures and the like over the clip
+	car: string, -- the car's name, which the server's creatures go by
 }
 
 local ReplayRecorder = {}
 
 local tape: ReplayTape.Tape<CFrame> = ReplayTape.new()
 local look: { [string]: any } = {}
+local carName = ""
 local connections: { RBXScriptConnection } = {}
 local last: Replay? = nil
 
@@ -61,6 +63,7 @@ local function cut(window: ReplayTape.Window?)
 		clip = clip,
 		look = before,
 		serverStart = serverStart,
+		car = carName,
 		world = ReplayWorld.cut(window.from, window.to, clip.start),
 	}
 end
@@ -70,6 +73,7 @@ function ReplayRecorder.start(model: Model)
 	ReplayRecorder.stop()
 	tape = ReplayTape.new()
 	look = model:GetAttributes()
+	carName = model.Name
 	table.insert(
 		connections,
 		model.AttributeChanged:Connect(function(attribute: string)

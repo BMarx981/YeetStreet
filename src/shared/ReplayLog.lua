@@ -8,7 +8,8 @@
 -- a key's value at any time. trim forgets old changes but keeps each key's
 -- value from then on, and cut copies a stretch with times counted from a
 -- zero, the way ReplayTape cuts a clip. passed lists the changes the time
--- went past going forward, for things that happen at a moment, like a shot.
+-- went past going forward, for things that happen at a moment, like a shot,
+-- and last the last change by a time and what it changed from.
 
 local ReplayLog = {}
 
@@ -62,6 +63,20 @@ function ReplayLog.at(log: Log, key: string, t: number): any
 	end
 	local i = lastAt(changes, t)
 	return if i > 0 then changes[i].value else nil
+end
+
+-- The last change to `key` at or before `t`, and the value before it, nil
+-- if it is the first. Nil if there is none.
+function ReplayLog.last(log: Log, key: string, t: number): (Change?, any)
+	local changes = log[key]
+	if not changes then
+		return nil, nil
+	end
+	local i = lastAt(changes, t)
+	if i == 0 then
+		return nil, nil
+	end
+	return changes[i], if i > 1 then changes[i - 1].value else nil
 end
 
 -- Forgets the changes before `before`, keeping each key's value at it.

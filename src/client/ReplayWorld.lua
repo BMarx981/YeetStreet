@@ -18,7 +18,12 @@
 -- attribute and value changes are noted as they happen, and each replay
 -- carries the stretch of all that its clip covers (cut). During a replay,
 -- cframe, attribute and value read what was recorded at the moment being
--- watched, and what is live otherwise or when nothing was recorded.
+-- watched, and what is live otherwise or when nothing was recorded. A look
+-- also asks for the replay's time (time), so its own swaying and chomping
+-- pause and slow with it; when something last changed (lastChange), to time
+-- a jaw or a beam; the changes the replay went past since the frame before
+-- (passed), to play sounds; and where the ghost car is (car), for a car the
+-- server's creatures held by its name.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -46,9 +51,17 @@ local tapes: { [BasePart]: ReplayTape.Tape<CFrame> } = {}
 local logs: { [Instance]: ReplayLog.Log } = {}
 local trimmed = 0
 
-local watching: number? = nil
-local world: World? = nil
-local clipTime = 0
+-- The moment of a replay being watched.
+export type Moment = {
+	world: World,
+	time: number, -- the replay's time, counted from the start of its clip
+	serverTime: number, -- the server's time then
+	car: string, -- the name the replayed car had
+	carPose: CFrame, -- where the ghost car is
+}
+
+local moment: Moment? = nil
+local previous = 0 -- the replay's time the frame before
 
 local function note(log: ReplayLog.Log, key: string, value: any)
 	local now = os.clock()
@@ -117,56 +130,92 @@ function ReplayWorld.cut(from: number, to: number, zero: number): World
 	return cut
 end
 
--- The server time to draw the world at.
-function ReplayWorld.serverTime(): number
-	return watching or workspace:GetServerTimeNow()
+-- Draws the world at `now`, a moment of a replay, each frame it plays
+-- (ReplayPlayer); nil draws it as it is now again.
+function ReplayWorld.watch(now: Moment?)
+	local last = moment
+	previous = if last and now and last.world == now.world then last.time else if now then now.time else 0
+	moment = if now then table.clone(now) else nil
 end
 
 -- Whether the world is drawn at a replay's moment rather than now.
 function ReplayWorld.isWatching(): boolean
-	return watching ~= nil
+	return moment ~= nil
 end
 
--- Draws the world at `time` into a replay that recorded `recorded`, which
--- is server time `serverTime`.
-function ReplayWorld.watch(recorded: World, time: number, serverTime: number)
-	world = recorded
-	clipTime = time
-	watching = serverTime
+-- The server time to draw the world at.
+function ReplayWorld.serverTime(): number
+	local now = moment
+	return if now then now.serverTime else workspace:GetServerTimeNow()
 end
 
--- Draws the world as it is now again.
-function ReplayWorld.stopWatching()
-	world = nil
-	watching = nil
+-- The replay's time while one plays, counted from the start of its clip, so
+-- things drawn in it pause and slow down with it; os.clock otherwise.
+function ReplayWorld.time(): number
+	local now = moment
+	return if now then now.time else os.clock()
+end
+
+-- Where the ghost car is, if the replayed car was named `name`; nil when
+-- no replay plays.
+function ReplayWorld.car(name: string): CFrame?
+	local now = moment
+	return if now and now.car == name then now.carPose else nil
 end
 
 -- Where `part` is in the world being drawn.
 function ReplayWorld.cframe(part: BasePart): CFrame
-	local clip = if world then world.poses[part] else nil
-	if world and clip then
-		local a, b, alpha = ReplayTape.sample(clip, clipTime + world.zero - clip.start)
+	local now = moment
+	local clip = if now then now.world.poses[part] else nil
+	if now and clip then
+		local a, b, alpha = ReplayTape.sample(clip, now.time + now.world.zero - clip.start)
 		return a:Lerp(b, alpha)
 	end
 	return part.CFrame
 end
 
+local function logOf(instance: Instance): ReplayLog.Log?
+	local now = moment
+	return if now then now.world.logs[instance] else nil
+end
+
 -- The attribute `key` of `instance` in the world being drawn.
 function ReplayWorld.attribute(instance: Instance, key: string): any
-	local log = if world then world.logs[instance] else nil
+	local log = logOf(instance)
 	if log then
-		return ReplayLog.at(log, key, clipTime)
+		return ReplayLog.at(log, key, ReplayWorld.time())
 	end
 	return instance:GetAttribute(key)
 end
 
 -- The Value of `object` in the world being drawn.
 function ReplayWorld.value(object: ObjectValue): Instance?
-	local log = if world then world.logs[object] else nil
+	local log = logOf(object)
 	if log then
-		return ReplayLog.at(log, VALUE_KEY, clipTime)
+		return ReplayLog.at(log, VALUE_KEY, ReplayWorld.time())
 	end
 	return object.Value
+end
+
+-- While a replay plays, the last recorded change to attribute `key` of
+-- `instance` by the moment being watched (in the replay's time), and the
+-- value before it, nil for the value the clip started with.
+function ReplayWorld.lastChange(instance: Instance, key: string): (ReplayLog.Change?, any)
+	local log = logOf(instance)
+	if not log then
+		return nil, nil
+	end
+	return ReplayLog.last(log, key, ReplayWorld.time())
+end
+
+-- While a replay plays, the recorded changes to attribute `key` of
+-- `instance` the replay went past since the frame before, going forward.
+function ReplayWorld.passed(instance: Instance, key: string): { ReplayLog.Change }
+	local log = logOf(instance)
+	if not log then
+		return {}
+	end
+	return ReplayLog.passed(log, key, previous, ReplayWorld.time())
 end
 
 return ReplayWorld
