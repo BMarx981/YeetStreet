@@ -6,7 +6,8 @@
 -- (finish).
 --
 -- The clip is cut Tail seconds after the run ends, or at once if the car
--- goes first (a wreck, reset, or exit), so it never shows the next car.
+-- goes first (a wreck, reset, or exit), so it never shows the next car. A
+-- run still in the air when the car goes, as in a wreck, ends there.
 --
 -- A replay carries the car's attributes (CarParts) as they were at the start
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
@@ -84,6 +85,10 @@ end
 
 -- Stops recording the car, cutting the last run's clip if it was waiting.
 function ReplayRecorder.stop()
+	if wasFlying then
+		ReplayRecorder.finish()
+		wasFlying = false
+	end
 	cut()
 	for _, connection in connections do
 		connection:Disconnect()

@@ -32,7 +32,8 @@
 --   7. Reset on request, when still stuck on the roof after righting had its
 --      chance, or after falling off the map. Resets ask the server, which
 --      builds a fresh car at the last launcher, the same as after a wreck.
--- Camera and HUD update each render frame.
+-- Camera and HUD update each render frame, except while a replay plays.
+-- V plays the last run again, or stops it (ReplayRecorder, ReplayPlayer).
 --
 -- Stats (top speed, jet power, fuel, recharge, turn rate) come from attributes
 -- the server wrote on the car, never from Tuning.StarterCar directly.
@@ -71,6 +72,7 @@ local GarageMenu = require(script.Parent.GarageMenu)
 local GrindRide = require(script.Parent.GrindRide)
 local GunFx = require(script.Parent.GunFx)
 local Hud = require(script.Parent.Hud)
+local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
 local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
@@ -757,6 +759,7 @@ local function leave()
 	end
 	rig = nil
 	ReplayRecorder.stop()
+	ReplayPlayer.stop()
 	up = Vector3.yAxis
 	GrindRide.stop()
 	SwingRide.stop()
@@ -836,7 +839,7 @@ end)
 
 RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
 	local current = rig
-	if not current then
+	if not current or ReplayPlayer.isPlaying() then
 		return
 	end
 	local contact = current.sensor.contact
@@ -931,10 +934,29 @@ task.spawn(function()
 	end
 end)
 
+-- Plays the last run again from where the car is now, which is held still,
+-- or stops the replay if one is playing.
+local function toggleReplay()
+	if ReplayPlayer.isPlaying() then
+		ReplayPlayer.stop()
+		return
+	end
+	local replay = ReplayRecorder.last()
+	local current = rig
+	if not (replay and current) then
+		return
+	end
+	current.hull.AssemblyLinearVelocity = Vector3.zero
+	current.hull.AssemblyAngularVelocity = Vector3.zero
+	ReplayPlayer.play(replay, current.model, player.Character)
+end
+
 -- Standalone R-key handler so the player can respawn even when on foot.
 UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 	if input.KeyCode == Enum.KeyCode.R and not processed then
 		resetCar()
+	elseif input.KeyCode == Enum.KeyCode.V and not processed then
+		toggleReplay()
 	elseif input.KeyCode == Enum.KeyCode.Z and not processed then
 		if spawnRemote then
 			spawnRemote:FireServer()

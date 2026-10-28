@@ -11,7 +11,7 @@
 --             wings, B fire
 --   Touch     see TouchControls
 -- No input reaches the car while the garage panel or teleport menu is open
--- (GarageMenu, TeleportMenu).
+-- (GarageMenu, TeleportMenu), or while a replay plays (ReplayPlayer).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -19,6 +19,7 @@ local UserInputService = game:GetService("UserInputService")
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Tuning = require(ReplicatedStorage.Tuning)
 local GarageMenu = require(script.Parent.GarageMenu)
+local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 
@@ -50,7 +51,7 @@ end
 
 function Controls.read(): Frame
 	-- Buttons in the garage panel or teleport menu must not drive the car either.
-	if GarageMenu.isOpen() or TeleportMenu.isOpen() then
+	if GarageMenu.isOpen() or TeleportMenu.isOpen() or ReplayPlayer.isPlaying() then
 		return {
 			steer = 0,
 			throttle = 0,

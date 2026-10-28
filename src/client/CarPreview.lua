@@ -31,7 +31,9 @@ local SPIN_SPEED = 0.6 -- radians per second
 local FIT = 0.62 -- under 1 lets the car fill more of the view than its bounding sphere would
 local WHEEL_COLOR = Color3.fromRGB(30, 30, 34)
 
-local function wheels(design: CarDesign.Design, model: Model)
+-- Stand-in wheels for a car built at the origin, under `model`. Also used by
+-- ReplayPlayer.
+function CarPreview.wheels(design: CarDesign.Design, model: Model)
 	if design.hideWheels then
 		return
 	end
@@ -91,7 +93,7 @@ function CarPreview.new(parent: Instance): Preview
 		local built = Instance.new("Model")
 		built.Name = "Car"
 		CarParts.build(design, CFrame.new(), built)
-		wheels(design, built)
+		CarPreview.wheels(design, built)
 		built.Parent = viewport
 		model = built
 		local box, size = built:GetBoundingBox()
