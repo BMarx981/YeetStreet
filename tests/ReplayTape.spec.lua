@@ -6,7 +6,6 @@ local TUNING: ReplayTape.Tuning = {
 	LeadIn = 1,
 	Tail = 2,
 	MaxLength = 10,
-	BigScore = 5000,
 	MinAirtime = 1,
 }
 
@@ -233,12 +232,6 @@ end)
 
 Check.test("forcing with nothing waiting hands out nothing", function()
 	Check.eq(ReplayTape.due(ReplayTape.new(), 5, true), nil, "empty")
-end)
-
-Check.test("a run is big from BigScore up", function()
-	Check.eq(ReplayTape.isBig(4999, TUNING), false, "just under")
-	Check.eq(ReplayTape.isBig(5000, TUNING), true, "at")
-	Check.eq(ReplayTape.isBig(12000, TUNING), true, "over")
 end)
 
 Check.finish("ReplayTape")

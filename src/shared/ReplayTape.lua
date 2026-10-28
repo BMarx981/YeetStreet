@@ -25,7 +25,6 @@ export type Tuning = {
 	LeadIn: number, -- seconds of the clip before liftoff
 	Tail: number, -- seconds of the clip after the run ends
 	MaxLength: number, -- longest clip, in seconds; also how much the tape keeps
-	BigScore: number, -- run total from which a replay plays on its own
 	MinAirtime: number, -- seconds from liftoff a run lasts to replace the last clip
 }
 
@@ -209,11 +208,6 @@ function ReplayTape.due<P>(tape: Tape<P>, t: number, force: boolean): Window?
 		return waiting
 	end
 	return nil
-end
-
--- Whether a run with this total plays its replay without being asked.
-function ReplayTape.isBig(total: number, tuning: Tuning): boolean
-	return total >= tuning.BigScore
 end
 
 return ReplayTape
