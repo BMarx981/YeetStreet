@@ -19,6 +19,9 @@ export type Tuning = {
 	StageCashStep: number, -- cash added for each later stage
 	WorldPrize: number, -- cash for the first ever finish, paid once
 	DesignJets: number, -- Jets level every stage must be clearable with
+	HangSpeed: number, -- only a car slower than this can be hung
+	HangRoll: number, -- degrees tipped sideways that hang a car with two wheels down
+	HangTime: number, -- seconds hung before it respawns
 }
 
 export type Visit = {
@@ -59,6 +62,32 @@ function Obby.select(visit: Visit, checkpoint: number): Visit?
 		return nil
 	end
 	return { Reached = visit.Reached, Current = checkpoint }
+end
+
+-- A car can catch its hull on an edge with its outside wheels hanging off,
+-- tipped sideways with its inside wheels too light to grip, unable to drive.
+-- It is hung when slow with at most one wheel down, or two down and tipped
+-- `roll` degrees sideways past HangRoll (the course is level across, so a
+-- car on it never is). Given when it started hanging (`since`, nil if it
+-- wasn't) and how it is now, returns when it started hanging, and whether it
+-- has hung long enough to respawn (which ends the hang).
+function Obby.hang(
+	since: number?,
+	now: number,
+	speed: number,
+	wheelsDown: number,
+	roll: number,
+	tuning: Tuning
+): (number?, boolean)
+	local stuck = wheelsDown <= 1 or (wheelsDown == 2 and roll > tuning.HangRoll)
+	if speed >= tuning.HangSpeed or not stuck then
+		return nil, false
+	end
+	local start = since or now
+	if now - start >= tuning.HangTime then
+		return nil, true
+	end
+	return start, false
 end
 
 -- Whether `visit` has reached the finish.

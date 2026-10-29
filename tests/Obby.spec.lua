@@ -8,6 +8,9 @@ local T: Obby.Tuning = {
 	StageCashStep = 10,
 	WorldPrize = 1000,
 	DesignJets = 20,
+	HangSpeed = 6,
+	HangTime = 1.5,
+	HangRoll = 10,
 }
 
 local function visit(reached: number, current: number): Obby.Visit
@@ -112,6 +115,44 @@ Check.test("a full clear pays every stage once", function()
 	end
 	Check.eq(total, 100 + 110 + 120 + 130)
 	Check.eq(Obby.finished(v, T), true)
+end)
+
+Check.test("a slow car with one wheel down starts hanging, but doesn't respawn yet", function()
+	local since, respawn = Obby.hang(nil, 10, 2, 1, 0, T)
+	Check.eq(since, 10)
+	Check.eq(respawn, false)
+end)
+
+Check.test("a car hung long enough respawns, and its hang is over", function()
+	local since, respawn = Obby.hang(10, 11.5, 2, 0, 0, T)
+	Check.eq(since, nil)
+	Check.eq(respawn, true)
+	local early, waiting = Obby.hang(10, 11.4, 2, 0, 0, T)
+	Check.eq(early, 10)
+	Check.eq(waiting, false)
+end)
+
+Check.test("two wheels down and level across isn't hanging, so a car can still back off a gap", function()
+	local since, respawn = Obby.hang(10, 20, 0, 2, 3, T)
+	Check.eq(since, nil)
+	Check.eq(respawn, false)
+end)
+
+Check.test("two wheels down but tipped sideways, as when caught on an edge, is hanging", function()
+	local since, respawn = Obby.hang(nil, 10, 0.4, 2, 21, T)
+	Check.eq(since, 10)
+	Check.eq(respawn, false)
+end)
+
+Check.test("three wheels down is never hanging, however it leans", function()
+	local since = Obby.hang(10, 20, 0, 3, 30, T)
+	Check.eq(since, nil)
+end)
+
+Check.test("a moving car isn't hanging, even with no wheels down, as in the air", function()
+	local since, respawn = Obby.hang(10, 20, 80, 0, 90, T)
+	Check.eq(since, nil)
+	Check.eq(respawn, false)
 end)
 
 Check.finish("Obby")

@@ -71,6 +71,11 @@ Tuning.Obby = {
 	CheckpointReach = 12,
 	-- A car this far below the lowest pad has fallen, and respawns.
 	FallDepth = 60,
+	-- A car caught on an edge (Obby.hang), slower than HangSpeed for HangTime
+	-- seconds, respawns too.
+	HangSpeed = 6,
+	HangRoll = 10,
+	HangTime = 1.5,
 	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
 	-- World 1's course (ObbyCourse), high over the hub and heading north.
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
@@ -143,7 +148,8 @@ Tuning.Obby = {
 					{ Kind = "Ramp", Length = 50, Rise = 14 },
 					{ Kind = "Road", Length = 30 },
 					{ Kind = "Ramp", Length = 100, Rise = -42 },
-					{ Kind = "Turn", Angle = 90 },
+					{ Kind = "Road", Length = 50 },
+					{ Kind = "Turn", Angle = 90, Width = 24 },
 					{ Kind = "Road", Length = 50 },
 				},
 			},
