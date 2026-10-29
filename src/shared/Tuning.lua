@@ -79,6 +79,22 @@ Tuning.Obby = {
 	-- hull with the wheels off.
 	ShoulderWidth = 3.05,
 	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
+	-- Stage cash floats up as a green balloon of text beside the pad just
+	-- reached (CashBalloon): Side studs out from the pad's right edge, Ahead
+	-- past its far end and Height over its top, rising Rise over Time
+	-- seconds, the last FadeTime of it fading. Width and TextHeight are in
+	-- studs; a world prize balloon is PrizeScale times bigger.
+	Balloon = {
+		Side = 6,
+		Ahead = 30,
+		Height = 6,
+		Rise = 16,
+		Time = 2.2,
+		FadeTime = 0.6,
+		Width = 16,
+		TextHeight = 5,
+		PrizeScale = 1.8,
+	},
 	-- World 1's course (ObbyCourse), high over the hub and heading north.
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
 	-- upgrades and no jets, but only with steering and speed control. Stages
@@ -224,18 +240,18 @@ Tuning.Obby = {
 			},
 			{
 				Name = "Booster Chain",
-				Width = 14,
+				Width = 16,
 				Segments = {
 					{ Kind = "Road", Length = 60 },
 					{ Kind = "Road", Length = 16, Boost = 130 },
 					{ Kind = "Gap", Length = 32, Rise = -15, Offset = 10 },
-					{ Kind = "Road", Length = 100, Width = 12 },
-					{ Kind = "Road", Length = 16, Width = 12, Boost = 140 },
+					{ Kind = "Road", Length = 120 },
+					{ Kind = "Road", Length = 16, Boost = 140 },
 					{ Kind = "Gap", Length = 37, Rise = -15, Offset = -10 },
-					{ Kind = "Road", Length = 100, Width = 12 },
-					{ Kind = "Road", Length = 16, Width = 12, Boost = 150 },
+					{ Kind = "Road", Length = 120 },
+					{ Kind = "Road", Length = 16, Boost = 150 },
 					{ Kind = "Gap", Length = 42, Rise = -15, Offset = 10 },
-					{ Kind = "Road", Length = 110, Width = 12 },
+					{ Kind = "Road", Length = 120 },
 				},
 			},
 		},

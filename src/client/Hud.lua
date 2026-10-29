@@ -226,7 +226,8 @@ local function build(): Parts
 			return
 		end
 		cash.Text = `$ {withCommas(value)}`
-		if shown and value > shown then
+		-- In the obby the cash is stage cash, which CashBalloon shows.
+		if shown and value > shown and player:GetAttribute("ObbyCheckpoint") == nil then
 			earned.Text = `+{withCommas(value - shown)}`
 			earned.Visible = true
 			earnedShows += 1
