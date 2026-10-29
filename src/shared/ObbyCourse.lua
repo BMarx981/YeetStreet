@@ -52,6 +52,7 @@ export type Piece = {
 	Stage: number, -- 0 for the start pad
 	Checkpoint: number?, -- for a Pad
 	Rising: boolean?, -- for a Wedge: whether it rises along the way
+	Corner: boolean?, -- for a Slab: whether it is a Turn's corner
 }
 
 type Pen = { x: number, y: number, z: number, heading: number }
@@ -109,7 +110,9 @@ local function segment(pen: Pen, seg: Segment, stage: Stage, n: number, tuning: 
 		move(pen, length, seg.Offset or 0)
 		pen.y += rise
 	elseif seg.Kind == "Turn" then
-		table.insert(pieces, box(pen, "Slab", width, tuning.Thickness, width, 0, n))
+		local corner = box(pen, "Slab", width, tuning.Thickness, width, 0, n)
+		corner.Corner = true
+		table.insert(pieces, corner)
 		move(pen, width / 2, 0)
 		pen.heading += seg.Angle or 0
 		move(pen, width / 2, 0)

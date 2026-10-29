@@ -176,7 +176,7 @@ function CarBuilder.build(stats: typeof(Tuning.StarterCar), spawn: CFrame): Mode
 		wheel.Shape = Enum.PartType.Cylinder
 		wheel.Color = Color3.fromRGB(30, 30, 32)
 		wheel.Material = Enum.Material.SmoothPlastic
-		wheel.CollisionGroup = "Cars"
+		wheel.CollisionGroup = "Wheels"
 		-- High weights so the wheel's own friction and zero bounce win against
 		-- whatever surface it touches. Rear wheels grip a little more, so at the
 		-- limit the nose runs wide instead of the tail stepping out.

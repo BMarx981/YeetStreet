@@ -14,8 +14,7 @@
 -- a hull over a pad, up to CheckpointReach above it, touches it. Resets and
 -- wrecks come back on top of the current pad, facing its front (ScoreService's
 -- SetPlayerCheckpoint), and so does a car more than FallDepth below the
--- lowest pad, or one hung on an edge with its wheels off the course
--- (Obby.hang).
+-- lowest pad.
 --
 -- Clearing a stage pays its cash at once, on every visit. The first finish
 -- ever also pays WorldPrize, saved as PlayerData's ObbyCleared.
@@ -43,16 +42,12 @@ local T = Tuning.Obby
 local TAG = "ObbyCheckpoint"
 -- The hull's center above the floor, the same as a car in a spawn lane.
 local HULL_HEIGHT = Tuning.TestPark.SpawnHeight
-local WHEELS = { "FL", "FR", "RL", "RR" } -- CarBuilder's wheel names
--- A wheel this far past its radius above the course still counts as down.
-local WHEEL_SLACK = 0.6
 
 local ObbyService = {}
 
 local visits: { [Player]: Obby.Visit } = {}
 local lastSelectAt: { [Player]: number } = {}
 local lastFallAt: { [Player]: number } = {}
-local hangingSince: { [Player]: number } = {}
 
 local setPlayerCheckpoint = ServerStorage:WaitForChild("SetPlayerCheckpoint") :: BindableFunction
 local movePlayerCar = ServerStorage:WaitForChild("MovePlayerCar") :: BindableFunction
@@ -184,33 +179,6 @@ obbySelect.OnServerInvoke = function(player: Player, checkpoint: any): (boolean,
 end
 obbySelect.Parent = ReplicatedStorage
 
-local wheelRays = RaycastParams.new()
-wheelRays.FilterType = Enum.RaycastFilterType.Include
-wheelRays.FilterDescendantsInstances = { obbyFolder }
-
--- How many of the car's wheels are on the course.
-local function wheelsDown(hull: BasePart): number
-	local car = hull.Parent
-	local reach = Vector3.new(0, -(Tuning.Chassis.WheelRadius + WHEEL_SLACK), 0)
-	local down = 0
-	for _, name in WHEELS do
-		local wheel = car and car:FindFirstChild(`Wheel{name}`)
-		if wheel and wheel:IsA("BasePart") and workspace:Raycast(wheel.Position, reach, wheelRays) then
-			down += 1
-		end
-	end
-	return down
-end
-
--- Respawns a fallen or hung car at its checkpoint.
-local function fallen(player: Player, now: number)
-	hangingSince[player] = nil
-	if now - (lastFallAt[player] or -math.huge) >= Tuning.Reset.RequestGap then
-		lastFallAt[player] = now
-		resetPlayerCar:Fire(player)
-	end
-end
-
 RunService.Heartbeat:Connect(function()
 	if next(visits) == nil then
 		return
@@ -230,15 +198,10 @@ RunService.Heartbeat:Connect(function()
 		end
 		local position = hull.Position
 		if position.Y < lowest - T.FallDepth then
-			fallen(player, now)
-			continue
-		end
-		local roll = math.deg(math.asin(math.clamp(math.abs(hull.CFrame.RightVector.Y), 0, 1)))
-		local respawn
-		hangingSince[player], respawn =
-			Obby.hang(hangingSince[player], now, hull.AssemblyLinearVelocity.Magnitude, wheelsDown(hull), roll, T)
-		if respawn then
-			fallen(player, now)
+			if now - (lastFallAt[player] or -math.huge) >= Tuning.Reset.RequestGap then
+				lastFallAt[player] = now
+				resetPlayerCar:Fire(player)
+			end
 			continue
 		end
 		for _, part in pads do
@@ -266,7 +229,6 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	visits[player] = nil
 	lastSelectAt[player] = nil
 	lastFallAt[player] = nil
-	hangingSince[player] = nil
 end)
 
 return ObbyService

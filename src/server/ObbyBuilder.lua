@@ -5,13 +5,17 @@
 -- when a server starts, unless a World1 folder was saved with the place.
 --
 -- Checkpoint pads are tagged ObbyCheckpoint with a Checkpoint attribute
--- (ObbyService) and show their number on top.
+-- (ObbyService) and show their number on top. Each part has an invisible
+-- Shoulder copy, ShoulderWidth wider on each side (corners lengthways too),
+-- that only wheels touch (CollisionGroups.Shoulders).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local ObbyCourse = require(ReplicatedStorage.ObbyCourse)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 
 local W = Tuning.Obby.World1
 
@@ -70,6 +74,22 @@ local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 	return p
 end
 
+local function shoulder(piece: ObbyCourse.Piece, road: BasePart)
+	local s = road:Clone()
+	s:ClearAllChildren()
+	CollectionService:RemoveTag(s, "ObbyCheckpoint")
+	s:SetAttribute("Checkpoint", nil)
+	s.Name = "Shoulder"
+	local extra = 2 * Tuning.Obby.ShoulderWidth
+	s.Size = road.Size + Vector3.new(extra, 0, if piece.Corner then extra else 0)
+	s.CFrame = road.CFrame
+	s.Transparency = 1
+	s.CanTouch = false
+	s.CanQuery = false
+	s.CollisionGroup = CollisionGroups.Shoulders
+	s.Parent = road.Parent
+end
+
 -- Builds world 1's folder, not yet parented.
 function ObbyBuilder.build(): Folder
 	local world = Instance.new("Folder")
@@ -83,7 +103,7 @@ function ObbyBuilder.build(): Folder
 			folder.Parent = world
 			stages[piece.Stage] = folder
 		end
-		part(piece, folder)
+		shoulder(piece, part(piece, folder))
 	end
 	return world
 end

@@ -116,6 +116,12 @@ Check.test("a left turn is a square corner, and the course carries on to the lef
 	Check.near(pad.X, -15 - 10)
 end)
 
+Check.test("a corner says so, and a road doesn't", function()
+	local pieces = course({ stage({ { Kind = "Road", Length = 50 }, { Kind = "Turn", Angle = 90 } }) })
+	Check.eq(pieces[2].Corner, nil)
+	Check.eq(pieces[3].Corner, true)
+end)
+
 Check.test("a right turn carries the course to the right", function()
 	local pad = course({ stage({ { Kind = "Turn", Angle = -90 } }) })[3]
 	Check.near(pad.Heading, -90)
