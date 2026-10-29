@@ -114,4 +114,34 @@ Check.test("a full clear pays every stage once", function()
 	Check.eq(Obby.finished(v, T), true)
 end)
 
+Check.test("the visit clock reads minutes, seconds, and tenths", function()
+	Check.eq(Obby.clock(0), "0:00.0")
+	Check.eq(Obby.clock(7.36), "0:07.3")
+	Check.eq(Obby.clock(65.99), "1:05.9")
+	Check.eq(Obby.clock(754.2), "12:34.2")
+end)
+
+Check.test("stages up to the furthest pad are cleared, and the one after the respawn pad is current", function()
+	local v = visit(3, 1)
+	Check.eq(Obby.stageState(1, v, T), "Cleared")
+	Check.eq(Obby.stageState(2, v, T), "Current")
+	Check.eq(Obby.stageState(3, v, T), "Cleared")
+	Check.eq(Obby.stageState(4, v, T), "Ahead")
+end)
+
+Check.test("at the finish no stage is current", function()
+	local v = visit(4, 4)
+	for stage = 1, 4 do
+		Check.eq(Obby.stageState(stage, v, T), "Cleared")
+	end
+end)
+
+Check.test("a pad is here, open to go back to, or locked", function()
+	local v = visit(3, 1)
+	Check.eq(Obby.padState(0, v), "Open")
+	Check.eq(Obby.padState(1, v), "Here")
+	Check.eq(Obby.padState(3, v), "Open")
+	Check.eq(Obby.padState(4, v), "Locked")
+end)
+
 Check.finish("Obby")

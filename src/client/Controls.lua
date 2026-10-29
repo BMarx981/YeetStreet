@@ -10,9 +10,9 @@
 --             pitch in the air), A jets, LB/RB roll, Y reset, D-pad up
 --             wings, B fire
 --   Touch     see TouchControls
--- No input reaches the car while the garage panel, teleport menu, or invite
--- panel is open (GarageMenu, TeleportMenu, InviteMenu), or while a replay
--- plays (ReplayPlayer).
+-- No input reaches the car while the garage panel, teleport menu, invite
+-- panel, or obby stage select is open (GarageMenu, TeleportMenu, InviteMenu,
+-- ObbyHud), or while a replay plays (ReplayPlayer).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -21,6 +21,7 @@ local InputAxes = require(ReplicatedStorage.InputAxes)
 local Tuning = require(ReplicatedStorage.Tuning)
 local GarageMenu = require(script.Parent.GarageMenu)
 local InviteMenu = require(script.Parent.InviteMenu)
+local ObbyHud = require(script.Parent.ObbyHud)
 local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
@@ -53,7 +54,13 @@ end
 
 function Controls.read(): Frame
 	-- Buttons in the garage panel or the menus must not drive the car either.
-	if GarageMenu.isOpen() or TeleportMenu.isOpen() or InviteMenu.isOpen() or ReplayPlayer.isPlaying() then
+	if
+		GarageMenu.isOpen()
+		or TeleportMenu.isOpen()
+		or InviteMenu.isOpen()
+		or ObbyHud.isOpen()
+		or ReplayPlayer.isPlaying()
+	then
 		return {
 			steer = 0,
 			throttle = 0,

@@ -66,4 +66,36 @@ function Obby.finished(visit: Visit, tuning: Tuning): boolean
 	return visit.Reached >= tuning.Stages
 end
 
+-- `seconds` into a visit as the HUD's clock shows it, like 1:05.3.
+function Obby.clock(seconds: number): string
+	local tenths = math.floor(seconds * 10)
+	return string.format("%d:%02d.%d", tenths // 600, tenths // 10 % 60, tenths % 10)
+end
+
+export type StageState = "Cleared" | "Current" | "Ahead"
+
+-- How the HUD shows `stage`: the one after the respawn pad is the one being
+-- played, and every stage up to the furthest pad is cleared.
+function Obby.stageState(stage: number, visit: Visit, tuning: Tuning): StageState
+	if stage == visit.Current + 1 and stage <= tuning.Stages then
+		return "Current"
+	elseif stage <= visit.Reached then
+		return "Cleared"
+	end
+	return "Ahead"
+end
+
+export type PadState = "Here" | "Open" | "Locked"
+
+-- How the stage select shows `checkpoint`: where the car respawns now, a
+-- reached pad it can go back to, or one not reached yet.
+function Obby.padState(checkpoint: number, visit: Visit): PadState
+	if checkpoint == visit.Current then
+		return "Here"
+	elseif checkpoint <= visit.Reached then
+		return "Open"
+	end
+	return "Locked"
+end
+
 return Obby
