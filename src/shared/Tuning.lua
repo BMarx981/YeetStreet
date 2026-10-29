@@ -79,9 +79,12 @@ Tuning.Obby = {
 	-- hull with the wheels off.
 	ShoulderWidth = 3.05,
 	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
+	BoostPayScale = 0, -- runs from obby boosters pay no cash (ObbyBuilder)
 	-- World 1's course (ObbyCourse), high over the hub and heading north.
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
-	-- upgrades and no jets, but only with steering and speed control.
+	-- upgrades and no jets, but only with steering and speed control. Stages
+	-- 8 to 10 add boosters, whose gaps are sized so a car at the booster's
+	-- speed lands about 10 studs onto the far side (gravity 130).
 	World1 = {
 		X = 0,
 		Y = 1000,
@@ -194,6 +197,45 @@ Tuning.Obby = {
 					{ Kind = "Road", Length = 30, Width = 16 },
 					{ Kind = "Turn", Angle = -90, Width = 16 },
 					{ Kind = "Road", Length = 40, Width = 16 },
+				},
+			},
+			{
+				Name = "Kick Start",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Road", Length = 24, Boost = 150 },
+					{ Kind = "Gap", Length = 92, Rise = -30 },
+					{ Kind = "Road", Length = 60, Width = 14 },
+					{ Kind = "Road", Length = 50, Width = 10 },
+				},
+			},
+			{
+				Name = "Slingshot",
+				Width = 16,
+				Segments = {
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Ramp", Length = 24, Rise = 10, Boost = 150 },
+					{ Kind = "Gap", Length = 40, Rise = 8 },
+					{ Kind = "Road", Length = 120, Width = 14 },
+					{ Kind = "Turn", Angle = 90, Width = 22 },
+					{ Kind = "Road", Length = 50, Width = 12 },
+				},
+			},
+			{
+				Name = "Booster Chain",
+				Width = 14,
+				Segments = {
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Road", Length = 16, Boost = 130 },
+					{ Kind = "Gap", Length = 50, Rise = -15, Offset = 10 },
+					{ Kind = "Road", Length = 50, Width = 12 },
+					{ Kind = "Road", Length = 16, Width = 12, Boost = 140 },
+					{ Kind = "Gap", Length = 55, Rise = -15, Offset = -10 },
+					{ Kind = "Road", Length = 50, Width = 12 },
+					{ Kind = "Road", Length = 16, Width = 12, Boost = 150 },
+					{ Kind = "Gap", Length = 60, Rise = -15, Offset = 10 },
+					{ Kind = "Road", Length = 60, Width = 10 },
 				},
 			},
 		},

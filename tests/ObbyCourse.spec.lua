@@ -128,6 +128,19 @@ Check.test("a right turn carries the course to the right", function()
 	Check.near(pad.X, 25)
 end)
 
+Check.test("a road can be a booster, and a plain road isn't", function()
+	local pieces = course({ stage({ { Kind = "Road", Length = 50 }, { Kind = "Road", Length = 20, Boost = 150 } }) })
+	Check.eq(pieces[2].Boost, nil)
+	Check.eq(pieces[3].Boost, 150)
+end)
+
+Check.test("a booster ramp boosts on its wedge, not the slab under it", function()
+	local pieces = course({ stage({ { Kind = "Ramp", Length = 40, Rise = 8, Boost = 140 } }) })
+	Check.eq(pieces[2].Boost, nil)
+	Check.eq(pieces[3].Kind, "Wedge")
+	Check.eq(pieces[3].Boost, 140)
+end)
+
 Check.test("pieces carry the heading of the way the course runs", function()
 	local t = table.clone(T)
 	t.Heading = 90

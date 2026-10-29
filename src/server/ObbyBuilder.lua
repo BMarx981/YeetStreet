@@ -8,6 +8,11 @@
 -- (ObbyService) and show their number on top. Each part has an invisible
 -- Shoulder copy, ShoulderWidth wider on each side (corners lengthways too),
 -- that only wheels touch (CollisionGroups.Shoulders).
+--
+-- Boosters are launch pads (Pieces.LaunchPad) pushing the way the course
+-- runs, up a ramp's slope, that pay BoostPayScale of a run's cash. They have
+-- no RespawnCFrame: in the obby the checkpoint wins, and after it a reset
+-- should not come back to the sky.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +21,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ObbyCourse = require(ReplicatedStorage.ObbyCourse)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
+local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 
 local W = Tuning.Obby.World1
 
@@ -50,7 +56,7 @@ end
 
 local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 	local p: BasePart = if piece.Kind == "Wedge" then Instance.new("WedgePart") else Instance.new("Part")
-	p.Name = if piece.Kind == "Pad" then `Checkpoint{piece.Checkpoint}` else piece.Kind
+	p.Name = if piece.Kind == "Pad" then `Checkpoint{piece.Checkpoint}` elseif piece.Boost then "Booster" else piece.Kind
 	p.Anchored = true
 	p.Size = Vector3.new(piece.Width, piece.Height, piece.Length)
 	local cframe = CFrame.new(piece.X, piece.Y, piece.Z) * CFrame.Angles(0, math.rad(piece.Heading), 0)
@@ -67,6 +73,13 @@ local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 		p:SetAttribute("Checkpoint", piece.Checkpoint)
 		CollectionService:AddTag(p, "ObbyCheckpoint")
 		number(p, if piece.Checkpoint == 0 then "START" else tostring(piece.Checkpoint))
+	elseif piece.Boost then
+		LaunchPad.paint(p)
+		local turn = CFrame.Angles(0, math.rad(piece.Heading), 0)
+		local up = if piece.Kind ~= "Wedge" then 0 elseif piece.Rising then piece.Height else -piece.Height
+		p:SetAttribute("LaunchSpeed", piece.Boost)
+		p:SetAttribute("LaunchDirection", turn:VectorToWorldSpace(Vector3.new(0, up, -piece.Length).Unit))
+		p:SetAttribute("PayScale", Tuning.Obby.BoostPayScale)
 	else
 		p.Color = COLORS[(piece.Stage - 1) % #COLORS + 1]
 	end
@@ -79,6 +92,9 @@ local function shoulder(piece: ObbyCourse.Piece, road: BasePart)
 	s:ClearAllChildren()
 	CollectionService:RemoveTag(s, "ObbyCheckpoint")
 	s:SetAttribute("Checkpoint", nil)
+	s:SetAttribute("LaunchSpeed", nil)
+	s:SetAttribute("LaunchDirection", nil)
+	s:SetAttribute("PayScale", nil)
 	s.Name = "Shoulder"
 	local extra = 2 * Tuning.Obby.ShoulderWidth
 	s.Size = road.Size + Vector3.new(extra, 0, if piece.Corner then extra else 0)

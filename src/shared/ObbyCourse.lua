@@ -21,6 +21,7 @@ export type Segment = {
 	Width: number?, -- in place of the stage's Width, for Road and Ramp
 	Offset: number?, -- sideways, right is positive, for Gap
 	Angle: number?, -- degrees, left is positive, for Turn
+	Boost: number?, -- makes a Road or Ramp a booster, pushing cars up to this speed
 }
 
 export type Stage = {
@@ -53,6 +54,7 @@ export type Piece = {
 	Checkpoint: number?, -- for a Pad
 	Rising: boolean?, -- for a Wedge: whether it rises along the way
 	Corner: boolean?, -- for a Slab: whether it is a Turn's corner
+	Boost: number?, -- for a booster Slab or Wedge: the speed it pushes cars up to
 }
 
 type Pen = { x: number, y: number, z: number, heading: number }
@@ -96,13 +98,16 @@ local function segment(pen: Pen, seg: Segment, stage: Stage, n: number, tuning: 
 	local length = seg.Length or 0
 	local rise = seg.Rise or 0
 	if seg.Kind == "Road" then
-		table.insert(pieces, box(pen, "Slab", width, tuning.Thickness, length, 0, n))
+		local road = box(pen, "Slab", width, tuning.Thickness, length, 0, n)
+		road.Boost = seg.Boost
+		table.insert(pieces, road)
 		move(pen, length, 0)
 	elseif seg.Kind == "Ramp" then
 		local low = math.min(rise, 0)
 		table.insert(pieces, box(pen, "Slab", width, tuning.Thickness, length, low, n))
 		local wedge = box(pen, "Wedge", width, math.abs(rise), length, low + math.abs(rise), n)
 		wedge.Rising = rise > 0
+		wedge.Boost = seg.Boost
 		table.insert(pieces, wedge)
 		move(pen, length, 0)
 		pen.y += rise
