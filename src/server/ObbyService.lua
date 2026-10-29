@@ -7,8 +7,9 @@
 -- ends when they teleport anywhere else (leave), get a new character, or
 -- leave the game. Nothing about a visit is saved.
 --
--- Checkpoint pads are parts tagged ObbyCheckpoint with a Checkpoint number
--- attribute, 0 for the start pad. Every heartbeat the server checks each
+-- The course is workspace.Obby.World1, built here by ObbyBuilder unless it was
+-- saved with the place. Checkpoint pads are parts tagged ObbyCheckpoint with
+-- a Checkpoint number attribute, 0 for the start pad. Every heartbeat the server checks each
 -- visiting player's car against the pads, so clients never report touches:
 -- a hull over a pad, up to CheckpointReach above it, touches it. Resets and
 -- wrecks come back on top of the current pad, facing its front (ScoreService's
@@ -34,6 +35,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Obby = require(ReplicatedStorage.Obby)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Garage = require(ServerScriptService.Garage)
+local ObbyBuilder = require(ServerScriptService.ObbyBuilder)
 local PlayerData = require(ServerScriptService.PlayerData)
 
 local T = Tuning.Obby
@@ -51,6 +53,13 @@ local setPlayerCheckpoint = ServerStorage:WaitForChild("SetPlayerCheckpoint") ::
 local movePlayerCar = ServerStorage:WaitForChild("MovePlayerCar") :: BindableFunction
 local resetPlayerCar = ServerStorage:WaitForChild("ResetPlayerCar") :: BindableEvent
 local carsFolder = workspace:WaitForChild("Cars")
+
+local obbyFolder = workspace:FindFirstChild("Obby") or Instance.new("Folder")
+obbyFolder.Name = "Obby"
+obbyFolder.Parent = workspace
+if not obbyFolder:FindFirstChild("World1") then
+	ObbyBuilder.build().Parent = obbyFolder
+end
 
 local obbyReward = Instance.new("RemoteEvent")
 obbyReward.Name = "ObbyReward"

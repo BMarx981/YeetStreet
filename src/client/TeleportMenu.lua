@@ -36,6 +36,7 @@ local LOOKS: { [string]: Look } = {
 	Corkscrew = { color = Color3.fromRGB(20, 150, 140), icon = "🌀", tagline = "Tubes, the Gravitron, and the Globe" },
 	City = { color = Color3.fromRGB(200, 70, 50), icon = "🏙️", tagline = "Trains, cranes, and a kaiju" },
 	Dino = { color = Color3.fromRGB(70, 150, 50), icon = "🦖", tagline = "Volcano, T-Rex, and raptors" },
+	Obby = { color = Color3.fromRGB(120, 90, 220), icon = "🏁", tagline = "Sky course with checkpoints" },
 }
 local DEFAULT_LOOK: Look = { color = Color3.fromRGB(96, 102, 112), icon = "🏁", tagline = "" }
 
@@ -130,6 +131,7 @@ local function build()
 	for _, area in MapLayout.stops(Tuning.Map.Areas :: any) do
 		table.insert(places, { id = area.Id, label = area.Name })
 	end
+	table.insert(places, { id = "Obby", label = "Obby" })
 	for i, place in places do
 		local look = LOOKS[place.id] or DEFAULT_LOOK
 		local b = Instance.new("TextButton")

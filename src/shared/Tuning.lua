@@ -72,6 +72,112 @@ Tuning.Obby = {
 	-- A car this far below the lowest pad has fallen, and respawns.
 	FallDepth = 60,
 	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
+	-- World 1's course (ObbyCourse), high over the hub and heading north.
+	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
+	-- upgrades and no jets.
+	World1 = {
+		X = 0,
+		Y = 1000,
+		Z = 700,
+		Heading = 0,
+		Thickness = 2,
+		PadLength = 24,
+		Stages = {
+			{
+				Name = "Warm Up",
+				Width = 40,
+				Segments = {
+					{ Kind = "Road", Length = 160 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 10, Rise = -5 },
+					{ Kind = "Road", Length = 100 },
+				},
+			},
+			{
+				Name = "Zigzag",
+				Width = 34,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Turn", Angle = 90 },
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Turn", Angle = -90 },
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Turn", Angle = -90 },
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Turn", Angle = 90 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Hop Hop Hop",
+				Width = 34,
+				Segments = {
+					{ Kind = "Road", Length = 120 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 12, Rise = -5 },
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 16, Rise = -5 },
+					{ Kind = "Road", Length = 70 },
+					{ Kind = "Ramp", Length = 34, Rise = 7 },
+					{ Kind = "Gap", Length = 20, Rise = -7 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Stairway",
+				Width = 34,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 60, Rise = 14 },
+					{ Kind = "Road", Length = 40 },
+					{ Kind = "Ramp", Length = 60, Rise = 14 },
+					{ Kind = "Road", Length = 40 },
+					{ Kind = "Ramp", Length = 60, Rise = 14 },
+					{ Kind = "Road", Length = 50 },
+					{ Kind = "Ramp", Length = 140, Rise = -42 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Tightrope",
+				Width = 34,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Road", Length = 60, Width = 22 },
+					{ Kind = "Road", Length = 160, Width = 14 },
+					{ Kind = "Road", Length = 60, Width = 22 },
+					{ Kind = "Road", Length = 60 },
+				},
+			},
+			{
+				Name = "Island Hop",
+				Width = 30,
+				Segments = {
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 12, Rise = -5, Offset = 12 },
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 12, Rise = -5, Offset = -12 },
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Ramp", Length = 30, Rise = 5 },
+					{ Kind = "Gap", Length = 14, Rise = -5, Offset = 12 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Big Air",
+				Width = 34,
+				Segments = {
+					{ Kind = "Road", Length = 200 },
+					{ Kind = "Ramp", Length = 50, Rise = 12 },
+					{ Kind = "Gap", Length = 26, Rise = -12 },
+					{ Kind = "Road", Length = 100 },
+				},
+			},
+		},
+	},
 }
 
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps

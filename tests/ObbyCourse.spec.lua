@@ -1,0 +1,135 @@
+--!strict
+local Check = require("./Check")
+local ObbyCourse = require("../src/shared/ObbyCourse")
+
+local T: ObbyCourse.Tuning = {
+	X = 0,
+	Y = 100,
+	Z = 0,
+	Heading = 0,
+	Thickness = 2,
+	PadLength = 20,
+	Stages = {},
+}
+
+local function course(stages: { ObbyCourse.Stage }): { ObbyCourse.Piece }
+	local t = table.clone(T)
+	t.Stages = stages
+	return ObbyCourse.layout(t)
+end
+
+local function stage(segments: { ObbyCourse.Segment }): ObbyCourse.Stage
+	return { Name = "Test", Width = 30, Segments = segments }
+end
+
+local function pads(pieces: { ObbyCourse.Piece }): { ObbyCourse.Piece }
+	local found = {}
+	for _, piece in pieces do
+		if piece.Kind == "Pad" then
+			table.insert(found, piece)
+		end
+	end
+	return found
+end
+
+Check.test("the start pad is checkpoint 0, its top at the start height, running forward from the start", function()
+	local start = course({})[1]
+	Check.eq(start.Kind, "Pad")
+	Check.eq(start.Checkpoint, 0)
+	Check.eq(start.Stage, 0)
+	Check.near(start.Y + start.Height / 2, 100)
+	Check.near(start.X, 0)
+	Check.near(start.Z, -10)
+	Check.eq(start.Length, 20)
+end)
+
+Check.test("each stage ends with a pad numbered by the stage", function()
+	local found = pads(course({ stage({ { Kind = "Road", Length = 50 } }), stage({ { Kind = "Road", Length = 50 } }) }))
+	Check.eq(#found, 3)
+	Check.eq(found[2].Checkpoint, 1)
+	Check.eq(found[2].Stage, 1)
+	Check.eq(found[3].Checkpoint, 2)
+end)
+
+Check.test("a road's top is level with the course and it runs on from the last piece", function()
+	local pieces = course({ stage({ { Kind = "Road", Length = 50 } }) })
+	local road = pieces[2]
+	Check.eq(road.Kind, "Slab")
+	Check.eq(road.Stage, 1)
+	Check.near(road.Y + road.Height / 2, 100)
+	Check.near(road.Z, -20 - 25)
+	Check.eq(road.Width, 30)
+	Check.near(pieces[3].Z, -70 - 10)
+end)
+
+Check.test("a segment can set its own width", function()
+	local road = course({ stage({ { Kind = "Road", Length = 50, Width = 12 } }) })[2]
+	Check.eq(road.Width, 12)
+end)
+
+Check.test("a ramp is a wedge rising forward on a slab, and lifts what follows", function()
+	local pieces = course({ stage({ { Kind = "Ramp", Length = 40, Rise = 8 } }) })
+	local base, wedge, pad = pieces[2], pieces[3], pieces[4]
+	Check.eq(base.Kind, "Slab")
+	Check.near(base.Y + base.Height / 2, 100)
+	Check.eq(wedge.Kind, "Wedge")
+	Check.near(wedge.Y - wedge.Height / 2, 100)
+	Check.near(wedge.Height, 8)
+	Check.eq(wedge.Length, 40)
+	Check.near(wedge.Z, -40)
+	Check.eq(wedge.Rising, true)
+	Check.near(pad.Y + pad.Height / 2, 108)
+end)
+
+Check.test("a ramp down sits on the lower level and rises back toward the start", function()
+	local pieces = course({ stage({ { Kind = "Ramp", Length = 40, Rise = -8 } }) })
+	local base, wedge, pad = pieces[2], pieces[3], pieces[4]
+	Check.near(base.Y + base.Height / 2, 92)
+	Check.near(wedge.Y - wedge.Height / 2, 92)
+	Check.eq(wedge.Rising, false)
+	Check.near(pad.Y + pad.Height / 2, 92)
+end)
+
+Check.test("a gap leaves empty space and can land lower", function()
+	local pieces = course({ stage({ { Kind = "Gap", Length = 15, Rise = -5 } }) })
+	Check.eq(#pieces, 2)
+	local pad = pieces[2]
+	Check.near(pad.Z, -20 - 15 - 10)
+	Check.near(pad.Y + pad.Height / 2, 95)
+end)
+
+Check.test("a gap can land off to the right", function()
+	local pad = course({ stage({ { Kind = "Gap", Length = 15, Offset = 6 } }) })[2]
+	Check.near(pad.X, 6)
+end)
+
+Check.test("a left turn is a square corner, and the course carries on to the left", function()
+	local pieces = course({ stage({ { Kind = "Turn", Angle = 90 } }) })
+	local corner, pad = pieces[2], pieces[3]
+	Check.eq(corner.Kind, "Slab")
+	Check.eq(corner.Width, 30)
+	Check.eq(corner.Length, 30)
+	Check.near(corner.Z, -20 - 15)
+	Check.near(corner.Heading, 0)
+	Check.near(pad.Heading, 90)
+	Check.near(pad.Z, -35)
+	Check.near(pad.X, -15 - 10)
+end)
+
+Check.test("a right turn carries the course to the right", function()
+	local pad = course({ stage({ { Kind = "Turn", Angle = -90 } }) })[3]
+	Check.near(pad.Heading, -90)
+	Check.near(pad.X, 25)
+end)
+
+Check.test("pieces carry the heading of the way the course runs", function()
+	local t = table.clone(T)
+	t.Heading = 90
+	t.Stages = { stage({ { Kind = "Road", Length = 50 } }) }
+	local road = ObbyCourse.layout(t)[2]
+	Check.near(road.Heading, 90)
+	Check.near(road.X, -45)
+	Check.near(road.Z, 0)
+end)
+
+Check.finish("ObbyCourse")
