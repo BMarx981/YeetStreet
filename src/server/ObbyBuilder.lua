@@ -11,8 +11,10 @@
 --
 -- Boosters are launch pads (Pieces.LaunchPad) pushing the way the course
 -- runs, up a ramp's slope, with NoRun: they start no run, so no score shows
--- and no cash pays. They have no RespawnCFrame: in the obby the checkpoint
--- wins, and after it a reset should not come back to the sky.
+-- and no cash pays. They are LaunchExact, slowing a car that comes in faster,
+-- so a throw always flies the same path (rings sit on it). They have no
+-- RespawnCFrame: in the obby the checkpoint wins, and after it a reset
+-- should not come back to the sky.
 --
 -- Moving platforms (ObbyCourse's Mover) are not built here: each client
 -- builds and moves its own (ObbyMovers).
@@ -84,6 +86,7 @@ local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 		p:SetAttribute("LaunchSpeed", piece.Boost)
 		p:SetAttribute("LaunchDirection", turn:VectorToWorldSpace(Vector3.new(0, up, -piece.Length).Unit))
 		p:SetAttribute("NoRun", true)
+		p:SetAttribute("LaunchExact", true)
 	else
 		p.Color = COLORS[(piece.Stage - 1) % #COLORS + 1]
 		if piece.Ring then
@@ -102,6 +105,7 @@ local function shoulder(piece: ObbyCourse.Piece, road: BasePart)
 	s:SetAttribute("LaunchSpeed", nil)
 	s:SetAttribute("LaunchDirection", nil)
 	s:SetAttribute("NoRun", nil)
+	s:SetAttribute("LaunchExact", nil)
 	s.Name = "Shoulder"
 	local extra = 2 * Tuning.Obby.ShoulderWidth
 	s.Size = road.Size + Vector3.new(extra, 0, if piece.Corner then extra else 0)

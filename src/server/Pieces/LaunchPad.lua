@@ -13,7 +13,9 @@
 -- LaunchPitch attribute (degrees) makes it an any-way pad instead: it
 -- throws a car whichever way the car is going across the ground, tipped up
 -- that much (PadPush). An optional NoRun attribute, true, makes it push
--- without arming a run (CarSensor), so it scores and pays nothing.
+-- without arming a run (CarSensor), so it scores and pays nothing. An
+-- optional LaunchExact attribute, true, also slows a faster car down to
+-- LaunchSpeed (PadPush), so every throw from it flies the same path.
 
 local LaunchPad = {}
 

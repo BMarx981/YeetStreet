@@ -347,8 +347,9 @@ local function launch(r: Rig, pad: BasePart)
 	-- Only a car already heading the pad's way, so crossing a bowl's rim pads
 	-- on the way in doesn't throw the car back out.
 	local heading = if velocity.Magnitude > 1e-3 then along / velocity.Magnitude else 0
-	if heading >= Tuning.Launch.MinHeading and along < speed then
-		setVelocity(r, velocity + dir * (speed - along))
+	local change = PadPush.change(along, speed, pad:GetAttribute("LaunchExact") == true)
+	if heading >= Tuning.Launch.MinHeading and change then
+		setVelocity(r, velocity + dir * change)
 	end
 end
 

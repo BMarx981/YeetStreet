@@ -22,4 +22,20 @@ Check.test("a car barely moving across the ground has no way to go", function()
 	Check.eq(x, nil, "no push")
 end)
 
+Check.test("a pad speeds up a car going slower than its speed", function()
+	Check.near(PadPush.change(80, 130, false) :: number, 50)
+end)
+
+Check.test("a pad leaves a faster car alone", function()
+	Check.eq(PadPush.change(200, 130, false), nil)
+end)
+
+Check.test("an exact pad slows a faster car to its speed", function()
+	Check.near(PadPush.change(200, 130, true) :: number, -70)
+end)
+
+Check.test("an exact pad still speeds up a slower car", function()
+	Check.near(PadPush.change(80, 130, true) :: number, 50)
+end)
+
 Check.finish("PadPush")
