@@ -184,7 +184,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 		sample = {
 			dt = dt,
 			airborne = sensor.contact.airborne,
-			onPad = pad ~= nil or padBelow ~= nil,
+			onPad = (pad ~= nil and pad:GetAttribute("NoRun") ~= true) or padBelow ~= nil,
 			x = cf.Position.X,
 			y = cf.Position.Y,
 			z = cf.Position.Z,

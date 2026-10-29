@@ -12,7 +12,8 @@
 -- the LookVector, for pads laid across the way the track runs. An optional
 -- LaunchPitch attribute (degrees) makes it an any-way pad instead: it
 -- throws a car whichever way the car is going across the ground, tipped up
--- that much (PadPush).
+-- that much (PadPush). An optional NoRun attribute, true, makes it push
+-- without arming a run (CarSensor), so it scores and pays nothing.
 
 local LaunchPad = {}
 

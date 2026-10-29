@@ -10,9 +10,9 @@
 -- that only wheels touch (CollisionGroups.Shoulders).
 --
 -- Boosters are launch pads (Pieces.LaunchPad) pushing the way the course
--- runs, up a ramp's slope, that pay BoostPayScale of a run's cash. They have
--- no RespawnCFrame: in the obby the checkpoint wins, and after it a reset
--- should not come back to the sky.
+-- runs, up a ramp's slope, with NoRun: they start no run, so no score shows
+-- and no cash pays. They have no RespawnCFrame: in the obby the checkpoint
+-- wins, and after it a reset should not come back to the sky.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -79,7 +79,7 @@ local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 		local up = if piece.Kind ~= "Wedge" then 0 elseif piece.Rising then piece.Height else -piece.Height
 		p:SetAttribute("LaunchSpeed", piece.Boost)
 		p:SetAttribute("LaunchDirection", turn:VectorToWorldSpace(Vector3.new(0, up, -piece.Length).Unit))
-		p:SetAttribute("PayScale", Tuning.Obby.BoostPayScale)
+		p:SetAttribute("NoRun", true)
 	else
 		p.Color = COLORS[(piece.Stage - 1) % #COLORS + 1]
 	end
@@ -94,7 +94,7 @@ local function shoulder(piece: ObbyCourse.Piece, road: BasePart)
 	s:SetAttribute("Checkpoint", nil)
 	s:SetAttribute("LaunchSpeed", nil)
 	s:SetAttribute("LaunchDirection", nil)
-	s:SetAttribute("PayScale", nil)
+	s:SetAttribute("NoRun", nil)
 	s.Name = "Shoulder"
 	local extra = 2 * Tuning.Obby.ShoulderWidth
 	s.Size = road.Size + Vector3.new(extra, 0, if piece.Corner then extra else 0)

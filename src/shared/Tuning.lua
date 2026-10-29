@@ -79,7 +79,6 @@ Tuning.Obby = {
 	-- hull with the wheels off.
 	ShoulderWidth = 3.05,
 	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
-	BoostPayScale = 0, -- runs from obby boosters pay no cash (ObbyBuilder)
 	-- World 1's course (ObbyCourse), high over the hub and heading north.
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
 	-- upgrades and no jets, but only with steering and speed control. Stages
