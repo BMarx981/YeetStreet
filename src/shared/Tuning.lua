@@ -84,7 +84,8 @@ Tuning.Obby = {
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
 	-- upgrades and no jets, but only with steering and speed control. Stages
 	-- 8 to 10 add boosters, whose gaps are sized so a car at the booster's
-	-- speed lands about 10 studs onto the far side (gravity 130).
+	-- speed lands 10 to 20 studs onto the far side. Cars land about 10 short
+	-- of a gravity 130 throw from the edge, so measure in Play.
 	World1 = {
 		X = 0,
 		Y = 1000,
@@ -228,14 +229,14 @@ Tuning.Obby = {
 				Segments = {
 					{ Kind = "Road", Length = 60 },
 					{ Kind = "Road", Length = 16, Boost = 130 },
-					{ Kind = "Gap", Length = 50, Rise = -15, Offset = 10 },
-					{ Kind = "Road", Length = 50, Width = 12 },
+					{ Kind = "Gap", Length = 32, Rise = -15, Offset = 10 },
+					{ Kind = "Road", Length = 100, Width = 12 },
 					{ Kind = "Road", Length = 16, Width = 12, Boost = 140 },
-					{ Kind = "Gap", Length = 55, Rise = -15, Offset = -10 },
-					{ Kind = "Road", Length = 50, Width = 12 },
+					{ Kind = "Gap", Length = 37, Rise = -15, Offset = -10 },
+					{ Kind = "Road", Length = 100, Width = 12 },
 					{ Kind = "Road", Length = 16, Width = 12, Boost = 150 },
-					{ Kind = "Gap", Length = 60, Rise = -15, Offset = 10 },
-					{ Kind = "Road", Length = 60, Width = 10 },
+					{ Kind = "Gap", Length = 42, Rise = -15, Offset = 10 },
+					{ Kind = "Road", Length = 110, Width = 12 },
 				},
 			},
 		},
