@@ -173,6 +173,26 @@ function ReplayTape.breaks<P>(clip: Clip<P>): { [string]: { number } }
 	return times
 end
 
+-- When the last part left on the car broke off in the clip, as a wreck
+-- knocks them all off, or nil if some are still on at its end or there were
+-- none. `left` counts the parts on each slot at the start of the clip.
+function ReplayTape.stripped<P>(clip: Clip<P>, left: { [string]: number }): number?
+	local broken: { [string]: number } = {}
+	local last: number? = nil
+	for _, mark in clip.marks do
+		if (left[mark.slot] or 0) > 0 then
+			broken[mark.slot] = (broken[mark.slot] or 0) + 1
+			last = math.max(last or mark.t, mark.t)
+		end
+	end
+	for slot, count in left do
+		if (broken[slot] or 0) < count then
+			return nil
+		end
+	end
+	return last
+end
+
 -- Whether a run that lifted off at `startT` and ended at `endT` is worth a
 -- clip, so a hop while rolling after a landing doesn't replace the jump.
 function ReplayTape.keeps(startT: number, endT: number, tuning: Tuning): boolean

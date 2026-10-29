@@ -7,6 +7,11 @@
 -- bounces off what real broken parts hit (the Props collision group) until
 -- it stops. The path has a point every DebrisStep seconds, so the part can be
 -- put anywhere along it for any replay time.
+--
+-- A wheel (a cylinder on its x axis) rolls: on level ground it turns up onto
+-- its tread, spins as fast as it moves, and loses little speed, so it rolls
+-- away and down slopes. It feels for the ground below it each step, so it
+-- rides along it rather than sinking in.
 
 local Tuning = require(game:GetService("ReplicatedStorage").Tuning)
 
@@ -19,12 +24,14 @@ local ReplayDebris = {}
 
 -- The path of a part of `size` leaving `start` at `velocity`, tumbling at
 -- `spin` (axis times radians per second). Never hits anything in `exclude`.
+-- `wheel` is true for a wheel, which rolls.
 function ReplayDebris.path(
 	start: CFrame,
 	velocity: Vector3,
 	size: Vector3,
 	spin: Vector3,
-	exclude: { Instance }
+	exclude: { Instance },
+	wheel: boolean?
 ): { CFrame }
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -32,7 +39,7 @@ function ReplayDebris.path(
 	params.CollisionGroup = PROPS_GROUP
 	params.RespectCanCollide = true
 	params.IgnoreWater = true
-	local radius = math.min(size.X, size.Y, size.Z) / 2
+	local radius = if wheel then size.Y / 2 else math.min(size.X, size.Y, size.Z) / 2
 	local gravity = Vector3.new(0, -workspace.Gravity, 0)
 	local dt = R.DebrisStep
 	local position = start.Position
@@ -44,12 +51,35 @@ function ReplayDebris.path(
 		local hit = if move.Magnitude > 1e-6
 			then workspace:Raycast(position, move + move.Unit * radius, params)
 			else nil
+		if not hit and wheel then
+			position += move
+			move = Vector3.zero
+			local below = workspace:Raycast(position, Vector3.new(0, -radius, 0), params)
+			if below and velocity:Dot(below.Normal) < 0 then
+				hit = below
+			end
+		end
 		if hit then
 			position = hit.Position + hit.Normal * radius
 			local into = velocity:Dot(hit.Normal)
 			local along = velocity - hit.Normal * into
-			velocity = along * (1 - R.DebrisFriction) - hit.Normal * into * R.DebrisBounce
-			spin *= R.DebrisBounce
+			if wheel and hit.Normal.Y >= R.RollGround then
+				velocity = along * (1 - R.RollFriction) - hit.Normal * into * R.DebrisBounce
+				local axle = hit.Normal:Cross(velocity)
+				if axle.Magnitude > 1e-3 then
+					local now = turn.RightVector
+					local goal = if now:Dot(axle) < 0 then -axle.Unit else axle.Unit
+					local tilt = now:Cross(goal)
+					if tilt.Magnitude > 1e-4 then
+						local angle = math.asin(math.min(tilt.Magnitude, 1)) * R.RollUpright
+						turn = CFrame.fromAxisAngle(tilt.Unit, angle) * turn
+					end
+				end
+				spin = axle / radius
+			else
+				velocity = along * (1 - R.DebrisFriction) - hit.Normal * into * R.DebrisBounce
+				spin *= R.DebrisBounce
+			end
 			if velocity.Magnitude < R.DebrisRest then
 				table.insert(frames, CFrame.new(position) * turn)
 				break

@@ -13,6 +13,10 @@
 -- and scrub with the car. Scrubbing back to before a break puts the part
 -- back on. Like real broken parts, they are gone after PartLifetime.
 --
+-- Real cars keep their wheels, but a ghost with no parts left would be four
+-- wheels flying in formation, so its wheels come off with its last part, as
+-- in a wreck, and roll away. Brake discs and calipers go with their wheel.
+--
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
 -- HUD alone. The camera starts on the ghost from the side, a little behind
@@ -62,6 +66,8 @@ type Piece = {
 	offset: CFrame, -- from the car's pose
 	breakAt: number?, -- clip time it breaks off, nil if it stays on
 	path: { CFrame }?, -- where it flies once broken, worked out when first needed
+	wheel: boolean?, -- a wheel, which rolls once off
+	on: number?, -- the index of the wheel piece it rides on, for a brake
 }
 
 type Playing = {
@@ -103,11 +109,14 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece })
 	local parts = CarParts.build(design, CFrame.new(), ghost)
 	local breaks = ReplayTape.breaks(replay.clip)
 	local breakAt: { [BasePart]: number } = {}
+	local left: { [string]: number } = {}
 	for _, slot in CarParts.Slots do
 		local value = look[CarParts.brokenAttribute(slot)]
 		local before = if typeof(value) == "number" then value else 0
 		local times = breaks[slot] or {}
-		for k, index in CarDesign.breakable(design, slot) do
+		local breakable = CarDesign.breakable(design, slot)
+		left[slot] = math.max(#breakable - before, 0)
+		for k, index in breakable do
 			if k <= before then
 				parts[index]:Destroy()
 			else
@@ -116,13 +125,38 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece })
 		end
 	end
 	CarPreview.wheels(design, ghost)
+	local stripped = ReplayTape.stripped(replay.clip, left)
 	local pieces: { Piece } = {}
+	local riders: { [BasePart]: boolean } = {}
+	for i, spec in design.parts do
+		if spec.wheel then
+			riders[parts[i]] = true
+		end
+	end
 	for _, part in ghost:GetDescendants() do
 		if part:IsA("BasePart") then
 			noPhysics(part)
 			part.Anchored = true
-			table.insert(pieces, { part = part, offset = part.CFrame, breakAt = breakAt[part] })
+			if part.Name == "Wheel" then
+				table.insert(pieces, { part = part, offset = part.CFrame, breakAt = stripped, wheel = true })
+			elseif not riders[part] then
+				table.insert(pieces, { part = part, offset = part.CFrame, breakAt = breakAt[part] })
+			end
 		end
+	end
+	-- Brakes ride on the nearest wheel, so after it in the list.
+	for part in riders do
+		local on: number? = nil
+		local nearest = math.huge
+		for i, piece in pieces do
+			local distance = (piece.part.Position - part.Position).Magnitude
+			if piece.wheel and distance < nearest then
+				on, nearest = i, distance
+			end
+		end
+		local wheel = if on then pieces[on] else nil
+		local offset = if wheel then wheel.offset:Inverse() * part.CFrame else part.CFrame
+		table.insert(pieces, { part = part, offset = offset, on = on })
 	end
 	return ghost, pieces
 end
@@ -143,7 +177,7 @@ local function flyOff(now: Playing, piece: Piece, at: number): { CFrame }
 	local away = start.Position - pose.Position
 	local pop = if away.Magnitude > 1e-3 then away.Unit * T.BreakPop else Vector3.zero
 	local spin = now.random:NextUnitVector() * R.DebrisSpin
-	local path = ReplayDebris.path(start, velocity + pop, piece.part.Size, spin, { now.ghost })
+	local path = ReplayDebris.path(start, velocity + pop, piece.part.Size, spin, { now.ghost }, piece.wheel)
 	piece.path = path
 	return path
 end
@@ -208,7 +242,11 @@ local function show(now: Playing, dt: number)
 	})
 	for i, piece in now.pieces do
 		local breakAt = piece.breakAt
-		if breakAt and time >= breakAt then
+		local on = piece.on
+		if on then
+			now.cframes[i] = now.cframes[on] * piece.offset
+			piece.part.LocalTransparencyModifier = now.pieces[on].part.LocalTransparencyModifier
+		elseif breakAt and time >= breakAt then
 			now.cframes[i] = ReplayDebris.at(piece.path or flyOff(now, piece, breakAt), time - breakAt)
 			piece.part.LocalTransparencyModifier = if time - breakAt > T.PartLifetime then 1 else 0
 		else

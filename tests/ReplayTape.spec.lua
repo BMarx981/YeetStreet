@@ -159,6 +159,23 @@ Check.test("breaks lists when each slot's parts broke off, in order", function()
 	Check.eq(breaks.tail, nil, "tail broke after the clip")
 end)
 
+Check.test("stripped is when the last part left broke off, if they all did", function()
+	local tape = ReplayTape.new()
+	for t = 0, 10 do
+		ReplayTape.record(tape, t, t, TUNING)
+	end
+	ReplayTape.mark(tape, 3, "nose")
+	ReplayTape.mark(tape, 6, "roof")
+	ReplayTape.mark(tape, 6, "nose")
+	local clip = ReplayTape.cut(tape, 2, 8)
+	assert(clip, "clip")
+	Check.near(ReplayTape.stripped(clip, { nose = 2, roof = 1 }) or -1, 4, "all gone at the wreck")
+	Check.eq(ReplayTape.stripped(clip, { nose = 2, roof = 1, tail = 1 }), nil, "the tail is still on")
+	Check.eq(ReplayTape.stripped(clip, { nose = 3, roof = 1 }), nil, "a nose part is still on")
+	Check.eq(ReplayTape.stripped(clip, { nose = 2, roof = 1, tail = 0 }) ~= nil, true, "an empty slot")
+	Check.eq(ReplayTape.stripped(clip, {}), nil, "no parts to break")
+end)
+
 Check.test("the tape forgets breaks older than MaxLength", function()
 	local tape = ReplayTape.new()
 	ReplayTape.record(tape, 0, 0, TUNING)

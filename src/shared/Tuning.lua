@@ -875,6 +875,11 @@ Tuning.Replay = {
 	DebrisBounce = 0.35, -- share of its speed into a surface a part bounces back with
 	DebrisFriction = 0.15, -- share of its speed along a surface a part loses each bounce
 	DebrisRest = 4, -- studs per second below which a bouncing part stops
+	-- The ghost's wheels come off when its last part does, as in a wreck, and
+	-- roll where they land.
+	RollFriction = 0.01, -- share of its speed a rolling wheel loses each DebrisStep
+	RollUpright = 0.25, -- share of the way a landed wheel turns up onto its tread each DebrisStep
+	RollGround = 0.7, -- how level a surface must be to roll on (1 is flat)
 }
 
 Tuning.TestPark = {
