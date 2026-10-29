@@ -113,7 +113,11 @@ Tuning.Obby = {
 	-- 14 add moving platforms (ObbyMover), each held in line long enough to
 	-- cross at 80, with a 1 stud gap at each end so it can move. A rising
 	-- platform with Move under sqrt(6 * |Travel| / 130) stops faster than
-	-- gravity and throws the car off its top.
+	-- gravity and throws the car off its top. Stages 15 to 17 need jets (at
+	-- full power, Jets 20 pushes 180 against gravity's 130, for 3.5 s): First
+	-- Flight's gap is too long without them, Climb lands higher than the
+	-- booster throws, and Long Haul is long. At Jets 20 each takes under a
+	-- third of a tank with the nose held 15 to 35 degrees up from the lip.
 	World1 = {
 		X = 0,
 		Y = 1000,
@@ -332,6 +336,45 @@ Tuning.Obby = {
 					{ Kind = "Mover", Length = 70, Width = 20, Axis = "Side", Travel = 30, Move = 1.5, Hold = 2.5 },
 					{ Kind = "Gap", Length = 1 },
 					{ Kind = "Road", Length = 60 },
+				},
+			},
+			{
+				Name = "First Flight",
+				Width = 20,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 160 },
+					{ Kind = "Road", Length = 200 },
+					{ Kind = "Turn", Angle = 90 },
+					{ Kind = "Road", Length = 40, Width = 14 },
+				},
+			},
+			{
+				Name = "Climb",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 140, Rise = 15 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 160, Rise = 20 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 160, Rise = 25 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Long Haul",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 150 },
+					{ Kind = "Gap", Length = 440, Rise = -20, Offset = 40 },
+					{ Kind = "Road", Length = 160, Width = 16 },
+					{ Kind = "Road", Length = 40, Width = 12 },
 				},
 			},
 		},
