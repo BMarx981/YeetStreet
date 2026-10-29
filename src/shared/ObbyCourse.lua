@@ -11,6 +11,9 @@
 -- facing -Z, left is -X. The course is always level across, so pieces only
 -- turn about Y; a ramp is a wedge on a slab. A mover is a slab laid where a
 -- road would be, that each client moves out of line and back (ObbyMover).
+-- A ring is a wall standing across the way with a hole to fly through, made
+-- of four slabs: a post each side and a bar above and below the hole. The
+-- wall reaches RingBorder past the hole all round.
 
 local ObbyCourse = {}
 
@@ -25,12 +28,14 @@ export type Mover = {
 
 export type Segment = {
 	-- "Road" flat, "Ramp" sloped, "Gap" empty space, "Turn" a square corner,
-	-- "Mover" a flat platform that moves
+	-- "Mover" a flat platform that moves, "Ring" a wall with a hole
 	Kind: string,
-	Length: number?, -- along the way, for Road, Ramp, Gap and Mover
+	Length: number?, -- along the way, for Road, Ramp, Gap and Mover; a Ring's thickness
 	Rise: number?, -- height gained, negative to go down, for Ramp and Gap
-	Width: number?, -- in place of the stage's Width, for Road, Ramp and Mover
-	Offset: number?, -- sideways, right is positive, for Gap
+	Width: number?, -- in place of the stage's Width, for Road, Ramp and Mover; a Ring's hole
+	Offset: number?, -- sideways, right is positive, for Gap; for Ring, of the hole
+	Height: number?, -- of a Ring's hole
+	Lift: number?, -- of a Ring's hole bottom, above the course
 	Angle: number?, -- degrees, left is positive, for Turn
 	Boost: number?, -- makes a Road or Ramp a booster, pushing cars up to this speed
 	-- For Mover, see ObbyMover. Phase defaults to 0.
@@ -55,6 +60,7 @@ export type Tuning = {
 	Heading: number,
 	Thickness: number, -- of every slab
 	PadLength: number, -- of every checkpoint pad
+	RingBorder: number, -- how far a ring's wall reaches past its hole
 	Stages: { Stage },
 }
 
@@ -73,6 +79,7 @@ export type Piece = {
 	Corner: boolean?, -- for a Slab: whether it is a Turn's corner
 	Boost: number?, -- for a booster Slab or Wedge: the speed it pushes cars up to
 	Mover: Mover?, -- for a moving Slab: how it moves, from where it is here
+	Ring: boolean?, -- for a Slab: whether it is part of a ring's wall
 }
 
 type Pen = { x: number, y: number, z: number, heading: number }
@@ -102,6 +109,14 @@ local function box(pen: Pen, kind: string, width: number, height: number, length
 		Length = length,
 		Stage = stage,
 	}
+end
+
+-- A box like `box`, but `right` to the side of the pen.
+local function aside(pen: Pen, right: number, kind: string, width: number, height: number, length: number, top: number, stage: number): Piece
+	move(pen, 0, right)
+	local piece = box(pen, kind, width, height, length, top, stage)
+	move(pen, 0, -right)
+	return piece
 end
 
 local function pad(pen: Pen, width: number, checkpoint: number, tuning: Tuning): Piece
@@ -142,6 +157,21 @@ local function segment(pen: Pen, seg: Segment, stage: Stage, n: number, tuning: 
 			Phase = seg.Phase or 0,
 		}
 		table.insert(pieces, slab)
+		move(pen, length, 0)
+	elseif seg.Kind == "Ring" then
+		local border = tuning.RingBorder
+		local hole, high, lift, off = width, seg.Height or 0, seg.Lift or 0, seg.Offset or 0
+		local top = lift + high + border
+		local walls = {
+			aside(pen, off - (hole + border) / 2, "Slab", border, high + 2 * border, length, top, n),
+			aside(pen, off + (hole + border) / 2, "Slab", border, high + 2 * border, length, top, n),
+			aside(pen, off, "Slab", hole, border, length, top, n),
+			aside(pen, off, "Slab", hole, border, length, lift, n),
+		}
+		for _, wall in walls do
+			wall.Ring = true
+			table.insert(pieces, wall)
+		end
 		move(pen, length, 0)
 	elseif seg.Kind == "Turn" then
 		local corner = box(pen, "Slab", width, tuning.Thickness, width, 0, n)

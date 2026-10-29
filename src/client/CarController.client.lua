@@ -862,7 +862,8 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		return
 	end
 	local contact = current.sensor.contact
-	ChaseCamera.update(current.hull, contact.airborne, dt, up)
+	local wingsOut = current.model:GetAttribute("PlaneCar") == true and current.model:GetAttribute("WingsOut") == true
+	ChaseCamera.update(current.hull, contact.airborne, dt, up, wingsOut)
 	Hud.update(
 		fuel / current.jetFuel,
 		current.hull.AssemblyLinearVelocity.Magnitude,

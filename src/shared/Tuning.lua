@@ -118,6 +118,13 @@ Tuning.Obby = {
 	-- Flight's gap is too long without them, Climb lands higher than the
 	-- booster throws, and Long Haul is long. At Jets 20 each takes under a
 	-- third of a tank with the nose held 15 to 35 degrees up from the lip.
+	-- Stages 18 to 20 add rings to fly through. A booster sets the car's
+	-- speed, so a ring on the booster's own path needs no jets: from a 24
+	-- long, 8 high booster ramp at 130, the car's middle is 11 over the lip
+	-- 40 on (measured in Play), its wheels 4 below that and its hull top 2.5
+	-- above when nosed up off the ramp. A car is 8.3 across its wheels. A
+	-- booster throws straight, so a hole off to the side needs a long enough
+	-- flight to slide over on jets.
 	World1 = {
 		X = 0,
 		Y = 1000,
@@ -125,6 +132,9 @@ Tuning.Obby = {
 		Heading = 0,
 		Thickness = 2,
 		PadLength = 24,
+		-- A ring's wall reaches this far past its hole all round, so going
+		-- round it costs far more fuel and steering than going through.
+		RingBorder = 50,
 		Stages = {
 			{
 				Name = "Warm Up",
@@ -373,6 +383,82 @@ Tuning.Obby = {
 					{ Kind = "Road", Length = 80 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 150 },
 					{ Kind = "Gap", Length = 440, Rise = -20, Offset = 40 },
+					{ Kind = "Road", Length = 160, Width = 16 },
+					{ Kind = "Road", Length = 40, Width = 12 },
+				},
+			},
+			{
+				Name = "Hoops",
+				Width = 20,
+				Segments = {
+					{ Kind = "Road", Length = 50 },
+					{ Kind = "Turn", Angle = 90 },
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 40 },
+					{ Kind = "Ring", Length = 4, Width = 28, Height = 18, Lift = 1 },
+					{ Kind = "Gap", Length = 40, Rise = -10 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 60 },
+					{ Kind = "Ring", Length = 4, Width = 28, Height = 18, Lift = 18 },
+					{ Kind = "Gap", Length = 60, Rise = 15 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 70 },
+					{ Kind = "Ring", Length = 4, Width = 28, Height = 18, Lift = 2, Offset = 14 },
+					{ Kind = "Gap", Length = 60, Rise = -5, Offset = 14 },
+					{ Kind = "Road", Length = 80 },
+				},
+			},
+			{
+				Name = "Needle",
+				Width = 16,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 40 },
+					{ Kind = "Ring", Length = 4, Width = 14, Height = 10, Lift = 5 },
+					{ Kind = "Gap", Length = 40, Rise = -10 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 80 },
+					{ Kind = "Ring", Length = 4, Width = 14, Height = 10, Lift = 22, Offset = -12 },
+					{ Kind = "Gap", Length = 60, Rise = 10, Offset = -12 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 50 },
+					{ Kind = "Ring", Length = 4, Width = 14, Height = 10, Lift = 5 },
+					{ Kind = "Gap", Length = 60 },
+					{ Kind = "Ring", Length = 4, Width = 14, Height = 10, Lift = 5, Offset = 10 },
+					{ Kind = "Gap", Length = 50, Rise = -10, Offset = 10 },
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Road", Length = 40, Width = 12 },
+				},
+			},
+			{
+				Name = "Final Exam",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 40 },
+					{ Kind = "Ring", Length = 4, Width = 20, Height = 14, Lift = 3 },
+					{ Kind = "Gap", Length = 40, Rise = -10 },
+					{ Kind = "Road", Length = 120 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 50, Axis = "Side", Travel = 24, Move = 1.2, Hold = 2 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 80 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
+					{ Kind = "Gap", Length = 80 },
+					{ Kind = "Ring", Length = 4, Width = 20, Height = 14, Lift = 22 },
+					{ Kind = "Gap", Length = 80, Rise = 20 },
+					{ Kind = "Road", Length = 100 },
+					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 150 },
+					{ Kind = "Gap", Length = 160 },
+					{ Kind = "Ring", Length = 4, Width = 18, Height = 12, Lift = 0, Offset = 20 },
+					{ Kind = "Gap", Length = 200, Rise = -10, Offset = 20 },
 					{ Kind = "Road", Length = 160, Width = 16 },
 					{ Kind = "Road", Length = 40, Width = 12 },
 				},

@@ -9,6 +9,7 @@ local T: ObbyCourse.Tuning = {
 	Heading = 0,
 	Thickness = 2,
 	PadLength = 20,
+	RingBorder = 50,
 	Stages = {},
 }
 
@@ -163,6 +164,47 @@ end)
 Check.test("a road doesn't move", function()
 	local road = course({ stage({ { Kind = "Road", Length = 50 } }) })[2]
 	Check.eq(road.Mover, nil)
+end)
+
+Check.test("a ring is a wall of four pieces around a hole, as thick as its length", function()
+	local pieces = course({
+		stage({ { Kind = "Ring", Length = 4, Width = 20, Height = 12, Lift = 3, Offset = 5 } }),
+	})
+	Check.eq(#pieces, 6)
+	local left, right, top, bottom = pieces[2], pieces[3], pieces[4], pieces[5]
+	for _, wall in { left, right, top, bottom } do
+		Check.eq(wall.Kind, "Slab")
+		Check.eq(wall.Ring, true)
+		Check.eq(wall.Length, 4)
+		Check.near(wall.Z, -20 - 2)
+	end
+	-- The hole runs 5 - 10 to 5 + 10 across and 103 to 115 up.
+	Check.near(left.X + left.Width / 2, -5)
+	Check.near(left.X - left.Width / 2, -55)
+	Check.near(right.X - right.Width / 2, 15)
+	Check.near(right.X + right.Width / 2, 65)
+	Check.near(left.Y - left.Height / 2, 53)
+	Check.near(left.Y + left.Height / 2, 165)
+	Check.near(top.Y - top.Height / 2, 115)
+	Check.near(top.Y + top.Height / 2, 165)
+	Check.near(bottom.Y + bottom.Height / 2, 103)
+	Check.near(bottom.Y - bottom.Height / 2, 53)
+	for _, bar in { top, bottom } do
+		Check.near(bar.X, 5)
+		Check.eq(bar.Width, 20)
+	end
+end)
+
+Check.test("a ring leaves the course where it was, just past the wall", function()
+	local pad = course({ stage({ { Kind = "Ring", Length = 4, Width = 20, Height = 12, Lift = 3, Offset = 5 } }) })[6]
+	Check.near(pad.X, 0)
+	Check.near(pad.Y + pad.Height / 2, 100)
+	Check.near(pad.Z, -24 - 10)
+end)
+
+Check.test("a road isn't a ring", function()
+	local road = course({ stage({ { Kind = "Road", Length = 50 } }) })[2]
+	Check.eq(road.Ring, nil)
 end)
 
 Check.test("pieces carry the heading of the way the course runs", function()

@@ -16,6 +16,9 @@
 --
 -- Moving platforms (ObbyCourse's Mover) are not built here: each client
 -- builds and moves its own (ObbyMovers).
+--
+-- Ring walls are see-through enough to show the landing behind them, and
+-- have no shoulders, so a wheel clipping a hole's edge hits the wall.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -32,6 +35,7 @@ local ObbyBuilder = {}
 
 local COLORS = Tuning.Obby.StageColors
 local PAD_COLOR = Color3.fromRGB(40, 200, 110)
+local RING_TRANSPARENCY = 0.4
 
 local function number(part: BasePart, text: string)
 	local gui = Instance.new("SurfaceGui")
@@ -52,7 +56,11 @@ end
 
 local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 	local p: BasePart = if piece.Kind == "Wedge" then Instance.new("WedgePart") else Instance.new("Part")
-	p.Name = if piece.Kind == "Pad" then `Checkpoint{piece.Checkpoint}` elseif piece.Boost then "Booster" else piece.Kind
+	p.Name = if piece.Kind == "Pad"
+		then `Checkpoint{piece.Checkpoint}`
+		elseif piece.Boost then "Booster"
+		elseif piece.Ring then "Ring"
+		else piece.Kind
 	p.Anchored = true
 	p.Size = Vector3.new(piece.Width, piece.Height, piece.Length)
 	local cframe = CFrame.new(piece.X, piece.Y, piece.Z) * CFrame.Angles(0, math.rad(piece.Heading), 0)
@@ -78,6 +86,9 @@ local function part(piece: ObbyCourse.Piece, parent: Instance): BasePart
 		p:SetAttribute("NoRun", true)
 	else
 		p.Color = COLORS[(piece.Stage - 1) % #COLORS + 1]
+		if piece.Ring then
+			p.Transparency = RING_TRANSPARENCY
+		end
 	end
 	p.Parent = parent
 	return p
@@ -118,7 +129,10 @@ function ObbyBuilder.build(): Folder
 			folder.Parent = world
 			stages[piece.Stage] = folder
 		end
-		shoulder(piece, part(piece, folder))
+		local p = part(piece, folder)
+		if not piece.Ring then
+			shoulder(piece, p)
+		end
 	end
 	return world
 end

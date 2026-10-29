@@ -2,7 +2,9 @@
 -- ChaseCamera (ModuleScript) -> StarterPlayerScripts.ChaseCamera
 -- Follows behind the car. On the ground it looks along the car's nose. In the
 -- air it looks along the direction of travel, so flips and spins happen in
--- front of the camera instead of whipping it around. FOV widens with speed.
+-- front of the camera instead of whipping it around. A plane with its wings
+-- out always looks along its nose, so the camera stays behind the driver even
+-- while it sinks. FOV widens with speed.
 -- Up is world up, except inside a city tube, where it is toward the tube's
 -- middle line, so the camera rolls round with a car driving on the walls.
 
@@ -17,10 +19,10 @@ local ChaseCamera = {}
 local heading: Vector3? = nil
 local cameraUp = Vector3.yAxis
 
-local function wantedHeading(hull: BasePart, airborne: boolean, up: Vector3): Vector3?
+local function wantedHeading(hull: BasePart, airborne: boolean, up: Vector3, followNose: boolean): Vector3?
 	local velocity = hull.AssemblyLinearVelocity
 	local want = hull.CFrame.LookVector
-	if airborne and velocity.Magnitude > C.FollowVelocityAbove then
+	if airborne and not followNose and velocity.Magnitude > C.FollowVelocityAbove then
 		want = velocity.Unit
 	end
 	-- Straight up or down has no "behind"; keep the last heading instead.
@@ -31,7 +33,7 @@ local function wantedHeading(hull: BasePart, airborne: boolean, up: Vector3): Ve
 	return (level + up * math.clamp(want:Dot(up), -C.MaxPitch, C.MaxPitch)).Unit
 end
 
-function ChaseCamera.update(hull: BasePart, airborne: boolean, dt: number, up: Vector3?)
+function ChaseCamera.update(hull: BasePart, airborne: boolean, dt: number, up: Vector3?, followNose: boolean?)
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
 
@@ -41,7 +43,7 @@ function ChaseCamera.update(hull: BasePart, airborne: boolean, dt: number, up: V
 		cameraUp = rolled.Unit
 	end
 
-	local want = wantedHeading(hull, airborne, cameraUp)
+	local want = wantedHeading(hull, airborne, cameraUp, followNose == true)
 	if not heading then
 		heading = want or hull.CFrame.LookVector
 	elseif want then
