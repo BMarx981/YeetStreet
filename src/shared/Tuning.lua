@@ -58,6 +58,17 @@ Tuning.Invites = {
 	CheckInterval = 300,
 }
 
+-- The car obby, world 1 (see Obby). Stage cash pays on every visit, so it is
+-- kept small; the world prize pays once ever.
+Tuning.Obby = {
+	Stages = 20,
+	StageCash = 100,
+	StageCashStep = 25,
+	WorldPrize = 50000,
+	-- Every stage must be clearable at this Jets level (a maxed Hatchback).
+	DesignJets = 20,
+}
+
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps
 -- to the real stats its upgrade drives: Speed drives TopSpeed; Jets drives
 -- JetPower, JetFuel, FuelRecharge, and TurnRate; Toughness and Grip drive
