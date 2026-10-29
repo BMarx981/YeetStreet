@@ -67,6 +67,11 @@ Tuning.Obby = {
 	WorldPrize = 50000,
 	-- Every stage must be clearable at this Jets level (a maxed Hatchback).
 	DesignJets = 20,
+	-- A hull up to this high over a checkpoint pad touches it.
+	CheckpointReach = 12,
+	-- A car this far below the lowest pad has fallen, and respawns.
+	FallDepth = 60,
+	SelectGap = 1, -- the server ignores checkpoint picks closer together than this
 }
 
 -- Upgrade levels start at 0, which is Tuning.StarterCar. Each level adds Steps

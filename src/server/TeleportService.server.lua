@@ -10,16 +10,22 @@
 -- respawn, until the next launch pad. "Garage" goes to the Garage-tagged
 -- model nearest the player, GarageDistance in front of it and facing it, and
 -- leaves the respawn point alone. A player on foot moves there on foot.
+-- "Obby" starts a fresh obby visit on its start pad (ObbyService), with
+-- resets and wrecks coming back to its checkpoints; any other teleport ends
+-- the visit.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ObbyService = require(ServerScriptService.ObbyService)
 
 local GARAGE = "Garage"
+local OBBY = "Obby"
 -- The hull's center above the floor, the same as a car in a spawn lane.
 local HULL_HEIGHT = Tuning.TestPark.SpawnHeight
 
@@ -93,6 +99,12 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 			return false, "NoGarage"
 		end
 		arrival, home = garageArrival(garage), false
+	elseif destination == OBBY then
+		local start = ObbyService.enter(player)
+		if not start then
+			return false, "Unknown"
+		end
+		arrival, home = start, false
 	else
 		local area = if typeof(destination) == "string" then MapLayout.find(areas, destination) else nil
 		if not area or area.Kind == "Open" then
@@ -102,6 +114,9 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	end
 
 	lastTeleportAt[player] = now
+	if destination ~= OBBY then
+		ObbyService.leave(player)
+	end
 	if not movePlayerCar:Invoke(player, arrival, home) then
 		character:PivotTo(arrival + Vector3.new(0, 3, 0))
 	end

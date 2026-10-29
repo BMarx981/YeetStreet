@@ -42,6 +42,7 @@ export type Data = {
 	Economy: Economy.State,
 	Best: number, -- best run score
 	Invites: Invites.State,
+	ObbyCleared: boolean, -- whether the obby's world prize has been paid
 }
 
 type Session = {
@@ -89,6 +90,7 @@ local function reconcile(saved: any): Data
 		Economy = Economy.reconcile(raw.Economy, Tuning.Ladder),
 		Best = if typeof(best) == "number" and best >= 0 then best else 0,
 		Invites = Invites.reconcile(raw.Invites),
+		ObbyCleared = raw.ObbyCleared == true,
 	}
 end
 

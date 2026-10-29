@@ -74,7 +74,9 @@
 -- Both build a fresh car at the last launcher the player used, through
 -- CarService's ServerStorage.RespawnCar. A teleport (TeleportService invokes
 -- ServerStorage.MovePlayerCar) ends the run the same way and builds the car
--- at its destination.
+-- at its destination. In the obby, ObbyService sets a checkpoint
+-- (ServerStorage.SetPlayerCheckpoint) that resets and wrecks come back to
+-- instead, ahead of any launcher, until it clears it.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -159,6 +161,8 @@ carWrecked.Parent = ReplicatedStorage
 local watches: { [Model]: Watch } = {}
 -- The RespawnCFrame of the last launch pad each player touched.
 local lastLaunch: { [Player]: CFrame } = {}
+-- The obby checkpoint each player in the obby respawns at.
+local checkpoints: { [Player]: CFrame } = {}
 local lastResetAt: { [Player]: number } = {}
 local respawns = 0
 
@@ -178,6 +182,7 @@ for _, player in Players:GetPlayers() do
 end
 Players.PlayerRemoving:Connect(function(player: Player)
 	lastLaunch[player] = nil
+	checkpoints[player] = nil
 	lastResetAt[player] = nil
 end)
 
@@ -321,9 +326,15 @@ propSmashed.Event:Connect(function(car: Model, target: string)
 	end
 end)
 
--- Where a reset or wreck puts the car: the last launcher's respawn point, in
--- the next lane over, or the car's own spawn lane before it has launched.
+-- Where a reset or wreck puts the car: its obby checkpoint, or the last
+-- launcher's respawn point, in the next lane over, or the car's own spawn
+-- lane before it has launched. Checkpoints take no lanes, as their pads are
+-- narrow.
 local function launcherPoint(player: Player): CFrame?
+	local checkpoint = checkpoints[player]
+	if checkpoint then
+		return checkpoint
+	end
 	local base = lastLaunch[player]
 	if not base then
 		return nil
@@ -810,6 +821,16 @@ end
 local movePlayerCar = Instance.new("BindableFunction")
 movePlayerCar.Name = "MovePlayerCar"
 movePlayerCar.OnInvoke = move
+
+-- Sets where the player's resets and wrecks come back, or clears it with nil.
+-- A function, not an event, so it has taken effect by the time a teleport
+-- right after it respawns the car.
+local setPlayerCheckpoint = Instance.new("BindableFunction")
+setPlayerCheckpoint.Name = "SetPlayerCheckpoint"
+setPlayerCheckpoint.OnInvoke = function(player: Player, cframe: CFrame?)
+	checkpoints[player] = cframe
+end
+setPlayerCheckpoint.Parent = ServerStorage
 movePlayerCar.Parent = ServerStorage
 
 RunService.Heartbeat:Connect(function(dt: number)
