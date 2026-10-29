@@ -9,19 +9,36 @@
 --
 -- Headings are degrees, turning the way CFrame.Angles(0, angle, 0) turns:
 -- facing -Z, left is -X. The course is always level across, so pieces only
--- turn about Y; a ramp is a wedge on a slab.
+-- turn about Y; a ramp is a wedge on a slab. A mover is a slab laid where a
+-- road would be, that each client moves out of line and back (ObbyMover).
 
 local ObbyCourse = {}
 
+-- Same fields as ObbyMover.Mover, declared here so this module needs no require.
+export type Mover = {
+	Axis: string,
+	Travel: number,
+	Move: number,
+	Hold: number,
+	Phase: number,
+}
+
 export type Segment = {
-	-- "Road" flat, "Ramp" sloped, "Gap" empty space, "Turn" a square corner
+	-- "Road" flat, "Ramp" sloped, "Gap" empty space, "Turn" a square corner,
+	-- "Mover" a flat platform that moves
 	Kind: string,
-	Length: number?, -- along the way, for Road, Ramp and Gap
+	Length: number?, -- along the way, for Road, Ramp, Gap and Mover
 	Rise: number?, -- height gained, negative to go down, for Ramp and Gap
-	Width: number?, -- in place of the stage's Width, for Road and Ramp
+	Width: number?, -- in place of the stage's Width, for Road, Ramp and Mover
 	Offset: number?, -- sideways, right is positive, for Gap
 	Angle: number?, -- degrees, left is positive, for Turn
 	Boost: number?, -- makes a Road or Ramp a booster, pushing cars up to this speed
+	-- For Mover, see ObbyMover. Phase defaults to 0.
+	Axis: string?,
+	Travel: number?,
+	Move: number?,
+	Hold: number?,
+	Phase: number?,
 }
 
 export type Stage = {
@@ -55,6 +72,7 @@ export type Piece = {
 	Rising: boolean?, -- for a Wedge: whether it rises along the way
 	Corner: boolean?, -- for a Slab: whether it is a Turn's corner
 	Boost: number?, -- for a booster Slab or Wedge: the speed it pushes cars up to
+	Mover: Mover?, -- for a moving Slab: how it moves, from where it is here
 }
 
 type Pen = { x: number, y: number, z: number, heading: number }
@@ -114,6 +132,17 @@ local function segment(pen: Pen, seg: Segment, stage: Stage, n: number, tuning: 
 	elseif seg.Kind == "Gap" then
 		move(pen, length, seg.Offset or 0)
 		pen.y += rise
+	elseif seg.Kind == "Mover" then
+		local slab = box(pen, "Slab", width, tuning.Thickness, length, 0, n)
+		slab.Mover = {
+			Axis = seg.Axis or "Side",
+			Travel = seg.Travel or 0,
+			Move = seg.Move or 1,
+			Hold = seg.Hold or 1,
+			Phase = seg.Phase or 0,
+		}
+		table.insert(pieces, slab)
+		move(pen, length, 0)
 	elseif seg.Kind == "Turn" then
 		local corner = box(pen, "Slab", width, tuning.Thickness, width, 0, n)
 		corner.Corner = true

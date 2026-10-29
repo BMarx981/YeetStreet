@@ -141,6 +141,30 @@ Check.test("a booster ramp boosts on its wedge, not the slab under it", function
 	Check.eq(pieces[3].Boost, 140)
 end)
 
+Check.test("a mover is a slab where a road would be, carrying how it moves", function()
+	local pieces = course({
+		stage({ { Kind = "Mover", Length = 40, Width = 20, Axis = "Up", Travel = -24, Move = 1, Hold = 2, Phase = 0.25 } }),
+	})
+	local slab, pad = pieces[2], pieces[3]
+	Check.eq(slab.Kind, "Slab")
+	Check.near(slab.Y + slab.Height / 2, 100)
+	Check.near(slab.Z, -20 - 20)
+	Check.eq(slab.Width, 20)
+	Check.eq(slab.Length, 40)
+	local mover = slab.Mover :: ObbyCourse.Mover
+	Check.eq(mover.Axis, "Up")
+	Check.eq(mover.Travel, -24)
+	Check.eq(mover.Move, 1)
+	Check.eq(mover.Hold, 2)
+	Check.eq(mover.Phase, 0.25)
+	Check.near(pad.Z, -60 - 10)
+end)
+
+Check.test("a road doesn't move", function()
+	local road = course({ stage({ { Kind = "Road", Length = 50 } }) })[2]
+	Check.eq(road.Mover, nil)
+end)
+
 Check.test("pieces carry the heading of the way the course runs", function()
 	local t = table.clone(T)
 	t.Heading = 90

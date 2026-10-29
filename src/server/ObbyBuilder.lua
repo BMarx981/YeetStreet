@@ -13,6 +13,9 @@
 -- runs, up a ramp's slope, with NoRun: they start no run, so no score shows
 -- and no cash pays. They have no RespawnCFrame: in the obby the checkpoint
 -- wins, and after it a reset should not come back to the sky.
+--
+-- Moving platforms (ObbyCourse's Mover) are not built here: each client
+-- builds and moves its own (ObbyMovers).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,14 +30,7 @@ local W = Tuning.Obby.World1
 
 local ObbyBuilder = {}
 
--- A stage's road color, by stage number, round and round.
-local COLORS = {
-	Color3.fromRGB(80, 160, 255),
-	Color3.fromRGB(255, 120, 60),
-	Color3.fromRGB(170, 90, 230),
-	Color3.fromRGB(255, 80, 140),
-	Color3.fromRGB(60, 200, 210),
-}
+local COLORS = Tuning.Obby.StageColors
 local PAD_COLOR = Color3.fromRGB(40, 200, 110)
 
 local function number(part: BasePart, text: string)
@@ -112,6 +108,9 @@ function ObbyBuilder.build(): Folder
 	world.Name = "World1"
 	local stages: { [number]: Folder } = {}
 	for _, piece in ObbyCourse.layout(W) do
+		if piece.Mover then
+			continue
+		end
 		local folder = stages[piece.Stage]
 		if not folder then
 			folder = Instance.new("Folder")

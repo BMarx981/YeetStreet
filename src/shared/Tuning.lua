@@ -95,12 +95,25 @@ Tuning.Obby = {
 		TextHeight = 5,
 		PrizeScale = 1.8,
 	},
+	-- A stage's road color, by stage number, round and round (ObbyBuilder,
+	-- ObbyMovers).
+	StageColors = {
+		Color3.fromRGB(80, 160, 255),
+		Color3.fromRGB(255, 120, 60),
+		Color3.fromRGB(170, 90, 230),
+		Color3.fromRGB(255, 80, 140),
+		Color3.fromRGB(60, 200, 210),
+	},
 	-- World 1's course (ObbyCourse), high over the hub and heading north.
 	-- Stages 1 to 7 are driving and small hops, clearable by a car with no
 	-- upgrades and no jets, but only with steering and speed control. Stages
 	-- 8 to 10 add boosters, whose gaps are sized so a car at the booster's
 	-- speed lands 10 to 20 studs onto the far side. Cars land about 10 short
-	-- of a gravity 130 throw from the edge, so measure in Play.
+	-- of a gravity 130 throw from the edge, so measure in Play. Stages 11 to
+	-- 14 add moving platforms (ObbyMover), each held in line long enough to
+	-- cross at 80, with a 1 stud gap at each end so it can move. A rising
+	-- platform with Move under sqrt(6 * |Travel| / 130) stops faster than
+	-- gravity and throws the car off its top.
 	World1 = {
 		X = 0,
 		Y = 1000,
@@ -252,6 +265,73 @@ Tuning.Obby = {
 					{ Kind = "Road", Length = 16, Boost = 150 },
 					{ Kind = "Gap", Length = 42, Rise = -15, Offset = 10 },
 					{ Kind = "Road", Length = 120 },
+				},
+			},
+			{
+				Name = "Sliders",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 40, Axis = "Side", Travel = 26, Move = 1.2, Hold = 2 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 40 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 40, Axis = "Side", Travel = -26, Move = 1.2, Hold = 2, Phase = 0.5 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 40 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 40, Axis = "Side", Travel = 26, Move = 1, Hold = 1.6, Phase = 0.25 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 60 },
+				},
+			},
+			{
+				Name = "Pistons",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 30, Axis = "Up", Travel = -24, Move = 1.1, Hold = 2.5 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 30, Axis = "Up", Travel = -24, Move = 1.1, Hold = 2.5, Phase = 0.92 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 30, Axis = "Up", Travel = -24, Move = 1.1, Hold = 2.5, Phase = 0.84 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 30, Axis = "Up", Travel = -24, Move = 1.1, Hold = 2.5, Phase = 0.76 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 60 },
+				},
+			},
+			{
+				Name = "Shuffle",
+				Width = 16,
+				Segments = {
+					{ Kind = "Road", Length = 50 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 36, Axis = "Side", Travel = 22, Move = 1, Hold = 1.5 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 24 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 30, Axis = "Up", Travel = -20, Move = 1, Hold = 1.5, Phase = 0.3 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 24 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Mover", Length = 36, Axis = "Side", Travel = -22, Move = 1, Hold = 1.5, Phase = 0.6 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 50 },
+				},
+			},
+			{
+				Name = "Moving Target",
+				Width = 18,
+				Segments = {
+					{ Kind = "Road", Length = 60 },
+					{ Kind = "Road", Length = 16, Boost = 130 },
+					{ Kind = "Gap", Length = 32, Rise = -15 },
+					{ Kind = "Mover", Length = 70, Width = 20, Axis = "Side", Travel = 30, Move = 1.5, Hold = 2.5 },
+					{ Kind = "Gap", Length = 1 },
+					{ Kind = "Road", Length = 60 },
 				},
 			},
 		},
