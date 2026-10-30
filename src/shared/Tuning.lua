@@ -498,7 +498,20 @@ Tuning.Upgrades = {
 
 Tuning.Garage = {
 	RequestGap = 0.25, -- the server ignores purchases closer together than this
-	Reach = 20, -- studs from a Garage-tagged model's pivot within which the panel opens
+	Reach = 85, -- studs from a Garage-tagged model's pivot within which the panel opens
+	GroundCheck = 8, -- E only opens the panel with ground this close under the seat; in the air it rolls the car
+	-- The dashed ring painted at Reach (GarageRing).
+	Ring = {
+		Dashes = 36,
+		DashShare = 0.6, -- of the spacing between dashes
+		Width = 1.5,
+		Thickness = 0.1,
+		Lift = 0.1, -- studs above the ground
+		Probe = 6, -- studs above the ground each dash looks down from
+		Transparency = 0.45,
+		LitTransparency = 0,
+		CheckEvery = 0.2, -- seconds between checks of whether the player is inside
+	},
 }
 
 -- The teleport menu (TeleportService). A car sent to a garage arrives this

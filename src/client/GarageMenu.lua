@@ -2,9 +2,10 @@
 -- GarageMenu (ModuleScript) -> StarterPlayerScripts.GarageMenu
 -- The garage panel: buy upgrade levels and ladder cars, equip owned cars, and
 -- buy and wear other bodies for a car whose ladder entry lists some.
--- It opens only within Tuning.Garage.Reach of a model tagged Garage, with G or
--- E (E shows the Cars tab) on a keyboard or X on a gamepad. The same keys,
--- the panel's X button, and gamepad B close it.
+-- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
+-- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
+-- keyboard or X on a gamepad. The same keys, the panel's X button, and gamepad
+-- B close it.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
@@ -418,6 +419,14 @@ local function build()
 		return false
 	end
 
+	-- In a car from an admin toggle, the saved car isn't the one being driven,
+	-- so it can be picked (Garage takes the player out of the toggled one).
+	local function inAdminCar(): boolean
+		return player:GetAttribute("HeliCarEquipped") == true
+			or player:GetAttribute("PlaneCarEquipped") == true
+			or player:GetAttribute("FrogCarEquipped") == true
+	end
+
 	local function refresh()
 		local cashValue = player:GetAttribute("Cash")
 		local loaded = typeof(cashValue) == "number"
@@ -459,7 +468,7 @@ local function build()
 			if open and tab == "Cars" then
 				r.preview.set(Economy.withSeed(ladderCar, bodyWorn(ladderCar)), Economy.lookLevels(lv, ladderCar))
 			end
-			if ladderCar.Id == equipped then
+			if ladderCar.Id == equipped and not inAdminCar() then
 				setButton(r.button, "DRIVING", false)
 			elseif table.find(cars, ladderCar.Id) then
 				setButton(r.button, "EQUIP", loaded and not busy)
@@ -554,7 +563,7 @@ local function build()
 			local r = eventRows[ladderCar.Id]
 			if r then
 				if table.find(cars, ladderCar.Id) then
-					if ladderCar.Id == equipped then
+					if ladderCar.Id == equipped and not inAdminCar() then
 						r.detail.Text = "Currently equipped. Click unequip to go back to your previous car."
 						setButton(r.button, "UNEQUIP", loaded and not busy)
 					else
@@ -697,7 +706,7 @@ local function build()
 				if typeof(currentEquipped) ~= "string" then
 					currentEquipped = Tuning.Ladder[1].Id
 				end
-				if ladderCar.Id == currentEquipped then
+				if ladderCar.Id == currentEquipped and not inAdminCar() then
 					ask("EquipCar", Tuning.Ladder[1].Id, `Unequipped the {ladderCar.Name}.`, r)
 				else
 					ask("EquipCar", ladderCar.Id, `Now driving the {ladderCar.Name}!`, r)
@@ -766,6 +775,26 @@ local function build()
 		return false
 	end
 
+	-- E is for flying while the car is in the air (roll) or a HeliCar's rotor is
+	-- out (climb), so only G opens the panel then.
+	local function eIsForFlying(): boolean
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local seat = humanoid and humanoid.SeatPart
+		local car = seat and seat.Parent
+		if not (character and seat and car) then
+			return false
+		end
+		if car:GetAttribute("RotorOut") == true then
+			return true
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character, car }
+		params.RespectCanCollide = true
+		return workspace:Raycast(seat.Position, Vector3.new(0, -Tuning.Garage.GroundCheck, 0), params) == nil
+	end
+
 	openButton.Activated:Connect(function()
 		if open or nearGarage() then
 			setOpen(not open, false)
@@ -781,7 +810,7 @@ local function build()
 				setOpen(not open, false)
 			end
 		elseif input.KeyCode == Enum.KeyCode.E and not processed then
-			if open or nearGarage() then
+			if open or (nearGarage() and not eIsForFlying()) then
 				showTab("Cars")
 				setOpen(not open, false)
 			end
@@ -810,7 +839,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "BoneCoins" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "BoneCoins" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end

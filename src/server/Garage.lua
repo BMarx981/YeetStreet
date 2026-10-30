@@ -95,6 +95,24 @@ function Garage.pay(player: Player, amount: number)
 	end
 end
 
+local function respawn(player: Player)
+	(ServerStorage:FindFirstChild("ResetPlayerCar") :: BindableEvent):Fire(player)
+end
+
+-- Picking a car in the garage gets the player out of a car an admin toggle put
+-- them in (:helicar, :planecar, the Frog Car), which would otherwise replace
+-- it at every respawn. Returns whether they were in one.
+local function leaveAdminCar(player: Player): boolean
+	local wasIn = false
+	for _, attribute in { "HeliCarEquipped", "PlaneCarEquipped", "FrogCarEquipped" } do
+		if player:GetAttribute(attribute) == true then
+			player:SetAttribute(attribute, false)
+			wasIn = true
+		end
+	end
+	return wasIn
+end
+
 -- Runs one purchase. `buy` returns the new state or why not, and `respawns`
 -- says whether the car's stats changed.
 local function request(
@@ -118,7 +136,7 @@ local function request(
 	data.Economy = after
 	publish(player, after)
 	if respawns then
-		(ServerStorage:FindFirstChild("ResetPlayerCar") :: BindableEvent):Fire(player)
+		respawn(player)
 	end
 	return true, nil
 end
@@ -154,10 +172,17 @@ remote("EquipCar", function(player: Player, id: any): (boolean, string?)
 	end
 	local data = PlayerData.get(player)
 	if data and data.Economy.Equipped == id then
+		if leaveAdminCar(player) then
+			respawn(player)
+		end
 		return true, nil
 	end
 	return request(player, function(state)
-		return Economy.equip(state, id)
+		local after, reason = Economy.equip(state, id)
+		if after then
+			leaveAdminCar(player)
+		end
+		return after, reason
 	end, true)
 end)
 
@@ -180,7 +205,11 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 		return true, nil
 	end
 	return request(player, function(state)
-		return Economy.wearBody(state, id, seed, Tuning.Ladder)
+		local after, reason = Economy.wearBody(state, id, seed, Tuning.Ladder)
+		if after then
+			leaveAdminCar(player)
+		end
+		return after, reason
 	end, true)
 end)
 
