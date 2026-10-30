@@ -101,4 +101,65 @@ Check.test("a car with no breakable parts keeps its pieces", function()
 	Check.eq(M.piecesOff(3, 0), 0, "still none")
 end)
 
+Check.test("a step swims the tail and beats the gills, and a stopped clock freezes them", function()
+	local moves = M.newMoves()
+	for _ = 1, 30 do
+		M.step(moves, 0, M.TopSpeed, true, 1 / 30)
+	end
+	Check.eq(moves.gillSize > M.Gills.DriveSize, true, "gills open wide in the air")
+	Check.eq(moves.sweep > 0, true, "gills lie back at speed")
+	Check.eq(moves.tailYaw ~= 0, true, "tail swims")
+	local tail, flap = moves.tailYaw, moves.flap
+	M.step(moves, 0, M.TopSpeed, true, 0)
+	Check.near(moves.tailYaw, tail, "paused tail")
+	Check.near(moves.flap, flap, "paused gills")
+end)
+
+Check.test("a step swings the tail out of the turn", function()
+	local left, right = M.newMoves(), M.newMoves()
+	for _ = 1, 60 do
+		M.step(left, 0.3, 0, false, 1 / 30)
+		M.step(right, -0.3, 0, false, 1 / 30)
+	end
+	Check.eq(left.tailYaw > right.tailYaw, true, "left swings further right")
+end)
+
+Check.test("a turn on the tape reads back as a steer angle", function()
+	Check.eq(M.steerFromTurn(1, 40, 8) > 0, true, "left")
+	Check.near(M.steerFromTurn(1, 40, 8), -M.steerFromTurn(-1, 40, 8), "even")
+	Check.near(M.steerFromTurn(1, 40, 8), math.atan(8 / 40), "same turn as wheels at that angle")
+	Check.eq(M.steerFromTurn(1, 0, 8), 0, "spinning on the spot isn't steering")
+end)
+
+Check.test("recorded breaks give when each piece flies off", function()
+	local gone, at = M.pieceBreaks(0, { 1, 2, 3, 4, 5 }, 10)
+	Check.eq(gone, 0, "none before the clip")
+	Check.eq(at[1], 2, "share 0.2 passes the first break")
+	Check.eq(at[2], 4, "share 0.4 reaches the second")
+	Check.eq(at[3], nil, "the tail stays on")
+end)
+
+Check.test("pieces lost before the clip don't fly again", function()
+	local gone, at = M.pieceBreaks(5, { 7, 8 }, 10)
+	Check.eq(gone, 2, "both gills went before")
+	Check.eq(at[1], nil, "first")
+	Check.eq(at[2], nil, "second")
+	Check.eq(at[3], 8, "share 0.7 takes the tail")
+end)
+
+Check.test("the same break can take off several pieces", function()
+	local gone, at = M.pieceBreaks(0, { 1, 2 }, 2)
+	Check.eq(gone, 0, "none before")
+	Check.eq(at[1], 1, "first at share 0.5")
+	Check.eq(at[2], 1, "second at share 0.5")
+	Check.eq(at[3], 2, "third at share 1")
+end)
+
+Check.test("the laugh follows the last hit before this moment", function()
+	Check.eq(M.sinceHit({}, 3), nil, "no hits")
+	Check.eq(M.sinceHit({ 5 }, 3), nil, "not yet")
+	Check.near(M.sinceHit({ 1, 2, 5 }, 3) :: number, 1, "the latest so far")
+	Check.eq(M.sinceHit({ 1, 3 }, 3), 0, "right on it")
+end)
+
 Check.finish("AxolotlMoves")

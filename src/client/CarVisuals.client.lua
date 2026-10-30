@@ -408,8 +408,7 @@ local function buildAxolotl(
 		toughness = now
 	end)
 
-	local swim, beat = 0, 0
-	local tailYaw, gillSize, sweep = 0, 0, 0
+	local moves = M.newMoves()
 	local connection: RBXScriptConnection
 	connection = RunService.RenderStepped:Connect(function(dt: number)
 		if car.Parent == nil then
@@ -426,22 +425,15 @@ local function buildAxolotl(
 			steer += math.atan2(-axle.Z, axle.X)
 		end
 		steer /= math.max(#fronts, 1)
-		swim = M.wrap(swim + M.swimRate(speed) * dt)
-		tailYaw = M.approach(tailYaw, M.tailAngle(steer, speed, swim), M.Tail.Follow, dt)
+		M.step(moves, steer, speed, airborne, dt)
 		if tail then
-			tail.C0 = AxolotlThrottle.tailRoot * CFrame.Angles(0, tailYaw, 0)
+			tail.C0 = AxolotlThrottle.tailRoot * CFrame.Angles(0, moves.tailYaw, 0)
 		end
-
-		local rate, size = M.gillBeat(speed, airborne)
-		beat = M.wrap(beat + rate * dt)
-		gillSize = M.approach(gillSize, size, M.Gills.Follow, dt)
-		sweep = M.approach(sweep, M.gillSweep(speed), M.Gills.Follow, dt)
-		local flap = math.sin(beat) * gillSize
 		if leftGill then
-			leftGill.C0 = AxolotlThrottle.leftGillRoot * CFrame.Angles(0, sweep, -flap)
+			leftGill.C0 = AxolotlThrottle.leftGillRoot * CFrame.Angles(0, moves.sweep, -moves.flap)
 		end
 		if rightGill then
-			rightGill.C0 = AxolotlThrottle.rightGillRoot * CFrame.Angles(0, -sweep, flap)
+			rightGill.C0 = AxolotlThrottle.rightGillRoot * CFrame.Angles(0, -moves.sweep, moves.flap)
 		end
 
 		if mouth then

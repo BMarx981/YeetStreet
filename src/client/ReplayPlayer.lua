@@ -36,11 +36,19 @@
 --
 -- HeliCar and PlaneCar replay with their generated look, so their ghosts
 -- break apart though the real ones don't yet.
+--
+-- The Axolotl Throttle replays as itself, with its tail, gills, and laugh moved
+-- on the replay's clock. A replay has no wheels to read, so its steering comes
+-- from how the car turned, and its laugh from when parts broke. Its gills and
+-- tail fly off like a ghost's parts, but its body stays on through a wreck, so
+-- it keeps its wheels too.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AxolotlMoves = require(ReplicatedStorage.AxolotlMoves)
+local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
 local ReplayClock = require(ReplicatedStorage.ReplayClock)
@@ -70,9 +78,25 @@ type Piece = {
 	on: number?, -- the index of the wheel piece it rides on, for a brake
 }
 
+-- The moving pieces of an Axolotl Throttle ghost, each moved by changing its
+-- offset. `rest` is the offset it was built with.
+type Swinging = { piece: Piece, rest: CFrame }
+
+type AxolotlGhost = {
+	moves: AxolotlMoves.Moves,
+	time: number, -- the clip time last moved to
+	hits: { number }, -- clip times parts broke
+	ground: RaycastParams?, -- set as the replay starts, once the ghost is known
+	tail: Swinging?,
+	leftGill: Swinging?,
+	rightGill: Swinging?,
+	mouth: Piece?,
+}
+
 type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
+	axolotl: AxolotlGhost?,
 	pieces: { Piece },
 	parts: { BasePart }, -- the pieces' parts, for BulkMoveTo
 	cframes: { CFrame }, -- reused each frame
@@ -91,9 +115,68 @@ local function noPhysics(part: BasePart)
 	part.Massless = true
 end
 
+-- The Axolotl Throttle under `ghost`, leaving off the pieces lost before the
+-- clip, with the pieces that move.
+local function buildAxolotl(
+	replay: ReplayRecorder.Replay,
+	mesh: Model,
+	design: CarDesign.Design,
+	ghost: Model
+): ({ Piece }, AxolotlGhost)
+	AxolotlThrottle.build(mesh, CFrame.new(), ghost)
+	local before, total = 0, 0
+	for _, slot in CarParts.Slots do
+		local value = replay.look[CarParts.brokenAttribute(slot)]
+		before += if typeof(value) == "number" then value else 0
+		total += #CarDesign.breakable(design, slot)
+	end
+	local hits: { number } = {}
+	for _, mark in replay.clip.marks do
+		table.insert(hits, mark.t)
+	end
+	local gone, times = AxolotlMoves.pieceBreaks(before, hits, total)
+	local breakAt: { [Instance]: number } = {}
+	for k, name in AxolotlThrottle.BreakOrder do
+		local part = ghost:FindFirstChild(name)
+		if part and k <= gone then
+			part:Destroy()
+		elseif part then
+			breakAt[part] = times[k]
+		end
+	end
+	CarPreview.wheels(design, ghost)
+
+	local pieces: { Piece } = {}
+	local axolotl: AxolotlGhost = { moves = AxolotlMoves.newMoves(), time = 0, hits = hits }
+	for _, part in ghost:GetDescendants() do
+		if part:IsA("BasePart") then
+			noPhysics(part)
+			part.Anchored = true
+			local piece: Piece = {
+				part = part,
+				offset = part.CFrame,
+				breakAt = breakAt[part],
+				wheel = if part.Name == "Wheel" then true else nil,
+			}
+			table.insert(pieces, piece)
+			local swinging = { piece = piece, rest = part.CFrame }
+			if part.Name == "tail" then
+				axolotl.tail = swinging
+			elseif part.Name == "leftgills" then
+				axolotl.leftGill = swinging
+			elseif part.Name == "rightgills" then
+				axolotl.rightGill = swinging
+			elseif part.Name == "Mouth" then
+				axolotl.mouth = piece
+			end
+		end
+	end
+	return pieces, axolotl
+end
+
 -- The ghost car for `replay` and its pieces, built at the origin, or nil if
 -- the look is incomplete.
-local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece })
+local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, AxolotlGhost?)
 	local look = replay.look
 	local ghost = Instance.new("Model")
 	ghost.Name = "ReplayGhost"
@@ -103,7 +186,17 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece })
 	local design = CarParts.designFor(ghost)
 	if not design then
 		ghost:Destroy()
-		return nil, {}
+		return nil, {}, nil
+	end
+
+	local mesh = if look.AxolotlThrottle == true
+			and look.HeliCar ~= true
+			and look.PlaneCar ~= true
+		then AxolotlThrottle.mesh()
+		else nil
+	if mesh then
+		local axolotlPieces, axolotl = buildAxolotl(replay, mesh, design, ghost)
+		return ghost, axolotlPieces, axolotl
 	end
 
 	local parts = CarParts.build(design, CFrame.new(), ghost)
@@ -158,7 +251,7 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece })
 		local offset = if wheel then wheel.offset:Inverse() * part.CFrame else part.CFrame
 		table.insert(pieces, { part = part, offset = offset, on = on })
 	end
-	return ghost, pieces
+	return ghost, pieces, nil
 end
 
 local function poseAt(clip: ReplayTape.Clip<CFrame>, t: number): CFrame
@@ -230,9 +323,44 @@ local function streamAlong(clip: ReplayTape.Clip<CFrame>)
 	end
 end
 
+local function swing(swinging: Swinging?, root: CFrame, turn: CFrame)
+	if swinging then
+		swinging.piece.offset = root * turn * root:Inverse() * swinging.rest
+	end
+end
+
+-- Moves the Axolotl Throttle's pieces to clip time `time`. Scrubbing back
+-- doesn't run them backward; they carry on from wherever they were.
+local function moveAxolotl(axolotl: AxolotlGhost, clip: ReplayTape.Clip<CFrame>, time: number, pose: CFrame)
+	local M = AxolotlMoves
+	local d = R.DebrisStep
+	local behind, ahead = poseAt(clip, time - d), poseAt(clip, time + d)
+	local speed = (ahead.Position - behind.Position).Magnitude / (2 * d)
+	local _, yaw = behind:ToObjectSpace(ahead):ToEulerAnglesYXZ()
+	local steer = M.steerFromTurn(yaw / (2 * d), speed, 2 * Tuning.Chassis.WheelbaseHalf)
+	local airborne = workspace:Raycast(pose.Position, Vector3.new(0, -M.AirCheck, 0), axolotl.ground) == nil
+	local moves = axolotl.moves
+	M.step(moves, steer, speed, airborne, math.max(time - axolotl.time, 0))
+	axolotl.time = time
+
+	swing(axolotl.tail, AxolotlThrottle.tailRoot, CFrame.Angles(0, moves.tailYaw, 0))
+	swing(axolotl.leftGill, AxolotlThrottle.leftGillRoot, CFrame.Angles(0, moves.sweep, -moves.flap))
+	swing(axolotl.rightGill, AxolotlThrottle.rightGillRoot, CFrame.Angles(0, -moves.sweep, moves.flap))
+	local mouth = axolotl.mouth
+	if mouth then
+		local open = M.smileOpen(M.sinceHit(axolotl.hits, time))
+		local at = M.mouthAt(open)
+		mouth.offset = CFrame.new(at.x, at.y, at.z)
+		mouth.part.Transparency = if open > 0 then 0 else 1
+	end
+end
+
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
 	local pose = poseAt(now.replay.clip, time)
+	if now.axolotl then
+		moveAxolotl(now.axolotl, now.replay.clip, time, pose)
+	end
 	ReplayWorld.watch({
 		world = now.replay.world,
 		time = time,
@@ -299,10 +427,17 @@ end
 -- Plays `replay`, hiding `car` and `character` while it does.
 function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character: Model?)
 	ReplayPlayer.stop()
-	local ghost, pieces = buildGhost(replay)
+	local ghost, pieces, axolotl = buildGhost(replay)
 	if not ghost then
 		warn("ReplayPlayer: the replay's car has no look attributes; nothing to play")
 		return
+	end
+	if axolotl then
+		local ground = RaycastParams.new()
+		ground.FilterType = Enum.RaycastFilterType.Exclude
+		ground.FilterDescendantsInstances =
+			{ ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
+		axolotl.ground = ground
 	end
 	local hidden: { BasePart } = {}
 	for _, model in { car, character } do
@@ -322,6 +457,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 	local now: Playing = {
 		replay = replay,
 		ghost = ghost,
+		axolotl = axolotl,
 		pieces = pieces,
 		parts = parts,
 		cframes = table.create(#pieces),

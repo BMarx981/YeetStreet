@@ -98,6 +98,70 @@ function AxolotlMoves.wrap(phase: number): number
 	return phase % (2 * math.pi)
 end
 
+export type Moves = {
+	swim: number, -- the tail's swim phase
+	beat: number, -- the gills' beat phase
+	tailYaw: number,
+	gillSize: number,
+	sweep: number,
+	flap: number, -- the gills' angle this moment
+}
+
+function AxolotlMoves.newMoves(): Moves
+	return { swim = 0, beat = 0, tailYaw = 0, gillSize = 0, sweep = 0, flap = 0 }
+end
+
+-- Moves the tail and gills on by `dt` seconds. steer is positive for left.
+function AxolotlMoves.step(moves: Moves, steer: number, speed: number, airborne: boolean, dt: number)
+	moves.swim = AxolotlMoves.wrap(moves.swim + AxolotlMoves.swimRate(speed) * dt)
+	local tail = AxolotlMoves.tailAngle(steer, speed, moves.swim)
+	moves.tailYaw = AxolotlMoves.approach(moves.tailYaw, tail, AxolotlMoves.Tail.Follow, dt)
+
+	local G = AxolotlMoves.Gills
+	local rate, size = AxolotlMoves.gillBeat(speed, airborne)
+	moves.beat = AxolotlMoves.wrap(moves.beat + rate * dt)
+	moves.gillSize = AxolotlMoves.approach(moves.gillSize, size, G.Follow, dt)
+	moves.sweep = AxolotlMoves.approach(moves.sweep, AxolotlMoves.gillSweep(speed), G.Follow, dt)
+	moves.flap = math.sin(moves.beat) * moves.gillSize
+end
+
+-- The steer angle that would turn a car of this wheelbase at this yaw rate, for
+-- a replay, which has no wheels to read. Positive is left.
+function AxolotlMoves.steerFromTurn(yawRate: number, speed: number, wheelbase: number): number
+	if speed < 1 then
+		return 0
+	end
+	return math.atan(yawRate * wheelbase / speed)
+end
+
+-- How many pieces were off before a clip, and the clip time each later piece
+-- flies off (by its place in AxolotlThrottle.BreakOrder). `times` are the
+-- clip's part breaks in order, and `before` the parts broken before it.
+function AxolotlMoves.pieceBreaks(before: number, times: { number }, total: number): (number, { [number]: number })
+	local gone = AxolotlMoves.piecesOff(before, total)
+	local at: { [number]: number } = {}
+	local shown = gone
+	for i, t in times do
+		local off = AxolotlMoves.piecesOff(before + i, total)
+		for k = shown + 1, off do
+			at[k] = t
+		end
+		shown = math.max(shown, off)
+	end
+	return gone, at
+end
+
+-- Seconds since the latest of `times` at or before `t`, nil if none has come.
+function AxolotlMoves.sinceHit(times: { number }, t: number): number?
+	local since: number? = nil
+	for _, at in times do
+		if at <= t then
+			since = t - at
+		end
+	end
+	return since
+end
+
 -- How open the mouth is, 0 to 1, this many seconds after a hit. nil means no
 -- hit yet.
 function AxolotlMoves.smileOpen(sinceHit: number?): number
