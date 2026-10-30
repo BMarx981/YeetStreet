@@ -364,16 +364,22 @@ Tuning.Obby = {
 				Name = "Climb",
 				Width = 18,
 				Segments = {
+					-- Each landing's front is a lip, 4 long, sloping 1 stud down
+					-- toward the jump, so a car arriving a little low rides up
+					-- onto it instead of hitting the edge.
 					{ Kind = "Road", Length = 60 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
-					{ Kind = "Gap", Length = 140 },
-					{ Kind = "Road", Length = 100 },
+					{ Kind = "Gap", Length = 140, Rise = -1 },
+					{ Kind = "Ramp", Length = 4, Rise = 1 },
+					{ Kind = "Road", Length = 236 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
-					{ Kind = "Gap", Length = 160, Rise = 10 },
-					{ Kind = "Road", Length = 100 },
+					{ Kind = "Gap", Length = 160, Rise = 9 },
+					{ Kind = "Ramp", Length = 4, Rise = 1 },
+					{ Kind = "Road", Length = 236 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
-					{ Kind = "Gap", Length = 160, Rise = 25 },
-					{ Kind = "Road", Length = 80 },
+					{ Kind = "Gap", Length = 160, Rise = 14 },
+					{ Kind = "Ramp", Length = 4, Rise = 1 },
+					{ Kind = "Road", Length = 236 },
 				},
 			},
 			{
