@@ -67,10 +67,10 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
-	-- Under the REPLAY button, left of the fuel bar.
+	-- Top right corner, in the Roblox top bar so the player list can't cover it.
 	local openButton = UiStyle.sticker("Open", gui, "INVITE")
-	openButton.AnchorPoint = Vector2.new(1, 0)
-	openButton.Position = UDim2.new(0.5, -146, 0, 82)
+	openButton.AnchorPoint = Vector2.new(1, 1)
+	openButton.Position = UDim2.new(1, -12, 0, -4)
 	openButton.Size = UDim2.fromOffset(120, 32)
 	UiStyle.springy(openButton)
 
@@ -78,7 +78,7 @@ local function build()
 	squad.TextColor3 = UiStyle.Cash
 	squad.TextXAlignment = Enum.TextXAlignment.Right
 	squad.AnchorPoint = Vector2.new(1, 0)
-	squad.Position = UDim2.new(0.5, -146, 0, 120)
+	squad.Position = UDim2.new(0.5, -146, 0, 6)
 	squad.Size = UDim2.fromOffset(160, 24)
 	squad.Visible = false
 

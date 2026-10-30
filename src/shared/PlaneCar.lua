@@ -34,6 +34,7 @@ local DARK_GREY = Color3.fromRGB(99, 95, 98)
 local BLACK = Color3.fromRGB(27, 27, 30)
 local GLASS_BLUE = Color3.fromRGB(85, 165, 175)
 local GLASS_SMOKE = Color3.fromRGB(60, 52, 46)
+local BRAKE_LIGHT = Color3.fromRGB(110, 15, 15) -- unlit; CarVisuals lights it while braking
 
 local U = 1.7 -- one stud of the real plane, in studs
 local STUD_HEIGHT = 0.17 * U
@@ -203,6 +204,17 @@ add(
 	"tail"
 )
 stud("body", 0, FIN_TOP, 4.6, WHITE, "tail")
+-- The fin's top faces backward once this is a car, so its brake lights go there.
+for _, side in { -1, 1 } do
+	box(
+		"body",
+		"BrakeLight",
+		Vector3.new(side * 0.55 - 0.25, FIN_TOP, 3.2),
+		Vector3.new(side * 0.55 + 0.25, FIN_TOP + 0.1, 3.8),
+		BRAKE_LIGHT,
+		"tail"
+	)
+end
 
 -- Where the jet flame blows out: the back of the body, under the fin. As a
 -- car it moves behind the fin, which then points back, without turning, so

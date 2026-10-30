@@ -68,10 +68,11 @@ local function build(toggle: () -> ())
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
-	-- Under the TELEPORT button, left of the fuel bar.
+	-- Top right, in the Roblox top bar so the player list can't cover it. Left
+	-- of the TELEPORT button, so no hole shows while it is hidden.
 	local open = UiStyle.sticker("Open", gui, "REPLAY")
-	open.AnchorPoint = Vector2.new(1, 0)
-	open.Position = UDim2.new(0.5, -146, 0, 44)
+	open.AnchorPoint = Vector2.new(1, 1)
+	open.Position = UDim2.new(1, -268, 0, -4)
 	open.Size = UDim2.fromOffset(120, 32)
 	open.Visible = false
 	UiStyle.springy(open)

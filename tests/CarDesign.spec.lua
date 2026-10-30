@@ -56,6 +56,16 @@ local function withRole(d: CarDesign.Design, role: string): { CarDesign.PartSpec
 	return found
 end
 
+local function onWheels(d: CarDesign.Design): { CarDesign.PartSpec }
+	local found = {}
+	for _, part in d.parts do
+		if part.wheel then
+			table.insert(found, part)
+		end
+	end
+	return found
+end
+
 Check.test("the same seed and inputs give the same car", function()
 	for _, archetype in ARCHETYPES do
 		local a = design(77, archetype, "Sports", levels(3, 14, 21, 8))
@@ -255,7 +265,7 @@ Check.test("a wheel's center is where its hub rests", function()
 end)
 
 Check.test("Brakes adds a caliper and a disc on every wheel, and they never break off", function()
-	Check.eq(#withRole(design(12, "hatch", "Street", ZERO), "brake"), 0, "no brake parts at 0")
+	Check.eq(#onWheels(design(12, "hatch", "Street", ZERO)), 0, "no brake parts at 0")
 	local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, 5))
 	for _, name in { "Caliper", "BrakeDisc" } do
 		local found = named(d, name)
@@ -263,14 +273,14 @@ Check.test("Brakes adds a caliper and a disc on every wheel, and they never brea
 		for i, part in found do
 			Check.eq(part.wheel, WHEELS[i], `{name} {i} rides on its wheel`)
 			Check.eq(part.slot, nil, `{name} {i} never breaks off`)
-			Check.eq(part.role, "brake", `{name} {i} glows when braking`)
+			Check.eq(part.role, "trim", `{name} {i} never lights up`)
 		end
 	end
 end)
 
 Check.test("brake parts sit on the outside face of their wheel", function()
 	local d = design(12, "hatch", "Street", levels(0, 0, 0, 0, 30))
-	for _, part in withRole(d, "brake") do
+	for _, part in onWheels(d) do
 		local wheel = part.wheel
 		assert(wheel, `{part.name} has a wheel`)
 		local center = CarDesign.wheelCenter(wheel, LOOKS)
@@ -311,14 +321,18 @@ Check.test("brake lights come halfway up the Brakes steps, on the tail", functio
 	end
 end)
 
-Check.test("taillights stay unlit, and light with the brakes from step 2", function()
-	for _, taillight in named(design(12, "hatch", "Street", levels(0, 0, 0, 0, 5)), "Taillight") do
-		Check.eq(taillight.material ~= "Neon", true, "unlit")
-		Check.eq(taillight.role, "trim", "no brake glow at step 1")
-	end
-	for _, taillight in named(design(12, "hatch", "Street", levels(0, 0, 0, 0, 12)), "Taillight") do
-		Check.eq(taillight.material ~= "Neon", true, "unlit")
-		Check.eq(taillight.role, "brakeLight", "glows with the brakes at step 2")
+Check.test("every car's taillights are brake lights, whatever its Brakes level", function()
+	for _, archetype in ARCHETYPES do
+		for _, lv in { ZERO, MAX } do
+			local d = design(12, archetype, "Street", lv)
+			local taillights = named(d, "Taillight")
+			Check.eq(#taillights, 2, `{archetype} has two taillights`)
+			for _, taillight in taillights do
+				Check.eq(taillight.material ~= "Neon", true, `{archetype} unlit until braking`)
+				Check.eq(taillight.role, "brakeLight", `{archetype} lights while braking`)
+			end
+			Check.eq(#withRole(d, "brakeLight") >= 2, true, `{archetype} has brake lights`)
+		end
 	end
 end)
 
@@ -349,7 +363,7 @@ end)
 
 Check.test("hover cars get brake lights but no wheel brakes", function()
 	local d = design(4, "hover", "Supercar", levels(0, 0, 0, 0, 30))
-	Check.eq(#withRole(d, "brake"), 0, "no wheels to brake")
+	Check.eq(#onWheels(d), 0, "no wheels to brake")
 	Check.eq(#named(d, "BrakeLight") > 0, true, "brake lights")
 end)
 

@@ -18,9 +18,9 @@
 --   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
 --   attribute is true. CarController sets it on the local player's car.
 --   Wheel brakes (CarDesign parts with a wheel) are welded to that wheel's
---   hub, so they steer and ride the suspension without spinning. They and
---   the brake lights glow while the car's Braking attribute is true, also set
---   by CarController on the local player's car.
+--   hub, so they steer and ride the suspension without spinning. Brake lights
+--   glow while the car's Braking attribute is true, also set by CarController
+--   on the local player's car. Every car has them, the fixed looks included.
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.
@@ -53,16 +53,29 @@ local function rgb(color: CarDesign.Color): Color3
 	return Color3.fromRGB(color[1], color[2], color[3])
 end
 
-local BRAKE_GLOW = Color3.fromRGB(255, 70, 30)
 local BRAKE_LIGHT_GLOW = Color3.fromRGB(255, 25, 25)
 
--- A brake part, how it looks unlit, and what it glows while braking.
+-- A brake light and how it looks unlit.
 type Brake = {
 	part: BasePart,
 	color: Color3,
 	material: Enum.Material,
-	glow: Color3,
 }
+
+local function addBrakeLight(brakes: { Brake }, part: BasePart)
+	table.insert(brakes, { part = part, color = part.Color, material = part.Material })
+end
+
+-- Lights a car's brake lights while its Braking attribute is true.
+local function lightWhileBraking(car: Model, brakes: { Brake })
+	car:GetAttributeChangedSignal("Braking"):Connect(function()
+		local braking = car:GetAttribute("Braking") == true
+		for _, brake in brakes do
+			brake.part.Color = if braking then BRAKE_LIGHT_GLOW else brake.color
+			brake.part.Material = if braking then Enum.Material.Neon else brake.material
+		end
+	end)
+end
 
 -- What a thruster lights up while the jets burn.
 type Jet = {
@@ -484,6 +497,26 @@ local function setUp(car: Model)
 		end
 		addEye(-1.8)
 		addEye(1.8)
+		local frogBrakes: { Brake } = {}
+		for _, side in { -1, 1 } do
+			local light = Instance.new("Part")
+			light.Name = "BrakeLight"
+			light.Size = Vector3.new(1, 0.4, 0.1)
+			light.CFrame = hull.CFrame * CFrame.new(side * (hull.Size.X / 2 - 0.8), 0, hull.Size.Z / 2 + 0.05)
+			light.Color = Color3.fromRGB(150, 20, 20)
+			light.Material = Enum.Material.SmoothPlastic
+			light.CanCollide = false
+			light.CanTouch = false
+			light.CanQuery = false
+			light.Massless = true
+			local lightWeld = Instance.new("WeldConstraint")
+			lightWeld.Part0 = hull
+			lightWeld.Part1 = light
+			lightWeld.Parent = light
+			light.Parent = car
+			addBrakeLight(frogBrakes, light)
+		end
+		lightWhileBraking(car, frogBrakes)
 		return
 	end
 	local design = CarParts.designFor(car)
@@ -526,13 +559,15 @@ local function setUp(car: Model)
 		part.Anchored = false
 		if spec.role == "thruster" then
 			table.insert(jets, addJet(part, rgb(design.flameColor), jetStep))
-		elseif spec.role == "brake" or spec.role == "brakeLight" then
-			table.insert(brakes, {
-				part = part,
-				color = part.Color,
-				material = part.Material,
-				glow = if spec.role == "brake" then BRAKE_GLOW else BRAKE_LIGHT_GLOW,
-			})
+		elseif spec.role == "brakeLight" then
+			addBrakeLight(brakes, part)
+		end
+	end
+	if heli or plane then
+		for _, part in folder:GetChildren() do
+			if part:IsA("BasePart") and (part.Name == "TailLight" or part.Name == "BrakeLight") then
+				addBrakeLight(brakes, part)
+			end
 		end
 	end
 	folder.Parent = car
@@ -565,14 +600,7 @@ local function setUp(car: Model)
 	end
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
 
-	local function lightBrakes()
-		local braking = car:GetAttribute("Braking") == true
-		for _, brake in brakes do
-			brake.part.Color = if braking then brake.glow else brake.color
-			brake.part.Material = if braking then Enum.Material.Neon else brake.material
-		end
-	end
-	car:GetAttributeChangedSignal("Braking"):Connect(lightBrakes)
+	lightWhileBraking(car, brakes)
 
 	for _, slot in CarParts.Slots do
 		local order = if heli or plane then {} else CarDesign.breakable(design, slot)

@@ -51,10 +51,11 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
-	-- Where the garage panel's hidden GARAGE button was, left of the fuel bar.
+	-- Top right, in the Roblox top bar so the player list can't cover it. Left
+	-- of the INVITE button.
 	local openButton = UiStyle.sticker("Open", gui, "TELEPORT")
-	openButton.AnchorPoint = Vector2.new(1, 0)
-	openButton.Position = UDim2.new(0.5, -146, 0, 6)
+	openButton.AnchorPoint = Vector2.new(1, 1)
+	openButton.Position = UDim2.new(1, -140, 0, -4)
 	openButton.Size = UDim2.fromOffset(120, 32)
 	UiStyle.springy(openButton)
 

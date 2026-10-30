@@ -33,7 +33,7 @@ local CarDesign = {}
 export type Slot = "nose" | "tail" | "roof" | "sides" | "underside"
 export type Shape = "block" | "wedge" | "cylinder"
 export type Wheel = "FL" | "FR" | "RL" | "RR"
-export type Role = "body" | "glass" | "trim" | "glow" | "thruster" | "brake" | "brakeLight"
+export type Role = "body" | "glass" | "trim" | "glow" | "thruster" | "brakeLight"
 export type Vec = { x: number, y: number, z: number }
 export type Color = { number }
 
@@ -452,12 +452,11 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	-- Lights.
 	local lightY = bottom + heights[1] * 0.35
 	local tailY = bottom + heights[count] * 0.6
-	-- Once the car has brake lights, the taillights light with them.
-	local tailRole: Role = if CarDesign.step(input.levels.Brakes, looks.StatSteps) >= 2 then "brakeLight" else "trim"
+	-- The taillights are every car's brake lights, whatever its Brakes level.
 	for _, side in { -1, 1 } do
 		local x = side * (width / 2 - 0.8)
 		local headPaint: Paint = { color = HEADLIGHT, material = "Neon", reflectance = 0, role = "trim" }
-		local tailPaint: Paint = { color = TAILLIGHT, material = "SmoothPlastic", reflectance = 0, role = tailRole }
+		local tailPaint: Paint = { color = TAILLIGHT, material = "SmoothPlastic", reflectance = 0, role = "brakeLight" }
 		add("block", "Headlight", "nose", vec(1, 0.35, 0.1), vec(x, lightY, -length / 2 - 0.05), headPaint)
 		add("block", "Taillight", "tail", vec(1, 0.3, 0.1), vec(x, tailY, length / 2 + 0.05), tailPaint)
 	end
@@ -710,11 +709,11 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			color = if brakes >= 4 then DISC_HOT else DISC_STEEL,
 			material = "Metal",
 			reflectance = 0.1,
-			role = "brake",
+			role = "trim",
 		}
 		local caliperPaint: Paint = if brakes >= 3
-			then { color = CALIPER_RED, material = "SmoothPlastic", reflectance = 0.1, role = "brake" }
-			else { color = CALIPER_GREY, material = "Metal", reflectance = 0, role = "brake" }
+			then { color = CALIPER_RED, material = "SmoothPlastic", reflectance = 0.1, role = "trim" }
+			else { color = CALIPER_GREY, material = "Metal", reflectance = 0, role = "trim" }
 		local face = looks.WheelWidth / 2
 		for _, w in WHEELS do
 			local center = CarDesign.wheelCenter(w.wheel, looks)
