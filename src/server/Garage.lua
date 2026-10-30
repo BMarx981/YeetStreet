@@ -100,11 +100,11 @@ local function respawn(player: Player)
 end
 
 -- Picking a car in the garage gets the player out of a car an admin toggle put
--- them in (:helicar, :planecar, the Frog Car), which would otherwise replace
+-- them in (:helicar, :planecar, :axolotl, the Frog Car), which would otherwise replace
 -- it at every respawn. Returns whether they were in one.
 local function leaveAdminCar(player: Player): boolean
 	local wasIn = false
-	for _, attribute in { "HeliCarEquipped", "PlaneCarEquipped", "FrogCarEquipped" } do
+	for _, attribute in { "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "FrogCarEquipped" } do
 		if player:GetAttribute(attribute) == true then
 			player:SetAttribute(attribute, false)
 			wasIn = true
