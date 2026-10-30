@@ -159,7 +159,7 @@ local TOOTH: Color = { 245, 240, 225 }
 local ROOF_THICKNESS = 0.2
 
 local THRUSTER_COUNTS = { 1, 2, 2, 3, 4 } -- by Jets look step, from 0
-local THRUSTER_RADII = { 0.45, 0.5, 0.6, 0.65, 0.75 }
+local THRUSTER_RADII = { 0.34, 0.35, 0.37, 0.39, 0.41 }
 
 local function vec(x: number, y: number, z: number): Vec
 	return { x = x, y = y, z = z }
@@ -602,10 +602,10 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	-- Speed.
 	if speed >= 1 then
 		local top = topAt(count)
-		add("block", "Spoiler", "tail", vec(width - 0.4, 0.2, 1), vec(0, top + 0.9, back - 0.6), accentTrim)
+		add("block", "Spoiler", "tail", vec(width * 0.7, 0.15, 0.7), vec(0, top + 0.5, back - 0.5), accentTrim)
 		for _, side in { -1, 1 } do
-			local x = side * (width / 2 - 0.8)
-			add("block", "SpoilerPost", "tail", vec(0.2, 0.9, 0.3), vec(x, top + 0.45, back - 0.6), trimPaint)
+			local x = side * width * 0.25
+			add("block", "SpoilerPost", "tail", vec(0.15, 0.5, 0.25), vec(x, top + 0.25, back - 0.5), paintedTrim)
 		end
 	end
 	if speed >= 2 then
@@ -622,7 +622,7 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	end
 	if speed >= 4 then
 		local top = topAt(count)
-		add("block", "Spoiler", "tail", vec(width, 0.25, 1.2), vec(0, top + 1.4, back - 0.7), accentTrim)
+		add("block", "Spoiler", "tail", vec(width * 0.85, 0.15, 0.8), vec(0, top + 0.75, back - 0.5), accentTrim)
 	end
 
 	-- Toughness.
@@ -646,19 +646,19 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		for _, side in { -1, 1 } do
 			local x = side * (width / 2 + 0.125)
 			local plate = vec(0.25, bodyHeight * 0.6, guardLength)
-			add("block", "Armor", "sides", plate, vec(x, bottom + bodyHeight * 0.5, 0), trimPaint)
+			add("block", "Armor", "sides", plate, vec(x, bottom + bodyHeight * 0.5, 0), paintedTrim)
 		end
 	end
 	if toughness >= 3 then
 		local frontZ = sliceZ(cabinFirst) - sliceLength / 2 + 0.2
 		local backZ = sliceZ(cabinLast) + sliceLength / 2 - 0.2
-		local cageY = cabinBase + cabinHeight + 0.15
-		add("block", "RollCage", "roof", vec(width - 0.6, 0.25, 0.25), vec(0, cageY, frontZ), trimPaint)
-		add("block", "RollCage", "roof", vec(width - 0.6, 0.25, 0.25), vec(0, cageY, backZ), trimPaint)
+		local cageY = cabinBase + cabinHeight + 0.1
+		add("block", "RollCage", "roof", vec(width - 0.6, 0.15, 0.15), vec(0, cageY, frontZ), paintedTrim)
+		add("block", "RollCage", "roof", vec(width - 0.6, 0.15, 0.15), vec(0, cageY, backZ), paintedTrim)
 		for _, side in { -1, 1 } do
 			local x = side * (width / 2 - 0.4)
-			local bar = vec(0.25, 0.25, backZ - frontZ)
-			add("block", "RollCage", "roof", bar, vec(x, cageY, (frontZ + backZ) / 2), trimPaint)
+			local bar = vec(0.15, 0.15, backZ - frontZ)
+			add("block", "RollCage", "roof", bar, vec(x, cageY, (frontZ + backZ) / 2), paintedTrim)
 		end
 	end
 	if toughness >= 4 then
@@ -668,27 +668,27 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 			"block",
 			"RoofArmor",
 			"roof",
-			vec(width - 1, 0.3, roofLength),
-			vec(0, cabinBase + cabinHeight + 0.425, roofZ),
-			trimPaint
+			vec((width - 1) * 0.4, 0.12, roofLength),
+			vec(0, cabinBase + cabinHeight + 0.235, roofZ),
+			accentTrim
 		)
 		local h = heights[1]
 		add("block", "BullBar", "nose", vec(width * 0.9, 0.3, 0.3), vec(0, bottom + h * 0.2, front - 0.45), trimPaint)
 	end
 
-	-- Grip.
+	-- Grip. Hover cars hide their wheels, so they have nothing to flare.
 	local flareY = bottom + looks.WheelRadius + 0.3
-	local flareSize = vec(1.3 + 0.1 * grip, 0.3, 2 * looks.WheelRadius + 0.4)
+	local flareSize = vec(0.5 + 0.1 * grip, 0.15, 2 * looks.WheelRadius)
 	local function flares(ends: number)
 		for _, side in { -1, 1 } do
 			local position = vec(side * looks.TrackHalf, flareY, ends * looks.WheelbaseHalf)
 			add("block", "Flare", "sides", flareSize, position, paintedTrim)
 		end
 	end
-	if grip >= 1 then
+	if grip >= 1 and not shape.Hover then
 		flares(-1)
 	end
-	if grip >= 2 then
+	if grip >= 2 and not shape.Hover then
 		flares(1)
 	end
 	if grip >= 3 then

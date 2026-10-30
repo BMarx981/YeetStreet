@@ -9,10 +9,10 @@
 --   BuyCar(id)        a ladder car, without equipping it
 --   EquipCar(id)      an owned car
 --   BuyBody(id, seed)   a body for an owned car, without putting it on
---   WearBody(id, seed)  an owned body
+--   WearBody(id, seed)  an owned body, and gets in that car
 -- An upgrade or equip changes the car's stats, so the car respawns through
 -- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset. Wearing a
--- body on the car being driven respawns it too, to rebuild its looks.
+-- body respawns it too, to rebuild its looks.
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
@@ -176,12 +176,12 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 	end
 	local car = Economy.findCar(Tuning.Ladder, id)
 	local data = PlayerData.get(player)
-	if car and data and Economy.wornSeed(data.Economy, car) == seed then
+	if car and data and data.Economy.Equipped == id and Economy.wornSeed(data.Economy, car) == seed then
 		return true, nil
 	end
 	return request(player, function(state)
 		return Economy.wearBody(state, id, seed, Tuning.Ladder)
-	end, data ~= nil and data.Economy.Equipped == id)
+	end, true)
 end)
 
 remote("BuyLimited", function(player: Player, id: any): (boolean, string?)

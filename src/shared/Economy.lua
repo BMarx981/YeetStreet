@@ -392,7 +392,8 @@ function Economy.buyBody(state: State, id: string, seed: number, ladder: { Car }
 	return after, nil
 end
 
--- Puts an owned body on an owned car. Fails with "UnknownCar" or "NotOwned".
+-- Puts an owned body on an owned car and gets in it, so the body shows right
+-- away. Fails with "UnknownCar" or "NotOwned".
 function Economy.wearBody(state: State, id: string, seed: number, ladder: { Car }): (State?, string?)
 	local car = Economy.findCar(ladder, id)
 	if not car then
@@ -404,6 +405,7 @@ function Economy.wearBody(state: State, id: string, seed: number, ladder: { Car 
 	local after = table.clone(state)
 	after.Worn = table.clone(state.Worn)
 	after.Worn[id] = seed
+	after.Equipped = id
 	return after, nil
 end
 

@@ -376,6 +376,14 @@ Check.test("wearBody puts on an owned body and can go back to the car's own", fu
 	Check.eq(Economy.wornSeed(back, car), 3)
 end)
 
+Check.test("wearBody also gets in that car, so the body shows right away", function()
+	local bought = Economy.buyBody(muscleOwner(1500), "Muscle", 4, LADDER) :: Economy.State
+	Check.eq(bought.Equipped, "Junker", "buying doesn't")
+	local worn = Economy.wearBody(bought, "Muscle", 4, LADDER) :: Economy.State
+	Check.eq(worn.Equipped, "Muscle")
+	Check.eq(bought.Equipped, "Junker", "old state unchanged")
+end)
+
 Check.test("wearBody refuses bodies that aren't owned", function()
 	local _, unknownCar = Economy.wearBody(muscleOwner(0), "Nope", 4, LADDER)
 	Check.eq(unknownCar, "UnknownCar")
