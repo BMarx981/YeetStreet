@@ -302,6 +302,7 @@ local COMMAND_INFO = {
 	{ name = "frog",       desc = "Give a player the Frog Car (it can jump!)",            usage = ":frog <playerName>",            optionsType = "player" },
 	{ name = "helicar",    desc = "Turn the HeliCar look on or off for you or a player", usage = ":helicar [playerName]",         optionsType = "player" },
 	{ name = "planecar",   desc = "Turn the PlaneCar on or off for you or a player",    usage = ":planecar [playerName]",        optionsType = "player" },
+	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
@@ -559,6 +560,38 @@ local COMMANDS = {
 		return if turningOn then target.Name .. " is driving the PlaneCar!" else target.Name .. " is back in their own car."
 	end,
 
+	-- Puts a car on an obby pad from anywhere, as if every pad up to it had
+	-- been reached, paying nothing (ObbyService.skipTo). Pads go by the number
+	-- painted on them, 0 for START.
+	obby = function(adminPlayer, args)
+		local padText, targetName = string.match(args, "(%S+)%s*(%S*)")
+		local checkpoint = tonumber(padText)
+		if string.lower(padText or "") == "start" then
+			checkpoint = 0
+		end
+		if not checkpoint then
+			return "Usage: :obby <pad|start> [playerName]"
+		end
+		local target = if targetName and targetName ~= "" then findPlayer(targetName) else adminPlayer
+		if not target then
+			return "Player not found: " .. targetName
+		end
+
+		local ServerScriptService = game:GetService("ServerScriptService")
+		local ObbyService = require(ServerScriptService.ObbyService)
+		local arrival = ObbyService.skipTo(target, checkpoint)
+		if not arrival then
+			return "There's no obby pad " .. padText
+		end
+		local movePlayerCar = game:GetService("ServerStorage"):FindFirstChild("MovePlayerCar")
+		local moved = movePlayerCar and movePlayerCar:IsA("BindableFunction") and movePlayerCar:Invoke(target, arrival, false)
+		if not moved and target.Character then
+			target.Character:PivotTo(arrival + Vector3.new(0, 3, 0))
+		end
+		local where = if checkpoint == 0 then "the obby start" else "obby pad " .. checkpoint
+		return target.Name .. " is on " .. where .. "."
+	end,
+
 	promote = function(adminPlayer, args)
 		local targetName = string.match(args, "%S+")
 		if not targetName then
@@ -627,6 +660,7 @@ local COMMANDS = {
 :bones [amount] - Give yourself BoneCoins (default 100)
 :bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
+:obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers

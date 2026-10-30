@@ -142,6 +142,20 @@ function ObbyService.enter(player: Player): CFrame?
 	return respawnAt(start)
 end
 
+-- Starts a visit, or moves the current one, as if every pad up to
+-- `checkpoint` had been touched, paying nothing (Obby.skip), and returns
+-- where the car arrives: on that pad. Nil if there is no such pad. For the
+-- :obby admin command.
+function ObbyService.skipTo(player: Player, checkpoint: number): CFrame?
+	local after = Obby.skip(visits[player], checkpoint, T)
+	local part = if after then pad(after.Current) else nil
+	if not (after and part) then
+		return nil
+	end
+	setVisit(player, after)
+	return respawnAt(part)
+end
+
 -- Ends the player's visit, if they have one.
 function ObbyService.leave(player: Player)
 	if not visits[player] then

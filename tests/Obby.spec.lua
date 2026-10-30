@@ -114,6 +114,31 @@ Check.test("a full clear pays every stage once", function()
 	Check.eq(Obby.finished(v, T), true)
 end)
 
+Check.test("skipping to a pad reaches every pad up to it and respawns there", function()
+	local v = Obby.skip(nil, 3, T) :: Obby.Visit
+	Check.eq(v.Reached, 3)
+	Check.eq(v.Current, 3)
+end)
+
+Check.test("skipping back keeps how far the visit has reached", function()
+	local v = Obby.skip(visit(3, 3), 1, T) :: Obby.Visit
+	Check.eq(v.Reached, 3)
+	Check.eq(v.Current, 1)
+end)
+
+Check.test("skipping only goes to the course's pads", function()
+	Check.eq(Obby.skip(nil, 5, T), nil)
+	Check.eq(Obby.skip(nil, -1, T), nil)
+	Check.eq(Obby.skip(nil, 1.5, T), nil)
+end)
+
+Check.test("skipping pays nothing, so reaching the finish that way never pays the prize", function()
+	local v = Obby.skip(nil, 4, T) :: Obby.Visit
+	local after, cash = Obby.touch(v, 4, T)
+	Check.eq(after, v)
+	Check.eq(cash, 0)
+end)
+
 Check.test("the visit clock reads minutes, seconds, and tenths", function()
 	Check.eq(Obby.clock(0), "0:00.0")
 	Check.eq(Obby.clock(7.36), "0:07.3")

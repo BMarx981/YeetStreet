@@ -861,6 +861,17 @@ local function showOptions(info)
 			end
 		end)
 
+	elseif optType == "obby" then
+		-- One button per obby pad, named by the stage that starts there
+		local world = require(ReplicatedStorage.Tuning).Obby.World1
+		for checkpoint = 0, #world.Stages - 1 do
+			local where = if checkpoint == 0 then "Start" else "Pad " .. checkpoint
+			createOptionButton(where .. ": " .. world.Stages[checkpoint + 1].Name, optionsScroll, function()
+				sendCommand("obby " .. checkpoint)
+				commandListGui.Enabled = false
+			end)
+		end
+
 	elseif optType == "text" then
 		-- Text input for commands like :global message <text>
 		local textInput = Instance.new("TextBox")

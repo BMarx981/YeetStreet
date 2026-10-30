@@ -61,6 +61,17 @@ function Obby.select(visit: Visit, checkpoint: number): Visit?
 	return { Reached = visit.Reached, Current = checkpoint }
 end
 
+-- `visit` (nil for a new one) respawning at `checkpoint` as if every pad up
+-- to it had been touched, but paying nothing; nil if there is no such pad.
+-- For admins testing the course.
+function Obby.skip(visit: Visit?, checkpoint: number, tuning: Tuning): Visit?
+	if not isCheckpoint(checkpoint, tuning.Stages) then
+		return nil
+	end
+	local reached = if visit then math.max(visit.Reached, checkpoint) else checkpoint
+	return { Reached = reached, Current = checkpoint }
+end
+
 -- Whether `visit` has reached the finish.
 function Obby.finished(visit: Visit, tuning: Tuning): boolean
 	return visit.Reached >= tuning.Stages
