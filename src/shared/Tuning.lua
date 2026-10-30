@@ -366,10 +366,10 @@ Tuning.Obby = {
 				Segments = {
 					{ Kind = "Road", Length = 60 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
-					{ Kind = "Gap", Length = 140, Rise = 8 },
+					{ Kind = "Gap", Length = 140 },
 					{ Kind = "Road", Length = 100 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
-					{ Kind = "Gap", Length = 160, Rise = 20 },
+					{ Kind = "Gap", Length = 160, Rise = 10 },
 					{ Kind = "Road", Length = 100 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
 					{ Kind = "Gap", Length = 160, Rise = 25 },
