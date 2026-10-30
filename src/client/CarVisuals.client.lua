@@ -31,6 +31,7 @@ local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local AxolotlMoves = require(ReplicatedStorage.AxolotlMoves)
 local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
@@ -343,14 +344,115 @@ end
 
 -- The Axolotl Throttle's fixed look in place of the generated one, welded to
 -- the hull. Its jet flame comes from an unseen part behind its body.
-local function buildAxolotl(mesh: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
-	for _, part in AxolotlThrottle.build(mesh, hull.CFrame, folder) do
-		local weld = Instance.new("WeldConstraint")
+--
+-- The tail and gills turn about their roots on Welds, and the mouth slides on
+-- one. What moves them comes from what replicates, so every client sees it:
+-- the front wheels' angle to the hull, the hull's speed, a ray for the ground
+-- under it, and its ToughnessLeft dropping for a hit.
+local function buildAxolotl(
+	car: Model,
+	mesh: Model,
+	hull: BasePart,
+	folder: Folder,
+	flameColor: Color3,
+	jetStep: number
+): { Jet }
+	local M = AxolotlMoves
+	local function weldFrom(part: BasePart, root: CFrame): Weld
+		local weld = Instance.new("Weld")
 		weld.Part0 = hull
 		weld.Part1 = part
+		weld.C0 = root
+		weld.C1 = hull.CFrame:ToObjectSpace(part.CFrame):Inverse() * root
 		weld.Parent = part
 		part.Anchored = false
+		return weld
 	end
+	local tail: Weld?, leftGill: Weld?, rightGill: Weld?, mouth: Weld?
+	for _, part in AxolotlThrottle.build(mesh, hull.CFrame, folder) do
+		if part.Name == "tail" then
+			tail = weldFrom(part, AxolotlThrottle.tailRoot)
+		elseif part.Name == "leftgills" then
+			leftGill = weldFrom(part, AxolotlThrottle.leftGillRoot)
+		elseif part.Name == "rightgills" then
+			rightGill = weldFrom(part, AxolotlThrottle.rightGillRoot)
+		elseif part.Name == "Mouth" then
+			mouth = weldFrom(part, hull.CFrame:ToObjectSpace(part.CFrame))
+		else
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = hull
+			weld.Part1 = part
+			weld.Parent = part
+			part.Anchored = false
+		end
+	end
+
+	local fronts: { BasePart } = {}
+	for _, name in WHEEL_NAMES do
+		local wheel = car:WaitForChild(name, HULL_WAIT)
+		if wheel and wheel:IsA("BasePart") and (name == "WheelFL" or name == "WheelFR") then
+			table.insert(fronts, wheel)
+		end
+	end
+	local ground = RaycastParams.new()
+	ground.FilterType = Enum.RaycastFilterType.Exclude
+	ground.FilterDescendantsInstances = { car.Parent :: Instance }
+
+	local hitAt: number? = nil
+	local toughness = car:GetAttribute("ToughnessLeft")
+	car:GetAttributeChangedSignal("ToughnessLeft"):Connect(function()
+		local now = car:GetAttribute("ToughnessLeft")
+		if typeof(now) == "number" and typeof(toughness) == "number" and now < toughness then
+			hitAt = os.clock()
+		end
+		toughness = now
+	end)
+
+	local swim, beat = 0, 0
+	local tailYaw, gillSize, sweep = 0, 0, 0
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(dt: number)
+		if car.Parent == nil then
+			connection:Disconnect()
+			return
+		end
+		local speed = hull.AssemblyLinearVelocity.Magnitude
+		local airborne = workspace:Raycast(hull.Position, Vector3.new(0, -M.AirCheck, 0), ground) == nil
+
+		-- Same axle angle as the HeliCar's fan.
+		local steer = 0
+		for _, wheel in fronts do
+			local axle = hull.CFrame:VectorToObjectSpace(wheel.CFrame.RightVector)
+			steer += math.atan2(-axle.Z, axle.X)
+		end
+		steer /= math.max(#fronts, 1)
+		swim = M.wrap(swim + M.swimRate(speed) * dt)
+		tailYaw = M.approach(tailYaw, M.tailAngle(steer, speed, swim), M.Tail.Follow, dt)
+		if tail then
+			tail.C0 = AxolotlThrottle.tailRoot * CFrame.Angles(0, tailYaw, 0)
+		end
+
+		local rate, size = M.gillBeat(speed, airborne)
+		beat = M.wrap(beat + rate * dt)
+		gillSize = M.approach(gillSize, size, M.Gills.Follow, dt)
+		sweep = M.approach(sweep, M.gillSweep(speed), M.Gills.Follow, dt)
+		local flap = math.sin(beat) * gillSize
+		if leftGill then
+			leftGill.C0 = AxolotlThrottle.leftGillRoot * CFrame.Angles(0, sweep, -flap)
+		end
+		if rightGill then
+			rightGill.C0 = AxolotlThrottle.rightGillRoot * CFrame.Angles(0, -sweep, flap)
+		end
+
+		if mouth then
+			local open = M.smileOpen(if hitAt then os.clock() - hitAt else nil)
+			local at = M.mouthAt(open)
+			mouth.C0 = CFrame.new(at.x, at.y, at.z)
+			local inside = mouth.Part1 :: BasePart
+			inside.Transparency = if open > 0 then 0 else 1
+		end
+	end)
+
 	local nozzle = Instance.new("Part")
 	nozzle.Name = "AxolotlJet"
 	nozzle.Size = AxolotlThrottle.jetSize
@@ -570,7 +672,7 @@ local function setUp(car: Model)
 	elseif heli then
 		jets = buildHeliCar(car, hull, folder, rgb(design.flameColor), jetStep)
 	elseif axolotlMesh then
-		jets = buildAxolotl(axolotlMesh, hull, folder, rgb(design.flameColor), jetStep)
+		jets = buildAxolotl(car, axolotlMesh, hull, folder, rgb(design.flameColor), jetStep)
 	end
 	local brakes: { Brake } = {}
 	for i, part in parts do
