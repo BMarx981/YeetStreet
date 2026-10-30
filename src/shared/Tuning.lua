@@ -842,6 +842,27 @@ Tuning.PlaneFlight = {
 	YawShare = 0.5, -- of the car's turn rate, swinging the nose at full steer
 }
 
+-- A HeliCar with its rotor out (HeliFlight), and its air control (PlaneFlight):
+-- it stays level, with a small lean into turns.
+Tuning.HeliFlight = {
+	UpSpeed = 40,
+	DownSpeed = 25, -- under Toughness.HitThreshold, so a landing never hurts
+	HoldGain = 2,
+	SettleSpeed = 3, -- it starts holding its height once climbing slower than this
+	ClimbGain = 4,
+	MaxVertical = 120,
+	Accel = 60,
+	Brake = 80,
+	Coast = 25,
+	SideGrip = 200,
+	ReverseFraction = Tuning.Drive.ReverseFraction,
+	BrakeSpeed = Tuning.Drive.BrakeSpeed,
+	MaxPitch = 0,
+	MaxBank = math.rad(8),
+	Gain = 3,
+	YawShare = 0.4,
+}
+
 -- A PlaneCar's guns (Guns, ShotPath). Each hit takes ShotDamage of the car's
 -- full toughness off the side it hit, run or not (ScoreService).
 Tuning.Guns = {

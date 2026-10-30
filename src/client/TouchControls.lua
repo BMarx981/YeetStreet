@@ -8,7 +8,8 @@
 -- touch's InputObject changes to End or Cancel, wherever the finger is.
 --
 -- The WINGS and FIRE buttons show only while the car is a PlaneCar
--- (showPlane).
+-- (showPlane). In a HeliCar (showHeli), WINGS shows as ROTOR, and the roll
+-- buttons say DOWN and UP.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -112,7 +113,26 @@ local BUTTONS: { ButtonSpec } = {
 local touches: { [string]: number } = {}
 local gui: ScreenGui? = nil
 local planeShown = false
+local heliShown = false
 local PLANE_BUTTONS = { "Wings", "Fire" }
+
+-- Sets a button's look for the car being driven, if the button has been built.
+local function setButton(screen: ScreenGui, name: string, visible: boolean, label: string?)
+	local button = screen:FindFirstChild(name)
+	if button and button:IsA("TextButton") then
+		button.Visible = visible
+		if label then
+			button.Text = label
+		end
+	end
+end
+
+local function showForCar(screen: ScreenGui)
+	setButton(screen, "Wings", planeShown or heliShown, if heliShown then "ROTOR" else "WINGS")
+	setButton(screen, "Fire", planeShown)
+	setButton(screen, "RollLeft", true, if heliShown then "DOWN" else "ROLL <")
+	setButton(screen, "RollRight", true, if heliShown then "UP" else "ROLL >")
+end
 
 local function isDown(name: string): boolean
 	return (touches[name] or 0) > 0
@@ -170,12 +190,7 @@ local function build(): ScreenGui
 	for _, spec in BUTTONS do
 		buildButton(screen, spec)
 	end
-	for _, name in PLANE_BUTTONS do
-		local button = screen:FindFirstChild(name)
-		if button and button:IsA("GuiObject") then
-			button.Visible = planeShown
-		end
-	end
+	showForCar(screen)
 	return screen
 end
 
@@ -199,14 +214,22 @@ end
 -- PlaneCar.
 function TouchControls.showPlane(shown: boolean)
 	planeShown = shown
-	for _, name in PLANE_BUTTONS do
-		local button = gui and gui:FindFirstChild(name)
-		if button and button:IsA("GuiObject") then
-			button.Visible = shown
-		end
-		if not shown then
+	if gui then
+		showForCar(gui)
+	end
+	if not shown then
+		for _, name in PLANE_BUTTONS do
 			touches[name] = nil
 		end
+	end
+end
+
+-- Shows or hides the ROTOR button and the DOWN and UP labels, for whether the
+-- car is a HeliCar.
+function TouchControls.showHeli(shown: boolean)
+	heliShown = shown
+	if gui then
+		showForCar(gui)
 	end
 end
 

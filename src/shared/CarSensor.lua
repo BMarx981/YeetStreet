@@ -149,6 +149,13 @@ function CarSensor.dropped(sensor: Sensor)
 	sensor.lastVelocity = nil
 end
 
+-- A PlaneCar with its wings out or a HeliCar with its rotor out, which fly as
+-- long as they like, so they never score (RunTracker).
+function CarSensor.flying(model: Model): boolean
+	return (model:GetAttribute("PlaneCar") == true and model:GetAttribute("WingsOut") == true)
+		or model:GetAttribute("RotorOut") == true
+end
+
 -- `up` is which way the car should be the right way up: world up, or inside
 -- a tube, toward its middle line.
 function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
@@ -198,7 +205,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 			lying = lying,
 			grinding = GrindRails.onAny(cf.Position, velocity),
 			swing = Swings.ridden(sensor.ownerId, cf.Position),
-			wingsOut = sensor.model:GetAttribute("PlaneCar") == true and sensor.model:GetAttribute("WingsOut") == true,
+			wingsOut = CarSensor.flying(sensor.model),
 		},
 	}
 end

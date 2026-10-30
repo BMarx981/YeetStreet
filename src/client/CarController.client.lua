@@ -23,10 +23,13 @@
 --      roof: AirSpin rolls it back onto its wheels (Righting), and the
 --      player's spin input waits until it is upright.
 --      A PlaneCar with its wings out glides in the air (Glide).
+--      A HeliCar with its rotor out hovers and drives through the air, level,
+--      with Q and E for down and up (HeliFlight). Jets work as usual.
 --   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
---   6. A PlaneCar's wings fold or spread on request: the server flips them.
+--   6. A PlaneCar's wings fold or spread on request, and a HeliCar's rotor
+--      opens or closes: the server flips them.
 --      Its guns shoot while fire is held (Guns): the server decides what each
 --      shot hits (GunService), and this game draws it at once (GunFx).
 --   7. Reset on request, when still stuck on the roof after righting had its
@@ -54,6 +57,7 @@ local Glide = require(ReplicatedStorage.Glide)
 local Guns = require(ReplicatedStorage.Guns)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
+local HeliFlight = require(ReplicatedStorage.HeliFlight)
 local Contact = require(ReplicatedStorage.Contact)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
@@ -159,6 +163,8 @@ local gunCooldown = 0
 local nextGun = 1
 local frogCooldown = 0
 local righting = false
+-- The height a HeliCar's rotor is holding, while it flies.
+local hoverY: number? = nil
 -- Whether the HUD is hidden for a replay.
 local hudHidden = false
 -- When the car was last in a tube's pull (server time).
@@ -534,6 +540,13 @@ local function step(r: Rig, dt: number)
 	righting = Righting.step(righting, reading.lying or fromTube, reading.wheelsDown, upright, RT)
 
 	local wingsOut = r.model:GetAttribute("PlaneCar") == true and r.model:GetAttribute("WingsOut") == true
+	-- Off the ground, or asked to lift off it. Tubes and the gravitron keep
+	-- their own pull.
+	local rotorFlying = r.model:GetAttribute("RotorOut") == true
+		and (airborne or input.roll > 0)
+		and not pull
+		and not inBowl
+		and not righting
 
 	-- Frog jump or jets
 	if r.isFrog then
@@ -643,19 +656,27 @@ local function step(r: Rig, dt: number)
 		local pitchInput = InputAxes.combine({ input.throttle, input.pitch })
 		local rollInput = if r.rollUnlocked then input.roll else 0
 		local tx, ty, tz
-		if wingsOut then
+		local holdsAngle = wingsOut or rotorFlying
+		if holdsAngle then
 			local lookUp, rightUp, upUp = cf.LookVector:Dot(up), cf.RightVector:Dot(up), cf.UpVector:Dot(up)
-			tx, ty, tz =
-				PlaneFlight.rates(lookUp, rightUp, upUp, pitchInput, input.steer, r.turnRate, Tuning.PlaneFlight)
+			if rotorFlying then
+				local levelX, _, levelZ =
+					PlaneFlight.rates(lookUp, rightUp, upUp, 0, input.steer, r.turnRate, Tuning.HeliFlight)
+				tx, ty, tz =
+					levelX, -input.steer * HeliFlight.yawRate(forwardSpeed, r.turnRate, Tuning.HeliFlight), levelZ
+			else
+				tx, ty, tz =
+					PlaneFlight.rates(lookUp, rightUp, upUp, pitchInput, input.steer, r.turnRate, Tuning.PlaneFlight)
+			end
 		else
 			tx, ty, tz = AirControl.targetRates(input.steer, pitchInput, rollInput, r.turnRate, AIR_SCALES)
 		end
 		-- A plane always steers toward the angle it holds, input or not.
 		local spinNow = cf:VectorToObjectSpace(r.hull.AssemblyAngularVelocity)
 		r.spin.AngularVelocity = Vector3.new(
-			AirControl.stepAxis(spinNow.X, tx, wingsOut or pitchInput ~= 0, A.AngularAccel, A.IdleDamping, dt),
-			AirControl.stepAxis(spinNow.Y, ty, wingsOut or input.steer ~= 0, A.AngularAccel, A.IdleDamping, dt),
-			AirControl.stepAxis(spinNow.Z, tz, wingsOut or rollInput ~= 0, A.AngularAccel, A.IdleDamping, dt)
+			AirControl.stepAxis(spinNow.X, tx, holdsAngle or pitchInput ~= 0, A.AngularAccel, A.IdleDamping, dt),
+			AirControl.stepAxis(spinNow.Y, ty, holdsAngle or input.steer ~= 0, A.AngularAccel, A.IdleDamping, dt),
+			AirControl.stepAxis(spinNow.Z, tz, holdsAngle or rollInput ~= 0, A.AngularAccel, A.IdleDamping, dt)
 		)
 		r.spin.MaxTorque = r.mass * A.TorquePerMass
 		r.spin.Enabled = true
@@ -669,6 +690,42 @@ local function step(r: Rig, dt: number)
 		local v = cf:VectorToObjectSpace(velocity)
 		local ax, ay, az = Glide.accel(v.X, v.Y, v.Z, Tuning.Glide)
 		r.stick.Force += cf:VectorToWorldSpace(Vector3.new(ax, ay, az)) * r.mass
+	end
+
+	-- A HeliCar's rotor holds up the whole car, driver and wheels too, and it
+	-- drives through the air like on the road (HeliFlight).
+	if not rotorFlying then
+		hoverY = nil
+	elseif r.stick then
+		local flat = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
+		local total = 0
+		for _, part in r.roots do
+			total += part.AssemblyMass
+		end
+		-- The height to hold is wherever it comes to rest, so letting go of Q or
+		-- E doesn't spring it back to where the key came up.
+		if input.roll ~= 0 or not hoverY or math.abs(velocity.Y) > Tuning.HeliFlight.SettleSpeed then
+			hoverY = cf.Position.Y
+		end
+		local H = Tuning.HeliFlight
+		local push = Vector3.yAxis
+			* (workspace.Gravity + HeliFlight.vertical(input.roll, (hoverY :: number) - cf.Position.Y, velocity.Y, H))
+		-- Straight up or down has no forward until the car has levelled out.
+		if flat.Magnitude > 1e-3 then
+			local forward = flat.Unit
+			local right = forward:Cross(Vector3.yAxis)
+			push += forward * HeliFlight.forward(
+				input.throttle,
+				velocity:Dot(forward),
+				r.topSpeed,
+				r.brakePower,
+				burning,
+				dt,
+				H
+			)
+			push += right * HeliFlight.side(velocity:Dot(right), dt, H)
+		end
+		r.stick.Force += push * total
 	end
 
 	if reading.pad then
@@ -687,7 +744,11 @@ local function step(r: Rig, dt: number)
 	-- Wings (edge-triggered like exit)
 	local wingsPressed = input.wings and not wingsHeld
 	wingsHeld = input.wings
-	if wingsPressed and wingsRemote and r.model:GetAttribute("PlaneCar") == true then
+	if
+		wingsPressed
+		and wingsRemote
+		and (r.model:GetAttribute("PlaneCar") == true or r.model:GetAttribute("HeliCar") == true)
+	then
 		wingsRemote:FireServer()
 	end
 
@@ -751,6 +812,8 @@ local function enter(r: Rig)
 	end
 	TouchControls.setVisible(true)
 	TouchControls.showPlane(r.model:GetAttribute("PlaneCar") == true)
+	TouchControls.showHeli(r.model:GetAttribute("HeliCar") == true and r.model:GetAttribute("PlaneCar") ~= true)
+	hoverY = nil
 	Hud.setVisible(true)
 	hudHidden = false
 	ReplayControls.setDriving(true)
@@ -864,12 +927,12 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		return
 	end
 	local contact = current.sensor.contact
-	local wingsOut = current.model:GetAttribute("PlaneCar") == true and current.model:GetAttribute("WingsOut") == true
-	ChaseCamera.update(current.hull, contact.airborne, dt, up, wingsOut)
+	local flying = CarSensor.flying(current.model)
+	ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
 	Hud.update(
 		fuel / current.jetFuel,
 		current.hull.AssemblyLinearVelocity.Magnitude,
-		if contact.airborne and not wingsOut then contact.airtime else nil,
+		if contact.airborne and not flying then contact.airtime else nil,
 		burning
 	)
 end)

@@ -619,8 +619,9 @@ carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", gro
 		local ground = groundY or 0
 		CarSensor.dropped(watch.sensor)
 		watch.hitsFrom = os.clock() + Tuning.Dino.Ptero.DropGrace
-		-- A plane with its wings out never scores, so its drop is no run.
-		if car:GetAttribute("PlaneCar") == true and car:GetAttribute("WingsOut") == true then
+		-- A plane with its wings out or a HeliCar with its rotor out never
+		-- scores, so its drop is no run.
+		if CarSensor.flying(car) then
 			return
 		end
 		RunTracker.drop(watch.run, at.X, at.Y, at.Z, ground)

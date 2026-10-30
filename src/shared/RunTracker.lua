@@ -26,7 +26,8 @@
 -- A plane with its wings out (PlaneCar) never scores: nothing arms or starts
 -- a run, and opening the wings mid run ends it there as a landing that is
 -- not clean, the same as its live score. Folding them in the air starts no
--- run either; the car has to land and launch again.
+-- run either; the car has to land and launch again. A HeliCar with its rotor
+-- out goes the same way.
 --
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
@@ -85,7 +86,7 @@ export type Sample = {
 	lying: boolean,
 	grinding: boolean, -- on a rail (Grind.onRail)
 	swing: string?, -- the swing whose seat it rides, if any
-	wingsOut: boolean?, -- a PlaneCar flying as a plane
+	wingsOut: boolean?, -- a PlaneCar flying as a plane, or a HeliCar with its rotor out
 }
 
 export type Tuning = {

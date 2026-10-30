@@ -361,6 +361,64 @@ HeliCar.fanPivot = FAN_PIVOT
 HeliCar.FanSteerGain = 1.5 -- fan turn per degree the front wheels steer
 HeliCar.FanTurnRate = 10 -- how quickly the fan catches up to the wheels, per second
 
+-- The rotor on the roof, behind the fan. Folded, its mast is a stub and its
+-- blades lie back over the tail, either side of the fin. Open, the mast has
+-- risen so the blades clear the horn and the fin (RotorMorph, CarVisuals).
+local ROTOR_Z = 2.4
+local ROTOR_FOLDED_Y = 5.75
+local ROTOR_OPEN_Y = 9.2
+local MAST_WIDTH = 0.4
+local BLADE_LENGTH = 6.5
+local BLADE_SIDE_STACK = 0.12 -- so each folded pair doesn't share a height
+
+HeliCar.rotorMast = {
+	name = "RotorMast",
+	shape = "cylinder",
+	size = Vector3.new(ROTOR_FOLDED_Y - ROOF_TOP, MAST_WIDTH, MAST_WIDTH),
+	cframe = CFrame.new(0, (ROOF_TOP + ROTOR_FOLDED_Y) / 2, ROTOR_Z) * UPRIGHT,
+	color = GREY,
+	transparency = 0,
+	slot = "roof",
+} :: Spec
+
+HeliCar.rotorHub = {
+	name = "RotorHub",
+	shape = "cylinder",
+	size = Vector3.new(0.3, 0.8, 0.8),
+	cframe = CFrame.new(0, ROTOR_FOLDED_Y, ROTOR_Z) * UPRIGHT,
+	color = YELLOW,
+	transparency = 0,
+	slot = "roof",
+} :: Spec
+
+HeliCar.rotorBlade = {
+	name = "RotorBlade",
+	shape = "block",
+	size = Vector3.new(0.7, 0.12, BLADE_LENGTH),
+	cframe = CFrame.new(0, ROTOR_FOLDED_Y, ROTOR_Z + BLADE_LENGTH / 2),
+	color = BLACK,
+	transparency = 0,
+	slot = "roof",
+} :: Spec
+
+-- The mast's size and place, for how far it has risen.
+function HeliCar.mastAt(rise: number): (Vector3, CFrame)
+	local top = ROTOR_FOLDED_Y + (ROTOR_OPEN_Y - ROTOR_FOLDED_Y) * rise
+	return Vector3.new(top - ROOF_TOP, MAST_WIDTH, MAST_WIDTH), CFrame.new(0, (ROOF_TOP + top) / 2, ROTOR_Z) * UPRIGHT
+end
+
+-- The hub's place, for how far the mast has risen.
+function HeliCar.hubAt(rise: number): CFrame
+	return CFrame.new(0, ROTOR_FOLDED_Y + (ROTOR_OPEN_Y - ROTOR_FOLDED_Y) * rise, ROTOR_Z) * UPRIGHT
+end
+
+-- Blade i's place, for how far the mast has risen and the blade's angle around
+-- it (RotorMorph.bladeAngle).
+function HeliCar.bladeAt(i: number, rise: number, angle: number): CFrame
+	local height = ROTOR_FOLDED_Y + (ROTOR_OPEN_Y - ROTOR_FOLDED_Y) * rise + (i % 2) * BLADE_SIDE_STACK
+	return CFrame.new(0, height, ROTOR_Z) * CFrame.Angles(0, angle, 0) * CFrame.new(0, 0, BLADE_LENGTH / 2)
+end
+
 -- Trims welded to each physics wheel so they spin and steer with it. The
 -- front left has a yellow rim, the back left is a flat black disc, and the
 -- right side has grey rims.

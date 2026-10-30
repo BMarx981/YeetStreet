@@ -359,12 +359,15 @@ end
 
 -- Client pressed the wings button: a PlaneCar turns from car to plane or
 -- back. Every client transforms it from the WingsOut attribute (CarVisuals).
+-- The same button opens and closes a HeliCar's rotor (RotorOut).
 local foldWings = ReplicatedStorage:FindFirstChild("FoldWings")
 if foldWings and foldWings:IsA("RemoteEvent") then
 	foldWings.OnServerEvent:Connect(function(player: Player)
 		local car = cars[player]
 		if car and car:GetAttribute("PlaneCar") == true then
 			car:SetAttribute("WingsOut", car:GetAttribute("WingsOut") ~= true)
+		elseif car and car:GetAttribute("HeliCar") == true then
+			car:SetAttribute("RotorOut", car:GetAttribute("RotorOut") ~= true)
 		end
 	end)
 end

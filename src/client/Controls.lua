@@ -4,11 +4,12 @@
 -- -1..1 with positive meaning right, gas, or nose down.
 --
 --   Keyboard  W/S or Up/Down gas and brake, A/D or Left/Right steer,
---             Space or Left Shift jets, Q/E roll, R reset, F wings, X or
---             left click fire
+--             Space or Left Shift jets, Q/E roll (or down and up with a
+--             HeliCar's rotor out), R reset, F wings or rotor, X or left
+--             click fire
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
---             pitch in the air), A jets, LB/RB roll, Y reset, D-pad up
---             wings, B fire
+--             pitch in the air), A jets, LB/RB roll (or down and up), Y reset,
+--             D-pad up wings or rotor, B fire
 --   Touch     see TouchControls
 -- No input reaches the car while the garage panel, teleport menu, invite
 -- panel, or obby stage select is open (GarageMenu, TeleportMenu, InviteMenu,
@@ -39,7 +40,7 @@ export type Frame = {
 	jet: boolean,
 	reset: boolean,
 	exit: boolean,
-	wings: boolean, -- turns a PlaneCar between plane and car
+	wings: boolean, -- turns a PlaneCar between plane and car, or opens a HeliCar's rotor
 	fire: boolean, -- a PlaneCar's guns
 }
 

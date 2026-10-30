@@ -7,7 +7,8 @@
 --
 -- Also, on each car:
 --   A car with the HeliCar attribute (an admin toggle) gets the fixed
---   HeliCar look instead, with its roof fan turning to follow the steering.
+--   HeliCar look instead, with its roof fan turning to follow the steering
+--   and a rotor that opens and spins while its RotorOut attribute is true.
 --   It doesn't break apart on hits yet.
 --   A car with the PlaneCar attribute (an admin toggle) gets the fixed
 --   PlaneCar look, a plane while its WingsOut attribute is true and a car
@@ -35,6 +36,7 @@ local CarParts = require(ReplicatedStorage.CarParts)
 local HeliCar = require(ReplicatedStorage.HeliCar)
 local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
+local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Toughness
@@ -256,6 +258,45 @@ local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameCol
 		end
 	end
 
+	-- The rotor: each piece on a Weld from the hull, moved through RotorMorph
+	-- while the car's RotorOut attribute says to. A Weld, not a WeldConstraint,
+	-- for the same reason as the PlaneCar's pieces.
+	local function rotorPiece(spec: HeliCar.Spec): (BasePart, Weld)
+		local part = HeliCar.build({ spec }, hull.CFrame, folder)[1]
+		local weld = Instance.new("Weld")
+		weld.Part0 = hull
+		weld.Part1 = part
+		weld.C0 = spec.cframe
+		weld.Parent = part
+		part.Anchored = false
+		return part, weld
+	end
+	local mast, mastWeld = rotorPiece(HeliCar.rotorMast)
+	local _, hubWeld = rotorPiece(HeliCar.rotorHub)
+	local bladeWelds: { Weld } = {}
+	for i = 1, RotorMorph.Blades do
+		local _, weld = rotorPiece(HeliCar.rotorBlade)
+		bladeWelds[i] = weld
+	end
+
+	local spin = 0
+	local function showRotor(progress: number)
+		local stages = RotorMorph.stages(progress)
+		local size, place = HeliCar.mastAt(stages.rise)
+		mast.Size = size
+		mastWeld.C0 = place
+		hubWeld.C0 = HeliCar.hubAt(stages.rise)
+		for i, weld in bladeWelds do
+			weld.C0 = HeliCar.bladeAt(i, stages.rise, RotorMorph.bladeAngle(i, stages.unfold, spin))
+		end
+	end
+
+	local function rotorGoal(): number
+		return if car:GetAttribute("RotorOut") == true then 1 else 0
+	end
+	local rotorProgress = rotorGoal()
+	showRotor(rotorProgress)
+
 	-- A wheel's axle is its x axis; turned left by a steer angle a about the
 	-- hull's up axis, it points along (cos a, 0, -sin a) in hull space.
 	local yaw = 0
@@ -264,6 +305,12 @@ local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameCol
 		if car.Parent == nil then
 			connection:Disconnect()
 			return
+		end
+		local goal = rotorGoal()
+		if rotorProgress ~= goal or rotorProgress > 0 then
+			rotorProgress = RotorMorph.approach(rotorProgress, goal, dt)
+			spin = RotorMorph.wrap(spin + RotorMorph.SpinSpeed * RotorMorph.stages(rotorProgress).spin * dt)
+			showRotor(rotorProgress)
 		end
 		if #fronts == 0 then
 			return
