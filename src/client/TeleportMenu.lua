@@ -91,6 +91,9 @@ local function build()
 	inset.Parent = list
 
 	local function setOpen(value: boolean, byGamepad: boolean)
+		if value then
+			UiStyle.closeOtherMenus(panel)
+		end
 		open = value
 		UiStyle.show(panel, value)
 		if value then
@@ -102,6 +105,11 @@ local function build()
 			GuiService.SelectedObject = nil
 		end
 	end
+	UiStyle.registerMenu(panel, function()
+		if open then
+			setOpen(false, false)
+		end
+	end)
 
 	local function go(destination: string)
 		if busy then

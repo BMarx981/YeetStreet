@@ -33,10 +33,16 @@ export type Car = {
 	Archetype: string,
 	Tier: string,
 	ForSale: boolean?, -- false for cars only won, never bought (dino cars, invite prize)
-	-- Other seeds it can wear for a new shape, on top of its own Seed, which
-	-- comes free with the car. Same Archetype and Tier, same stats.
-	Bodies: { number }?,
+	-- Other bodies it can wear for a new shape, on top of its own Seed, which
+	-- comes free with the car. Any car type of the same Tier, with the same
+	-- stats. Seeds are what get saved, so each is used once per car.
+	Bodies: { Body }?,
 	BodyPrice: number?,
+}
+
+export type Body = {
+	Seed: number,
+	Archetype: string,
 }
 
 -- A limited edition item from Tuning.Limiteds.
@@ -316,8 +322,19 @@ function Economy.equip(state: State, id: string): (State?, string?)
 	return after, nil
 end
 
+local function findBody(car: Car, seed: number): Body?
+	if car.Bodies then
+		for _, body in car.Bodies do
+			if body.Seed == seed then
+				return body
+			end
+		end
+	end
+	return nil
+end
+
 local function onBodyList(car: Car, seed: number): boolean
-	return car.Bodies ~= nil and table.find(car.Bodies, seed) ~= nil
+	return findBody(car, seed) ~= nil
 end
 
 local function ownsBody(state: State, car: Car, seed: number): boolean
@@ -334,10 +351,15 @@ function Economy.wornSeed(state: State, car: Car): number
 	return car.Seed
 end
 
--- The same car with another seed's looks. Nothing else about it changes.
+-- The same car with another seed's looks, in that body's car type if it's on
+-- the list. Nothing else about it changes.
 function Economy.withSeed(car: Car, seed: number): Car
 	local dressed = table.clone(car)
 	dressed.Seed = seed
+	local body = findBody(car, seed)
+	if body then
+		dressed.Archetype = body.Archetype
+	end
 	return dressed
 end
 

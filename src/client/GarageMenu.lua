@@ -52,6 +52,7 @@ type CarRow = Row & {
 type BodyRow = CarRow & {
 	seed: number,
 	name: string,
+	kind: string, -- says the car type, such as "Hover body."
 }
 
 -- A car's bodies: a row that shows or hides the list, and the list itself.
@@ -70,6 +71,9 @@ local STATS: { { stat: Economy.StatName, about: string, icon: string } } = {
 }
 
 local PIP_COUNT = 10
+
+-- Body previews show no upgrade parts, which would hide the shapes.
+local BARE: Economy.Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
 
 local REASONS: { [string]: string } = {
 	NotEnoughCash = "Not enough cash yet.",
@@ -344,16 +348,17 @@ local function build()
 	end
 
 	-- The rows for a car's own seed and each body on its list, hidden until
-	-- asked for. A name that repeats gets a number, so each can be told apart.
-	local function bodyRows(car: Economy.Car, seeds: { number }, order: number): { BodyRow }
+	-- asked for.
+	local function bodyRows(car: Economy.Car, bodies: { Economy.Body }, order: number): { BodyRow }
 		local rows: { BodyRow } = {}
-		local seen: { [string]: number } = {}
-		local plain = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
-		for k, seed in { car.Seed, table.unpack(seeds) } do
-			local input = { archetype = car.Archetype, tier = car.Tier, levels = plain }
-			local word = CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks).name
-			seen[word] = (seen[word] or 0) + 1
-			local name = if seen[word] > 1 then `{word} {seen[word]}` else word
+		local seeds = { car.Seed }
+		for _, body in bodies do
+			table.insert(seeds, body.Seed)
+		end
+		for k, seed in seeds do
+			local archetype = Economy.withSeed(car, seed).Archetype
+			local input = { archetype = archetype, tier = car.Tier, levels = BARE }
+			local name = CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks).name
 			local r = carRow(order + k, name)
 			r.frame.Visible = false
 			table.insert(rows, {
@@ -363,6 +368,7 @@ local function build()
 				preview = r.preview,
 				seed = seed,
 				name = name,
+				kind = `{string.upper(string.sub(archetype, 1, 1))}{string.sub(archetype, 2)} body.`,
 			})
 		end
 		return rows
@@ -476,19 +482,19 @@ local function build()
 				for _, body in list.rows do
 					body.frame.Visible = list.showing
 					if open and tab == "Cars" and list.showing then
-						body.preview.set(Economy.withSeed(ladderCar, body.seed), Economy.lookLevels(lv, ladderCar))
+						body.preview.set(Economy.withSeed(ladderCar, body.seed), BARE)
 					end
 					if not ownsCar then
-						body.detail.Text = `Buy the {ladderCar.Name} to use this body.`
+						body.detail.Text = `{body.kind} Buy the {ladderCar.Name} to use it.`
 						setButton(body.button, "LOCKED", false)
 					elseif body.seed == worn then
-						body.detail.Text = `On your {ladderCar.Name} now.`
+						body.detail.Text = `{body.kind} On your {ladderCar.Name} now.`
 						setButton(body.button, "WEARING", false)
 					elseif body.seed == ladderCar.Seed or table.find(bought, body.seed) then
-						body.detail.Text = "Yours. Same stats, just a different shape."
+						body.detail.Text = `{body.kind} Yours. Same stats, different shape.`
 						setButton(body.button, "WEAR", loaded and not busy)
 					else
-						body.detail.Text = `Same stats as your {ladderCar.Name}, just a different shape.`
+						body.detail.Text = `{body.kind} Same stats as your {ladderCar.Name}.`
 						setButton(body.button, `$ {withCommas(price)}`, loaded and not busy and money >= price, true)
 					end
 				end
@@ -701,6 +707,9 @@ local function build()
 	end
 
 	local function setOpen(value: boolean, byGamepad: boolean)
+		if value then
+			UiStyle.closeOtherMenus(panel)
+		end
 		open = value
 		UiStyle.show(panel, value)
 		if value then
@@ -714,6 +723,11 @@ local function build()
 			GuiService.SelectedObject = nil
 		end
 	end
+	UiStyle.registerMenu(panel, function()
+		if open then
+			setOpen(false, false)
+		end
+	end)
 
 	local function showTab(name: Tab)
 		tab = name

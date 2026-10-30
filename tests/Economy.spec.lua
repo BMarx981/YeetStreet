@@ -32,7 +32,7 @@ local LADDER: { Economy.Car } = {
 		Seed = 3,
 		Archetype = "muscle",
 		Tier = "Sports",
-		Bodies = { 4, 5 },
+		Bodies = { { Seed = 4, Archetype = "muscle" }, { Seed = 5, Archetype = "wedge" } },
 		BodyPrice = 1000,
 	},
 }
@@ -389,6 +389,11 @@ Check.test("withSeed changes only the looks", function()
 	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
 	local dressed = Economy.withSeed(car, 5)
 	Check.eq(dressed.Seed, 5)
+	Check.eq(dressed.Archetype, "wedge", "a body can be another car type")
+	Check.eq(dressed.Tier, "Sports")
+	Check.eq(Economy.withSeed(car, 3).Archetype, "muscle", "its own seed")
+	Check.eq(Economy.withSeed(car, 99).Archetype, "muscle", "off the list")
+	Check.eq(car.Archetype, "muscle", "the ladder's car is unchanged")
 	Check.eq(dressed.Id, "Muscle")
 	Check.eq(dressed.Caps, car.Caps, "same caps")
 	Check.eq(dressed.Bonus, car.Bonus, "same bonus")

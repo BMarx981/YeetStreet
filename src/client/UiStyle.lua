@@ -297,6 +297,23 @@ function UiStyle.show(panel: GuiObject, visible: boolean)
 	end
 end
 
+local menuClosers: { [GuiObject]: () -> () } = {}
+
+-- Adds `panel` to the menus that replace each other: `close` shuts it when
+-- another of them opens.
+function UiStyle.registerMenu(panel: GuiObject, close: () -> ())
+	menuClosers[panel] = close
+end
+
+-- Shuts every registered menu but `panel`. A menu calls this as it opens.
+function UiStyle.closeOtherMenus(panel: GuiObject)
+	for other, close in menuClosers do
+		if other ~= panel then
+			close()
+		end
+	end
+end
+
 -- Grows `target` (the button itself unless given) while the button is hovered
 -- or gamepad-selected, and squishes it while pressed, with a click. Inactive
 -- buttons stay still, and pressing one buzzes and wiggles it instead. Call
