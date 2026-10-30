@@ -8,6 +8,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarKit = require(ReplicatedStorage.CarKit)
 local CarParts = require(ReplicatedStorage.CarParts)
@@ -80,7 +81,7 @@ function CarPreview.new(parent: Instance): Preview
 
 	local function set(car: Economy.Car, levels: Economy.Levels)
 		local key =
-			`{car.Seed}|{car.Archetype}|{car.Tier}|{levels.Speed}|{levels.Jets}|{levels.Toughness}|{levels.Grip}|{levels.Brakes}`
+			`{car.Look}|{car.Seed}|{car.Archetype}|{car.Tier}|{levels.Speed}|{levels.Jets}|{levels.Toughness}|{levels.Grip}|{levels.Brakes}`
 		if key == shown then
 			return
 		end
@@ -92,7 +93,12 @@ function CarPreview.new(parent: Instance): Preview
 		local design = CarDesign.design(Rng.new(car.Seed), input, CarKit, Tuning.CarLooks)
 		local built = Instance.new("Model")
 		built.Name = "Car"
-		CarParts.build(design, CFrame.new(), built)
+		local axolotl = if car.Look == "Axolotl" then AxolotlThrottle.mesh() else nil
+		if axolotl then
+			AxolotlThrottle.build(axolotl, CFrame.new(), built)
+		else
+			CarParts.build(design, CFrame.new(), built)
+		end
 		CarPreview.wheels(design, built)
 		built.Parent = viewport
 		model = built

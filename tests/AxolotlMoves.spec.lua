@@ -83,4 +83,22 @@ Check.test("the smile curves up at both ends and lies on the head", function()
 	end
 end)
 
+Check.test("pieces fly off one at a time as the car takes damage", function()
+	Check.eq(M.piecesOff(0, 20), 0, "whole")
+	Check.eq(M.piecesOff(20, 20), #M.Breaks, "all off")
+	local last = 0
+	for broken = 0, 20 do
+		local off = M.piecesOff(broken, 20)
+		Check.eq(off >= last, true, "never comes back")
+		Check.eq(off - last <= 1, true, "one at a time on a long list")
+		last = off
+	end
+	Check.eq(M.piecesOff(1, 20), 0, "a scratch breaks nothing")
+end)
+
+Check.test("a car with no breakable parts keeps its pieces", function()
+	Check.eq(M.piecesOff(0, 0), 0, "none")
+	Check.eq(M.piecesOff(3, 0), 0, "still none")
+end)
+
 Check.finish("AxolotlMoves")

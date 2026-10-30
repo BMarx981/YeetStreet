@@ -65,6 +65,7 @@ Tuning.Obby = {
 	StageCash = 100,
 	StageCashStep = 25,
 	WorldPrize = 50000,
+	PrizeCar = "Axolotl", -- given on any paid finish, to those who don't own it
 	-- Every stage must be clearable at this Jets level (a maxed Hatchback).
 	DesignJets = 20,
 	-- A hull up to this high over a checkpoint pad touches it.
@@ -597,6 +598,20 @@ Tuning.Ladder = {
 		Seed = 1,
 		Archetype = "wedge",
 		Tier = "Supercar",
+	},
+	-- Flies better than the Speed Car but tops out lower. Also won by clearing
+	-- the obby (Tuning.Obby.PrizeCar). Look replaces the generated body; the
+	-- Seed, Archetype, and Tier still set how many parts count as breakable.
+	{
+		Id = "Axolotl",
+		Name = "Axolotl Throttle",
+		Price = 125000,
+		Bonus = 12,
+		Caps = { Speed = 36, Jets = 36, Toughness = 30, Grip = 30, Brakes = 30 },
+		Seed = 1,
+		Archetype = "hatch",
+		Tier = "Supercar",
+		Look = "Axolotl",
 	},
 	-- Won by bringing in Tuning.Invites' last milestone of friends.
 	{

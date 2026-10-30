@@ -81,7 +81,7 @@ local function balloon(pad: BasePart, text: string, scale: number, lift: number)
 end
 
 local reward = ReplicatedStorage:WaitForChild("ObbyReward") :: RemoteEvent
-reward.OnClientEvent:Connect(function(info: { Stage: number, Cash: number, Prize: number })
+reward.OnClientEvent:Connect(function(info: { Stage: number, Cash: number, Prize: number, Car: string? })
 	local pad = padFor(info.Stage)
 	if not pad then
 		return
@@ -92,6 +92,12 @@ reward.OnClientEvent:Connect(function(info: { Stage: number, Cash: number, Prize
 	if info.Prize > 0 then
 		task.delay(POP_TIME, function()
 			balloon(pad, `WORLD PRIZE +${withCommas(info.Prize)}`, B.PrizeScale, B.TextHeight * 1.5)
+		end)
+	end
+	local car = info.Car
+	if car then
+		task.delay(POP_TIME * 2, function()
+			balloon(pad, `YOU WON THE {string.upper(car)}!`, B.PrizeScale, B.TextHeight * 3)
 		end)
 	end
 end)

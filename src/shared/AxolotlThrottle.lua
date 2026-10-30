@@ -30,6 +30,9 @@ AxolotlThrottle.tailRoot = CFrame.new(0, 0, 3.5)
 AxolotlThrottle.leftGillRoot = CFrame.new(-1.6, 2.2, -2.2)
 AxolotlThrottle.rightGillRoot = CFrame.new(1.6, 2.2, -2.2)
 
+-- Which pieces fly off in a crash, first to last (AxolotlMoves.Breaks).
+AxolotlThrottle.BreakOrder = { "leftgills", "rightgills", "tail" }
+
 local SMILE_COLOR = Color3.fromRGB(150, 40, 70)
 local MOUTH_COLOR = Color3.fromRGB(70, 15, 35)
 
@@ -80,6 +83,7 @@ function AxolotlThrottle.build(mesh: Model, hullCFrame: CFrame, parent: Instance
 	mouth.Name = "Mouth"
 	mouth.Size = Vector3.new(S.MouthSize.X, S.MouthSize.Y, S.MouthSize.Z)
 	mouth.Color = MOUTH_COLOR
+	mouth.Transparency = 1 -- shut until a hit opens it
 	mouth.Material = Enum.Material.SmoothPlastic
 	local round = Instance.new("SpecialMesh")
 	round.MeshType = Enum.MeshType.Sphere

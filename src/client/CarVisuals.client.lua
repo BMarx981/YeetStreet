@@ -156,7 +156,7 @@ end
 
 local function knockOff(part: BasePart, hull: BasePart)
 	for _, child in part:GetChildren() do
-		if child:IsA("WeldConstraint") then
+		if child:IsA("WeldConstraint") or child:IsA("Weld") then
 			child:Destroy()
 		end
 	end
@@ -752,6 +752,35 @@ local function setUp(car: Model)
 		end
 		car:GetAttributeChangedSignal(attribute):Connect(showBroken)
 		showBroken()
+	end
+
+	-- The axolotl has no generated parts to break, so its pieces fly off as
+	-- the share of the parts the server counts as broken grows.
+	if axolotlMesh then
+		local total = 0
+		for _, slot in CarParts.Slots do
+			total += #CarDesign.breakable(design, slot)
+		end
+		local shown = 0
+		local function showPiecesOff()
+			local broken = 0
+			for _, slot in CarParts.Slots do
+				local value = car:GetAttribute(CarParts.brokenAttribute(slot))
+				broken += if typeof(value) == "number" then value else 0
+			end
+			local off = AxolotlMoves.piecesOff(broken, total)
+			for k = shown + 1, off do
+				local piece = folder:FindFirstChild(AxolotlThrottle.BreakOrder[k])
+				if piece and piece:IsA("BasePart") then
+					knockOff(piece, hull)
+				end
+			end
+			shown = math.max(shown, off)
+		end
+		for _, slot in CarParts.Slots do
+			car:GetAttributeChangedSignal(CarParts.brokenAttribute(slot)):Connect(showPiecesOff)
+		end
+		showPiecesOff()
 	end
 
 	local fire = Instance.new("Fire")

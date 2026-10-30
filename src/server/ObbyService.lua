@@ -34,6 +34,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Economy = require(ReplicatedStorage.Economy)
 local Obby = require(ReplicatedStorage.Obby)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Garage = require(ServerScriptService.Garage)
@@ -131,7 +132,13 @@ local function touch(player: Player, visit: Obby.Visit, checkpoint: number)
 		prize = T.WorldPrize
 		Garage.pay(player, prize)
 	end
-	obbyReward:FireClient(player, { Stage = checkpoint, Cash = cash, Prize = prize })
+	local car: string? = nil
+	if Obby.finished(after, T) and data and not table.find(data.Economy.Cars, T.PrizeCar) then
+		Garage.giveCar(player, T.PrizeCar)
+		local won = Economy.findCar(Tuning.Ladder, T.PrizeCar)
+		car = if won then won.Name else nil
+	end
+	obbyReward:FireClient(player, { Stage = checkpoint, Cash = cash, Prize = prize, Car = car })
 end
 
 -- Starts a fresh visit and returns where the car arrives: on the start pad.

@@ -135,7 +135,7 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	if player:GetAttribute("PlaneCarEquipped") == true then
 		car:SetAttribute("PlaneCar", true)
 	end
-	if player:GetAttribute("AxolotlEquipped") == true then
+	if player:GetAttribute("AxolotlEquipped") == true or ladderCar.Look == "Axolotl" then
 		car:SetAttribute("AxolotlThrottle", true)
 	end
 	car.Parent = carsFolder

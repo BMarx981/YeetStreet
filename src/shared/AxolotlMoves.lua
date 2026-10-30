@@ -50,6 +50,10 @@ AxolotlMoves.Smile = {
 	MouthHidden = 0.6, -- how far its front is inside the head when shut
 }
 
+-- The share of the car's breakable parts gone when each piece flies off, in
+-- the order of AxolotlThrottle.BreakOrder.
+AxolotlMoves.Breaks = { 0.15, 0.4, 0.7 }
+
 local function share(speed: number): number
 	return math.clamp(speed / AxolotlMoves.TopSpeed, 0, 1)
 end
@@ -141,6 +145,20 @@ function AxolotlMoves.mouthAt(open: number): { x: number, y: number, z: number }
 	local halfDepth = S.MouthSize.Z / 2
 	local front = headFront(0, y)
 	return { x = 0, y = y, z = front + halfDepth + lerp(S.MouthHidden, -S.MouthShown, open) }
+end
+
+-- How many pieces are off, with this many of the car's breakable parts broken.
+function AxolotlMoves.piecesOff(broken: number, total: number): number
+	if total <= 0 then
+		return 0
+	end
+	local off = 0
+	for _, at in AxolotlMoves.Breaks do
+		if broken / total >= at then
+			off += 1
+		end
+	end
+	return off
 end
 
 return AxolotlMoves
