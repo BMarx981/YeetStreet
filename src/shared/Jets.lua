@@ -4,19 +4,20 @@
 
 local Jets = {}
 
--- Burning drains fuel and blocks recharge. Fuel refills only on the ground.
+-- Burning drains fuel and blocks recharge. Fuel refills only while `refilling`:
+-- on the ground, or in a HeliCar flying on its rotor.
 function Jets.stepFuel(
 	fuel: number,
 	maxFuel: number,
 	burning: boolean,
-	grounded: boolean,
+	refilling: boolean,
 	recharge: number,
 	dt: number
 ): number
 	if burning then
 		return math.max(fuel - dt, 0)
 	end
-	if grounded then
+	if refilling then
 		return math.min(fuel + recharge * dt, maxFuel)
 	end
 	return fuel

@@ -17,7 +17,9 @@
 -- lowest pad.
 --
 -- Clearing a stage pays its cash at once, on every visit. The first finish
--- ever also pays WorldPrize, saved as PlayerData's ObbyCleared.
+-- ever also pays WorldPrize, saved as PlayerData's ObbyCleared. A visit that
+-- has seen the player in a HeliCar pays neither, even if they swap cars later,
+-- since it can fly past the course. Its checkpoints still work.
 --
 -- Clients see a visit as Player attributes ObbyReached and ObbyCheckpoint
 -- (nil outside the obby) and hear about cash on ReplicatedStorage.ObbyReward
@@ -46,6 +48,8 @@ local HULL_HEIGHT = Tuning.TestPark.SpawnHeight
 local ObbyService = {}
 
 local visits: { [Player]: Obby.Visit } = {}
+-- Players whose current visit has seen them in a HeliCar.
+local unpaid: { [Player]: boolean } = {}
 local lastSelectAt: { [Player]: number } = {}
 local lastFallAt: { [Player]: number } = {}
 
@@ -116,7 +120,7 @@ local function touch(player: Player, visit: Obby.Visit, checkpoint: number)
 		return
 	end
 	setVisit(player, after)
-	if cash <= 0 then
+	if cash <= 0 or unpaid[player] then
 		return
 	end
 	Garage.pay(player, cash)
@@ -138,6 +142,7 @@ function ObbyService.enter(player: Player): CFrame?
 		return nil
 	end
 	visits[player] = nil
+	unpaid[player] = nil
 	setVisit(player, Obby.newVisit())
 	return respawnAt(start)
 end
@@ -162,6 +167,7 @@ function ObbyService.leave(player: Player)
 		return
 	end
 	visits[player] = nil
+	unpaid[player] = nil
 	player:SetAttribute("ObbyReached", nil)
 	player:SetAttribute("ObbyCheckpoint", nil)
 	setPlayerCheckpoint:Invoke(player, nil)
@@ -210,6 +216,10 @@ RunService.Heartbeat:Connect(function()
 		if not hull then
 			continue
 		end
+		local car = hull.Parent
+		if car and car:GetAttribute("HeliCar") == true then
+			unpaid[player] = true
+		end
 		local position = hull.Position
 		if position.Y < lowest - T.FallDepth then
 			if now - (lastFallAt[player] or -math.huge) >= Tuning.Reset.RequestGap then
@@ -241,6 +251,7 @@ for _, player in Players:GetPlayers() do
 end
 Players.PlayerRemoving:Connect(function(player: Player)
 	visits[player] = nil
+	unpaid[player] = nil
 	lastSelectAt[player] = nil
 	lastFallAt[player] = nil
 end)

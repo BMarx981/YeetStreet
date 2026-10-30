@@ -24,7 +24,8 @@
 --      player's spin input waits until it is upright.
 --      A PlaneCar with its wings out glides in the air (Glide).
 --      A HeliCar with its rotor out hovers and drives through the air, level,
---      with Q and E for down and up (HeliFlight). Jets work as usual.
+--      with Q and E for down and up (HeliFlight). Jets work as usual, and
+--      their fuel refills in flight like on the ground.
 --   4. Launch pads top speed up along the ramp, for a car heading that way.
 --   5. Run tracking: feed the car's motion to RunTracker, score the run live,
 --      and show the result when it ends. The server scores it again for real.
@@ -563,7 +564,7 @@ local function step(r: Rig, dt: number)
 		end
 	else
 		burning = if wingsOut then input.jet else Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
-		fuel = Jets.stepFuel(fuel, r.jetFuel, burning and not wingsOut, not airborne, r.fuelRecharge, dt)
+		fuel = Jets.stepFuel(fuel, r.jetFuel, burning and not wingsOut, not airborne or rotorFlying, r.fuelRecharge, dt)
 		local power = if wingsOut
 			then Glide.thrust(r.jetPower, forwardSpeed, Tuning.Glide.EngineTopSpeed)
 			else r.jetPower
