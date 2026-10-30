@@ -1,6 +1,7 @@
 --!strict
 -- GarageMenu (ModuleScript) -> StarterPlayerScripts.GarageMenu
--- The garage panel: buy upgrade levels and ladder cars, and equip owned cars.
+-- The garage panel: buy upgrade levels and ladder cars, equip owned cars, and
+-- buy and wear other bodies for a car whose ladder entry lists some.
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, with G or
 -- E (E shows the Cars tab) on a keyboard or X on a gamepad. The same keys,
 -- the panel's X button, and gamepad B close it.
@@ -18,8 +19,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+local CarDesign = require(ReplicatedStorage.CarDesign)
+local CarKit = require(ReplicatedStorage.CarKit)
 local Economy = require(ReplicatedStorage.Economy)
 local Pips = require(ReplicatedStorage.Pips)
+local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
 local UiStyle = require(script.Parent.UiStyle)
@@ -45,6 +49,18 @@ type CarRow = Row & {
 	preview: CarPreview.Preview,
 }
 
+type BodyRow = CarRow & {
+	seed: number,
+	name: string,
+}
+
+-- A car's bodies: a row that shows or hides the list, and the list itself.
+type BodyList = {
+	toggle: Row,
+	rows: { BodyRow },
+	showing: boolean,
+}
+
 local STATS: { { stat: Economy.StatName, about: string, icon: string } } = {
 	{ stat = "Speed", about = "Top speed on the ground", icon = "⚡" },
 	{ stat = "Jets", about = "Jet power, fuel, recharge, and air turning", icon = "🚀" },
@@ -67,6 +83,7 @@ local REASONS: { [string]: string } = {
 	UnknownLimited = "That item doesn't exist.",
 	NotEnoughBones = "Not enough bones yet.",
 	UnknownBoneShop = "That trade doesn't exist.",
+	UnknownBody = "That body doesn't exist.",
 }
 
 local player = Players.LocalPlayer :: Player
@@ -117,6 +134,22 @@ end
 local function limitedsOwned(): { string }
 	local value = player:GetAttribute("LimitedsOwned")
 	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
+end
+
+local function bodiesOwned(car: Economy.Car): { number }
+	local value = player:GetAttribute(`BodiesOwned_{car.Id}`)
+	local seeds = {}
+	if typeof(value) == "string" and value ~= "" then
+		for _, text in string.split(value, ",") do
+			table.insert(seeds, tonumber(text) :: number)
+		end
+	end
+	return seeds
+end
+
+local function bodyWorn(car: Economy.Car): number
+	local value = player:GetAttribute(`BodyWorn_{car.Id}`)
+	return if typeof(value) == "number" then value else car.Seed
 end
 
 local function limitedStockRemaining(id: string): number
@@ -310,13 +343,47 @@ local function build()
 		}
 	end
 
+	-- The rows for a car's own seed and each body on its list, hidden until
+	-- asked for. A name that repeats gets a number, so each can be told apart.
+	local function bodyRows(car: Economy.Car, seeds: { number }, order: number): { BodyRow }
+		local rows: { BodyRow } = {}
+		local seen: { [string]: number } = {}
+		local plain = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
+		for k, seed in { car.Seed, table.unpack(seeds) } do
+			local input = { archetype = car.Archetype, tier = car.Tier, levels = plain }
+			local word = CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks).name
+			seen[word] = (seen[word] or 0) + 1
+			local name = if seen[word] > 1 then `{word} {seen[word]}` else word
+			local r = carRow(order + k, name)
+			r.frame.Visible = false
+			table.insert(rows, {
+				frame = r.frame,
+				detail = r.detail,
+				button = r.button,
+				preview = r.preview,
+				seed = seed,
+				name = name,
+			})
+		end
+		return rows
+	end
+
 	local carRows: { [string]: CarRow } = {}
 	local eventRows: { [string]: Row } = {}
+	local bodyLists: { [string]: BodyList } = {}
 	for i, car in Tuning.Ladder do
 		if car.Tier == "Dino" then
 			eventRows[car.Id] = row(eventList, i, car.Name)
 		else
-			carRows[car.Id] = carRow(i, car.Name)
+			local order = i * 100 -- room for the car's body rows right under it
+			carRows[car.Id] = carRow(order, car.Name)
+			if car.Bodies then
+				bodyLists[car.Id] = {
+					toggle = row(carsList, order + 1, `{car.Name} bodies`),
+					rows = bodyRows(car, car.Bodies, order + 1),
+					showing = false,
+				}
+			end
 		end
 	end
 	local limitedRows: { [string]: Row } = {}
@@ -384,7 +451,7 @@ local function build()
 			-- Built the first time the Cars tab shows, with the player's levels
 			-- as that car would count them.
 			if open and tab == "Cars" then
-				r.preview.set(ladderCar, Economy.lookLevels(lv, ladderCar))
+				r.preview.set(Economy.withSeed(ladderCar, bodyWorn(ladderCar)), Economy.lookLevels(lv, ladderCar))
 			end
 			if ladderCar.Id == equipped then
 				setButton(r.button, "DRIVING", false)
@@ -395,6 +462,36 @@ local function build()
 				setButton(r.button, if friends then `{friends} FRIENDS` else "LOCKED", false)
 			else
 				setButton(r.button, `$ {withCommas(ladderCar.Price)}`, loaded and not busy and money >= ladderCar.Price, true)
+			end
+			local list = bodyLists[ladderCar.Id]
+			if list then
+				local ownsCar = table.find(cars, ladderCar.Id) ~= nil
+				local bought = bodiesOwned(ladderCar)
+				local worn = bodyWorn(ladderCar)
+				local price = ladderCar.BodyPrice or 0
+				list.toggle.detail.Text = if ownsCar
+					then `{#bought + 1} of {#list.rows} owned. Same stats, new shape.`
+					else `{#list.rows} shapes to collect once you own the {ladderCar.Name}.`
+				setButton(list.toggle.button, if list.showing then "HIDE" else "SHOW", true)
+				for _, body in list.rows do
+					body.frame.Visible = list.showing
+					if open and tab == "Cars" and list.showing then
+						body.preview.set(Economy.withSeed(ladderCar, body.seed), Economy.lookLevels(lv, ladderCar))
+					end
+					if not ownsCar then
+						body.detail.Text = `Buy the {ladderCar.Name} to use this body.`
+						setButton(body.button, "LOCKED", false)
+					elseif body.seed == worn then
+						body.detail.Text = `On your {ladderCar.Name} now.`
+						setButton(body.button, "WEARING", false)
+					elseif body.seed == ladderCar.Seed or table.find(bought, body.seed) then
+						body.detail.Text = "Yours. Same stats, just a different shape."
+						setButton(body.button, "WEAR", loaded and not busy)
+					else
+						body.detail.Text = `Same stats as your {ladderCar.Name}, just a different shape.`
+						setButton(body.button, `$ {withCommas(price)}`, loaded and not busy and money >= price, true)
+					end
+				end
 			end
 		end
 
@@ -484,7 +581,7 @@ local function build()
 
 	-- Sends one request to the server and reports how it went. The row it came
 	-- from bounces and flashes when it goes through.
-	local function ask(remoteName: string, arg: string, success: string, r: Row)
+	local function ask(remoteName: string, arg: string, success: string, r: Row, seed: number?)
 		if busy then
 			return
 		end
@@ -496,7 +593,7 @@ local function build()
 		busy = true
 		status.Text = ""
 		refresh()
-		local ok, done, reason = pcall(remote.InvokeServer, remote, arg)
+		local ok, done, reason = pcall(remote.InvokeServer, remote, arg, seed)
 		busy = false
 		if ok and done then
 			status.Text = success
@@ -537,6 +634,25 @@ local function build()
 				ask("BuyCar", ladderCar.Id, `Bought the {ladderCar.Name}. Equip it to drive it.`, r)
 			end
 		end)
+		local list = bodyLists[ladderCar.Id]
+		if list then
+			list.toggle.button.Activated:Connect(function()
+				list.showing = not list.showing
+				refresh()
+			end)
+			for _, body in list.rows do
+				body.button.Activated:Connect(function()
+					if not body.button.Active then
+						return
+					end
+					if body.seed == ladderCar.Seed or table.find(bodiesOwned(ladderCar), body.seed) then
+						ask("WearBody", ladderCar.Id, `Your {ladderCar.Name} is now the {body.name}.`, body, body.seed)
+					else
+						ask("BuyBody", ladderCar.Id, `Bought the {body.name}. Press WEAR to put it on.`, body, body.seed)
+					end
+				end)
+			end
+		end
 	end
 	for _, item in Tuning.Limiteds do
 		local r = limitedRows[item.Id]
@@ -670,12 +786,23 @@ local function build()
 			for _, r in carRows do
 				r.preview.spin(dt)
 			end
+			for _, list in bodyLists do
+				if list.showing then
+					for _, body in list.rows do
+						body.preview.spin(dt)
+					end
+				end
+			end
 		end
 	end)
 
 	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "BoneCoins" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
+	end
+	for id in bodyLists do
+		table.insert(refreshAttrs, `BodiesOwned_{id}`)
+		table.insert(refreshAttrs, `BodyWorn_{id}`)
 	end
 	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()

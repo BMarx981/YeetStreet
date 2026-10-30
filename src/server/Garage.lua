@@ -8,12 +8,16 @@
 --   BuyUpgrade(stat)  one level of Speed, Jets, Toughness, Grip, or Brakes
 --   BuyCar(id)        a ladder car, without equipping it
 --   EquipCar(id)      an owned car
+--   BuyBody(id, seed)   a body for an owned car, without putting it on
+--   WearBody(id, seed)  an owned body
 -- An upgrade or equip changes the car's stats, so the car respawns through
--- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset.
+-- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset. Wearing a
+-- body on the car being driven respawns it too, to rebuild its looks.
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
--- joined by commas). Cash is also in leaderstats.
+-- joined by commas). Each car with bodies also gets BodiesOwned_<id> (seeds
+-- joined by commas) and BodyWorn_<id>. Cash is also in leaderstats.
 --
 -- The panel opens near any model tagged Garage. The hand-placed
 -- workspace.Shopkeeper gets that tag here, so it stays a garage.
@@ -60,6 +64,12 @@ local function publish(player: Player, state: Economy.State)
 	for _, item in Tuning.Limiteds do
 		player:SetAttribute(`LimitedStock_{item.Id}`, limitedStock[item.Id] or item.Stock)
 	end
+	for _, car in Tuning.Ladder do
+		if car.Bodies then
+			player:SetAttribute(`BodiesOwned_{car.Id}`, table.concat(state.Bodies[car.Id] or {}, ","))
+			player:SetAttribute(`BodyWorn_{car.Id}`, Economy.wornSeed(state, car))
+		end
+	end
 	Leaderstats.value(player, "Cash").Value = state.Cash
 end
 
@@ -73,7 +83,7 @@ function Garage.car(player: Player): (Economy.Car?, Economy.CarStats?, Economy.L
 	local state = data.Economy
 	local car = Economy.findCar(Tuning.Ladder, state.Equipped) or Tuning.Ladder[1]
 	local stats = Economy.stats(Tuning.StarterCar, state.Levels, car, Tuning.Upgrades.Steps)
-	return car, stats, Economy.lookLevels(state.Levels, car)
+	return Economy.withSeed(car, Economy.wornSeed(state, car)), stats, Economy.lookLevels(state.Levels, car)
 end
 
 -- Adds `amount` cash, if the player's data is loaded.
@@ -113,7 +123,7 @@ local function request(
 	return true, nil
 end
 
-local function remote(name: string, handler: (Player, any) -> (boolean, string?))
+local function remote(name: string, handler: (Player, any, any) -> (boolean, string?))
 	local fn = Instance.new("RemoteFunction")
 	fn.Name = name
 	fn.OnServerInvoke = handler
@@ -149,6 +159,29 @@ remote("EquipCar", function(player: Player, id: any): (boolean, string?)
 	return request(player, function(state)
 		return Economy.equip(state, id)
 	end, true)
+end)
+
+remote("BuyBody", function(player: Player, id: any, seed: any): (boolean, string?)
+	if typeof(id) ~= "string" or typeof(seed) ~= "number" then
+		return false, "UnknownBody"
+	end
+	return request(player, function(state)
+		return Economy.buyBody(state, id, seed, Tuning.Ladder)
+	end, false)
+end)
+
+remote("WearBody", function(player: Player, id: any, seed: any): (boolean, string?)
+	if typeof(id) ~= "string" or typeof(seed) ~= "number" then
+		return false, "UnknownBody"
+	end
+	local car = Economy.findCar(Tuning.Ladder, id)
+	local data = PlayerData.get(player)
+	if car and data and Economy.wornSeed(data.Economy, car) == seed then
+		return true, nil
+	end
+	return request(player, function(state)
+		return Economy.wearBody(state, id, seed, Tuning.Ladder)
+	end, data ~= nil and data.Economy.Equipped == id)
 end)
 
 remote("BuyLimited", function(player: Player, id: any): (boolean, string?)

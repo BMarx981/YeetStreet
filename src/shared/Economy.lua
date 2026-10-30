@@ -33,6 +33,10 @@ export type Car = {
 	Archetype: string,
 	Tier: string,
 	ForSale: boolean?, -- false for cars only won, never bought (dino cars, invite prize)
+	-- Other seeds it can wear for a new shape, on top of its own Seed, which
+	-- comes free with the car. Same Archetype and Tier, same stats.
+	Bodies: { number }?,
+	BodyPrice: number?,
 }
 
 -- A limited edition item from Tuning.Limiteds.
@@ -52,6 +56,8 @@ export type State = {
 	Cars: { string }, -- ids of owned cars, in the order they were bought
 	Equipped: string,
 	Limiteds: { string }, -- ids of owned limited items
+	Bodies: { [string]: { number } }, -- by car id, the seeds bought for that car
+	Worn: { [string]: number }, -- by car id, the seed it wears; none means its own
 }
 
 export type CostTuning = {
@@ -124,6 +130,8 @@ function Economy.newState(ladder: { Car }): State
 		Cars = { first },
 		Equipped = first,
 		Limiteds = {},
+		Bodies = {},
+		Worn = {},
 	}
 end
 
@@ -169,6 +177,26 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 	local equipped = saved.Equipped
 	if typeof(equipped) == "string" and table.find(state.Cars, equipped) and Economy.findCar(ladder, equipped) then
 		state.Equipped = equipped
+	end
+	if typeof(saved.Bodies) == "table" then
+		for id, seeds in saved.Bodies do
+			if typeof(id) == "string" and typeof(seeds) == "table" then
+				local kept = {}
+				for _, seed in seeds do
+					if typeof(seed) == "number" and not table.find(kept, seed) then
+						table.insert(kept, seed)
+					end
+				end
+				state.Bodies[id] = kept
+			end
+		end
+	end
+	if typeof(saved.Worn) == "table" then
+		for id, seed in saved.Worn do
+			if typeof(id) == "string" and typeof(seed) == "number" then
+				state.Worn[id] = seed
+			end
+		end
 	end
 	return state
 end
@@ -285,6 +313,75 @@ function Economy.equip(state: State, id: string): (State?, string?)
 	end
 	local after = table.clone(state)
 	after.Equipped = id
+	return after, nil
+end
+
+local function onBodyList(car: Car, seed: number): boolean
+	return car.Bodies ~= nil and table.find(car.Bodies, seed) ~= nil
+end
+
+local function ownsBody(state: State, car: Car, seed: number): boolean
+	local bought = state.Bodies[car.Id]
+	return seed == car.Seed or (bought ~= nil and table.find(bought, seed) ~= nil)
+end
+
+-- The seed this car wears: its own, unless the player owns another on its list.
+function Economy.wornSeed(state: State, car: Car): number
+	local worn = state.Worn[car.Id]
+	if worn and onBodyList(car, worn) and ownsBody(state, car, worn) then
+		return worn
+	end
+	return car.Seed
+end
+
+-- The same car with another seed's looks. Nothing else about it changes.
+function Economy.withSeed(car: Car, seed: number): Car
+	local dressed = table.clone(car)
+	dressed.Seed = seed
+	return dressed
+end
+
+-- Buys a body for an owned car without putting it on. Fails with "UnknownCar",
+-- "NotOwned", "UnknownBody", "Owned", or "NotEnoughCash".
+function Economy.buyBody(state: State, id: string, seed: number, ladder: { Car }): (State?, string?)
+	local car = Economy.findCar(ladder, id)
+	if not car then
+		return nil, "UnknownCar"
+	end
+	if not table.find(state.Cars, id) then
+		return nil, "NotOwned"
+	end
+	if ownsBody(state, car, seed) then
+		return nil, "Owned"
+	end
+	if not onBodyList(car, seed) then
+		return nil, "UnknownBody"
+	end
+	local price = car.BodyPrice or 0
+	if state.Cash < price then
+		return nil, "NotEnoughCash"
+	end
+	local after = table.clone(state)
+	after.Cash -= price
+	after.Bodies = table.clone(state.Bodies)
+	local bought = table.clone(state.Bodies[id] or {})
+	table.insert(bought, seed)
+	after.Bodies[id] = bought
+	return after, nil
+end
+
+-- Puts an owned body on an owned car. Fails with "UnknownCar" or "NotOwned".
+function Economy.wearBody(state: State, id: string, seed: number, ladder: { Car }): (State?, string?)
+	local car = Economy.findCar(ladder, id)
+	if not car then
+		return nil, "UnknownCar"
+	end
+	if not table.find(state.Cars, id) or not ownsBody(state, car, seed) then
+		return nil, "NotOwned"
+	end
+	local after = table.clone(state)
+	after.Worn = table.clone(state.Worn)
+	after.Worn[id] = seed
 	return after, nil
 end
 

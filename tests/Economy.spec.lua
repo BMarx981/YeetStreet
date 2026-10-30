@@ -32,6 +32,8 @@ local LADDER: { Economy.Car } = {
 		Seed = 3,
 		Archetype = "muscle",
 		Tier = "Sports",
+		Bodies = { 4, 5 },
+		BodyPrice = 1000,
 	},
 }
 
@@ -321,6 +323,101 @@ Check.test("reconcile keeps cars no longer on the ladder but won't equip one", f
 	Check.eq(s.Equipped, "Junker")
 	local unowned = Economy.reconcile({ Cars = { "Junker" }, Equipped = "Muscle" }, LADDER)
 	Check.eq(unowned.Equipped, "Junker", "not owned")
+end)
+
+local function muscleOwner(cash: number): Economy.State
+	local s = Economy.newState(LADDER)
+	s.Cash = cash
+	table.insert(s.Cars, "Muscle")
+	return s
+end
+
+Check.test("a car wears its own seed until another body is put on", function()
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	Check.eq(Economy.wornSeed(muscleOwner(0), car), 3)
+end)
+
+Check.test("buyBody takes the price and keeps the old state unchanged", function()
+	local s = muscleOwner(1500)
+	local after = Economy.buyBody(s, "Muscle", 4, LADDER) :: Economy.State
+	Check.eq(after.Cash, 500)
+	Check.eq(after.Bodies.Muscle[1], 4)
+	Check.eq(s.Cash, 1500, "old cash")
+	Check.eq(s.Bodies.Muscle, nil, "old bodies")
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	Check.eq(Economy.wornSeed(after, car), 3, "buying doesn't put it on")
+end)
+
+Check.test("buyBody refuses with a reason", function()
+	local _, unknownCar = Economy.buyBody(muscleOwner(1500), "Nope", 4, LADDER)
+	Check.eq(unknownCar, "UnknownCar")
+	local _, noCar = Economy.buyBody(Economy.newState(LADDER), "Muscle", 4, LADDER)
+	Check.eq(noCar, "NotOwned", "needs the car first")
+	local _, offList = Economy.buyBody(muscleOwner(1500), "Muscle", 99, LADDER)
+	Check.eq(offList, "UnknownBody")
+	local _, noList = Economy.buyBody(muscleOwner(1500), "Junker", 4, LADDER)
+	Check.eq(noList, "UnknownBody", "a car with no list")
+	local _, stock = Economy.buyBody(muscleOwner(1500), "Muscle", 3, LADDER)
+	Check.eq(stock, "Owned", "the car's own seed comes with it")
+	local _, poor = Economy.buyBody(muscleOwner(999), "Muscle", 4, LADDER)
+	Check.eq(poor, "NotEnoughCash")
+	local bought = Economy.buyBody(muscleOwner(1500), "Muscle", 4, LADDER) :: Economy.State
+	local _, again = Economy.buyBody(bought, "Muscle", 4, LADDER)
+	Check.eq(again, "Owned")
+end)
+
+Check.test("wearBody puts on an owned body and can go back to the car's own", function()
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	local bought = Economy.buyBody(muscleOwner(1500), "Muscle", 4, LADDER) :: Economy.State
+	local worn = Economy.wearBody(bought, "Muscle", 4, LADDER) :: Economy.State
+	Check.eq(Economy.wornSeed(worn, car), 4)
+	Check.eq(Economy.wornSeed(bought, car), 3, "old state unchanged")
+	local back = Economy.wearBody(worn, "Muscle", 3, LADDER) :: Economy.State
+	Check.eq(Economy.wornSeed(back, car), 3)
+end)
+
+Check.test("wearBody refuses bodies that aren't owned", function()
+	local _, unknownCar = Economy.wearBody(muscleOwner(0), "Nope", 4, LADDER)
+	Check.eq(unknownCar, "UnknownCar")
+	local _, noBody = Economy.wearBody(muscleOwner(0), "Muscle", 4, LADDER)
+	Check.eq(noBody, "NotOwned")
+	local _, noCar = Economy.wearBody(Economy.newState(LADDER), "Muscle", 3, LADDER)
+	Check.eq(noCar, "NotOwned", "needs the car first")
+end)
+
+Check.test("withSeed changes only the looks", function()
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	local dressed = Economy.withSeed(car, 5)
+	Check.eq(dressed.Seed, 5)
+	Check.eq(dressed.Id, "Muscle")
+	Check.eq(dressed.Caps, car.Caps, "same caps")
+	Check.eq(dressed.Bonus, car.Bonus, "same bonus")
+	Check.eq(car.Seed, 3, "the ladder's car is unchanged")
+end)
+
+Check.test("reconcile keeps saved bodies and starts old saves with none", function()
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	local old = Economy.reconcile({ Cars = { "Muscle" } }, LADDER)
+	Check.eq(old.Bodies.Muscle, nil, "saved before bodies existed")
+	Check.eq(Economy.wornSeed(old, car), 3)
+	local s = Economy.reconcile({
+		Cars = { "Muscle" },
+		Bodies = { Muscle = { 4, 4, "x", 5 }, Junker = "bad", [7] = { 4 } },
+		Worn = { Muscle = 5, Junker = "bad" },
+	}, LADDER)
+	Check.eq(#s.Bodies.Muscle, 2, "repeats and junk dropped")
+	Check.eq(s.Bodies.Junker, nil, "not a list")
+	Check.eq(Economy.wornSeed(s, car), 5)
+	Check.eq(s.Worn.Junker, nil, "not a number")
+end)
+
+Check.test("a worn body that isn't owned or left the list falls back to the car's own", function()
+	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
+	local notOwned = Economy.reconcile({ Cars = { "Muscle" }, Worn = { Muscle = 4 } }, LADDER)
+	Check.eq(Economy.wornSeed(notOwned, car), 3)
+	local gone = Economy.reconcile({ Cars = { "Muscle" }, Bodies = { Muscle = { 99 } }, Worn = { Muscle = 99 } }, LADDER)
+	Check.eq(gone.Bodies.Muscle[1], 99, "kept, like a car off the ladder")
+	Check.eq(Economy.wornSeed(gone, car), 3)
 end)
 
 Check.finish("Economy")
