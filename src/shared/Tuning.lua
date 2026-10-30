@@ -1169,8 +1169,9 @@ Tuning.Camera = {
 Tuning.Replay = {
 	LeadIn = 1.5, -- seconds of the clip before liftoff
 	Tail = 2, -- seconds of the clip after the run ends
-	MaxLength = 20, -- longest clip in seconds, keeping the end; also how much the tape keeps
-	MinAirtime = 1, -- seconds from liftoff a run lasts to replace the last clip
+	MaxLength = 60, -- longest clip in seconds, keeping the end; also how much the tape keeps
+	MinAirtime = 2, -- seconds from liftoff a run lasts to get a clip
+	Keep = 5, -- how many of the latest clips the player can pick from
 	-- Where the camera starts (ReplayPlayer), then the player circles it
 	-- round the ghost car (ReplayCamera, ReplayOrbit).
 	CameraDistance = 42, -- studs from the ghost car

@@ -25,7 +25,7 @@ export type Tuning = {
 	LeadIn: number, -- seconds of the clip before liftoff
 	Tail: number, -- seconds of the clip after the run ends
 	MaxLength: number, -- longest clip, in seconds; also how much the tape keeps
-	MinAirtime: number, -- seconds from liftoff a run lasts to replace the last clip
+	MinAirtime: number, -- seconds from liftoff a run lasts to get a clip
 }
 
 export type Frame<P> = {
@@ -43,6 +43,7 @@ export type Window = {
 	start: number, -- liftoff
 	from: number,
 	to: number,
+	airtime: number, -- liftoff to the last landing
 }
 
 export type Tape<P> = {
@@ -216,7 +217,7 @@ function ReplayTape.fly<P>(tape: Tape<P>, t: number, inAir: boolean, tuning: Tun
 	tape.liftoff = nil
 	if ReplayTape.keeps(start, t, tuning) then
 		local from, to = ReplayTape.window(start, t, tuning)
-		tape.waiting = { start = start, from = from, to = to }
+		tape.waiting = { start = start, from = from, to = to, airtime = t - start }
 	end
 end
 
@@ -229,6 +230,26 @@ function ReplayTape.due<P>(tape: Tape<P>, t: number, force: boolean): Window?
 		return waiting
 	end
 	return nil
+end
+
+-- Adds `item` as the newest in `list`, which runs oldest first, dropping the
+-- oldest past `keep`.
+function ReplayTape.remember<T>(list: { T }, item: T, keep: number)
+	table.insert(list, item)
+	while #list > keep do
+		table.remove(list, 1)
+	end
+end
+
+-- The item `by` places on from `current` in a list from remember (negative is
+-- older), or nil past either end. A `current` that has dropped off the list
+-- was older than all of it.
+function ReplayTape.step<T>(list: { T }, current: T, by: number): T?
+	local at = table.find(list, current) or 0
+	if at == 0 and by < 0 then
+		return nil
+	end
+	return list[at + by]
 end
 
 return ReplayTape

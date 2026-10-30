@@ -274,6 +274,12 @@ function ReplayPlayer.clock(): ReplayClock.Clock?
 	return if now then now.clock else nil
 end
 
+-- The replay playing, nil if none.
+function ReplayPlayer.current(): ReplayRecorder.Replay?
+	local now = playing
+	return if now then now.replay else nil
+end
+
 -- Stops the replay, if one is playing, and shows the real car again.
 function ReplayPlayer.stop()
 	local now = playing

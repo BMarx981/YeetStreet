@@ -1020,21 +1020,27 @@ task.spawn(function()
 	end
 end)
 
--- Plays the last run again from where the car is now, which is held still,
--- or stops the replay if one is playing.
+-- Plays `replay` from where the car is now, which is held still.
+local function playReplay(replay: ReplayRecorder.Replay)
+	local current = rig
+	if not current then
+		return
+	end
+	current.hull.AssemblyLinearVelocity = Vector3.zero
+	current.hull.AssemblyAngularVelocity = Vector3.zero
+	ReplayPlayer.play(replay, current.model, player.Character)
+end
+
+-- Plays the last run again, or stops the replay if one is playing.
 local function toggleReplay()
 	if ReplayPlayer.isPlaying() then
 		ReplayPlayer.stop()
 		return
 	end
 	local replay = ReplayRecorder.last()
-	local current = rig
-	if not (replay and current) then
-		return
+	if replay then
+		playReplay(replay)
 	end
-	current.hull.AssemblyLinearVelocity = Vector3.zero
-	current.hull.AssemblyAngularVelocity = Vector3.zero
-	ReplayPlayer.play(replay, current.model, player.Character)
 end
 
 -- Standalone R-key handler so the player can respawn even when on foot.
@@ -1113,7 +1119,7 @@ task.spawn(function()
 end)
 
 GarageMenu.start()
-ReplayControls.start(toggleReplay)
+ReplayControls.start(toggleReplay, playReplay)
 GunFx.start()
 SwingSet.start()
 TrainSet.start()

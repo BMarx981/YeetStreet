@@ -4,15 +4,17 @@
 --
 -- While driving, a REPLAY sticker under TELEPORT plays the last flight
 -- (ReplayRecorder). It shows once there is one, and bounces when a new one
--- is ready. While a replay plays, a bar along the bottom has play/pause, a
--- scrub bar to drag through the clip, the speed (Tuning.Replay.Speeds), and
--- close, with the time above it.
+-- is ready. While a replay plays, a bar along the bottom has play/pause,
+-- buttons to the older and newer flights kept, a scrub bar to drag through
+-- the clip, the speed (Tuning.Replay.Speeds), and close, with which flight it
+-- is, its airtime, and the time above it.
 --
 --   Keyboard  V plays or closes (CarController); driving keys close it
---   Gamepad   D-pad down plays or closes (CarController), A pauses, B closes
+--   Gamepad   D-pad down plays or closes (CarController), left and right pick
+--             the flight, A pauses, B closes
 --
--- What pressing REPLAY does belongs to CarController (start's `toggle`),
--- since it has the car to hide and hold.
+-- What pressing REPLAY does belongs to CarController (start's `toggle` and
+-- `play`), since it has the car to hide and hold.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +22,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local ReplayClock = require(ReplicatedStorage.ReplayClock)
+local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
@@ -35,6 +38,7 @@ local BAR_WIDTH = 560
 local BAR_HEIGHT = 60
 local BUTTON = 44
 local SPEED_WIDTH = 64
+local STEP_WIDTH = 36
 local GAP = 8
 local SCRUB_HEIGHT = 14
 local KNOB = 22
@@ -42,6 +46,8 @@ local KNOB = 22
 local PLAY = "▶"
 local PAUSE = "II"
 local CLOSE = "✖"
+local OLDER = "<"
+local NEWER = ">"
 
 local ReplayControls = {}
 
@@ -62,7 +68,7 @@ local function symbol(name: string, parent: Instance, text: string, width: numbe
 	return b
 end
 
-local function build(toggle: () -> ())
+local function build(toggle: () -> (), play: (ReplayRecorder.Replay) -> ())
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "ReplayControls"
 	gui.ResetOnSpawn = false
@@ -103,6 +109,16 @@ local function build(toggle: () -> ())
 	pause.Position = UDim2.new(0, GAP, 0.5, 0)
 	UiStyle.springy(pause)
 
+	local older = symbol("Older", bar, OLDER, STEP_WIDTH)
+	older.AnchorPoint = Vector2.new(0, 0.5)
+	older.Position = UDim2.new(0, 2 * GAP + BUTTON, 0.5, 0)
+	UiStyle.springy(older)
+
+	local newer = symbol("Newer", bar, NEWER, STEP_WIDTH)
+	newer.AnchorPoint = Vector2.new(0, 0.5)
+	newer.Position = UDim2.new(0, 3 * GAP + BUTTON + STEP_WIDTH, 0.5, 0)
+	UiStyle.springy(newer)
+
 	local close = symbol("Close", bar, CLOSE, BUTTON)
 	close.AnchorPoint = Vector2.new(1, 0.5)
 	close.Position = UDim2.new(1, -GAP, 0.5, 0)
@@ -114,7 +130,7 @@ local function build(toggle: () -> ())
 	UiStyle.springy(speed)
 
 	-- A button, so presses on it never reach the camera's drag.
-	local left = 2 * GAP + BUTTON
+	local left = 4 * GAP + BUTTON + 2 * STEP_WIDTH
 	local right = 4 * GAP + BUTTON + SPEED_WIDTH
 	local scrub = Instance.new("TextButton")
 	scrub.Name = "Scrub"
@@ -155,6 +171,32 @@ local function build(toggle: () -> ())
 	end)
 	close.Activated:Connect(ReplayPlayer.stop)
 
+	-- The flight `by` places on from the one playing, nil past either end.
+	local function neighbor(by: number): ReplayRecorder.Replay?
+		local current = ReplayPlayer.current()
+		return if current then ReplayTape.step(ReplayRecorder.recent(), current, by) else nil
+	end
+	-- Plays it at the same speed as the one before.
+	local function pick(by: number)
+		local clock = ReplayPlayer.clock()
+		local replay = neighbor(by)
+		if not (clock and replay) then
+			return
+		end
+		local pace = clock.speed
+		play(replay)
+		local picked = ReplayPlayer.clock()
+		if picked then
+			picked.speed = pace
+		end
+	end
+	older.Activated:Connect(function()
+		pick(-1)
+	end)
+	newer.Activated:Connect(function()
+		pick(1)
+	end)
+
 	local scrubbing = false
 	local function seekTo(x: number)
 		local clock = ReplayPlayer.clock()
@@ -190,6 +232,10 @@ local function build(toggle: () -> ())
 			ReplayPlayer.stop()
 		elseif input.KeyCode == K.ButtonA then
 			ReplayClock.togglePause(clock)
+		elseif input.KeyCode == K.DPadLeft then
+			pick(-1)
+		elseif input.KeyCode == K.DPadRight then
+			pick(1)
 		end
 	end)
 
@@ -211,18 +257,30 @@ local function build(toggle: () -> ())
 			knob.Position = UDim2.fromScale(played, 0.5)
 			pause.Text = if clock.paused then PLAY else PAUSE
 			speed.Text = speedLabel(clock.speed)
-			status.Text = string.format("REPLAY  %.1f / %.1f s", math.min(clock.time, clock.duration), clock.duration)
+			older.Visible = neighbor(-1) ~= nil
+			newer.Visible = neighbor(1) ~= nil
+			local recent = ReplayRecorder.recent()
+			local current = ReplayPlayer.current()
+			local at = if current then table.find(recent, current) else nil
+			status.Text = string.format(
+				"JUMP %s  %.1f s AIR  %.1f / %.1f s",
+				if at then `{at} OF {#recent}` else "",
+				if current then current.airtime else 0,
+				math.min(clock.time, clock.duration),
+				clock.duration
+			)
 		end
 	end)
 
 	gui.Parent = (Players.LocalPlayer :: Player):WaitForChild("PlayerGui")
 end
 
--- Builds the buttons, once. `toggle` plays the last replay or closes one.
-function ReplayControls.start(toggle: () -> ())
+-- Builds the buttons, once. `toggle` plays the last replay or closes one, and
+-- `play` plays the one given.
+function ReplayControls.start(toggle: () -> (), play: (ReplayRecorder.Replay) -> ())
 	if not started then
 		started = true
-		build(toggle)
+		build(toggle, play)
 	end
 end
 

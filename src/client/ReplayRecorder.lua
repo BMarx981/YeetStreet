@@ -1,9 +1,10 @@
 --!strict
 -- ReplayRecorder (ModuleScript) -> StarterPlayerScripts.ReplayRecorder
--- Records the local player's car onto a ReplayTape and keeps the clip of its
--- last flight, for the replay to play. CarController tells it when the car
--- changes (start, stop) and, each physics step, where the car is and whether
--- it is in the air or on a run (step).
+-- Records the local player's car onto a ReplayTape and keeps the clips of its
+-- last few flights (Tuning.Replay.Keep), for the replay to play, through
+-- wrecks and car changes. CarController tells it when the car changes (start,
+-- stop) and, each physics step, where the car is and whether it is in the air
+-- or on a run (step).
 --
 -- The clip is cut Tail seconds after the flight ends (ReplayTape.due), or at
 -- once if the car goes first (a wreck, reset, or exit), so it never shows the
@@ -33,6 +34,7 @@ export type Replay = {
 	serverStart: number, -- the server's time at the start of the clip
 	world: ReplayWorld.World, -- creatures and the like over the clip
 	car: string, -- the car's name, which the server's creatures go by
+	airtime: number, -- seconds the flight was in the air
 }
 
 local ReplayRecorder = {}
@@ -41,7 +43,7 @@ local tape: ReplayTape.Tape<CFrame> = ReplayTape.new()
 local look: { [string]: any } = {}
 local carName = ""
 local connections: { RBXScriptConnection } = {}
-local last: Replay? = nil
+local recent: { Replay } = {}
 
 local function cut(window: ReplayTape.Window?)
 	if not window then
@@ -59,13 +61,14 @@ local function cut(window: ReplayTape.Window?)
 	end
 	-- The tape runs on os.clock.
 	local serverStart = clip.start + workspace:GetServerTimeNow() - os.clock()
-	last = {
+	ReplayTape.remember(recent, {
 		clip = clip,
 		look = before,
 		serverStart = serverStart,
 		car = carName,
+		airtime = window.airtime,
 		world = ReplayWorld.cut(window.from, window.to, clip.start),
-	}
+	}, R.Keep)
 end
 
 -- Starts recording `model`, the car the local player just got into.
@@ -114,9 +117,14 @@ function ReplayRecorder.step(hull: BasePart, flying: boolean)
 	cut(ReplayTape.due(tape, now, false))
 end
 
+-- The last few flights' replays, oldest first.
+function ReplayRecorder.recent(): { Replay }
+	return recent
+end
+
 -- The last flight's replay, nil until one has ended and its clip was cut.
 function ReplayRecorder.last(): Replay?
-	return last
+	return recent[#recent]
 end
 
 return ReplayRecorder

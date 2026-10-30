@@ -258,4 +258,41 @@ Check.test("forcing with nothing waiting hands out nothing", function()
 	Check.eq(ReplayTape.due(ReplayTape.new(), 5, true), nil, "empty")
 end)
 
+Check.test("a window says how long the flight was in the air", function()
+	local window = ReplayTape.due(flown({ { 10, true }, { 13, false } }), 15, false)
+	assert(window, "due")
+	Check.near(window.airtime, 3, "liftoff to landing")
+end)
+
+Check.test("a bounce within the tail adds to the flight's airtime", function()
+	local tape = flown({ { 10, true }, { 13, false }, { 14, true }, { 14.3, false } })
+	local window = ReplayTape.due(tape, 16.3, false)
+	assert(window, "due")
+	Check.near(window.airtime, 4.3, "first liftoff to last landing")
+end)
+
+Check.test("remember keeps the newest few, oldest first", function()
+	local list: { string } = {}
+	for _, item in { "a", "b", "c", "d" } do
+		ReplayTape.remember(list, item, 3)
+	end
+	Check.eq(#list, 3, "count")
+	Check.eq(list[1], "b", "the oldest went")
+	Check.eq(list[3], "d", "newest last")
+end)
+
+Check.test("step moves through the list and stops at its ends", function()
+	local list = { "a", "b", "c" }
+	Check.eq(ReplayTape.step(list, "b", -1), "a", "older")
+	Check.eq(ReplayTape.step(list, "b", 1), "c", "newer")
+	Check.eq(ReplayTape.step(list, "a", -1), nil, "nothing older")
+	Check.eq(ReplayTape.step(list, "c", 1), nil, "nothing newer")
+end)
+
+Check.test("step from an item that has dropped off only goes newer", function()
+	local list = { "b", "c" }
+	Check.eq(ReplayTape.step(list, "a", 1), "b", "the oldest left")
+	Check.eq(ReplayTape.step(list, "a", -1), nil, "nothing older")
+end)
+
 Check.finish("ReplayTape")
