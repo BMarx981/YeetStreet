@@ -24,6 +24,7 @@ local CarSensor = {}
 local WHEEL_NAMES = { "FL", "FR", "RL", "RR" }
 
 export type Sensor = {
+	model: Model,
 	hull: BasePart,
 	wheels: { BasePart },
 	wheelRadius: number,
@@ -78,6 +79,7 @@ function CarSensor.new(model: Model, ignore: { Instance }): Sensor?
 
 	local ownerId = model:GetAttribute("OwnerUserId")
 	return {
+		model = model,
 		hull = hull,
 		wheels = wheels,
 		wheelRadius = wheelRadius,
@@ -196,6 +198,7 @@ function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 			lying = lying,
 			grinding = GrindRails.onAny(cf.Position, velocity),
 			swing = Swings.ridden(sensor.ownerId, cf.Position),
+			wingsOut = sensor.model:GetAttribute("PlaneCar") == true and sensor.model:GetAttribute("WingsOut") == true,
 		},
 	}
 end

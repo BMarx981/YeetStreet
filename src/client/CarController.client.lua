@@ -869,7 +869,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	Hud.update(
 		fuel / current.jetFuel,
 		current.hull.AssemblyLinearVelocity.Magnitude,
-		if contact.airborne then contact.airtime else nil,
+		if contact.airborne and not wingsOut then contact.airtime else nil,
 		burning
 	)
 end)

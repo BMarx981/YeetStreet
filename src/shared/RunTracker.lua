@@ -23,6 +23,11 @@
 -- leaving it into the air starts one. Coming down on a seat ends a run as a
 -- landing, with the swing bonus unless it is the seat the run launched from.
 --
+-- A plane with its wings out (PlaneCar) never scores: nothing arms or starts
+-- a run, and opening the wings mid run ends it there as a landing that is
+-- not clean, the same as its live score. Folding them in the air starts no
+-- run either; the car has to land and launch again.
+--
 -- Every full turn about one of the car's own axes is a trick: flip (x, pitch),
 -- spin (y, yaw), or roll (z). Turning back the other way unwinds it, so
 -- wobbling never adds up to a trick.
@@ -80,6 +85,7 @@ export type Sample = {
 	lying: boolean,
 	grinding: boolean, -- on a rail (Grind.onRail)
 	swing: string?, -- the swing whose seat it rides, if any
+	wingsOut: boolean?, -- a PlaneCar flying as a plane
 }
 
 export type Tuning = {
@@ -219,6 +225,14 @@ end
 
 -- Advances one step. Returns the result on the step a run ends, otherwise nil.
 function RunTracker.step(state: State, sample: Sample, tuning: Tuning): Result?
+	if sample.wingsOut then
+		if state.phase == "flying" then
+			return finish(state, "landed", false)
+		end
+		reset(state)
+		return nil
+	end
+
 	if state.phase == "flying" then
 		return fly(state, sample, tuning)
 	end
