@@ -1444,6 +1444,48 @@ Tuning.Silo = {
 		-- Standing either side of the launch button, from its middle.
 		Rack = { { X = -38, Z = 0 }, { X = 38, Z = 0 } },
 	},
+	-- Booby traps down the ramp (SiloTraps). They knock a car about and never
+	-- damage it. First, Every and Last are in turns down the ramp.
+	Traps = {
+		Margin = 3,
+		HullHeight = 4,
+		Reach = 14,
+		Cooldown = 0.7, -- seconds before a car can be knocked again
+		Poppers = {
+			First = 0.6,
+			Every = 0.62,
+			Last = 7,
+			Width = 26,
+			Height = 12,
+			Reach = 60,
+			Period = 3.5,
+			Chance = 0.55,
+			Warn = 0.7, -- a red light before it shoots out
+			Out = 0.12,
+			Hold = 0.45,
+			Back = 0.4,
+			PushOut = 120,
+			PushUp = 70,
+		},
+		Sweepers = {
+			First = 1.5,
+			Every = 1.2,
+			Last = 6.9,
+			Across = 18,
+			Height = 10,
+			Length = 14,
+			Travel = 110,
+			Move = 0.45,
+			Hold = 1,
+			PushAlong = 100,
+			PushOut = 90,
+			PushUp = 60,
+		},
+		PopSoundId = "rbxassetid://9113480917",
+		PopVolume = 0.7,
+		PopReach = 160,
+		DrawWithin = 1000, -- studs from the silo; farther off they aren't moved
+	},
 	-- Where a missile hits: every car within Radius wrecks and comes back at
 	-- its own R point. Each client draws the rest (SiloBlast, MissileCloud).
 	Blast = {

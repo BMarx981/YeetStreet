@@ -71,6 +71,7 @@ local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local ShotPath = require(ReplicatedStorage.ShotPath)
 local Silo = require(ReplicatedStorage.Silo)
+local SiloTraps = require(ReplicatedStorage.SiloTraps)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
@@ -420,6 +421,33 @@ local function inSilo(position: Vector3): boolean
 		)
 end
 
+-- The velocity a trap on the silo's ramp gives a car, or nil. Once it has been
+-- knocked, it is left alone for Cooldown seconds so it can fly clear.
+local siloTraps = SiloTraps.layout(Tuning.Silo.Traps :: any)
+local siloTrapAt = -math.huge
+local function siloTrapPush(position: Vector3, velocity: Vector3, now: number): Vector3?
+	if not siloArea or not inSilo(position) or now - siloTrapAt < Tuning.Silo.Traps.Cooldown then
+		return nil
+	end
+	local vx, vy, vz = SiloTraps.push(
+		Tuning.Silo.Ramp :: any,
+		Tuning.Silo.Traps :: any,
+		siloTraps,
+		now,
+		position.X - siloArea.X,
+		position.Y - Tuning.Map.FloorTop,
+		position.Z - siloArea.Z,
+		velocity.X,
+		velocity.Y,
+		velocity.Z
+	)
+	if not vx or not vy or not vz then
+		return nil
+	end
+	siloTrapAt = now
+	return Vector3.new(vx, vy, vz)
+end
+
 -- Which way the silo's wall holds a car at `position` moving at `velocity`,
 -- like a tube, or nil away from it or once the car has peeled off.
 local siloPeeled = false
@@ -530,6 +558,11 @@ local function step(r: Rig, dt: number)
 		setVelocity(r, smacked)
 	end
 	passBoulders(cf.Position, velocity, r.model:GetAttribute("Burning") == true)
+	-- A trap on the silo's ramp that reaches the car knocks it off.
+	local knocked = siloTrapPush(cf.Position, r.hull.AssemblyLinearVelocity, now)
+	if knocked then
+		setVelocity(r, knocked)
+	end
 
 	local reading = CarSensor.read(r.sensor, dt, up)
 	if smacked or zapped then
