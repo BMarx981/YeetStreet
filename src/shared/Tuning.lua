@@ -1343,6 +1343,50 @@ Tuning.Map = {
 			ArriveZ = -3490, -- behind the brontosaurus's tail, facing up it
 			Heading = -42,
 		},
+		{
+			Id = "Silo",
+			Name = "Missile Silo",
+			Kind = "Park",
+			X = 1750,
+			Z = -5400,
+			Width = 1200,
+			Depth = 900,
+			ArriveX = 1840, -- straight on to the bridge
+			ArriveZ = -4960,
+			Heading = 0,
+		},
+	},
+}
+
+-- The missile silo (ServerScriptService.Parks.Silo, shape in Silo): a hole in
+-- the middle of its park, about as wide as the skate bowl's floor.
+Tuning.Silo = {
+	Radius = 250,
+	LipRadius = 60, -- a tube's dive crest under about 50 throws a car off
+	Depth = 600,
+	Margin = 20, -- below the bottom, still not fallen off the map
+	Thickness = 4,
+	Slices = 96,
+	LipRows = 8,
+	HazardSlices = 4, -- slices per stripe round the rim
+	CollarWidth = 4, -- the hole cut in the floor, past the rim
+	ColumnRadius = 50,
+	Ramp = {
+		InnerRadius = 49,
+		OuterRadius = 130,
+		Pitch = 80, -- about 8 degrees on the ramp's middle line
+		StepsPerTurn = 48,
+		Thickness = 2,
+		EdgeWidth = 1.5,
+	},
+	Lamps = {
+		Every = 120,
+		PerRing = 12,
+		PerColumnRing = 6,
+		BottomHeight = 25, -- an extra ring over the bottom
+		Size = 10,
+		Range = 60,
+		Brightness = 2,
 	},
 }
 

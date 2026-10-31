@@ -70,6 +70,7 @@ local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local ShotPath = require(ReplicatedStorage.ShotPath)
+local Silo = require(ReplicatedStorage.Silo)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
@@ -405,6 +406,17 @@ local function tubePull(position: Vector3): Vector3?
 		end
 	end
 	return GravitronRide.pull(position) or GlobeRide.pull(position)
+end
+
+local siloArea = MapLayout.find(Tuning.Map.Areas :: any, "Silo")
+local function inSilo(position: Vector3): boolean
+	return siloArea ~= nil
+		and Silo.inside(
+			Tuning.Silo :: any,
+			position.X - siloArea.X,
+			position.Y - Tuning.Map.FloorTop,
+			position.Z - siloArea.Z
+		)
 end
 
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
@@ -770,7 +782,8 @@ local function step(r: Rig, dt: number)
 	local resetPressed = input.reset and not resetHeld
 	resetHeld = input.reset
 	-- The gravitron's tubes dive far under the map, so in a tube is not fallen off.
-	local fallen = cf.Position.Y < Tuning.World.FallResetY and not pull
+	-- Nor is down the silo.
+	local fallen = cf.Position.Y < Tuning.World.FallResetY and not pull and not inSilo(cf.Position)
 	if resetPressed or stuckTime >= R.StuckTime or fallen then
 		resetCar()
 	end
