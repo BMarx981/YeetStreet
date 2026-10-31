@@ -6,8 +6,12 @@
 -- by a bridge from the rim. The ramp's edge is open, so a car that drifts off
 -- falls to the bottom. Numbers are in Tuning.Silo, the shape in Silo.
 
+local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Railway = require(ReplicatedStorage.Railway)
@@ -27,6 +31,8 @@ local COLUMN_COLOR = Color3.fromRGB(74, 78, 84)
 local HAZARD_YELLOW = Color3.fromRGB(240, 190, 30)
 local HAZARD_BLACK = Color3.fromRGB(30, 30, 34)
 local LAMP_COLOR = Color3.fromRGB(255, 240, 210)
+local BUTTON_COLOR = Color3.fromRGB(255, 200, 40)
+local ALARM_OFF_COLOR = Color3.fromRGB(70, 20, 20)
 
 local SiloPark = {}
 
@@ -60,8 +66,9 @@ local function surfacePlank(
 	y0: number,
 	r1: number,
 	y1: number,
-	color: Color3
-)
+	color: Color3,
+	lift: number?
+): Part
 	local out = outward(angle)
 	local p0 = out * r0 + Vector3.yAxis * y0
 	local p1 = out * r1 + Vector3.yAxis * y1
@@ -72,13 +79,87 @@ local function surfacePlank(
 		normal = -normal
 	end
 	local across = along:Cross(normal)
-	local middle = (p0 + p1) / 2 - normal * S.Thickness / 2
-	block(
+	local middle = (p0 + p1) / 2 + normal * ((lift or 0) - S.Thickness / 2)
+	return block(
 		parent,
 		"Wall",
 		Vector3.new(width, S.Thickness, chord.Magnitude + 0.4),
 		center * CFrame.fromMatrix(middle, across, normal, across:Cross(normal)),
 		color
+	)
+end
+
+-- One line up the surface at `angle`, from the bottom to the rim, just proud
+-- of it: dark until SiloLook flashes it (SiloAlarm).
+local function buildAlarmLine(parent: Instance, center: CFrame, angle: number, wallR: number, apothem: number)
+	local width = S.Alarm.LineWidth
+	local function piece(r0: number, y0: number, r1: number, y1: number)
+		local part = surfacePlank(parent, center, angle, width, r0, y0, r1, y1, ALARM_OFF_COLOR, 0.1)
+		part.Name = "AlarmLine"
+		part.CanCollide = false
+		part.CastShadow = false
+		CollectionService:AddTag(part, "SiloAlarm")
+	end
+	for row = 1, S.BaseRows do
+		local r0, y0 = Silo.basePoint(SHAPE, (row - 1) / S.BaseRows * math.pi / 2)
+		local r1, y1 = Silo.basePoint(SHAPE, row / S.BaseRows * math.pi / 2)
+		piece(r0 * apothem, y0, r1 * apothem, y1)
+	end
+	piece(wallR, -S.Depth + S.BaseRadius, wallR, -S.LipRadius)
+	for row = 1, S.LipRows do
+		local r0, y0 = Silo.lipPoint(SHAPE, (row - 1) / S.LipRows * math.pi / 2)
+		local r1, y1 = Silo.lipPoint(SHAPE, row / S.LipRows * math.pi / 2)
+		piece(r0 * apothem, y0, r1 * apothem, y1)
+	end
+end
+
+-- A glowing round button at `position` facing `normal`, tagged for SiloLook,
+-- which colors it for each player.
+local function button(parent: Instance, id: string, position: Vector3, normal: Vector3, radius: number, color: Color3)
+	local side = if math.abs(normal.Y) > 0.9 then Vector3.new(1, 0, 0) else Vector3.new(0, 1, 0)
+	local across = normal:Cross(side).Unit
+	local part = block(
+		parent,
+		"Button",
+		Vector3.new(0.6, 2 * radius, 2 * radius),
+		CFrame.fromMatrix(position, normal, normal:Cross(across), across),
+		color
+	)
+	part.Shape = Enum.PartType.Cylinder
+	part.Material = Enum.Material.Neon
+	part.CanCollide = false
+	part.CastShadow = false
+	part:SetAttribute("ButtonId", id)
+	CollectionService:AddTag(part, "SiloButton")
+	local light = Instance.new("PointLight")
+	light.Range = S.Buttons.LightRange
+	light.Brightness = 2
+	light.Color = color
+	light.Parent = part
+end
+
+local function buildButtons(parent: Instance, center: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Buttons"
+	model.Parent = parent
+	for _, b in Silo.buttons(SHAPE) do
+		button(
+			model,
+			b.Id,
+			center:PointToWorldSpace(Vector3.new(b.X, b.Y, b.Z)),
+			Vector3.new(b.NormalX, b.NormalY, b.NormalZ),
+			S.Buttons.Radius,
+			BUTTON_COLOR
+		)
+	end
+	local x, y, z = Silo.launchPoint(SHAPE)
+	button(
+		model,
+		"Launch",
+		center:PointToWorldSpace(Vector3.new(x, y, z)),
+		Vector3.new(0, 1, 0),
+		S.Buttons.Launch.Radius,
+		ALARM_OFF_COLOR
 	)
 end
 
@@ -117,6 +198,9 @@ local function buildShaft(parent: Instance, center: CFrame)
 			end
 			surfacePlank(model, center, angle, 2 * r1 * half + 0.4, r0 * apothem, y0, r1 * apothem, y1, color)
 		end
+		if i % S.Alarm.EverySlices == 0 then
+			buildAlarmLine(model, center, angle, S.Radius * apothem, apothem)
+		end
 	end
 	block(
 		model,
@@ -137,6 +221,7 @@ local function lampRing(parent: Instance, center: CFrame, radius: number, y: num
 			block(parent, "Lamp", Vector3.new(L.Size, L.Size / 2, 1), center * CFrame.lookAt(at, at + out), LAMP_COLOR)
 		lamp.Material = Enum.Material.Neon
 		lamp.CanCollide = false
+		CollectionService:AddTag(lamp, "SiloLamp")
 		local light = Instance.new("PointLight")
 		light.Range = L.Range
 		light.Brightness = L.Brightness
@@ -297,6 +382,81 @@ function SiloPark.build(folder: Folder, area: MapLayout.Area)
 	buildShaft(folder, center)
 	buildRamp(folder, center)
 	buildLamps(folder, center)
+	buildButtons(folder, center)
+end
+
+-- Tracks each player's own presses from where the server sees their car.
+-- Leaving the park clears them. SiloPressed on the player and SiloArmed on
+-- the folder (how many players are armed) tell the clients (SiloLook). A
+-- launch fires ServerStorage.SiloLaunch with the player.
+function SiloPark.start(folder: Folder, area: MapLayout.Area)
+	local launch = Instance.new("BindableEvent")
+	launch.Name = "SiloLaunch"
+	launch.Parent = ServerStorage
+
+	local buttons = Silo.buttons(SHAPE)
+	local launchX, launchY, launchZ = Silo.launchPoint(SHAPE)
+	local launchButton: { Silo.Button } = {
+		{ Id = "Launch", X = launchX, Y = launchY, Z = launchZ, NormalX = 0, NormalY = 1, NormalZ = 0 },
+	}
+	local pressed: { [Player]: { [string]: boolean } } = {}
+
+	local function countArmed()
+		local armed = 0
+		for _, set in pressed do
+			if Silo.armed(buttons, set) then
+				armed += 1
+			end
+		end
+		folder:SetAttribute("SiloArmed", armed)
+	end
+
+	local function clear(player: Player)
+		if pressed[player] then
+			pressed[player] = nil
+			player:SetAttribute("SiloPressed", "")
+			countArmed()
+		end
+	end
+
+	Players.PlayerRemoving:Connect(function(player: Player)
+		pressed[player] = nil
+		countArmed()
+	end)
+
+	local carsFolder = workspace:WaitForChild("Cars")
+	RunService.Heartbeat:Connect(function()
+		for _, car in carsFolder:GetChildren() do
+			local userId = car:GetAttribute("OwnerUserId")
+			local player = if typeof(userId) == "number" then Players:GetPlayerByUserId(userId) else nil
+			local hull = car:IsA("Model") and car.PrimaryPart
+			if player and hull then
+				local p = hull.Position
+				if not MapLayout.contains(area, p.X, p.Z) then
+					clear(player)
+				else
+					local x, y, z = p.X - area.X, p.Y - FLOOR, p.Z - area.Z
+					local set = pressed[player]
+					local id = Silo.touching(buttons, S.Buttons.Reach, x, y, z)
+					if id and not (set and set[id]) then
+						set = set or {}
+						set[id] = true
+						pressed[player] = set
+						player:SetAttribute("SiloPressed", Silo.encodePressed(set))
+						countArmed()
+					end
+					if
+						set
+						and Silo.armed(buttons, set)
+						and Silo.touching(launchButton, S.Buttons.Launch.Reach, x, y, z)
+					then
+						clear(player)
+						launch:Fire(player)
+					end
+				end
+			end
+		end
+	end)
 end
 
 return SiloPark

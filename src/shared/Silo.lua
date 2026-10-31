@@ -17,10 +17,27 @@ export type Shape = {
 	Wall: { Reach: number }, -- how far off the surface it still holds a car
 	Ramp: {
 		Pitch: number, -- studs down per turn
+		InnerRadius: number,
 		OuterRadius: number,
+		LipWidth: number,
 		LipHeight: number,
 		LipGrow: number, -- studs along the outer edge to reach full height
 	},
+	Buttons: {
+		Ramp: { number }, -- turns down the ramp
+		Wall: { { Angle: number, Y: number } }, -- degrees round from +X toward +Z
+		Launch: { X: number, Z: number },
+	},
+}
+
+export type Button = {
+	Id: string,
+	X: number,
+	Y: number,
+	Z: number,
+	NormalX: number, -- which way it faces
+	NormalY: number,
+	NormalZ: number,
 }
 
 function Silo.rimRadius(shape: Shape): number
@@ -110,6 +127,90 @@ function Silo.squareEdge(half: number, angle: number): (number, number)
 	local c, s = math.cos(angle), math.sin(angle)
 	local scale = half / math.max(math.abs(c), math.abs(s))
 	return c * scale, s * scale
+end
+
+-- Every button that has to be pressed before the launch, in the order: ramp,
+-- then wall.
+function Silo.buttons(shape: Shape): { Button }
+	local R = shape.Ramp
+	local lane = (R.InnerRadius + R.OuterRadius - R.LipWidth) / 2
+	local buttons: { Button } = {}
+	for i, turns in shape.Buttons.Ramp do
+		local along = turns * 2 * math.pi
+		local x, y, z = Silo.rampPoint(shape, lane, along)
+		-- Square to the ramp: across it, crossed with along it.
+		local c, s = math.cos(along), math.sin(along)
+		local drop = R.Pitch / (2 * math.pi)
+		local length = math.sqrt(lane * lane + drop * drop)
+		table.insert(buttons, {
+			Id = `Ramp{i}`,
+			X = x,
+			Y = y,
+			Z = z,
+			NormalX = -drop * c / length,
+			NormalY = lane / length,
+			NormalZ = drop * s / length,
+		})
+	end
+	for i, place in shape.Buttons.Wall do
+		local angle = math.rad(place.Angle)
+		local c, s = math.cos(angle), math.sin(angle)
+		table.insert(buttons, {
+			Id = `Wall{i}`,
+			X = shape.Radius * c,
+			Y = place.Y,
+			Z = shape.Radius * s,
+			NormalX = -c,
+			NormalY = 0,
+			NormalZ = -s,
+		})
+	end
+	return buttons
+end
+
+-- Where the launch button sits, on the bottom.
+function Silo.launchPoint(shape: Shape): (number, number, number)
+	local L = shape.Buttons.Launch
+	return L.X, -shape.Depth, L.Z
+end
+
+-- The Id of the button within `reach` of the point, if any.
+function Silo.touching(buttons: { Button }, reach: number, x: number, y: number, z: number): string?
+	for _, button in buttons do
+		local dx, dy, dz = x - button.X, y - button.Y, z - button.Z
+		if dx * dx + dy * dy + dz * dz <= reach * reach then
+			return button.Id
+		end
+	end
+	return nil
+end
+
+-- Whether every button is in `pressed`, a set of Ids.
+function Silo.armed(buttons: { Button }, pressed: { [string]: boolean }): boolean
+	for _, button in buttons do
+		if not pressed[button.Id] then
+			return false
+		end
+	end
+	return true
+end
+
+-- A set of pressed Ids as text for a player attribute, and back.
+function Silo.encodePressed(pressed: { [string]: boolean }): string
+	local ids = {}
+	for id in pressed do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	return table.concat(ids, ",")
+end
+
+function Silo.decodePressed(text: string): { [string]: boolean }
+	local pressed: { [string]: boolean } = {}
+	for id in string.gmatch(text, "[^,]+") do
+		pressed[id] = true
+	end
+	return pressed
 end
 
 -- Whether the point is in the hole: under the ground, within the rim, and no

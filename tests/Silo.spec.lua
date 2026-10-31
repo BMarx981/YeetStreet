@@ -8,9 +8,63 @@ local SHAPE: Silo.Shape = {
 	Depth = 600,
 	Margin = 20,
 	BaseRadius = 50,
-	Ramp = { Pitch = 80, OuterRadius = 130, LipHeight = 9, LipGrow = 65 },
+	Ramp = { Pitch = 80, InnerRadius = 50, OuterRadius = 130, LipWidth = 10, LipHeight = 9, LipGrow = 65 },
 	Wall = { Reach = 14 },
+	Buttons = {
+		Reach = 14,
+		Ramp = { 0.25 },
+		Wall = { { Angle = 90, Y = -300 } },
+		Launch = { X = 0, Z = 165, Reach = 20 },
+	},
 }
+
+Check.test("a ramp button lies on the flat of the ramp, facing up", function()
+	local button = Silo.buttons(SHAPE)[1]
+	Check.eq(button.Id, "Ramp1")
+	Check.near(button.X, 0, "x", 1e-9)
+	Check.near(button.Y, -20, "a quarter turn down")
+	Check.near(button.Z, -85, "halfway across the flat")
+	Check.eq(button.NormalY > 0.9, true, "faces up")
+	Check.near(math.sqrt(button.NormalX ^ 2 + button.NormalY ^ 2 + button.NormalZ ^ 2), 1, "unit")
+end)
+
+Check.test("a wall button lies on the wall, facing the middle", function()
+	local button = Silo.buttons(SHAPE)[2]
+	Check.eq(button.Id, "Wall1")
+	Check.near(button.X, 0, "x", 1e-9)
+	Check.near(button.Y, -300, "y")
+	Check.near(button.Z, 250, "z")
+	Check.near(button.NormalZ, -1, "faces in")
+end)
+
+Check.test("the launch button lies on the bottom", function()
+	local x, y, z = Silo.launchPoint(SHAPE)
+	Check.near(x, 0, "x")
+	Check.near(y, -600, "y")
+	Check.near(z, 165, "z")
+end)
+
+Check.test("a car touches a button within reach", function()
+	local buttons = Silo.buttons(SHAPE)
+	Check.eq(Silo.touching(buttons, 14, 0, -296, 240), "Wall1", "on the wall button")
+	Check.eq(Silo.touching(buttons, 14, 0, -280, 240), nil, "above it")
+end)
+
+Check.test("the launch is armed once every button is pressed", function()
+	local buttons = Silo.buttons(SHAPE)
+	Check.eq(Silo.armed(buttons, {}), false, "none")
+	Check.eq(Silo.armed(buttons, { Ramp1 = true }), false, "some")
+	Check.eq(Silo.armed(buttons, { Ramp1 = true, Wall1 = true }), true, "all")
+end)
+
+Check.test("pressed buttons round trip through a player attribute", function()
+	local text = Silo.encodePressed({ Wall1 = true, Ramp1 = true })
+	local pressed = Silo.decodePressed(text)
+	Check.eq(pressed.Ramp1, true)
+	Check.eq(pressed.Wall1, true)
+	Check.eq(pressed.Wall2, nil)
+	Check.eq(next(Silo.decodePressed("")), nil, "empty")
+end)
 
 local DIAGONAL = math.sqrt(0.5)
 

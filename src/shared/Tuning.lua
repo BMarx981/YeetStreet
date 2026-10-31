@@ -1391,6 +1391,31 @@ Tuning.Silo = {
 		LipHeight = 9,
 		LipGrow = 65,
 	},
+	-- Each player presses all of these by driving over them, in any order,
+	-- and then the launch button, which only works after them.
+	Buttons = {
+		Radius = 12,
+		Reach = 14, -- from the car's middle to the button's
+		Ramp = { 2.5, 5.25 }, -- turns down the ramp
+		Wall = { -- Angle in degrees round from +X toward +Z
+			{ Angle = 45, Y = -180 },
+			{ Angle = 165, Y = -300 },
+			{ Angle = 285, Y = -420 },
+		},
+		Launch = { X = 0, Z = 165, Radius = 18, Reach = 20 },
+		LightRange = 30,
+	},
+	-- While anyone is armed: red lines up the walls flash, the lamps go red,
+	-- and the klaxon sounds.
+	Alarm = {
+		EverySlices = 8, -- a line every this many wall slices
+		LineWidth = 3,
+		Flash = 0.5, -- seconds on, then off
+		KlaxonId = "rbxassetid://9119662934", -- submarine ahooga
+		KlaxonVolume = 1,
+		KlaxonReach = 1000,
+		KlaxonHeight = -300, -- in the shaft, heard out to about the rim's surroundings
+	},
 	Lamps = {
 		Every = 120,
 		PerRing = 12,
