@@ -9,7 +9,9 @@
 -- most a false report does is steer that one missile.
 --
 -- The car's OnMissile attribute is set for the ride, so R and getting out do
--- nothing. A hit ends the ride and wrecks the car (ServerStorage.CarBlasted).
+-- nothing. A hit ends the ride and wrecks the rider and every car within
+-- Blast.Radius (ServerStorage.CarBlasted), and ReplicatedStorage.MissileBlast
+-- has every client draw it (SiloBlast).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,12 +20,14 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Missile = require(ReplicatedStorage.Missile)
+local MissileCloud = require(ReplicatedStorage.MissileCloud)
 local Rng = require(ReplicatedStorage.Rng)
 local Silo = require(ReplicatedStorage.Silo)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local S = Tuning.Silo
 local M = S.Missile
+local B = S.Blast
 local CONFIG: Missile.Config = M :: any
 local FLOOR = Tuning.Map.FloorTop
 
@@ -183,6 +187,10 @@ function SiloMissile.start(folder: Folder, area: MapLayout.Area)
 	local steerRemote = Instance.new("RemoteEvent")
 	steerRemote.Name = "MissileSteer"
 	steerRemote.Parent = ReplicatedStorage
+
+	local blastRemote = Instance.new("RemoteEvent")
+	blastRemote.Name = "MissileBlast"
+	blastRemote.Parent = ReplicatedStorage
 	steerRemote.OnServerEvent:Connect(function(player: Player, steer: any, pitch: any)
 		local ride = rides[player]
 		if ride and typeof(steer) == "number" and typeof(pitch) == "number" and steer == steer and pitch == pitch then
@@ -233,13 +241,27 @@ function SiloMissile.start(folder: Folder, area: MapLayout.Area)
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.RespectCanCollide = true
 
-	local function hit(ride: Ride, _position: Vector3)
-		local car = ride.car
+	-- Ends the ride at `position`, wrecks the rider and every car in reach, and
+	-- has every client draw the blast.
+	local function hit(ride: Ride, position: Vector3)
+		local rider = ride.car
 		finish(ride)
-		setAnchored(car, false)
+		setAnchored(rider, false)
+		blastRemote:FireAllClients(position)
 		local blasted = ServerStorage:FindFirstChild("CarBlasted")
-		if blasted and blasted:IsA("BindableEvent") then
-			blasted:Fire(car)
+		local carsFolder = workspace:FindFirstChild("Cars")
+		if not blasted or not blasted:IsA("BindableEvent") or not carsFolder then
+			return
+		end
+		blasted:Fire(rider)
+		for _, car in carsFolder:GetChildren() do
+			local hull = if car:IsA("Model") and car ~= rider then car.PrimaryPart else nil
+			if hull then
+				local p = hull.Position
+				if MissileCloud.inBlast(B.Radius, position.X, position.Y, position.Z, p.X, p.Y, p.Z) then
+					blasted:Fire(car)
+				end
+			end
 		end
 	end
 

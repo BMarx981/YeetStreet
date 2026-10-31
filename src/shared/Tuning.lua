@@ -1444,6 +1444,29 @@ Tuning.Silo = {
 		-- Standing either side of the launch button, from its middle.
 		Rack = { { X = -38, Z = 0 }, { X = 38, Z = 0 } },
 	},
+	-- Where a missile hits: every car within Radius wrecks and comes back at
+	-- its own R point. Each client draws the rest (SiloBlast, MissileCloud).
+	Blast = {
+		Radius = 100,
+		Rise = 3,
+		Stem = { Puffs = 10, Height = 180, Radius = 22 },
+		Cap = { Puffs = 18, Height = 200, Reach = 90, Radius = 38, Crown = 8, CrownReach = 40, CrownRise = 35 },
+		Base = { Puffs = 10, Reach = 60, Radius = 28 },
+		Fire = Color3.fromRGB(255, 160, 40),
+		Smoke = Color3.fromRGB(72, 62, 56),
+		Cool = 3.5, -- seconds from fire to smoke
+		Hold = 9, -- seconds it stands before it starts to fade
+		Fade = 5,
+		FlashTime = 0.5,
+		Ring = 1.3, -- how fast the shock ring spreads, in seconds to Radius times RingReach
+		RingReach = 2,
+		ShakeReach = 900, -- studs away that the camera stops shaking
+		ShakeMax = 3, -- studs, at the blast itself
+		ShakeTime = 1.5,
+		BoomId = "rbxassetid://9125484367", -- deep reverberant boom
+		BoomVolume = 2,
+		BoomReach = 3000,
+	},
 	-- While anyone is armed: red lines up the walls flash, the lamps go red,
 	-- and the klaxon sounds.
 	Alarm = {
