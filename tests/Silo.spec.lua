@@ -7,8 +7,73 @@ local SHAPE: Silo.Shape = {
 	LipRadius = 60,
 	Depth = 600,
 	Margin = 20,
-	Ramp = { Pitch = 80 },
+	BaseRadius = 50,
+	Ramp = { Pitch = 80, OuterRadius = 130, LipHeight = 9, LipGrow = 65 },
+	Wall = { Reach = 14 },
 }
+
+local DIAGONAL = math.sqrt(0.5)
+
+Check.test("the base curve runs from the bottom up to the straight wall", function()
+	local r, y = Silo.basePoint(SHAPE, 0)
+	Check.near(r, 200, "floor radius")
+	Check.near(y, -600, "floor height")
+	r, y = Silo.basePoint(SHAPE, math.pi / 2)
+	Check.near(r, 250, "wall radius")
+	Check.near(y, -550, "wall height")
+end)
+
+Check.test("the straight wall pulls straight out, within reach of it", function()
+	local x, y, z = Silo.wallPull(SHAPE, 240, -300, 0)
+	Check.near(x :: number, 1, "x")
+	Check.near(y :: number, 0, "y", 1e-9)
+	Check.near(z :: number, 0, "z", 1e-9)
+	x, y, z = Silo.wallPull(SHAPE, 0, -300, 240)
+	Check.near(x :: number, 0, "other side x", 1e-9)
+	Check.near(z :: number, 1, "other side z")
+	Check.eq(Silo.wallPull(SHAPE, 230, -300, 0), nil, "out of reach")
+end)
+
+Check.test("the lip pulls into its curve", function()
+	-- 5 off the surface, halfway round the curve.
+	local at = 60 * DIAGONAL
+	local x, y, z = Silo.wallPull(SHAPE, 310 - at - 5 * DIAGONAL, -60 + at + 5 * DIAGONAL, 0)
+	Check.near(x :: number, DIAGONAL, "x")
+	Check.near(y :: number, -DIAGONAL, "y")
+	Check.near(z :: number, 0, "z", 1e-9)
+end)
+
+Check.test("the base curve pulls down and out into it", function()
+	-- 5 off the surface, halfway round the curve.
+	local at = 45 * DIAGONAL
+	local x, y = Silo.wallPull(SHAPE, 200 + at, -550 - at, 0)
+	Check.near(x :: number, DIAGONAL, "x")
+	Check.near(y :: number, -DIAGONAL, "y")
+end)
+
+Check.test("nothing pulls on the floor, over the ground, or past the rim", function()
+	Check.eq(Silo.wallPull(SHAPE, 90, -595, 0), nil, "the floor's middle")
+	Check.eq(Silo.wallPull(SHAPE, 90, -300, 0), nil, "the ramp")
+	Check.eq(Silo.wallPull(SHAPE, 300, 5, 0), nil, "over the ground")
+	Check.eq(Silo.wallPull(SHAPE, 320, -5, 0), nil, "past the rim")
+end)
+
+Check.test("a slow car peels off and stays off until it leaves the wall", function()
+	Check.eq(Silo.stepPeel(false, true, 60, 40), false, "fast enough")
+	Check.eq(Silo.stepPeel(false, true, 30, 40), true, "too slow")
+	Check.eq(Silo.stepPeel(true, true, 60, 40), true, "falling fast is still off")
+	Check.eq(Silo.stepPeel(true, false, 0, 40), false, "away from the wall")
+end)
+
+Check.test("the ramp's lip grows in from nothing at both ends", function()
+	local sweep = Silo.rampSweep(SHAPE)
+	Check.near(Silo.rampLipHeight(SHAPE, 0), 0, "start")
+	Check.near(Silo.rampLipHeight(SHAPE, 0.25), 4.5, "halfway in")
+	Check.near(Silo.rampLipHeight(SHAPE, 0.5), 9, "full height")
+	Check.near(Silo.rampLipHeight(SHAPE, sweep / 2), 9, "middle")
+	Check.near(Silo.rampLipHeight(SHAPE, sweep - 0.25), 4.5, "halfway out")
+	Check.near(Silo.rampLipHeight(SHAPE, sweep), 0, "end")
+end)
 
 Check.test("the rim is the shaft plus the lip", function()
 	Check.near(Silo.rimRadius(SHAPE), 310)

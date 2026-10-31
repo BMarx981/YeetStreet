@@ -419,6 +419,29 @@ local function inSilo(position: Vector3): boolean
 		)
 end
 
+-- Which way the silo's wall holds a car at `position` moving at `velocity`,
+-- like a tube, or nil away from it or once the car has peeled off.
+local siloPeeled = false
+local function siloWallPull(position: Vector3, velocity: Vector3): Vector3?
+	if not siloArea then
+		return nil
+	end
+	local px, py, pz = Silo.wallPull(
+		Tuning.Silo :: any,
+		position.X - siloArea.X,
+		position.Y - Tuning.Map.FloorTop,
+		position.Z - siloArea.Z
+	)
+	if not px or not py or not pz then
+		siloPeeled = false
+		return nil
+	end
+	local pull = Vector3.new(px, py, pz)
+	local along = velocity - pull * velocity:Dot(pull)
+	siloPeeled = Silo.stepPeel(siloPeeled, true, along.Magnitude, Tuning.Silo.Wall.MinSpeed)
+	return if siloPeeled then nil else pull
+end
+
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
 -- its BreakSpeed and the time it turns solid again (0 while it is solid).
 -- A car faster than that is let through the boulders near it, on this
@@ -467,7 +490,10 @@ local function step(r: Rig, dt: number)
 
 	-- Inside a tube the car is pulled toward the nearest wall instead of
 	-- down, so it can drive round the walls and along the roof.
-	local pull = tubePull(cf.Position)
+	-- The silo's wall holds a car the same way.
+	local tube = tubePull(cf.Position)
+	local siloWall = if tube then nil else siloWallPull(cf.Position, velocity)
+	local pull = tube or siloWall
 	up = if pull then -pull else Vector3.yAxis
 	-- In the gravitron, up is out of the surface nearest the car.
 	local now = workspace:GetServerTimeNow()
@@ -485,6 +511,9 @@ local function step(r: Rig, dt: number)
 		-- Where the face's tube forks, the car is pushed into a branch.
 		if pull then
 			r.stick.Force += GlobeRide.forkPush(cf.Position, velocity) * r.hull.AssemblyMass
+		end
+		if siloWall then
+			r.stick.Force += siloWall * Tuning.Silo.Wall.ExtraPull * workspace.Gravity * r.hull.AssemblyMass
 		end
 	end
 
@@ -806,6 +835,7 @@ local function enter(r: Rig)
 	end
 	righting = false
 	tubeAt = -math.huge
+	siloPeeled = false
 	run = RunTracker.new()
 	ReplayRecorder.start(r.model)
 	tricksShown = 0

@@ -1365,6 +1365,13 @@ Tuning.Silo = {
 	LipRadius = 60, -- a tube's dive crest under about 50 throws a car off
 	Depth = 600,
 	Margin = 20, -- below the bottom, still not fallen off the map
+	BaseRadius = 50, -- the curve from the bottom up to the straight wall
+	BaseRows = 8,
+	Wall = {
+		Reach = 14, -- how far off the surface it still holds a car
+		MinSpeed = 40, -- slower than this along the wall, the car peels off
+		ExtraPull = 1, -- on top of the tubes' Pull, times world gravity, to hold it over the lip
+	},
 	Thickness = 4,
 	Slices = 96,
 	LipRows = 8,
@@ -1378,6 +1385,11 @@ Tuning.Silo = {
 		StepsPerTurn = 48,
 		Thickness = 2,
 		EdgeWidth = 1.5,
+		-- The outer edge rises like the brontosaurus's lip: 37 degrees. The
+		-- flat part of the ramp is what's left of its width inside this.
+		LipWidth = 12,
+		LipHeight = 9,
+		LipGrow = 65,
 	},
 	Lamps = {
 		Every = 120,

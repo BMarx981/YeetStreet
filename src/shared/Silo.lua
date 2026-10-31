@@ -13,7 +13,14 @@ export type Shape = {
 	LipRadius: number,
 	Depth: number,
 	Margin: number,
-	Ramp: { Pitch: number }, -- studs down per turn
+	BaseRadius: number, -- the curve from the bottom up to the straight wall
+	Wall: { Reach: number }, -- how far off the surface it still holds a car
+	Ramp: {
+		Pitch: number, -- studs down per turn
+		OuterRadius: number,
+		LipHeight: number,
+		LipGrow: number, -- studs along the outer edge to reach full height
+	},
 }
 
 function Silo.rimRadius(shape: Shape): number
@@ -28,6 +35,55 @@ function Silo.lipPoint(shape: Shape, angle: number): (number, number)
 	return shape.Radius + L * (1 - math.cos(angle)), L * (math.sin(angle) - 1)
 end
 
+-- A point on the base's curve, `angle` radians from the bottom (0) round to
+-- the foot of the straight wall (pi / 2), as its distance from the middle and
+-- its height.
+function Silo.basePoint(shape: Shape, angle: number): (number, number)
+	local B = shape.BaseRadius
+	return shape.Radius - B + B * math.sin(angle), -shape.Depth + B - B * math.cos(angle)
+end
+
+-- Which way the shaft's surface holds a car at (x, y, z), toward the surface,
+-- as a unit vector: nil further than Reach off it, on the flat bottom, or
+-- outside the hole.
+function Silo.wallPull(shape: Shape, x: number, y: number, z: number): (number?, number?, number?)
+	local r = math.sqrt(x * x + z * z)
+	if y >= 0 or r > Silo.rimRadius(shape) or r < 1e-6 then
+		return nil, nil, nil
+	end
+	local R, L, B = shape.Radius, shape.LipRadius, shape.BaseRadius
+	local gap, out, up
+	if y > -L then
+		-- Over the lip, toward the middle of its curve.
+		local dr, dy = R + L - r, -L - y
+		local d = math.sqrt(dr * dr + dy * dy)
+		gap, out, up = d - L, dr / d, dy / d
+	elseif y > -shape.Depth + B then
+		gap, out, up = R - r, 1, 0
+	else
+		-- In the base, away from the middle of its curve.
+		local dr, dy = r - (R - B), y - (-shape.Depth + B)
+		if dr <= 0 then
+			return nil, nil, nil
+		end
+		local d = math.sqrt(dr * dr + dy * dy)
+		gap, out, up = B - d, dr / d, dy / d
+	end
+	if gap > shape.Wall.Reach then
+		return nil, nil, nil
+	end
+	return out * x / r, up, out * z / r
+end
+
+-- Whether a car has peeled off the wall: once it is slower than `minSpeed`
+-- along the surface, until it is away from the wall (`atWall` false).
+function Silo.stepPeel(peeled: boolean, atWall: boolean, speed: number, minSpeed: number): boolean
+	if not atWall then
+		return false
+	end
+	return peeled or speed < minSpeed
+end
+
 -- Radians the ramp turns from the ground to the bottom.
 function Silo.rampSweep(shape: Shape): number
 	return 2 * math.pi * shape.Depth / shape.Ramp.Pitch
@@ -37,6 +93,15 @@ end
 -- start. It starts on +X heading -Z, the way the bridge runs.
 function Silo.rampPoint(shape: Shape, radius: number, along: number): (number, number, number)
 	return radius * math.cos(along), -shape.Ramp.Pitch * along / (2 * math.pi), -radius * math.sin(along)
+end
+
+-- How high the ramp's outer lip stands `along` radians from its start. It
+-- grows in from nothing at each end, so a car driving on or off never meets
+-- a step.
+function Silo.rampLipHeight(shape: Shape, along: number): number
+	local R = shape.Ramp
+	local fromEnd = math.min(along, Silo.rampSweep(shape) - along)
+	return R.LipHeight * math.clamp(fromEnd * R.OuterRadius / R.LipGrow, 0, 1)
 end
 
 -- Where a ray from the middle of a square `half` studs from middle to side

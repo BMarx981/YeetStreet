@@ -98,11 +98,16 @@ local function buildShaft(parent: Instance, center: CFrame)
 			angle,
 			2 * S.Radius * half + 0.4,
 			S.Radius * apothem,
-			-S.Depth,
+			-S.Depth + S.BaseRadius,
 			S.Radius * apothem,
 			-S.LipRadius,
 			WALL_COLOR
 		)
+		for row = 1, S.BaseRows do
+			local r0, y0 = Silo.basePoint(SHAPE, (row - 1) / S.BaseRows * math.pi / 2)
+			local r1, y1 = Silo.basePoint(SHAPE, row / S.BaseRows * math.pi / 2)
+			surfacePlank(model, center, angle, 2 * r1 * half + 0.4, r0 * apothem, y0, r1 * apothem, y1, WALL_COLOR)
+		end
 		for row = 1, S.LipRows do
 			local r0, y0 = Silo.lipPoint(SHAPE, (row - 1) / S.LipRows * math.pi / 2)
 			local r1, y1 = Silo.lipPoint(SHAPE, row / S.LipRows * math.pi / 2)
@@ -176,17 +181,25 @@ local function buildRamp(parent: Instance, center: CFrame)
 	local steps = math.ceil(sweep / (2 * math.pi) * R.StepsPerTurn)
 	for i = 1, steps do
 		local a0, a1 = sweep * (i - 1) / steps, sweep * i / steps
-		local inner0, outer0 = point(R.InnerRadius, a0), point(R.OuterRadius, a0)
-		local inner1, outer1 = point(R.InnerRadius, a1), point(R.OuterRadius, a1)
-		Triangle.make(model, inner0, outer0, outer1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
-		Triangle.make(model, inner0, outer1, inner1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+		local flat = R.OuterRadius - R.LipWidth
+		local inner0, flat0 = point(R.InnerRadius, a0), point(flat, a0)
+		local inner1, flat1 = point(R.InnerRadius, a1), point(flat, a1)
+		Triangle.make(model, inner0, flat0, flat1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+		Triangle.make(model, inner0, flat1, inner1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+
+		-- A straight lip up the outer edge that pushes a drifting car back in,
+		-- like the brontosaurus's.
+		local lip0 = point(R.OuterRadius, a0) + Vector3.new(0, Silo.rampLipHeight(SHAPE, a0), 0)
+		local lip1 = point(R.OuterRadius, a1) + Vector3.new(0, Silo.rampLipHeight(SHAPE, a1), 0)
+		Triangle.make(model, flat0, lip0, lip1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+		Triangle.make(model, flat0, lip1, flat1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
 
 		-- A glowing edge, so the drop can be seen in the dark.
 		local edge = block(
 			model,
 			"Edge",
-			Vector3.new(R.EdgeWidth, 0.2, (outer1 - outer0).Magnitude + 0.4),
-			CFrame.lookAt((outer0 + outer1) / 2, outer1),
+			Vector3.new(R.EdgeWidth, 0.2, (lip1 - lip0).Magnitude + 0.4),
+			CFrame.lookAt((lip0 + lip1) / 2, lip1),
 			LAMP_COLOR
 		)
 		edge.Material = Enum.Material.Neon
