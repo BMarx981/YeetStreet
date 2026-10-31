@@ -130,6 +130,30 @@ Check.test("the wander drifts it with no steering", function()
 	Check.eq(s.azimuth ~= 0, true)
 end)
 
+local LOOK = { LookYaw = 150, LookPitch = 70, LookDeadzone = 0.1 }
+
+Check.test("a pointer near the middle of the screen looks straight ahead", function()
+	local yaw, pitch = Missile.lookAngles(LOOK, 0.05, -0.05)
+	Check.near(yaw, 0, "yaw")
+	Check.near(pitch, 0, "pitch")
+end)
+
+Check.test("a pointer at the edge of the screen looks as far as it goes", function()
+	local yaw, pitch = Missile.lookAngles(LOOK, 1, 0)
+	Check.near(yaw, -150, "right turns the view right")
+	Check.near(pitch, 0, "level")
+	yaw, pitch = Missile.lookAngles(LOOK, -1, -1)
+	Check.near(yaw, 150, "left")
+	Check.near(pitch, 70, "the top of the screen looks up")
+end)
+
+Check.test("the look grows smoothly out of the dead zone and stops past the edge", function()
+	local yaw = Missile.lookAngles(LOOK, 0.55, 0)
+	Check.near(yaw, -75, "halfway")
+	yaw = Missile.lookAngles(LOOK, 3, 0)
+	Check.near(yaw, -150, "past the edge")
+end)
+
 Check.test("a picked heading lands on the map from the silo, without steering", function()
 	local rng = Rng.new(5)
 	for _ = 1, 20 do

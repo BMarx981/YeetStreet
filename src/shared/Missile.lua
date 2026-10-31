@@ -78,6 +78,24 @@ function Missile.step(s: State, config: Config, steer: number, pitch: number, dt
 	s.z += z * config.Speed * dt
 end
 
+-- How far the rider's view turns from straight ahead, as yaw (positive left)
+-- and pitch (positive up) in degrees, from where they point: x and y run from
+-- -1 to 1 across the screen, with y down it.
+function Missile.lookAngles(
+	look: { LookYaw: number, LookPitch: number, LookDeadzone: number },
+	x: number,
+	y: number
+): (number, number)
+	local function axis(value: number): number
+		local beyond = math.abs(value) - look.LookDeadzone
+		if beyond <= 0 then
+			return 0
+		end
+		return math.sign(value) * math.min(beyond / (1 - look.LookDeadzone), 1)
+	end
+	return -axis(x) * look.LookYaw, -axis(y) * look.LookPitch
+end
+
 -- Where it comes down with no steering and no drift, on the ground.
 function Missile.landing(config: Config, x: number, y: number, z: number, azimuth: number): (number, number)
 	local still = table.clone(config)

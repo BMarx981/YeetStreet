@@ -81,6 +81,7 @@ local GrindRide = require(script.Parent.GrindRide)
 local GunFx = require(script.Parent.GunFx)
 local Hud = require(script.Parent.Hud)
 local InviteMenu = require(script.Parent.InviteMenu)
+local MissileCamera = require(script.Parent.MissileCamera)
 local ObbyHud = require(script.Parent.ObbyHud)
 local ReplayControls = require(script.Parent.ReplayControls)
 local ReplayPlayer = require(script.Parent.ReplayPlayer)
@@ -972,11 +973,18 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	end
 	local contact = current.sensor.contact
 	local flying = CarSensor.flying(current.model)
-	ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
+	local onMissile = current.model:GetAttribute("OnMissile") == true
+	if onMissile then
+		MissileCamera.update(current.hull, dt)
+	else
+		MissileCamera.release()
+		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
+	end
 	Hud.update(
 		fuel / current.jetFuel,
-		current.hull.AssemblyLinearVelocity.Magnitude,
-		if contact.airborne and not flying then contact.airtime else nil,
+		-- A carried car is anchored, so its own speed reads 0, and a ride scores nothing.
+		if onMissile then Tuning.Silo.Missile.Speed else current.hull.AssemblyLinearVelocity.Magnitude,
+		if contact.airborne and not flying and not onMissile then contact.airtime else nil,
 		burning
 	)
 end)

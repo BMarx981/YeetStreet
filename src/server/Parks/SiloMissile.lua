@@ -89,7 +89,10 @@ function SiloMissile.model(parent: Instance, frame: CFrame, solid: boolean): Mod
 	local L, R = M.Length, M.Radius
 	local model = Instance.new("Model")
 	model.Name = "Missile"
-	local body = round(model, "Body", frame, 0, L * 0.7, R, BODY_COLOR, solid)
+	-- Moved by this pivot, not by a part's: the round parts lie turned on
+	-- their sides.
+	model.WorldPivot = frame
+	round(model, "Body", frame, 0, L * 0.7, R, BODY_COLOR, solid)
 	round(model, "Stripe", frame, L * 0.2, 2, R + 0.1, STRIPE_COLOR, solid)
 	round(model, "Stripe", frame, -L * 0.2, 2, R + 0.1, STRIPE_COLOR, solid)
 	-- The nose narrows in steps to a point.
@@ -108,7 +111,6 @@ function SiloMissile.model(parent: Instance, frame: CFrame, solid: boolean): Mod
 			solid
 		)
 	end
-	model.PrimaryPart = body
 	model.Parent = parent
 	return model
 end

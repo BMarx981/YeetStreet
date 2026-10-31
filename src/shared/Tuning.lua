@@ -1432,6 +1432,15 @@ Tuning.Silo = {
 		Radius = 5,
 		RideHeight = 4, -- the car's middle, above the top of the missile
 		SendRate = 10, -- steering updates a second from the rider
+		-- The rider's view (MissileCamera): behind the nose, turned by the
+		-- pointer's place on the screen.
+		CameraDistance = 34,
+		CameraHeight = 9,
+		CameraSharpness = 5, -- higher follows the missile's turns faster
+		CameraFov = 90,
+		LookYaw = 150, -- degrees, at the edge of the screen
+		LookPitch = 70,
+		LookDeadzone = 0.1, -- share of the way out from the middle that looks straight ahead
 		-- Standing either side of the launch button, from its middle.
 		Rack = { { X = -38, Z = 0 }, { X = 38, Z = 0 } },
 	},
