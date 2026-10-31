@@ -1,10 +1,10 @@
 --!strict
 -- PlaneCar (ModuleScript) -> ReplicatedStorage.PlaneCar
--- A fixed look copied from photos of a small brick plane that turns into a
--- car: swept white wings on grey click hinges, a short white tail fin with a
--- clear blue piece at its foot, a hinged white nose with a dark clear tile on
--- the end, and a grey gun under each wing. Working name until the real one
--- is known.
+-- A fixed look for a small plane that turns into a car, shaped after a brick
+-- model but built from plain smooth parts: swept white wings on grey
+-- shoulders, a short white tail fin with a clear blue piece at its foot, a
+-- hinged white nose with a dark glass tip, and a grey gun under each wing.
+-- Working name until the real one is known.
 --
 -- The driver rides on the body in front of the fin, legs along the nose. To
 -- become a car (PlaneMorph), the wings fold down, the whole plane tips
@@ -36,11 +36,8 @@ local GLASS_BLUE = Color3.fromRGB(85, 165, 175)
 local GLASS_SMOKE = Color3.fromRGB(60, 52, 46)
 local BRAKE_LIGHT = Color3.fromRGB(110, 15, 15) -- unlit; CarVisuals lights it while braking
 
-local U = 1.7 -- one stud of the real plane, in studs
-local STUD_HEIGHT = 0.17 * U
-local STUD_WIDTH = 0.6 * U
+local U = 1.7 -- one stud of the brick model, in studs
 
-local UPRIGHT = CFrame.Angles(0, 0, math.rad(90)) -- a cylinder's axis up
 local LENGTHWAYS = CFrame.Angles(0, math.rad(90), 0) -- a cylinder's axis along z
 
 local groups: { [Group]: { HeliCar.Spec } } = {
@@ -87,21 +84,9 @@ local function box(
 	add(group, name, "block", high - low, CFrame.new((low + high) / 2), color, slot, transparency)
 end
 
--- A stud standing on a top surface at height y.
-local function stud(group: Group, x: number, y: number, z: number, color: Color3, slot: CarDesign.Slot?)
-	add(
-		group,
-		"Stud",
-		"cylinder",
-		Vector3.new(STUD_HEIGHT, STUD_WIDTH, STUD_WIDTH),
-		CFrame.new(x, y + STUD_HEIGHT / 2, z) * UPRIGHT,
-		color,
-		slot
-	)
-end
-
 -- The body: a white bottom plate the driver sits on, a grey plate under
--- them, the click hinges either side of a grey core, and the fin on top.
+-- them, a grey shoulder for each wing either side of a grey core, and the
+-- fin on top.
 local BOTTOM = 0.3
 local PLATE_TOP = BOTTOM + 0.4 * U
 local HINGE_TOP = 2.0 -- the wings' underside
@@ -126,7 +111,6 @@ box(
 	Vector3.new(FIN_HALF, PLATE_TOP + 0.3, FIN_FRONT),
 	LIGHT_GREY
 )
-stud("body", 0, PLATE_TOP + 0.3, 0.7, LIGHT_GREY)
 box(
 	"body",
 	"Glass",
@@ -144,36 +128,17 @@ box(
 	LIGHT_GREY
 )
 
-local KNUCKLES = 5
-local KNUCKLE_FRONT = 1.4
-local KNUCKLE_BACK = 4.6
-local knuckleLength = (KNUCKLE_BACK - KNUCKLE_FRONT) / KNUCKLES
 for _, side in { -1, 1 } do
 	box(
 		"body",
-		"HingePlate",
-		Vector3.new(math.min(side * FIN_HALF, side * HINGE_X), PLATE_TOP, KNUCKLE_FRONT),
-		Vector3.new(math.max(side * FIN_HALF, side * HINGE_X), PLATE_TOP + 0.25, KNUCKLE_BACK),
+		"Shoulder",
+		Vector3.new(math.min(side * FIN_HALF, side * HINGE_X), PLATE_TOP, 1.4),
+		Vector3.new(math.max(side * FIN_HALF, side * HINGE_X), HINGE_TOP, 4.6),
 		LIGHT_GREY
 	)
-	local diameter = HINGE_TOP - (PLATE_TOP + 0.25)
-	local y = HINGE_TOP - diameter / 2
-	for column, x in { 1.3, 1.95 } do
-		for k = 0, KNUCKLES - 1 do
-			local dark = (k + column) % 2 == 0
-			add(
-				"body",
-				"Knuckle",
-				"cylinder",
-				Vector3.new(knuckleLength, diameter, diameter),
-				CFrame.new(side * x, y, KNUCKLE_FRONT + (k + 0.5) * knuckleLength) * LENGTHWAYS,
-				if dark then DARK_GREY else LIGHT_GREY
-			)
-		end
-	end
 end
 
--- The fin: a brick with a sloped front and a stud on top.
+-- The fin: a block with a sloped front.
 local FIN_TOP = HINGE_TOP + 2.9
 local SLOPE_FRONT = FIN_FRONT
 local SLOPE_BACK = FIN_FRONT + 1.3
@@ -203,7 +168,6 @@ add(
 	WHITE,
 	"tail"
 )
-stud("body", 0, FIN_TOP, 4.6, WHITE, "tail")
 -- The fin's top faces backward once this is a car, so its brake lights go there.
 for _, side in { -1, 1 } do
 	box(
@@ -223,49 +187,33 @@ local EXHAUST_PLANE = Vector3.new(0, 1.5, BODY_BACK + 0.2)
 local EXHAUST_CAR = Vector3.new(0, 1.6, 6.45)
 add("exhaust", "Exhaust", "block", Vector3.new(0.4, 1.0, 1.0), CFrame.new(EXHAUST_PLANE) * LENGTHWAYS, WHITE, nil, 1)
 
--- The nose, on a hinge at its root: a grey clip, a white plate, a white tile,
--- and a dark clear tile on the end with a stud showing through.
+-- The nose, on a round hinge at its root: a white plate sloping down to a
+-- dark glass tip.
 local NOSE_HINGE = CFrame.new(0, (BOTTOM + PLATE_TOP + 0.4) / 2, -0.5)
 local NOSE_TIP = -5.27
 local GLASS_FROM = -3.6
-box(
-	"nose",
-	"Clip",
-	Vector3.new(-0.35, BOTTOM + 0.1, -1.3),
-	Vector3.new(0.35, PLATE_TOP + 0.1, BODY_FRONT),
-	LIGHT_GREY,
-	"nose"
-)
 add("nose", "NoseHinge", "cylinder", Vector3.new(1.6, 0.9, 0.9), NOSE_HINGE, WHITE, "nose")
 box(
 	"nose",
 	"NosePlate",
-	Vector3.new(-0.48 * U, BOTTOM, NOSE_TIP),
+	Vector3.new(-0.48 * U, BOTTOM, GLASS_FROM),
 	Vector3.new(0.48 * U, PLATE_TOP, -0.9),
 	WHITE,
 	"nose"
 )
-box(
-	"nose",
-	"NoseTile",
-	Vector3.new(-0.48 * U, PLATE_TOP, GLASS_FROM),
-	Vector3.new(0.48 * U, PLATE_TOP + 0.25, -1.9),
-	WHITE,
-	"nose"
-)
-stud("nose", 0, PLATE_TOP, (GLASS_FROM + NOSE_TIP) / 2, WHITE, "nose")
-box(
+add(
 	"nose",
 	"NoseGlass",
-	Vector3.new(-0.48 * U, PLATE_TOP, NOSE_TIP),
-	Vector3.new(0.48 * U, PLATE_TOP + 0.3, GLASS_FROM),
+	"wedge",
+	Vector3.new(0.96 * U, PLATE_TOP - BOTTOM, GLASS_FROM - NOSE_TIP),
+	CFrame.new(0, (BOTTOM + PLATE_TOP) / 2, (GLASS_FROM + NOSE_TIP) / 2),
 	GLASS_SMOKE,
 	"nose",
-	0.35
+	0.2
 )
 
--- The wings: a smooth white plate swept back from the root, a grey block
--- under the root, and a round grey mount the gun clips onto.
+-- The wings: a smooth white plate swept back from the root and a grey block
+-- under the root.
 local WING_TOP = HINGE_TOP + 0.4 * U
 local WING_TIP = 9.0
 local TRAILING = 4.48 -- the straight back edge
@@ -310,23 +258,13 @@ for _, side in { -1, 1 } do
 		LIGHT_GREY,
 		"sides"
 	)
-	add(
-		wing,
-		"GunMount",
-		"cylinder",
-		Vector3.new(STUD_HEIGHT, STUD_WIDTH, STUD_WIDTH),
-		CFrame.new(side * GUN_X, HINGE_TOP - STUD_HEIGHT / 2, GUN_MOUNT_Z) * UPRIGHT,
-		DARK_GREY,
-		"underside"
-	)
-
-	-- The gun: a clip under the mount and a barrel out the front.
+	-- The gun: a block under the wing and a barrel out the front.
 	local gun: Group = if side < 0 then "gunL" else "gunR"
 	box(
 		gun,
-		"GunClip",
+		"GunBlock",
 		Vector3.new(side * GUN_X - 0.35, GUN_Y - 0.25, GUN_MOUNT_Z - 0.4),
-		Vector3.new(side * GUN_X + 0.35, HINGE_TOP - STUD_HEIGHT, GUN_MOUNT_Z + 0.4),
+		Vector3.new(side * GUN_X + 0.35, HINGE_TOP, GUN_MOUNT_Z + 0.4),
 		DARK_GREY,
 		"underside"
 	)
