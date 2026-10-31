@@ -1405,9 +1405,28 @@ Tuning.Silo = {
 		Launch = { X = 0, Z = 165, Radius = 18, Reach = 20 },
 		LightRange = 30,
 	},
+	-- Flies per Missile: full steering is well under its own turn and speed.
+	Missile = {
+		Ignition = 1.5,
+		Speed = 260,
+		ExitHeight = 120, -- above the ground, where it starts to turn
+		PitchRate = 12,
+		MinPitch = -80,
+		SteerYaw = 5,
+		SteerPitch = 6,
+		Wander = 3,
+		WanderRate = 0.7,
+		Length = 44,
+		Radius = 5,
+		RideHeight = 4, -- the car's middle, above the top of the missile
+		SendRate = 10, -- steering updates a second from the rider
+		-- Standing either side of the launch button, from its middle.
+		Rack = { { X = -38, Z = 0 }, { X = 38, Z = 0 } },
+	},
 	-- While anyone is armed: red lines up the walls flash, the lamps go red,
 	-- and the klaxon sounds.
 	Alarm = {
+		LampBrightness = 2, -- the lamps' light while red
 		EverySlices = 8, -- a line every this many wall slices
 		LineWidth = 3,
 		Flash = 0.5, -- seconds on, then off
@@ -1422,8 +1441,20 @@ Tuning.Silo = {
 		PerColumnRing = 6,
 		BottomHeight = 25, -- an extra ring over the bottom
 		Size = 10,
-		Range = 60,
-		Brightness = 2,
+		Range = 35,
+		Brightness = 0.35,
+		Color = Color3.fromRGB(150, 130, 95), -- old, yellowed bulbs
+		DeadShare = 0.3, -- of the lamps, burned out for good
+		Seed = 4,
+	},
+	-- Grimy walls: each slice somewhere between the two, in streaks.
+	Grime = {
+		Seed = 9,
+		Dark = Color3.fromRGB(40, 38, 35),
+		Rust = Color3.fromRGB(72, 54, 40),
+		Ramp = Color3.fromRGB(70, 66, 60),
+		Column = Color3.fromRGB(44, 42, 40),
+		Edge = Color3.fromRGB(95, 80, 45), -- the ramp's edge, just enough to see
 	},
 }
 

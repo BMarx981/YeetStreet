@@ -25,7 +25,7 @@ local BUTTON_COLOR = Color3.fromRGB(255, 200, 40)
 local PRESSED_COLOR = Color3.fromRGB(70, 230, 90)
 local LINE_OFF_COLOR = Color3.fromRGB(70, 20, 20)
 local RED = Color3.fromRGB(255, 30, 20)
-local LAMP_COLOR = Color3.fromRGB(255, 240, 210)
+local LAMP_COLOR = S.Lamps.Color
 
 local area = MapLayout.find(Tuning.Map.Areas :: any, "Silo")
 if not area then
@@ -103,6 +103,10 @@ local function paintLamps(armed: boolean)
 	for _, lamp in CollectionService:GetTagged("SiloLamp") do
 		if lamp:IsA("BasePart") then
 			paint(lamp, if armed then RED else LAMP_COLOR, true)
+			local light = lamp:FindFirstChildOfClass("PointLight")
+			if light then
+				light.Brightness = if armed then A.LampBrightness else S.Lamps.Brightness
+			end
 		end
 	end
 end

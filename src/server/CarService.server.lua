@@ -316,7 +316,7 @@ toggleAxolotl.Parent = ServerStorage
 local function onExitCar(player: Player)
 	local car = cars[player]
 	local character = player.Character
-	if not (car and character) then
+	if not (car and character) or car:GetAttribute("OnMissile") == true then
 		return
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")

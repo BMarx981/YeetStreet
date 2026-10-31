@@ -15,8 +15,10 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Railway = require(ReplicatedStorage.Railway)
+local Rng = require(ReplicatedStorage.Rng)
 local Silo = require(ReplicatedStorage.Silo)
 local Tuning = require(ReplicatedStorage.Tuning)
+local SiloMissile = require(ServerScriptService.Parks.SiloMissile)
 local Triangle = require(ServerScriptService.Pieces.Triangle)
 
 local S = Tuning.Silo
@@ -25,12 +27,12 @@ local FLOOR = Tuning.Map.FloorTop
 local GROUND_BOTTOM = -4 -- under TestPark's ground slab
 
 local FLOOR_COLOR = Color3.fromRGB(170, 170, 165) -- as ParkBuilder's floor
-local WALL_COLOR = Color3.fromRGB(92, 96, 102)
-local RAMP_COLOR = Color3.fromRGB(130, 134, 140)
-local COLUMN_COLOR = Color3.fromRGB(74, 78, 84)
-local HAZARD_YELLOW = Color3.fromRGB(240, 190, 30)
+local RAMP_COLOR = S.Grime.Ramp
+local COLUMN_COLOR = S.Grime.Column
+local EDGE_COLOR = S.Grime.Edge
+local HAZARD_YELLOW = Color3.fromRGB(165, 130, 40)
 local HAZARD_BLACK = Color3.fromRGB(30, 30, 34)
-local LAMP_COLOR = Color3.fromRGB(255, 240, 210)
+local LAMP_COLOR = S.Lamps.Color
 local BUTTON_COLOR = Color3.fromRGB(255, 200, 40)
 local ALARM_OFF_COLOR = Color3.fromRGB(70, 20, 20)
 
@@ -163,6 +165,19 @@ local function buildButtons(parent: Instance, center: CFrame)
 	)
 end
 
+-- Missiles standing either side of the launch button, noses up.
+local function buildRack(parent: Instance, center: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Rack"
+	model.Parent = parent
+	local x, y, z = Silo.launchPoint(SHAPE)
+	local M = S.Missile
+	for _, place in M.Rack do
+		local at = center:PointToWorldSpace(Vector3.new(x + place.X, y + M.Length / 2, z + place.Z))
+		SiloMissile.model(model, CFrame.lookAt(at, at + Vector3.new(0, 1, 0), Vector3.new(0, 0, 1)), true)
+	end
+end
+
 local function buildShaft(parent: Instance, center: CFrame)
 	local model = Instance.new("Model")
 	model.Name = "Shaft"
@@ -171,8 +186,10 @@ local function buildShaft(parent: Instance, center: CFrame)
 	local step = 2 * math.pi / S.Slices
 	local half = math.sin(step / 2)
 	local apothem = math.cos(step / 2)
+	local grime = Rng.new(S.Grime.Seed)
 	for i = 1, S.Slices do
 		local angle = (i - 0.5) * step
+		local wallColor = S.Grime.Dark:Lerp(S.Grime.Rust, grime.next())
 		surfacePlank(
 			model,
 			center,
@@ -182,17 +199,17 @@ local function buildShaft(parent: Instance, center: CFrame)
 			-S.Depth + S.BaseRadius,
 			S.Radius * apothem,
 			-S.LipRadius,
-			WALL_COLOR
+			wallColor
 		)
 		for row = 1, S.BaseRows do
 			local r0, y0 = Silo.basePoint(SHAPE, (row - 1) / S.BaseRows * math.pi / 2)
 			local r1, y1 = Silo.basePoint(SHAPE, row / S.BaseRows * math.pi / 2)
-			surfacePlank(model, center, angle, 2 * r1 * half + 0.4, r0 * apothem, y0, r1 * apothem, y1, WALL_COLOR)
+			surfacePlank(model, center, angle, 2 * r1 * half + 0.4, r0 * apothem, y0, r1 * apothem, y1, wallColor)
 		end
 		for row = 1, S.LipRows do
 			local r0, y0 = Silo.lipPoint(SHAPE, (row - 1) / S.LipRows * math.pi / 2)
 			local r1, y1 = Silo.lipPoint(SHAPE, row / S.LipRows * math.pi / 2)
-			local color = WALL_COLOR
+			local color = wallColor
 			if row == S.LipRows then
 				color = if (i - 1) // S.HazardSlices % 2 == 0 then HAZARD_YELLOW else HAZARD_BLACK
 			end
@@ -207,11 +224,14 @@ local function buildShaft(parent: Instance, center: CFrame)
 		"Bottom",
 		Vector3.new(2 * rim + 20, S.Thickness, 2 * rim + 20),
 		center * CFrame.new(0, -S.Depth - S.Thickness / 2, 0),
-		WALL_COLOR
+		S.Grime.Dark
 	)
 end
 
--- A ring of `count` lamps, `radius` from the middle and `y` high.
+local deadLamps = Rng.new(S.Lamps.Seed)
+
+-- A ring of `count` lamps, `radius` from the middle and `y` high. Some are
+-- burned out: dark, with no light, and they never go red.
 local function lampRing(parent: Instance, center: CFrame, radius: number, y: number, count: number)
 	local L = S.Lamps
 	for i = 1, count do
@@ -219,8 +239,12 @@ local function lampRing(parent: Instance, center: CFrame, radius: number, y: num
 		local at = out * radius + Vector3.new(0, y, 0)
 		local lamp =
 			block(parent, "Lamp", Vector3.new(L.Size, L.Size / 2, 1), center * CFrame.lookAt(at, at + out), LAMP_COLOR)
-		lamp.Material = Enum.Material.Neon
 		lamp.CanCollide = false
+		if deadLamps.next() < L.DeadShare then
+			lamp.Color = S.Grime.Dark
+			continue
+		end
+		lamp.Material = Enum.Material.Neon
 		CollectionService:AddTag(lamp, "SiloLamp")
 		local light = Instance.new("PointLight")
 		light.Range = L.Range
@@ -285,7 +309,7 @@ local function buildRamp(parent: Instance, center: CFrame)
 			"Edge",
 			Vector3.new(R.EdgeWidth, 0.2, (lip1 - lip0).Magnitude + 0.4),
 			CFrame.lookAt((lip0 + lip1) / 2, lip1),
-			LAMP_COLOR
+			EDGE_COLOR
 		)
 		edge.Material = Enum.Material.Neon
 		edge.CanCollide = false
@@ -383,6 +407,7 @@ function SiloPark.build(folder: Folder, area: MapLayout.Area)
 	buildRamp(folder, center)
 	buildLamps(folder, center)
 	buildButtons(folder, center)
+	buildRack(folder, center)
 end
 
 -- Tracks each player's own presses from where the server sees their car.
@@ -393,6 +418,7 @@ function SiloPark.start(folder: Folder, area: MapLayout.Area)
 	local launch = Instance.new("BindableEvent")
 	launch.Name = "SiloLaunch"
 	launch.Parent = ServerStorage
+	SiloMissile.start(folder, area)
 
 	local buttons = Silo.buttons(SHAPE)
 	local launchX, launchY, launchZ = Silo.launchPoint(SHAPE)

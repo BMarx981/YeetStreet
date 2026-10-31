@@ -752,10 +752,23 @@ playerEaten.Event:Connect(function(player: Player)
 end)
 playerEaten.Parent = ServerStorage
 
--- Ends the player's run, if any, and respawns their car.
+-- A silo missile's blast (Parks.SiloMissile fires ServerStorage.CarBlasted):
+-- the car wrecks at once, whatever its toughness.
+local carBlasted = Instance.new("BindableEvent")
+carBlasted.Name = "CarBlasted"
+carBlasted.Event:Connect(function(car: Model)
+	local watch = watches[car]
+	if watch and not watch.wrecked then
+		wreck(watch)
+	end
+end)
+carBlasted.Parent = ServerStorage
+
+-- Ends the player's run, if any, and respawns their car. A rider stays on
+-- their missile until it hits.
 local function reset(player: Player)
 	for _, watch in watches do
-		if watch.player == player then
+		if watch.player == player and watch.car:GetAttribute("OnMissile") ~= true then
 			local result = RunTracker.abort(watch.run)
 			if result then
 				finish(watch, result)
