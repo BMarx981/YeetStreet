@@ -117,6 +117,12 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	if destination ~= OBBY then
 		ObbyService.leave(player)
 	end
+	if destination ~= "Silo" then
+		local clearSilo = ServerStorage:FindFirstChild("ClearSiloPresses")
+		if clearSilo and clearSilo:IsA("BindableEvent") then
+			clearSilo:Fire(player)
+		end
+	end
 	if not movePlayerCar:Invoke(player, arrival, home) then
 		character:PivotTo(arrival + Vector3.new(0, 3, 0))
 	end

@@ -57,6 +57,18 @@ Check.test("the launch is armed once every button is pressed", function()
 	Check.eq(Silo.armed(buttons, { Ramp1 = true, Wall1 = true }), true, "all")
 end)
 
+Check.test("the progress note counts presses, then says to launch", function()
+	local buttons = Silo.buttons(SHAPE)
+	Check.eq(Silo.progressText(buttons, {}), "BUTTONS 0/2", "none")
+	Check.eq(Silo.progressText(buttons, { Ramp1 = true }), "BUTTONS 1/2", "one")
+	Check.eq(Silo.progressText(buttons, { Ramp1 = true, Wall1 = true }), "TAP THE LAUNCH BUTTON", "all")
+end)
+
+Check.test("the progress count ignores anything that isn't a button", function()
+	local buttons = Silo.buttons(SHAPE)
+	Check.eq(Silo.progressText(buttons, { Ramp1 = true, Other = true }), "BUTTONS 1/2")
+end)
+
 Check.test("pressed buttons round trip through a player attribute", function()
 	local text = Silo.encodePressed({ Wall1 = true, Ramp1 = true })
 	local pressed = Silo.decodePressed(text)

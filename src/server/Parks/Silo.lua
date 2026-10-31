@@ -410,10 +410,12 @@ function SiloPark.build(folder: Folder, area: MapLayout.Area)
 	buildRack(folder, center)
 end
 
--- Tracks each player's own presses from where the server sees their car.
--- Leaving the park clears them. SiloPressed on the player and SiloArmed on
--- the folder (how many players are armed) tell the clients (SiloLook). A
--- launch fires ServerStorage.SiloLaunch with the player.
+-- Tracks each player's own presses from where the server sees their car. They
+-- last until the launch, or until the player teleports somewhere else
+-- (ServerStorage.ClearSiloPresses), so being knocked out of the park or wrecked
+-- costs nothing. SiloPressed on the player and SiloArmed on the folder (how many
+-- armed players are in the park) tell the clients (SiloLook). A launch fires
+-- ServerStorage.SiloLaunch with the player.
 function SiloPark.start(folder: Folder, area: MapLayout.Area)
 	local launch = Instance.new("BindableEvent")
 	launch.Name = "SiloLaunch"
@@ -427,10 +429,15 @@ function SiloPark.start(folder: Folder, area: MapLayout.Area)
 	}
 	local pressed: { [Player]: { [string]: boolean } } = {}
 
+	-- Who has a car in the park right now.
+	local here: { [Player]: boolean } = {}
+
+	-- Only players in the park sound the alarm, so nobody armed and off
+	-- somewhere else leaves it on for good.
 	local function countArmed()
 		local armed = 0
-		for _, set in pressed do
-			if Silo.armed(buttons, set) then
+		for player, set in pressed do
+			if here[player] and Silo.armed(buttons, set) then
 				armed += 1
 			end
 		end
@@ -445,8 +452,15 @@ function SiloPark.start(folder: Folder, area: MapLayout.Area)
 		end
 	end
 
+	-- For TeleportService: choosing to go somewhere else ends the attempt.
+	local clearPresses = Instance.new("BindableEvent")
+	clearPresses.Name = "ClearSiloPresses"
+	clearPresses.Event:Connect(clear)
+	clearPresses.Parent = ServerStorage
+
 	Players.PlayerRemoving:Connect(function(player: Player)
 		pressed[player] = nil
+		here[player] = nil
 		countArmed()
 	end)
 
@@ -458,9 +472,12 @@ function SiloPark.start(folder: Folder, area: MapLayout.Area)
 			local hull = car:IsA("Model") and car.PrimaryPart
 			if player and hull then
 				local p = hull.Position
-				if not MapLayout.contains(area, p.X, p.Z) then
-					clear(player)
-				else
+				local inPark = MapLayout.contains(area, p.X, p.Z)
+				if inPark ~= (here[player] == true) then
+					here[player] = inPark or nil
+					countArmed()
+				end
+				if inPark then
 					local x, y, z = p.X - area.X, p.Y - FLOOR, p.Z - area.Z
 					local set = pressed[player]
 					local id = Silo.touching(buttons, S.Buttons.Reach, x, y, z)

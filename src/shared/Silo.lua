@@ -195,6 +195,18 @@ function Silo.armed(buttons: { Button }, pressed: { [string]: boolean }): boolea
 	return true
 end
 
+-- The note on the player's screen: how many buttons they have pressed, then
+-- what to do once it is all of them.
+function Silo.progressText(buttons: { Button }, pressed: { [string]: boolean }): string
+	local count = 0
+	for _, button in buttons do
+		if pressed[button.Id] then
+			count += 1
+		end
+	end
+	return if count == #buttons then "TAP THE LAUNCH BUTTON" else `BUTTONS {count}/{#buttons}`
+end
+
 -- A set of pressed Ids as text for a player attribute, and back.
 function Silo.encodePressed(pressed: { [string]: boolean }): string
 	local ids = {}

@@ -2,10 +2,10 @@
 -- SiloLook (LocalScript) -> StarterPlayerScripts.SiloLook
 -- How the missile silo looks and sounds on this client. Buttons are each
 -- player's own, so this client lights them from its player's SiloPressed
--- attribute: green once pressed, and the launch button red once all are. While
--- anyone is armed (the park folder's SiloArmed), the wall lines flash, the
--- lamps go red, and the klaxon sounds. The server keeps all the truth
--- (Parks.Silo).
+-- attribute: green once pressed, and the launch button red once all are, with
+-- a count on the screen while they are in the park. While anyone is armed (the
+-- park folder's SiloArmed), the wall lines flash, the lamps go red, and the
+-- klaxon sounds. The server keeps all the truth (Parks.Silo).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Silo = require(ReplicatedStorage.Silo)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local UiStyle = require(script.Parent.UiStyle)
 
 local S = Tuning.Silo
@@ -47,6 +48,27 @@ end
 
 local pressed: { [string]: boolean } = {}
 
+-- The count on this player's screen while they are in the park.
+local hud = Instance.new("ScreenGui")
+hud.Name = "SiloHud"
+hud.ResetOnSpawn = false
+hud.Enabled = false
+hud.Parent = player:WaitForChild("PlayerGui")
+local note = UiStyle.text("Note", hud, 32, true)
+note.AnchorPoint = Vector2.new(0.5, 0)
+note.Position = UDim2.new(0.5, 0, 0, 112)
+note.Size = UDim2.fromOffset(460, 40)
+note.TextXAlignment = Enum.TextXAlignment.Center
+
+local function showNote()
+	local text = Silo.progressText(buttons, pressed)
+	if text ~= note.Text then
+		note.Text = text
+		note.TextColor3 = if Silo.armed(buttons, pressed) then RED else Color3.new(1, 1, 1)
+		UiStyle.bounce(note)
+	end
+end
+
 local function paintButton(part: Instance)
 	if not part:IsA("BasePart") then
 		return
@@ -70,6 +92,7 @@ local function pressedChanged()
 		end
 	end
 	pressed = now
+	showNote()
 	for _, part in CollectionService:GetTagged("SiloButton") do
 		paintButton(part)
 	end
@@ -122,6 +145,13 @@ end
 local alarmOn = false
 local lit = false
 local function step()
+	local character = player.Character
+	local at = character and character:GetPivot().Position
+	hud.Enabled = at ~= nil
+		and MapLayout.contains(area :: MapLayout.Area, at.X, at.Z)
+		and player:GetAttribute("OnMissile") ~= true
+		and not ReplayPlayer.isPlaying()
+
 	local parks = workspace:FindFirstChild("Parks")
 	local folder = parks and parks:FindFirstChild("Silo")
 	local count = folder and folder:GetAttribute("SiloArmed")
