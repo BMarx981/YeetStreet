@@ -156,15 +156,45 @@ local function firstOf(kind: string): SiloTraps.Trap
 	error("no trap")
 end
 
-Check.test("a popped popper shoves a car in front of it out and up", function()
+-- When this popper is nearly all the way out on its way, in its first firing.
+local function extendingAt(trap: SiloTraps.Trap): number
+	local P = CONFIG.Poppers
+	for slot = 0, 1000 do
+		local start = SiloTraps.popperStart(P, trap.id, slot)
+		if start then
+			return slot * P.Period + start + P.Warn + P.Out * 0.99
+		end
+	end
+	error("never fires")
+end
+
+Check.test("a popper shooting out shoves a car in front of it out and up", function()
 	local trap = firstOf("popper")
-	local out = popperTimes(trap)
 	local x, y, z = carAt(trap, 80)
-	local vx, vy, vz = SiloTraps.push(RAMP, CONFIG, { trap }, out, x, y, z, 0, 0, 0)
+	local vx, vy, vz = SiloTraps.push(RAMP, CONFIG, { trap }, extendingAt(trap), x, y, z, 0, 0, 0)
 	Check.eq(vx ~= nil, true, "hit")
 	local rx, rz = x / 80, z / 80
 	Check.near((vx :: number) * rx + (vz :: number) * rz, 120, "out")
 	Check.near(vy :: number, 70, "up")
+end)
+
+Check.test("only shooting out counts as extending", function()
+	local trap = firstOf("popper")
+	local P = CONFIG.Poppers
+	local at = extendingAt(trap)
+	Check.eq(SiloTraps.popperExtending(P, trap.id, at), true, "shooting out")
+	Check.eq(SiloTraps.popperExtending(P, trap.id, at - P.Out * 0.99 - 0.1), false, "warning")
+	Check.eq(SiloTraps.popperExtending(P, trap.id, at + 0.1), false, "holding")
+	Check.eq(SiloTraps.popperExtending(P, trap.id, at + P.Hold + 0.1), false, "going back")
+end)
+
+Check.test("a popper fully out or going back doesn't shove a car: it is just a wall", function()
+	local trap = firstOf("popper")
+	local P = CONFIG.Poppers
+	local at = extendingAt(trap)
+	local x, y, z = carAt(trap, 80)
+	Check.eq(SiloTraps.push(RAMP, CONFIG, { trap }, at + 0.1, x, y, z, 0, 0, 0), nil, "holding")
+	Check.eq(SiloTraps.push(RAMP, CONFIG, { trap }, at + P.Hold + 0.1, x, y, z, 0, 0, 0), nil, "going back")
 end)
 
 Check.test("a popper that hasn't popped lets a car by", function()
@@ -176,7 +206,7 @@ end)
 
 Check.test("a car past a popper's reach, beside it, or a level away is safe", function()
 	local trap = firstOf("popper")
-	local out = popperTimes(trap)
+	local out = extendingAt(trap)
 	local x, y, z = carAt(trap, 116)
 	Check.eq(SiloTraps.push(RAMP, CONFIG, { trap }, out, x, y, z, 0, 0, 0), nil, "past its reach")
 	x, y, z = carAt(trap, 80, 0.4)

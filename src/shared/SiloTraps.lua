@@ -2,13 +2,14 @@
 -- SiloTraps (ModuleScript) -> ReplicatedStorage.SiloTraps
 -- The booby traps down the silo's ramp (Tuning.Silo.Traps). Nothing is sent
 -- while they move: every machine works out where each is from the server's
--- clock. They never touch anything: each client draws them (SiloTrapsLook),
--- and CarController asks `push` how one knocks its own car.
+-- clock. Each client draws them (SiloTrapsLook), and CarController asks `push`
+-- how one knocks its own car.
 --
 -- A popper is a slab that shoots out of the column across the ramp. Each
--- period it may fire or not, at a moment of its own, with a warning first. A
--- sweeper is a block that rests at one end of its run, darts to the other,
--- rests, and darts back.
+-- period it may fire or not, at a moment of its own, with a warning first. It
+-- only knocks a car while shooting out; the rest of the time it is out, it is
+-- solid, like a wall. A sweeper never touches anything: it is a block that
+-- rests at one end of its run, darts to the other, rests, and darts back.
 --
 -- Coordinates are studs from the shaft's middle, Y = 0 on the floor's top.
 -- `along` is radians down the ramp from its start, as in Silo.rampPoint. Pure,
@@ -141,6 +142,12 @@ function SiloTraps.popperExtent(p: Popper, id: number, time: number): number
 	return if since < p.Back then 1 - since / p.Back else 0
 end
 
+-- Whether popper `id` is shooting out at `time`, the only time it knocks a car.
+function SiloTraps.popperExtending(p: Popper, id: number, time: number): boolean
+	local since = sinceStart(p, id, time)
+	return since ~= nil and since >= p.Warn and since < p.Warn + p.Out
+end
+
 -- Whether popper `id` is warning at `time`, about to shoot out.
 function SiloTraps.popperWarning(p: Popper, id: number, time: number): boolean
 	local since = sinceStart(p, id, time)
@@ -188,9 +195,9 @@ function SiloTraps.sweeperMoving(s: Sweeper, id: number, time: number): number
 end
 
 -- The velocity a trap gives a car at (x, y, z) moving at (vx, vy, vz) at
--- `time`, or nil if none reaches it. A popper shoves it out and up, and a
--- sweeper does too, plus along the way it darts. A popper still in the column
--- does nothing, so a car can pass it.
+-- `time`, or nil if none reaches it. A popper shooting out shoves it out and
+-- up, and a sweeper does too, plus along the way it darts. A popper at any
+-- other time does nothing here: out, it is a solid wall (SiloTrapsLook).
 function SiloTraps.push(
 	ramp: Ramp,
 	config: Config,
@@ -222,7 +229,7 @@ function SiloTraps.push(
 			local P = config.Poppers
 			local extent = SiloTraps.popperExtent(P, trap.id, time)
 			if
-				extent > 0
+				SiloTraps.popperExtending(P, trap.id, time)
 				and math.abs(apart) * r <= P.Width / 2 + config.Margin
 				and r <= ramp.InnerRadius + P.Reach * extent + config.Margin
 			then

@@ -1,9 +1,10 @@
 --!strict
 -- SiloTrapsLook (LocalScript) -> StarterPlayerScripts.SiloTrapsLook
 -- Draws the silo ramp's booby traps (SiloTraps) and moves them every frame
--- from the server's clock, so every player sees them in the same place. They
--- never touch anything: CarController asks SiloTraps.push how one knocks its
--- car. Each popper has a light on the column that glows red before it fires.
+-- from the server's clock, so every player sees them in the same place.
+-- CarController asks SiloTraps.push how one knocks its car. A popper is solid
+-- on this client while it is out, and each has a light on the column that glows
+-- red before it fires. Sweepers never touch anything.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -107,6 +108,9 @@ local function place(look: Look, time: number)
 			look.part.CFrame = CFrame.lookAt(spot, spot + out(trap.along))
 		end
 		look.part.Transparency = if extent > 0 then 0 else 1
+		-- Solid while it is out, so bumping it is like hitting a wall. Shooting
+		-- out, it knocks the car away first (SiloTraps.push).
+		look.part.CanCollide = extent > 0
 		if extent > 0 and look.was == 0 and look.pop then
 			look.pop:Play()
 		end
