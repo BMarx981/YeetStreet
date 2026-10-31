@@ -100,22 +100,24 @@ function UiStyle.text(name: string, parent: Instance, size: number, title: boole
 	return label
 end
 
--- A thin yellow and black band, as wide as its parent.
-function UiStyle.hazard(parent: Instance): Frame
+-- A thin yellow and black band, as wide as its parent. A sign's bigger canvas
+-- gives it a scale and its own colors.
+function UiStyle.hazard(parent: Instance, scale: number?, color: Color3?, back: Color3?): Frame
+	local s = scale or 1
 	local band = Instance.new("Frame")
 	band.Name = "Hazard"
-	band.BackgroundColor3 = UiStyle.Ink
+	band.BackgroundColor3 = back or UiStyle.Ink
 	band.BorderSizePixel = 0
 	band.ClipsDescendants = true
-	band.Size = UDim2.new(1, 0, 0, 12)
+	band.Size = UDim2.new(1, 0, 0, 12 * s)
 	band.Parent = parent
-	for i = -1, STRIPE_COUNT do
+	for i = -1, math.ceil(STRIPE_COUNT / s) do
 		local stripe = Instance.new("Frame")
-		stripe.BackgroundColor3 = UiStyle.Yellow
+		stripe.BackgroundColor3 = color or UiStyle.Yellow
 		stripe.BorderSizePixel = 0
 		stripe.AnchorPoint = Vector2.new(0.5, 0.5)
-		stripe.Position = UDim2.new(0, i * STRIPE_SPACING, 0.5, 0)
-		stripe.Size = UDim2.fromOffset(STRIPE_WIDTH, 40)
+		stripe.Position = UDim2.new(0, i * STRIPE_SPACING * s, 0.5, 0)
+		stripe.Size = UDim2.fromOffset(STRIPE_WIDTH * s, 40 * s)
 		stripe.Rotation = 40
 		stripe.Parent = band
 	end

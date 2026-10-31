@@ -1079,6 +1079,18 @@ Tuning.Hud = {
 	},
 }
 
+-- Each park's turning name sign (ParkBuilder, ParkSigns). Outside Tuning.Map
+-- so changing it doesn't mark frozen parks as out of date.
+Tuning.ParkSign = {
+	SpinSpeed = 15, -- degrees per second
+	Width = 60,
+	Height = 16,
+	Thickness = 2,
+	CenterHeight = 30, -- center of the board above the ground, clear of cars
+	PostWidth = 3,
+	PixelsPerStud = 16,
+}
+
 -- Sounds the menus play, only for the player using them (UiStyle).
 Tuning.MenuSounds = {
 	Open = { Id = "rbxassetid://12222200", Pitch = 1.1, Volume = 0.5 }, -- swoosh

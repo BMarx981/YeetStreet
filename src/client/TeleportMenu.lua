@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local ParkLooks = require(ReplicatedStorage.ParkLooks)
 local Tuning = require(ReplicatedStorage.Tuning)
 local UiStyle = require(script.Parent.UiStyle)
 
@@ -25,20 +26,6 @@ local REASONS: { [string]: string } = {
 	Unknown = "That place isn't on the map.",
 	NotReady = "Wait for your car to spawn.",
 }
-
-type Look = { color: Color3, icon: string, tagline: string }
-
--- Each place's card, by area Id. A park missing here gets DEFAULT_LOOK.
-local LOOKS: { [string]: Look } = {
-	Garage = { color = Color3.fromRGB(230, 150, 20), icon = "🔧", tagline = "Upgrades and new cars" },
-	Hub = { color = Color3.fromRGB(60, 110, 190), icon = "⭐", tagline = "The big launcher in the middle" },
-	Skate = { color = Color3.fromRGB(180, 60, 170), icon = "🛹", tagline = "Bowls, ramps, and rails" },
-	Corkscrew = { color = Color3.fromRGB(20, 150, 140), icon = "🌀", tagline = "Tubes, the Gravitron, and the Globe" },
-	City = { color = Color3.fromRGB(200, 70, 50), icon = "🏙️", tagline = "Trains, cranes, and a kaiju" },
-	Dino = { color = Color3.fromRGB(70, 150, 50), icon = "🦖", tagline = "Volcano, T-Rex, and raptors" },
-	Obby = { color = Color3.fromRGB(120, 90, 220), icon = "🏁", tagline = "Sky course with checkpoints" },
-}
-local DEFAULT_LOOK: Look = { color = Color3.fromRGB(96, 102, 112), icon = "🏁", tagline = "" }
 
 local player = Players.LocalPlayer :: Player
 local started = false
@@ -142,12 +129,12 @@ local function build()
 	end
 	table.insert(places, { id = "Obby", label = "Obby" })
 	for i, place in places do
-		local look = LOOKS[place.id] or DEFAULT_LOOK
+		local look = ParkLooks.of(place.id)
 		local b = Instance.new("TextButton")
 		b.Name = place.id
 		b.Text = ""
 		b.AutoButtonColor = true
-		b.BackgroundColor3 = look.color
+		b.BackgroundColor3 = Color3.fromHex(look.color)
 		b.LayoutOrder = i
 		b.Size = UDim2.new(1, -12, 0, 64)
 		b.Parent = list
