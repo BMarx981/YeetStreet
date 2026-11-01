@@ -3,10 +3,10 @@
 -- The nuclear plant's operations building beside the cooling towers. It drives
 -- like a Downtown building: a curve along the foot of each side and round each
 -- corner rising to the wall, and a lip along each roof edge. It looks like a
--- laboratory: white panels, ribbon windows behind thin fins, a glowing band, a
+-- laboratory: white panels, ribbon windows with painted lines, a glowing band, a
 -- sign with status lights, and a glass dome, radar dish, antenna, and vents on
 -- the roof. Only the tower, curves, lips, and dome are solid; the rest is paint
--- and fittings cars pass through. Numbers are in Tuning.Plant.Ops.
+-- lying flat on the walls, and fittings on the roof, that cars pass through. Numbers are in Tuning.Plant.Ops.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -107,7 +107,7 @@ local function buildFoot(parent: Instance, center: CFrame, halfX: number, halfZ:
 end
 
 -- One side's face: `out` is which way it faces, `width` its length. Its ribbon
--- windows, the fins over them, and its share of the glowing band.
+-- windows, the lines painted over them, and its share of the glowing band.
 local function dressSide(parent: Instance, center: CFrame, out: Vector3, half: number, width: number)
 	local face = center * CFrame.lookAt(out * half, out * (half + 1))
 	local y = O.CurveRadius + O.WindowGap
@@ -115,8 +115,8 @@ local function dressSide(parent: Instance, center: CFrame, out: Vector3, half: n
 		fitting(
 			parent,
 			"Window",
-			Vector3.new(width - 2 * O.WindowInset, O.WindowHeight, 0.4),
-			face * CFrame.new(0, y + O.WindowHeight / 2, -0.2),
+			Vector3.new(width - 2 * O.WindowInset, O.WindowHeight, O.WindowDepth),
+			face * CFrame.new(0, y + O.WindowHeight / 2, -O.WindowDepth / 2),
 			O.Glass,
 			Enum.Material.Glass
 		)
@@ -139,8 +139,8 @@ local function dressSide(parent: Instance, center: CFrame, out: Vector3, half: n
 	fitting(
 		parent,
 		"GlowBand",
-		Vector3.new(width, O.BandHeight, 0.4),
-		face * CFrame.new(0, O.Height - O.TopBand / 2, -0.2),
+		Vector3.new(width, O.BandHeight, O.FinDepth),
+		face * CFrame.new(0, O.Height - O.TopBand / 2, -O.FinDepth / 2),
 		O.Glow,
 		Enum.Material.Neon
 	)
@@ -154,8 +154,8 @@ local function buildSign(parent: Instance, center: CFrame, out: Vector3, half: n
 	local board = fitting(
 		parent,
 		"SignBoard",
-		Vector3.new(S.Width, S.Height, 1),
-		face * CFrame.new(0, S.Y, -O.FinDepth - 0.5),
+		Vector3.new(S.Width, S.Height, S.Depth),
+		face * CFrame.new(0, S.Y, -S.Depth / 2),
 		O.SignColor,
 		Enum.Material.SmoothPlastic
 	)
@@ -181,8 +181,8 @@ local function buildSign(parent: Instance, center: CFrame, out: Vector3, half: n
 		fitting(
 			parent,
 			"StatusLight",
-			Vector3.new(step * 0.6, S.LightHeight, 0.4),
-			face * CFrame.new(-S.Width / 2 + (i - 0.5) * step, S.Y - S.Height / 2 - S.LightHeight, -O.FinDepth - 0.2),
+			Vector3.new(step * 0.6, S.LightHeight, S.Depth),
+			face * CFrame.new(-S.Width / 2 + (i - 0.5) * step, S.Y - S.Height / 2 - S.LightHeight, -S.Depth / 2),
 			color,
 			Enum.Material.Neon
 		)

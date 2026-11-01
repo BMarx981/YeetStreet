@@ -1473,13 +1473,16 @@ Tuning.Plant = {
 		WindowInset = 10, -- from each end of a side
 		TopBand = 14, -- the plain strip at the top, with the glowing band in it
 		BandHeight = 3,
+		-- Everything on the walls is paint, this thin, so the walls stay flat.
+		WindowDepth = 0.1,
 		FinWidth = 1.2,
-		FinDepth = 2,
+		FinDepth = 0.2,
 		FinEvery = 20,
 		Sign = {
 			Text = "☢ OPERATIONS",
 			Width = 170,
 			Height = 24,
+			Depth = 0.3,
 			Y = 106,
 			PixelsPerStud = 4, -- TextSize tops out at 100, so a bigger canvas leaves the text small
 			Lights = 16,
