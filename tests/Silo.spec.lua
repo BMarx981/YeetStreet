@@ -8,7 +8,7 @@ local SHAPE: Silo.Shape = {
 	Depth = 600,
 	Margin = 20,
 	BaseRadius = 50,
-	Ramp = { Pitch = 80, InnerRadius = 50, OuterRadius = 130, LipWidth = 10, LipHeight = 9, LipGrow = 65 },
+	Ramp = { Pitch = 80, InnerRadius = 50, OuterRadius = 130, LipWidth = 10, LipHeight = 9, Rows = 4, LipGrow = 65 },
 	Wall = { Reach = 14 },
 	Buttons = {
 		Reach = 14,
@@ -196,6 +196,26 @@ Check.test("inside is under the ground, within the rim, and not far below the bo
 	Check.eq(Silo.inside(SHAPE, 320, -5, 0), false, "past the rim")
 	Check.eq(Silo.inside(SHAPE, 0, -615, 0), true, "within the margin")
 	Check.eq(Silo.inside(SHAPE, 0, -625, 0), false, "through the bottom")
+end)
+
+Check.test("the ramp's rows run from the column to the lip", function()
+	local rows = Silo.rampRows(SHAPE)
+	local R = SHAPE.Ramp
+	Check.eq(#rows, R.Rows + 1, "edges")
+	Check.near(rows[1], R.InnerRadius, "at the column")
+	Check.near(rows[#rows], R.OuterRadius - R.LipWidth, "at the lip")
+end)
+
+Check.test("each row turns the slope by as much as the next, so they narrow toward the column", function()
+	local rows = Silo.rampRows(SHAPE)
+	local function slope(r: number): number
+		return SHAPE.Ramp.Pitch / (2 * math.pi * r)
+	end
+	local first = slope(rows[1]) - slope(rows[2])
+	for i = 2, #rows - 1 do
+		Check.near(slope(rows[i]) - slope(rows[i + 1]), first, `row {i}`)
+	end
+	Check.eq(rows[2] - rows[1] < rows[#rows] - rows[#rows - 1], true, "narrow by the column")
 end)
 
 Check.finish()

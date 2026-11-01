@@ -234,7 +234,7 @@ Check.test("a sweeper knocks a car it reaches along its way, out and up", functi
 	Check.near(speed, math.sqrt(100 ^ 2 + 80 ^ 2), "along too")
 end)
 
-Check.test("driving into a resting sweeper still knocks a car, out and up only", function()
+Check.test("driving into a resting sweeper does nothing here: it is a wall", function()
 	local trap = firstOf("sweeper")
 	local S = CONFIG.Sweepers
 	local lane = SiloTraps.lane(RAMP)
@@ -244,9 +244,7 @@ Check.test("driving into a resting sweeper still knocks a car, out and up only",
 	end
 	local offset = SiloTraps.sweeperOffset(S, trap.id, t)
 	local x, y, z = carAt(trap, lane, offset / lane)
-	local vx, vy, vz = SiloTraps.push(RAMP, CONFIG, { trap }, t, x, y, z, 0, 0, 0)
-	Check.near(vy :: number, 60, "up")
-	Check.near(math.sqrt((vx :: number) ^ 2 + (vz :: number) ^ 2), 80, "out only")
+	Check.eq(SiloTraps.push(RAMP, CONFIG, { trap }, t, x, y, z, 0, 0, 0), nil)
 end)
 
 Check.test("a sweeper at the far end leaves a car in the middle alone", function()

@@ -267,6 +267,30 @@ local function buildLamps(parent: Instance, center: CFrame)
 	lampRing(parent, center, S.ColumnRadius + 0.5, -S.Depth + L.BottomHeight, L.PerColumnRing)
 end
 
+-- A flat plank over four corners of the surface: `a0`, `b0` across its start
+-- and `a1`, `b1` across its end. Its top is on the surface and the rest of it
+-- below, a little over each edge so neighbors overlap.
+local function rampPlank(parent: Instance, a0: Vector3, b0: Vector3, a1: Vector3, b1: Vector3)
+	local R = S.Ramp
+	local normal = (b1 - a0):Cross(b0 - a1).Unit
+	if normal.Y < 0 then
+		normal = -normal
+	end
+	local along = (a1 + b1 - a0 - b0) / 2
+	local forward = (along - normal * along:Dot(normal)).Unit
+	block(
+		parent,
+		"Plank",
+		Vector3.new(
+			math.max((b0 - a0).Magnitude, (b1 - a1).Magnitude) + 0.4,
+			R.Thickness,
+			math.max((a1 - a0).Magnitude, (b1 - b0).Magnitude) + 0.4
+		),
+		CFrame.fromMatrix((a0 + b0 + a1 + b1) / 4 - normal * R.Thickness / 2, normal:Cross(forward), normal, forward),
+		RAMP_COLOR
+	)
+end
+
 local function buildRamp(parent: Instance, center: CFrame)
 	local R = S.Ramp
 	local model = Instance.new("Model")
@@ -288,20 +312,18 @@ local function buildRamp(parent: Instance, center: CFrame)
 	end
 	local sweep = Silo.rampSweep(SHAPE)
 	local steps = math.ceil(sweep / (2 * math.pi) * R.StepsPerTurn)
+	local rows = Silo.rampRows(SHAPE)
 	for i = 1, steps do
 		local a0, a1 = sweep * (i - 1) / steps, sweep * i / steps
-		local flat = R.OuterRadius - R.LipWidth
-		local inner0, flat0 = point(R.InnerRadius, a0), point(flat, a0)
-		local inner1, flat1 = point(R.InnerRadius, a1), point(flat, a1)
-		Triangle.make(model, inner0, flat0, flat1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
-		Triangle.make(model, inner0, flat1, inner1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+		for j = 1, #rows - 1 do
+			rampPlank(model, point(rows[j], a0), point(rows[j + 1], a0), point(rows[j], a1), point(rows[j + 1], a1))
+		end
 
 		-- A straight lip up the outer edge that pushes a drifting car back in,
 		-- like the brontosaurus's.
 		local lip0 = point(R.OuterRadius, a0) + Vector3.new(0, Silo.rampLipHeight(SHAPE, a0), 0)
 		local lip1 = point(R.OuterRadius, a1) + Vector3.new(0, Silo.rampLipHeight(SHAPE, a1), 0)
-		Triangle.make(model, flat0, lip0, lip1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
-		Triangle.make(model, flat0, lip1, flat1, Vector3.yAxis, R.Thickness, RAMP_COLOR)
+		rampPlank(model, point(rows[#rows], a0), lip0, point(rows[#rows], a1), lip1)
 
 		-- A glowing edge, so the drop can be seen in the dark.
 		local edge = block(

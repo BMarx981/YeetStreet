@@ -8,8 +8,9 @@
 -- A popper is a slab that shoots out of the column across the ramp. Each
 -- period it may fire or not, at a moment of its own, with a warning first. It
 -- only knocks a car while shooting out; the rest of the time it is out, it is
--- solid, like a wall. A sweeper never touches anything: it is a block that
--- rests at one end of its run, darts to the other, rests, and darts back.
+-- solid, like a wall. A sweeper is a block that rests at one end of its run,
+-- darts to the other, rests, and darts back. It only knocks a car while
+-- darting; resting, it is solid too.
 --
 -- Coordinates are studs from the shaft's middle, Y = 0 on the floor's top.
 -- `along` is radians down the ramp from its start, as in Silo.rampPoint. Pure,
@@ -196,8 +197,8 @@ end
 
 -- The velocity a trap gives a car at (x, y, z) moving at (vx, vy, vz) at
 -- `time`, or nil if none reaches it. A popper shooting out shoves it out and
--- up, and a sweeper does too, plus along the way it darts. A popper at any
--- other time does nothing here: out, it is a solid wall (SiloTrapsLook).
+-- up, and a darting sweeper does too, plus along the way it darts. Either one
+-- at any other time does nothing here: it is a solid wall (SiloTrapsLook).
 function SiloTraps.push(
 	ramp: Ramp,
 	config: Config,
@@ -240,7 +241,8 @@ function SiloTraps.push(
 			local moving = SiloTraps.sweeperMoving(S, trap.id, time)
 			local offset = SiloTraps.sweeperOffset(S, trap.id, time)
 			if
-				math.abs(apart * lane - offset) <= S.Length / 2 + config.Margin
+				moving ~= 0
+				and math.abs(apart * lane - offset) <= S.Length / 2 + config.Margin
 				and math.abs(r - lane) <= S.Across / 2 + config.Margin
 			then
 				local along = moving * S.PushAlong

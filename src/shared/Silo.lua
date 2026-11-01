@@ -19,6 +19,7 @@ export type Shape = {
 		Pitch: number, -- studs down per turn
 		InnerRadius: number,
 		OuterRadius: number,
+		Rows: number, -- planks across the flat
 		LipWidth: number,
 		LipHeight: number,
 		LipGrow: number, -- studs along the outer edge to reach full height
@@ -110,6 +111,19 @@ end
 -- start. It starts on +X heading -Z, the way the bridge runs.
 function Silo.rampPoint(shape: Shape, radius: number, along: number): (number, number, number)
 	return radius * math.cos(along), -shape.Ramp.Pitch * along / (2 * math.pi), -radius * math.sin(along)
+end
+
+-- The radii where the ramp's rows of planks meet, from the column to the lip.
+-- The ramp is steeper the nearer the column, so each row is as wide as turns
+-- the slope by the same amount, which makes them narrow toward the column.
+function Silo.rampRows(shape: Shape): { number }
+	local R = shape.Ramp
+	local inner, outer = 1 / R.InnerRadius, 1 / (R.OuterRadius - R.LipWidth)
+	local radii: { number } = {}
+	for i = 0, R.Rows do
+		table.insert(radii, 1 / (inner + (outer - inner) * i / R.Rows))
+	end
+	return radii
 end
 
 -- How high the ramp's outer lip stands `along` radians from its start. It

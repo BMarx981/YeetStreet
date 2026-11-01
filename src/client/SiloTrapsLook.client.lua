@@ -3,8 +3,8 @@
 -- Draws the silo ramp's booby traps (SiloTraps) and moves them every frame
 -- from the server's clock, so every player sees them in the same place.
 -- CarController asks SiloTraps.push how one knocks its car. A popper is solid
--- on this client while it is out, and each has a light on the column that glows
--- red before it fires. Sweepers never touch anything.
+-- on this client while it is out, and a sweeper while it rests. Each popper has
+-- a light on the column that glows red before it fires.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -127,6 +127,8 @@ local function place(look: Look, time: number)
 		local spot = at(lane, along, W.Height / 2 + 1)
 		local ahead = at(lane, along + 0.01, W.Height / 2 + 1)
 		look.part.CFrame = CFrame.lookAt(spot, ahead)
+		-- Darting, it knocks the car away instead (SiloTraps.push).
+		look.part.CanCollide = SiloTraps.sweeperMoving(W, trap.id, time) == 0
 	end
 end
 

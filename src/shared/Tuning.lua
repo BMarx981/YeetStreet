@@ -1460,7 +1460,8 @@ Tuning.Silo = {
 		InnerRadius = 49,
 		OuterRadius = 130,
 		Pitch = 80, -- about 8 degrees on the ramp's middle line
-		StepsPerTurn = 48,
+		StepsPerTurn = 72,
+		Rows = 6, -- planks across the flat; one long strip per step twists into a bump
 		Thickness = 2,
 		EdgeWidth = 1.5,
 		-- The outer edge rises like the brontosaurus's lip: 37 degrees. The
