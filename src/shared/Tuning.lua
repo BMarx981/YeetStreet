@@ -1432,6 +1432,14 @@ Tuning.Plant = {
 			Steam = { Calm = 0, Boil = 40 },
 			Spray = 120, -- drops thrown at the start of a burst
 			Jet = { Radius = 45, Height = 520, Rise = 0.35, Fade = 1.4 },
+			-- Boil loops all the time, from CalmVolume to Volume and from
+			-- CalmPitch to Pitch as the water heats. Boom and Hiss play at a burst.
+			Sound = {
+				Hearing = 700,
+				Boil = { Id = "rbxassetid://1075001850", CalmVolume = 0.15, Volume = 1, CalmPitch = 0.8, Pitch = 1.1 },
+				Boom = { Id = "rbxassetid://9125484367", Pitch = 1.2, Volume = 1 },
+				Hiss = { Id = "rbxassetid://9114887944", Pitch = 0.8, Volume = 1 },
+			},
 		},
 	},
 	-- Steam rising out of each tower all the time, like the volcano's smoke:

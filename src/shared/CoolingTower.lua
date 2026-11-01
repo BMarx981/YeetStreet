@@ -232,6 +232,14 @@ function CoolingTower.erupting(water: Water, now: number, index: number, slack: 
 	return at >= water.Period - water.Burst - slack or at < slack
 end
 
+-- Seconds since tower `index`'s latest burst began, at server time `now`. It
+-- holds no state, so a replay can ask about any moment.
+function CoolingTower.sinceBurst(water: Water, now: number, index: number): number
+	local at = (now + (index % 2) * water.Period / 2) % water.Period
+	local burstAt = water.Period - water.Burst
+	return if at >= burstAt then at - burstAt else at + water.Burst
+end
+
 -- Whether a car's middle at (x, y, z), from the tower's middle, is in the water.
 function CoolingTower.inWater(water: Water, x: number, y: number, z: number): boolean
 	return y <= water.Reach and x * x + z * z <= water.Radius * water.Radius

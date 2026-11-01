@@ -224,6 +224,14 @@ Check.test("the server's window runs a little past the burst at both ends", func
 	Check.eq(CoolingTower.erupting(WATER, 11, 2, 0.5), false, "well after")
 end)
 
+Check.test("the time since the last burst comes from the clock alone", function()
+	Check.near(CoolingTower.sinceBurst(WATER, 9.5, 2), 0.5, "during a burst")
+	Check.near(CoolingTower.sinceBurst(WATER, 10.5, 2), 1.5, "just after")
+	Check.near(CoolingTower.sinceBurst(WATER, 18.5, 2), 9.5, "just before the next")
+	Check.near(CoolingTower.sinceBurst(WATER, 19.5, 2), 0.5, "the next")
+	Check.near(CoolingTower.sinceBurst(WATER, 4.5, 1), 0.5, "the other tower's burst, half a period off")
+end)
+
 Check.test("the water is a low disc on the floor", function()
 	Check.eq(CoolingTower.inWater(WATER, 0, 3, 0), true, "middle")
 	Check.eq(CoolingTower.inWater(WATER, 60, 3, 70), true, "near the edge")

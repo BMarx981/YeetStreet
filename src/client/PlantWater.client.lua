@@ -3,8 +3,10 @@
 -- Draws the hot water in the nuclear plant's cooling towers from the server's
 -- clock (CoolingTower.eruption), so every player sees the same thing: calm, then
 -- boiling harder and whiter as a warning, then a jet up through the top of the
--- tower. CarController throws its own car. The water parts are tagged TowerWater
--- (Parks.Plant). Particles are drawn on each client, so they are made here.
+-- tower, with sounds to match. In a replay it shows the moment being watched
+-- (ReplayWorld). CarController throws its own car. The water parts are tagged
+-- TowerWater (Parks.Plant). Particles are drawn on each client, so they are made
+-- here.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +14,7 @@ local RunService = game:GetService("RunService")
 
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local W = Tuning.Plant.Water
 local L = W.Look
@@ -27,8 +30,10 @@ type Look = {
 	steam: ParticleEmitter,
 	spray: ParticleEmitter,
 	jet: Part,
+	boil: Sound,
+	boom: Sound,
+	hiss: Sound,
 	lastBurst: number?,
-	burstAt: number,
 }
 
 local looks: { [Instance]: Look } = {}
@@ -59,6 +64,16 @@ local function emitter(part: BasePart): ParticleEmitter
 	e.LightEmission = 0.3
 	e.Parent = part
 	return e
+end
+
+local function sound(part: BasePart, id: string, pitch: number, volume: number): Sound
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.PlaybackSpeed = pitch
+	s.Volume = volume
+	s.RollOffMaxDistance = L.Sound.Hearing
+	s.Parent = part
+	return s
 end
 
 local function track(instance: Instance)
@@ -92,6 +107,11 @@ local function track(instance: Instance)
 	spray.SpreadAngle = Vector2.new(12, 12)
 	spray.Acceleration = Vector3.new(0, -workspace.Gravity * 0.6, 0)
 
+	local S = L.Sound
+	local boil = sound(instance, S.Boil.Id, S.Boil.CalmPitch, S.Boil.CalmVolume)
+	boil.Looped = true
+	boil:Play()
+
 	looks[instance] = {
 		part = instance,
 		tower = tower,
@@ -99,8 +119,10 @@ local function track(instance: Instance)
 		steam = steam,
 		spray = spray,
 		jet = jetPart(),
+		boil = boil,
+		boom = sound(instance, S.Boom.Id, S.Boom.Pitch, S.Boom.Volume),
+		hiss = sound(instance, S.Hiss.Id, S.Hiss.Pitch, S.Hiss.Volume),
 		lastBurst = nil,
-		burstAt = -math.huge,
 	}
 end
 
@@ -135,7 +157,8 @@ local function drawJet(look: Look, since: number)
 end
 
 RunService.Heartbeat:Connect(function()
-	local now = workspace:GetServerTimeNow()
+	local now = ReplayWorld.serverTime()
+	local B = L.Sound.Boil
 	for _, look in looks do
 		local phase, progress, number = CoolingTower.eruption(WATER, now, look.tower)
 		local heat = if phase == "calm" then 0 elseif phase == "boil" then progress else 1
@@ -144,9 +167,12 @@ RunService.Heartbeat:Connect(function()
 		look.steam.Rate = L.Steam.Calm + (L.Steam.Boil - L.Steam.Calm) * heat
 		if phase == "burst" and look.lastBurst ~= number then
 			look.lastBurst = number
-			look.burstAt = now
 			look.spray:Emit(L.Spray)
+			look.boom:Play()
+			look.hiss:Play()
 		end
-		drawJet(look, now - look.burstAt)
+		look.boil.Volume = B.CalmVolume + (B.Volume - B.CalmVolume) * heat
+		look.boil.PlaybackSpeed = B.CalmPitch + (B.Pitch - B.CalmPitch) * heat
+		drawJet(look, CoolingTower.sinceBurst(WATER, now, look.tower))
 	end
 end)
