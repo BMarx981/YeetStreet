@@ -86,12 +86,14 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CarSensor = require(ReplicatedStorage.CarSensor)
+local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
 local Impact = require(ReplicatedStorage.Impact)
+local MapLayout = require(ReplicatedStorage.MapLayout)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
@@ -525,6 +527,40 @@ local function globe(watch: Watch)
 	end
 end
 
+-- A car rising fast out of a cooling tower's water during a burst was thrown
+-- (CarController): no hit is measured for the jump in its speed, and it arms a
+-- run like a launch pad, paying as usual. Resets and wrecks come back to the
+-- tower's foot.
+local plantArea = MapLayout.find(Tuning.Map.Areas :: any, "Plant")
+local towerFoot = CoolingTower.footRadius(Tuning.Plant.Tower :: any)
+local function towerBurst(watch: Watch, reading: CarSensor.Reading)
+	if not plantArea then
+		return
+	end
+	local W = Tuning.Plant.Water
+	local p = watch.sensor.hull.Position
+	local rising = watch.sensor.hull.AssemblyLinearVelocity.Y
+	if rising < W.Server.Rise or p.Y - Tuning.Map.FloorTop > W.Server.Column then
+		return
+	end
+	local time = workspace:GetServerTimeNow()
+	for i, place in Tuning.Plant.Towers do
+		local x, z = p.X - plantArea.X - place.X, p.Z - plantArea.Z - place.Z
+		if x * x + z * z <= W.Radius * W.Radius and CoolingTower.erupting(W :: any, time, i, W.Server.Slack) then
+			watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + W.Server.HitGrace)
+			reading.sample.onPad = true
+			watch.payScale = 1
+			local at = Vector3.new(
+				plantArea.X + place.X,
+				Tuning.Map.FloorTop + Tuning.TestPark.SpawnHeight,
+				plantArea.Z + place.Z + towerFoot + W.Respawn
+			)
+			lastLaunch[watch.player] = CFrame.lookAt(at, at - Vector3.zAxis)
+			return
+		end
+	end
+end
+
 -- A hit with a train's nose where it pushes the car lately is the train
 -- pushing it (CarController), so no hit is measured for a moment.
 local function trainPush(watch: Watch, reading: CarSensor.Reading)
@@ -908,6 +944,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 				trainPush(watch, reading)
 				gravitron(watch, reading)
 				globe(watch)
+				towerBurst(watch, reading)
 				if os.clock() >= watch.hitsFrom then
 					hurt(watch, reading.impact)
 				end

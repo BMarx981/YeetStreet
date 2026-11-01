@@ -191,6 +191,70 @@ function CoolingTower.stepHold(
 	return false, true
 end
 
+export type Water = {
+	Radius: number,
+	Reach: number, -- how high above the floor a car's middle still counts as in it
+	Period: number, -- seconds from one burst to the next
+	Boil: number, -- seconds of warning before a burst
+	Burst: number, -- seconds a car in the water gets thrown
+	Throw: {
+		Speed: number,
+		AimTime: number, -- seconds to reach the tower's middle, about when it clears the rim
+		KickHeight: number, -- above the floor, where the sideways kick comes
+		Side: number,
+	},
+}
+
+export type Phase = "calm" | "boil" | "burst"
+
+-- Where tower `index` is in its cycle at server time `now`: the phase, how far
+-- through it (0 to 1), and which cycle this is. Every client works it out the
+-- same from the clock, and the towers take turns, half a Period apart.
+function CoolingTower.eruption(water: Water, now: number, index: number): (Phase, number, number)
+	local t = now + (index % 2) * water.Period / 2
+	local number = t // water.Period
+	local at = t - number * water.Period
+	local boilAt = water.Period - water.Boil - water.Burst
+	local burstAt = water.Period - water.Burst
+	if at < boilAt then
+		return "calm", at / boilAt, number
+	elseif at < burstAt then
+		return "boil", (at - boilAt) / water.Boil, number
+	end
+	return "burst", (at - burstAt) / water.Burst, number
+end
+
+-- Whether a burst is on at `now`, or within `slack` seconds of one. The server
+-- allows for the car's client not quite agreeing with it.
+function CoolingTower.erupting(water: Water, now: number, index: number, slack: number): boolean
+	local t = now + (index % 2) * water.Period / 2
+	local at = t % water.Period
+	return at >= water.Period - water.Burst - slack or at < slack
+end
+
+-- Whether a car's middle at (x, y, z), from the tower's middle, is in the water.
+function CoolingTower.inWater(water: Water, x: number, y: number, z: number): boolean
+	return y <= water.Reach and x * x + z * z <= water.Radius * water.Radius
+end
+
+-- The velocity a burst gives a car at (x, z): up, and in so it reaches the
+-- tower's middle at AimTime, clear of the neck wherever it was in the water.
+function CoolingTower.throw(water: Water, x: number, z: number): (number, number, number)
+	local T = water.Throw
+	return -x / T.AimTime, T.Speed, -z / T.AimTime
+end
+
+-- The speed across the ground a car gets once it is up over the rim at
+-- KickHeight, in place of the speed it had, the way it points (lookX, lookZ), so
+-- the player picks which way out to land.
+function CoolingTower.kick(water: Water, lookX: number, lookZ: number): (number, number)
+	local length = math.sqrt(lookX * lookX + lookZ * lookZ)
+	if length < 1e-3 then
+		lookX, lookZ, length = 1, 0, 1
+	end
+	return lookX / length * water.Throw.Side, lookZ / length * water.Throw.Side
+end
+
 -- How far out the foot reaches on the ground.
 function CoolingTower.footRadius(shape: Shape): number
 	return CoolingTower.profile(shape)[1].R

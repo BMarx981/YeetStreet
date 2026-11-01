@@ -1409,6 +1409,32 @@ Tuning.Plant = {
 			FloorLike = 0.9, -- a surface this flat (the pull's -Y) never peels a car off
 		},
 	},
+	-- The hot water on each tower's floor (CoolingTower.eruption): calm, boils
+	-- as a warning, then bursts and throws out every car in it, starting a run.
+	Water = {
+		Radius = 95,
+		Reach = 8,
+		Height = 3, -- the water's top above the floor
+		Period = 10,
+		Boil = 3,
+		Burst = 1,
+		-- Speed 410 peaks about 650 up at gravity 130, and clears the rim about
+		-- AimTime in. Side has to land it past the foot.
+		Throw = { Speed = 410, AimTime = 1.2, KickHeight = 410, Side = 70 },
+		-- The server's check on a throw: rising faster than Rise, no more than
+		-- Column above the floor, during a burst give or take Slack. HitGrace
+		-- covers the kick too.
+		Server = { Column = 90, Rise = 100, Slack = 0.5, HitGrace = 2 },
+		Respawn = 30, -- past the foot, facing the tower
+		Look = {
+			Calm = Color3.fromRGB(70, 190, 200),
+			Hot = Color3.fromRGB(235, 250, 240),
+			Bubbles = { Calm = 6, Boil = 90 }, -- particles a second
+			Steam = { Calm = 0, Boil = 40 },
+			Spray = 120, -- drops thrown at the start of a burst
+			Jet = { Radius = 45, Height = 520, Rise = 0.35, Fade = 1.4 },
+		},
+	},
 }
 
 -- The missile silo (ServerScriptService.Parks.Silo, shape in Silo): a hole in

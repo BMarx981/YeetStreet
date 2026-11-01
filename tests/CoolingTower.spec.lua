@@ -179,4 +179,106 @@ Check.test("on a gentle slope a stopped car can set off again", function()
 	Check.eq(holding, true, "landed moving: holding")
 end)
 
+local WATER: CoolingTower.Water = {
+	Radius = 95,
+	Reach = 8,
+	Period = 10,
+	Boil = 3,
+	Burst = 1,
+	Throw = { Speed = 410, AimTime = 1.2, KickHeight = 410, Side = 70 },
+}
+
+Check.test("each cycle is calm, then boils, then bursts", function()
+	Check.eq((CoolingTower.eruption(WATER, 0, 2)), "calm", "start")
+	Check.eq((CoolingTower.eruption(WATER, 5.9, 2)), "calm", "end of calm")
+	Check.eq((CoolingTower.eruption(WATER, 6.1, 2)), "boil", "start of boil")
+	Check.eq((CoolingTower.eruption(WATER, 8.9, 2)), "boil", "end of boil")
+	Check.eq((CoolingTower.eruption(WATER, 9.1, 2)), "burst", "start of burst")
+	Check.eq((CoolingTower.eruption(WATER, 9.9, 2)), "burst", "end of burst")
+	Check.eq((CoolingTower.eruption(WATER, 10.1, 2)), "calm", "next cycle")
+end)
+
+Check.test("the phase says how far through it is, and each cycle has its own number", function()
+	local _, progress, number = CoolingTower.eruption(WATER, 7.5, 2)
+	Check.near(progress, 0.5, "half through the boil")
+	Check.eq(number, 0)
+	_, _, number = CoolingTower.eruption(WATER, 27.5, 2)
+	Check.eq(number, 2)
+end)
+
+Check.test("the towers take turns, half a period apart", function()
+	Check.eq((CoolingTower.eruption(WATER, 4.5, 1)), "burst", "tower 1")
+	Check.eq((CoolingTower.eruption(WATER, 4.5, 2)), "calm", "tower 2")
+	Check.eq((CoolingTower.eruption(WATER, 9.5, 1)), "calm", "tower 1 later")
+	Check.eq((CoolingTower.eruption(WATER, 9.5, 2)), "burst", "tower 2 later")
+end)
+
+Check.test("the server's window runs a little past the burst at both ends", function()
+	Check.eq(CoolingTower.erupting(WATER, 8.8, 2, 0.5), true, "just before")
+	Check.eq(CoolingTower.erupting(WATER, 9.5, 2, 0.5), true, "during")
+	Check.eq(CoolingTower.erupting(WATER, 10.4, 2, 0.5), true, "just after, into the next cycle")
+	Check.eq(CoolingTower.erupting(WATER, 8, 2, 0.5), false, "well before")
+	Check.eq(CoolingTower.erupting(WATER, 11, 2, 0.5), false, "well after")
+end)
+
+Check.test("the water is a low disc on the floor", function()
+	Check.eq(CoolingTower.inWater(WATER, 0, 3, 0), true, "middle")
+	Check.eq(CoolingTower.inWater(WATER, 60, 3, 70), true, "near the edge")
+	Check.eq(CoolingTower.inWater(WATER, 80, 3, 80), false, "past the edge")
+	Check.eq(CoolingTower.inWater(WATER, 0, 9, 0), false, "above it")
+end)
+
+Check.test("the throw goes up, aimed at the tower's middle", function()
+	local vx, vy, vz = CoolingTower.throw(WATER, 0, 0)
+	Check.near(vx, 0, "x")
+	Check.near(vy, 410, "y")
+	Check.near(vz, 0, "z")
+	vx, _, vz = CoolingTower.throw(WATER, 60, -30)
+	Check.near(vx, -50, "x")
+	Check.near(vz, 25, "z")
+end)
+
+Check.test("the kick goes the way the car points, across the ground", function()
+	local x, z = CoolingTower.kick(WATER, 0, -1)
+	Check.near(x, 0, "x")
+	Check.near(z, -70, "z")
+	x, z = CoolingTower.kick(WATER, 3, 4)
+	Check.near(x, 42, "x")
+	Check.near(z, 56, "z")
+end)
+
+Check.test("a car pointing straight up still gets kicked clear", function()
+	local x, z = CoolingTower.kick(WATER, 0, 0)
+	Check.near(math.sqrt(x * x + z * z), 70, "sideways")
+end)
+
+Check.test("from anywhere in the water, any way it points, a throw clears the neck and lands outside", function()
+	local gravity = 130
+	for _, start in { { 0, 0 }, { 90, 0 }, { -90, 0 }, { 0, 90 }, { 60, -60 }, { -60, 60 } } do
+		for turn = 0, 7 do
+			local angle = turn * math.pi / 4
+			local vx, vy, vz = CoolingTower.throw(WATER, start[1], start[2])
+			local label = `from {start[1]},{start[2]} facing {turn}`
+			local x, y, z = start[1], 3, start[2]
+			local kicked = false
+			while y > 0 do
+				x += vx / 60
+				z += vz / 60
+				y += vy / 60
+				vy -= gravity / 60
+				if not kicked and y >= WATER.Throw.KickHeight then
+					kicked = true
+					vx, vz = CoolingTower.kick(WATER, math.cos(angle), math.sin(angle))
+				end
+				if y > 20 and not kicked then
+					Check.eq(CoolingTower.pull(profile, 14, x, y, z), nil, `{label} touches the wall at y {y}`)
+				end
+			end
+			Check.eq(kicked, true, `{label} got above the rim`)
+			local landed = math.sqrt(x * x + z * z)
+			Check.eq(landed > CoolingTower.footRadius(SHAPE), true, `{label} lands at r {landed}`)
+		end
+	end
+end)
+
 Check.finish("CoolingTower")

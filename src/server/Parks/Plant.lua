@@ -2,9 +2,11 @@
 -- Plant (ModuleScript) -> ServerScriptService.Parks.Plant
 -- The nuclear plant, built by ParkService into workspace.Parks.Plant: two
 -- cooling towers, each a ring of planks spun from CoolingTower's profile, so a
--- car can drive up the outside, over the rim, and down inside. Numbers are in
--- Tuning.Plant, the shape in CoolingTower.
+-- car can drive up the outside, over the rim, and down inside, where hot water
+-- bursts and throws it out (CarController, ScoreService, PlantWater). Numbers
+-- are in Tuning.Plant, the shape in CoolingTower.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
@@ -14,6 +16,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local S = Tuning.Plant
 local T = S.Tower
+local W = S.Water
 local SHAPE: CoolingTower.Shape = T :: any
 local FLOOR = Tuning.Map.FloorTop
 
@@ -82,6 +85,23 @@ local function buildTower(parent: Instance, index: number, center: CFrame)
 
 	local floor = 2 * CoolingTower.floorRadius(SHAPE) + 2 * T.Thickness
 	block(model, "TowerFloor", Vector3.new(floor, 0.2, floor), center * CFrame.new(0, 0.05, 0), T.FloorColor)
+
+	-- Paint a car drives through. PlantWater makes it boil and burst.
+	local water = block(
+		model,
+		"HotWater",
+		Vector3.new(W.Height, 2 * W.Radius, 2 * W.Radius),
+		center * CFrame.new(0, W.Height / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		W.Look.Calm
+	)
+	water.Shape = Enum.PartType.Cylinder
+	water.Material = Enum.Material.Neon
+	water.CanCollide = false
+	water.CanQuery = false
+	water.CanTouch = false
+	water.CastShadow = false
+	water:SetAttribute("Tower", index)
+	CollectionService:AddTag(water, "TowerWater")
 end
 
 function Plant.build(folder: Folder, area: MapLayout.Area)

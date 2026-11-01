@@ -500,6 +500,40 @@ local function towerWallPull(position: Vector3, velocity: Vector3): Vector3?
 	return nil
 end
 
+-- The velocity a burst of hot water gives a car in it, or nil, and whether the
+-- throw has only just begun. Each burst throws it once, up the tower's middle,
+-- and it is kicked out sideways once it is over the rim.
+local towerThrownIn: { [number]: number } = {}
+local towerKickDue = false
+local function towerThrow(position: Vector3, velocity: Vector3, look: Vector3, now: number): (Vector3?, boolean)
+	if not plantArea then
+		return nil, false
+	end
+	local W = Tuning.Plant.Water
+	if towerKickDue then
+		if velocity.Y <= 0 then
+			towerKickDue = false
+		elseif position.Y - Tuning.Map.FloorTop >= W.Throw.KickHeight then
+			towerKickDue = false
+			local x, z = CoolingTower.kick(W :: any, look.X, look.Z)
+			return Vector3.new(x, velocity.Y, z), false
+		end
+	end
+	for i, place in Tuning.Plant.Towers do
+		local x, z = position.X - plantArea.X - place.X, position.Z - plantArea.Z - place.Z
+		if CoolingTower.inWater(W :: any, x, position.Y - Tuning.Map.FloorTop, z) then
+			local phase, _, number = CoolingTower.eruption(W :: any, now, i)
+			if phase == "burst" and towerThrownIn[i] ~= number then
+				towerThrownIn[i] = number
+				towerKickDue = true
+				local vx, vy, vz = CoolingTower.throw(W :: any, x, z)
+				return Vector3.new(vx, vy, vz), true
+			end
+		end
+	end
+	return nil, false
+end
+
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
 -- its BreakSpeed and the time it turns solid again (0 while it is solid).
 -- A car faster than that is let through the boulders near it, on this
@@ -596,9 +630,15 @@ local function step(r: Rig, dt: number)
 	if knocked then
 		setVelocity(r, knocked)
 	end
+	-- Hot water bursting under the car throws it out of the tower, and that
+	-- starts a run like a launch pad.
+	local thrown, thrownOff = towerThrow(cf.Position, r.hull.AssemblyLinearVelocity, cf.LookVector, now)
+	if thrown then
+		setVelocity(r, thrown)
+	end
 
 	local reading = CarSensor.read(r.sensor, dt, up)
-	if smacked or zapped then
+	if smacked or zapped or thrownOff then
 		reading.sample.onPad = true
 		zapped = false
 	end
