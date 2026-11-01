@@ -154,6 +154,32 @@ Check.test("the look grows smoothly out of the dead zone and stops past the edge
 	Check.near(yaw, -150, "past the edge")
 end)
 
+local WATCH = { Distance = 100, Elevation = 30 }
+
+Check.test("the view of a blast stands behind the way the missile flew, and above it", function()
+	local x, y, z = Missile.watchOffset(WATCH, 0, -1, 0, 0, 0)
+	Check.near(x, 0, "straight behind")
+	Check.near(y, 50, "up by the elevation")
+	Check.near(z, 100 * math.cos(math.rad(30)), "flew toward -Z, so it stands toward +Z")
+end)
+
+Check.test("a missile's tilt does not change how far away the view stands", function()
+	local x, y, z = Missile.watchOffset(WATCH, 0.3, -0.4, 0, 0, 0)
+	Check.near(math.sqrt(x * x + y * y + z * z), 100, "distance")
+end)
+
+Check.test("the pointer swings the view of a blast round it", function()
+	local x, _, z = Missile.watchOffset(WATCH, 0, -1, 0, 0, 90)
+	Check.near(x, 100 * math.cos(math.rad(30)), "looking left from the far right")
+	Check.near(z, 0, "side on")
+end)
+
+Check.test("diving straight down, the view takes its heading from the missile's top", function()
+	local x, _, z = Missile.watchOffset(WATCH, 0, 0, 1, 0, 0)
+	Check.near(x, -100 * math.cos(math.rad(30)), "behind the way its top points")
+	Check.near(z, 0, "z")
+end)
+
 Check.test("a picked heading lands on the map from the silo, without steering", function()
 	local rng = Rng.new(5)
 	for _ = 1, 20 do

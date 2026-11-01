@@ -367,8 +367,8 @@ end
 
 -- Every part left flies off and pays Smash points on a run, for up to
 -- WreckSmashes of them, sparks burst, the run ends as a wreck, and the car
--- respawns fresh after WreckBeat.
-local function wreck(watch: Watch)
+-- respawns fresh after `beat`, WreckBeat if not given.
+local function wreck(watch: Watch, beat: number?)
 	watch.wrecked = true
 	local broken = math.min(CarDamage.breakParts(watch.car, nil, math.huge), T.WreckSmashes)
 	if watch.run.phase == "flying" then
@@ -379,7 +379,7 @@ local function wreck(watch: Watch)
 	if result then
 		finish(watch, result)
 	end
-	task.delay(T.WreckBeat, respawn, watch)
+	task.delay(beat or T.WreckBeat, respawn, watch)
 end
 
 -- Coming down in lava or a pool ends the run as a landing, never clean,
@@ -753,13 +753,14 @@ end)
 playerEaten.Parent = ServerStorage
 
 -- A silo missile's blast (Parks.SiloMissile fires ServerStorage.CarBlasted):
--- the car wrecks at once, whatever its toughness.
+-- the car wrecks at once, whatever its toughness, and respawns after `beat`
+-- if given.
 local carBlasted = Instance.new("BindableEvent")
 carBlasted.Name = "CarBlasted"
-carBlasted.Event:Connect(function(car: Model)
+carBlasted.Event:Connect(function(car: Model, beat: number?)
 	local watch = watches[car]
 	if watch and not watch.wrecked then
-		wreck(watch)
+		wreck(watch, beat)
 	end
 end)
 carBlasted.Parent = ServerStorage

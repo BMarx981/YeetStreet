@@ -1490,6 +1490,10 @@ Tuning.Silo = {
 	-- its own R point. Each client draws the rest (SiloBlast, MissileCloud).
 	Blast = {
 		Radius = 100,
+		Watch = 4, -- seconds the rider stays at the spot, watching, before they respawn
+		-- The rider's view while they watch (MissileCamera): backed out of the
+		-- cloud so all of it fits, and the pointer swings it round.
+		WatchView = { Distance = 220, Elevation = 25, Focus = 120, Sharpness = 1.5 },
 		Rise = 3,
 		Stem = { Puffs = 10, Height = 180, Radius = 22 },
 		Cap = { Puffs = 18, Height = 200, Reach = 90, Radius = 38, Crown = 8, CrownReach = 40, CrownRise = 35 },

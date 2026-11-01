@@ -96,6 +96,31 @@ function Missile.lookAngles(
 	return -axis(x) * look.LookYaw, -axis(y) * look.LookPitch
 end
 
+-- Where the rider's view of their blast stands, from what it looks at: behind
+-- the way the missile flew, turned `yaw` degrees round it (positive looks
+-- left), and raised by Elevation degrees. A missile diving straight down has
+-- no heading along its look, so it takes it from the missile's top.
+function Missile.watchOffset(
+	watch: { Distance: number, Elevation: number },
+	lookX: number,
+	lookZ: number,
+	upX: number,
+	upZ: number,
+	yaw: number
+): (number, number, number)
+	local x, z = lookX, lookZ
+	if math.sqrt(x * x + z * z) < 0.1 then
+		x, z = upX, upZ
+	end
+	local length = math.sqrt(x * x + z * z)
+	x, z = x / length, z / length
+	local c, s = math.cos(math.rad(yaw)), math.sin(math.rad(yaw))
+	x, z = x * c + z * s, z * c - x * s
+	local elevation = math.rad(watch.Elevation)
+	local flat = watch.Distance * math.cos(elevation)
+	return -x * flat, watch.Distance * math.sin(elevation), -z * flat
+end
+
 -- Where it comes down with no steering and no drift, on the ground.
 function Missile.landing(config: Config, x: number, y: number, z: number, azimuth: number): (number, number)
 	local still = table.clone(config)

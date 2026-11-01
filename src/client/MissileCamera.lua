@@ -15,6 +15,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local M = Tuning.Silo.Missile
 local LOOK = { LookYaw = M.LookYaw, LookPitch = M.LookPitch, LookDeadzone = M.LookDeadzone }
+local WATCH = Tuning.Silo.Blast.WatchView
 
 local MissileCamera = {}
 
@@ -78,6 +79,21 @@ function MissileCamera.update(hull: BasePart, dt: number)
 
 	local position = hull.Position - view.LookVector * M.CameraDistance + view.UpVector * M.CameraHeight
 	camera.CFrame = CFrame.lookAt(position, hull.Position, view.UpVector)
+end
+
+-- After the hit: backs out of the cloud to look at it, keeping the spot in
+-- the middle of the view. Left and right on the pointer swing round it.
+function MissileCamera.watch(hull: BasePart, dt: number)
+	local camera = workspace.CurrentCamera
+	camera.CameraType = Enum.CameraType.Scriptable
+	local from = base or hull.CFrame.Rotation
+	base = from
+	local yaw = Missile.lookAngles(LOOK, pointing().X, 0)
+	local x, y, z =
+		Missile.watchOffset(WATCH, from.LookVector.X, from.LookVector.Z, from.UpVector.X, from.UpVector.Z, yaw)
+	local focus = hull.Position + Vector3.new(0, WATCH.Focus, 0)
+	local want = CFrame.lookAt(focus + Vector3.new(x, y, z), focus)
+	camera.CFrame = camera.CFrame:Lerp(want, 1 - math.exp(-WATCH.Sharpness * dt))
 end
 
 -- Forgets the ride, so the next starts from behind the missile.

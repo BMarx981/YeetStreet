@@ -11,7 +11,9 @@
 -- The car's OnMissile attribute is set for the ride, so R and getting out do
 -- nothing. A hit ends the ride and wrecks the rider and every car within
 -- Blast.Radius (ServerStorage.CarBlasted), and ReplicatedStorage.MissileBlast
--- has every client draw it (SiloBlast).
+-- has every client draw it (SiloBlast). The rider's car stays anchored at the
+-- spot for Blast.Watch, so their camera (MissileCamera.watch) stays to watch,
+-- until the respawn replaces it.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -246,14 +248,13 @@ function SiloMissile.start(folder: Folder, area: MapLayout.Area)
 	local function hit(ride: Ride, position: Vector3)
 		local rider = ride.car
 		finish(ride)
-		setAnchored(rider, false)
 		blastRemote:FireAllClients(position)
 		local blasted = ServerStorage:FindFirstChild("CarBlasted")
 		local carsFolder = workspace:FindFirstChild("Cars")
 		if not blasted or not blasted:IsA("BindableEvent") or not carsFolder then
 			return
 		end
-		blasted:Fire(rider)
+		blasted:Fire(rider, B.Watch)
 		for _, car in carsFolder:GetChildren() do
 			local hull = if car:IsA("Model") and car ~= rider then car.PrimaryPart else nil
 			if hull then

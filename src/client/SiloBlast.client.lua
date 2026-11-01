@@ -72,9 +72,6 @@ local function puff(parent: Instance, at: Vector3, spec: MissileCloud.Puff)
 			Size = Vector3.one * 2 * spec.radius,
 		})
 		tween(part, B.Cool, Enum.EasingStyle.Sine, { Color = B.Smoke })
-		task.delay(B.Cool, function()
-			part.Material = Enum.Material.SmoothPlastic
-		end)
 		task.delay(B.Hold, function()
 			tween(part, B.Fade, Enum.EasingStyle.Sine, { Transparency = 1 })
 		end)
