@@ -42,6 +42,9 @@
 -- from how the car turned, and its laugh from when parts broke. Its gills and
 -- tail fly off like a ghost's parts, but its body stays on through a wreck, so
 -- it keeps its wheels too.
+--
+-- The mesh Velociraptor replays as itself the same way: its arms and tail fly
+-- off, and the rest stays on through a wreck. It has no wheels to show.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -55,6 +58,7 @@ local ReplayClock = require(ReplicatedStorage.ReplayClock)
 local ReplayOrbit = require(ReplicatedStorage.ReplayOrbit)
 local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
+local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 local CarPreview = require(script.Parent.CarPreview)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
@@ -115,15 +119,15 @@ local function noPhysics(part: BasePart)
 	part.Massless = true
 end
 
--- The Axolotl Throttle under `ghost`, leaving off the pieces lost before the
--- clip, with the pieces that move.
-local function buildAxolotl(
+-- For a fixed mesh look under `ghost`: leaves off the pieces of `order` lost
+-- before the clip. Returns when the others break off, and the clip times parts
+-- broke.
+local function meshBreaks(
 	replay: ReplayRecorder.Replay,
-	mesh: Model,
 	design: CarDesign.Design,
-	ghost: Model
-): ({ Piece }, AxolotlGhost)
-	AxolotlThrottle.build(mesh, CFrame.new(), ghost)
+	ghost: Model,
+	order: { string }
+): ({ [Instance]: number }, { number })
 	local before, total = 0, 0
 	for _, slot in CarParts.Slots do
 		local value = replay.look[CarParts.brokenAttribute(slot)]
@@ -136,7 +140,7 @@ local function buildAxolotl(
 	end
 	local gone, times = AxolotlMoves.pieceBreaks(before, hits, total)
 	local breakAt: { [Instance]: number } = {}
-	for k, name in AxolotlThrottle.BreakOrder do
+	for k, name in order do
 		local part = ghost:FindFirstChild(name)
 		if part and k <= gone then
 			part:Destroy()
@@ -144,6 +148,40 @@ local function buildAxolotl(
 			breakAt[part] = times[k]
 		end
 	end
+	return breakAt, hits
+end
+
+-- The mesh Velociraptor under `ghost`, leaving off the pieces lost before the
+-- clip.
+local function buildVelociraptor(
+	replay: ReplayRecorder.Replay,
+	mesh: Model,
+	design: CarDesign.Design,
+	ghost: Model
+): { Piece }
+	VelociraptorCar.build(mesh, CFrame.new(), ghost)
+	local breakAt = meshBreaks(replay, design, ghost, VelociraptorCar.BreakOrder)
+	local pieces: { Piece } = {}
+	for _, part in ghost:GetDescendants() do
+		if part:IsA("BasePart") then
+			noPhysics(part)
+			part.Anchored = true
+			table.insert(pieces, { part = part, offset = part.CFrame, breakAt = breakAt[part] })
+		end
+	end
+	return pieces
+end
+
+-- The Axolotl Throttle under `ghost`, leaving off the pieces lost before the
+-- clip, with the pieces that move.
+local function buildAxolotl(
+	replay: ReplayRecorder.Replay,
+	mesh: Model,
+	design: CarDesign.Design,
+	ghost: Model
+): ({ Piece }, AxolotlGhost)
+	AxolotlThrottle.build(mesh, CFrame.new(), ghost)
+	local breakAt, hits = meshBreaks(replay, design, ghost, AxolotlThrottle.BreakOrder)
 
 	local pieces: { Piece } = {}
 	local axolotl: AxolotlGhost = { moves = AxolotlMoves.newMoves(), time = 0, hits = hits }
@@ -186,6 +224,15 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 	if not design then
 		ghost:Destroy()
 		return nil, {}, nil
+	end
+
+	local raptorMesh = if look.VelociraptorMesh == true
+			and look.HeliCar ~= true
+			and look.PlaneCar ~= true
+		then VelociraptorCar.mesh()
+		else nil
+	if raptorMesh then
+		return ghost, buildVelociraptor(replay, raptorMesh, design, ghost), nil
 	end
 
 	local mesh = if look.AxolotlThrottle == true
