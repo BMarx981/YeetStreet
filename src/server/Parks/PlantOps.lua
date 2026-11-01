@@ -5,15 +5,21 @@
 -- corner rising to the wall, and a lip along each roof edge. It looks like a
 -- laboratory: white panels, ribbon windows with painted lines, a glowing band, a
 -- sign with status lights, and a glass dome, radar dish, antenna, and vents on
--- the roof. Only the tower, curves, lips, and dome are solid; the rest is paint
--- lying flat on the walls, and fittings on the roof, that cars pass through. Numbers are in Tuning.Plant.Ops.
+-- the roof. The tower, curves, lips, and dome are solid, and the dome is low
+-- enough to drive over (BellDome). The walls' dressing is paint lying flat, that
+-- cars pass through. The dish, antenna, and each vent break apart when a car hits
+-- them and come back (PropService). Numbers are in Tuning.Plant.Ops.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local BellDome = require(ReplicatedStorage.BellDome)
+local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 
 local O = Tuning.Plant.Ops
@@ -206,7 +212,30 @@ local function buildLip(parent: Instance, center: CFrame, out: Vector3, half: nu
 	lip.Parent = parent
 end
 
-local function buildDish(parent: Instance, roof: CFrame)
+-- A model whose parts all fly apart when a car hits any of them.
+local function newBreakable(parent: Instance, name: string): Model
+	local model = Instance.new("Model")
+	model.Name = name
+	model:SetAttribute("Shatter", true)
+	model.Parent = parent
+	return model
+end
+
+-- Makes the parts built in `model` breakable. Knocked, they need to land on the
+-- roof; standing, the Props group keeps them from ever touching a car.
+local function finishBreakable(model: Model)
+	for _, part in model:GetChildren() do
+		if part:IsA("BasePart") then
+			part.CanCollide = true
+			part.CollisionGroup = CollisionGroups.Props
+			part:SetAttribute("ResetTime", O.BreakReset)
+			CollectionService:AddTag(part, "Knockable")
+		end
+	end
+end
+
+local function buildDish(roofModel: Instance, roof: CFrame)
+	local parent = newBreakable(roofModel, "RadarDish")
 	local D = O.Dish
 	local spot = roof * CFrame.new(D.X, 0, D.Z)
 	upright(parent, "DishPost", D.PostWidth, D.PostHeight, spot, O.Fin, Enum.Material.Metal)
@@ -231,9 +260,11 @@ local function buildDish(parent: Instance, roof: CFrame)
 	)
 	fitting(parent, "DishTip", Vector3.new(3, 3, 3), mount * CFrame.new(D.FeedLength, 0, 0), O.Glow, Enum.Material.Neon).Shape =
 		Enum.PartType.Ball
+	finishBreakable(parent)
 end
 
-local function buildMast(parent: Instance, roof: CFrame)
+local function buildMast(roofModel: Instance, roof: CFrame)
+	local parent = newBreakable(roofModel, "Antenna")
 	local M = O.Mast
 	local spot = roof * CFrame.new(M.X, 0, M.Z)
 	upright(parent, "Mast", M.Width, M.Height, spot, O.Fin, Enum.Material.Metal)
@@ -250,15 +281,54 @@ local function buildMast(parent: Instance, roof: CFrame)
 	end
 	fitting(parent, "Beacon", Vector3.new(4, 4, 4), spot * CFrame.new(0, M.Height, 0), O.Beacon, Enum.Material.Neon).Shape =
 		Enum.PartType.Ball
+	finishBreakable(parent)
 end
 
-local function buildVents(parent: Instance, roof: CFrame)
+local function buildVents(roofModel: Instance, roof: CFrame)
 	local V = O.Vents
 	for i = 1, V.Count do
+		local parent = newBreakable(roofModel, "Vent")
 		local spot = roof * CFrame.new(V.X + (i - 1) * V.Every, 0, V.Z)
-		upright(parent, "Vent", V.Width, V.Height, spot, O.Fin, Enum.Material.Metal)
+		upright(parent, "VentPipe", V.Width, V.Height, spot, O.Fin, Enum.Material.Metal)
 		upright(parent, "VentGlow", V.Width + 0.6, 1, spot * CFrame.new(0, V.Height - 3, 0), O.Glow, Enum.Material.Neon)
+		finishBreakable(parent)
 	end
+end
+
+-- The dome: planks spun from BellDome's line, like the cooling towers, so a car
+-- can drive up and over it.
+local function buildDome(parent: Instance, roof: CFrame)
+	local D = O.Dome
+	local model = Instance.new("Model")
+	model.Name = "Dome"
+	model.Parent = parent
+	local center = roof * CFrame.new(D.X, 0, D.Z)
+	local profile = BellDome.profile(D.Radius, D.Height, D.Rows)
+	local step = 2 * math.pi / D.Slices
+	local half, apothem = math.sin(step / 2), math.cos(step / 2)
+	for i = 1, D.Slices do
+		local angle = (i - 0.5) * step
+		local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		for j = 1, #profile - 1 do
+			local a, b = profile[j], profile[j + 1]
+			local p0 = out * a.R * apothem + Vector3.yAxis * a.Y
+			local p1 = out * b.R * apothem + Vector3.yAxis * b.Y
+			local chord = p1 - p0
+			local nr, ny = CoolingTower.normal(a, b)
+			local normal = out * nr + Vector3.yAxis * ny
+			local across = chord.Unit:Cross(normal)
+			local plank = solid(
+				model,
+				"Plank",
+				Vector3.new(2 * math.max(a.R, b.R) * half + 0.4, D.Thickness, chord.Magnitude + 0.4),
+				center
+					* CFrame.fromMatrix((p0 + p1) / 2 - normal * D.Thickness / 2, across, normal, across:Cross(normal)),
+				O.Glass
+			)
+			plank.Material = Enum.Material.Glass
+		end
+	end
+	upright(model, "DomeRing", 2 * D.Radius + 3, 0.2, center, O.Glow, Enum.Material.Neon)
 end
 
 local function buildRoof(parent: Instance, center: CFrame, halfX: number, halfZ: number)
@@ -272,15 +342,7 @@ local function buildRoof(parent: Instance, center: CFrame, halfX: number, halfZ:
 	buildLip(model, center, Vector3.xAxis, halfX, depth)
 
 	local roof = center * CFrame.new(0, O.Height, 0)
-	-- The dome is half sunk into the roof, and solid: a car can hit it.
-	local D = O.Dome
-	local dome =
-		solid(model, "Dome", Vector3.new(D.Diameter, D.Diameter, D.Diameter), roof * CFrame.new(D.X, 0, D.Z), O.Glass)
-	dome.Shape = Enum.PartType.Ball
-	dome.Material = Enum.Material.Glass
-	dome.Transparency = D.Transparency
-	upright(model, "DomeRing", D.Diameter + 3, 1, roof * CFrame.new(D.X, 0, D.Z), O.Glow, Enum.Material.Neon)
-
+	buildDome(model, roof)
 	buildDish(model, roof)
 	buildMast(model, roof)
 	buildVents(model, roof)

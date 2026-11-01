@@ -1503,7 +1503,9 @@ Tuning.Plant = {
 				Color3.fromRGB(255, 60, 50),
 			},
 		},
-		Dome = { X = -55, Z = 0, Diameter = 80, Transparency = 0.25 },
+		-- Low enough to drive over: steepest is pi * Height / (2 * Radius) radians.
+		Dome = { X = -55, Z = 0, Radius = 65, Height = 18, Rows = 12, Slices = 32, Thickness = 2 },
+		BreakReset = 8, -- seconds until a broken dish, antenna, or vent is back
 		Dish = {
 			X = 70,
 			Z = -40,
