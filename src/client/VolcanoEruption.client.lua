@@ -4,7 +4,8 @@
 -- (Parks.Dino), anyone's car this client can see, or the ghost in a replay:
 -- lava spray and smoke burst out of the vent, and just after, behind the car,
 -- the crater blows: a flash, a shock ring and a boom, then a fountain of lava,
--- glowing rocks, and a column of fire cooling to smoke. In between, smoke rises
+-- glowing rocks, a column of fire cooling to smoke, dark smoke climbing above
+-- it, and lightning striking down onto the cone. In between, smoke rises
 -- from the whole crater all the time. Only for looks, built on each client:
 -- the rocks are in the Props collision group, so they never touch a car, and
 -- cars' rays skip them. Numbers are in Tuning.Dino.Volcano.Eruption and
@@ -265,7 +266,108 @@ local function puff()
 	Debris:AddItem(part, E.PuffTime + 0.1)
 end
 
+-- A ball of dark smoke that climbs higher and wider than the fire, its top
+-- leaning back from the way cars are thrown.
+local function ash()
+	local start = middle.CFrame
+		* CFrame.new(random:NextNumber(-BLAST_REACH, BLAST_REACH), 0, random:NextNumber(-BLAST_REACH, BLAST_REACH))
+	local spread = E.AshSpread
+	local to = start
+		* CFrame.new(
+			random:NextNumber(-spread, spread),
+			E.AshRise * random:NextNumber(0.6, 1),
+			random:NextNumber(-spread, spread) + E.AshLean
+		)
+	local part = ghost(Enum.PartType.Ball, Vector3.one * 40, start, E.Ash)
+	part.Material = Enum.Material.SmoothPlastic
+	part.Transparency = E.AshClear
+	TweenService:Create(part, TweenInfo.new(E.AshTime, Enum.EasingStyle.Quad), {
+		CFrame = to,
+		Size = Vector3.one * E.AshSize * random:NextNumber(0.6, 1),
+	}):Play()
+	task.delay(E.AshTime * 0.6, function()
+		TweenService:Create(part, TweenInfo.new(E.AshTime * 0.4, Enum.EasingStyle.Sine), { Transparency = 1 }):Play()
+	end)
+	Debris:AddItem(part, E.AshTime + 0.1)
+end
+
+local function wander(): number
+	return random:NextNumber(-1, 1)
+end
+
+-- Lightning through `points`, world positions; shows, then fades.
+local function boltPieces(points: { Volcano.Point }, width: number)
+	for i = 1, #points - 1 do
+		local a = Vector3.new(points[i].x, points[i].y, points[i].z)
+		local b = Vector3.new(points[i + 1].x, points[i + 1].y, points[i + 1].z)
+		local piece = ghost(
+			Enum.PartType.Block,
+			Vector3.new(width, width, (b - a).Magnitude + width),
+			CFrame.lookAt((a + b) / 2, b),
+			E.BoltColor
+		)
+		piece.Name = "Bolt"
+		TweenService
+			:Create(
+				piece,
+				TweenInfo.new(E.BoltTime, Enum.EasingStyle.Quint, Enum.EasingDirection.In),
+				{ Transparency = 1 }
+			)
+			:Play()
+		Debris:AddItem(piece, E.BoltTime + 0.1)
+	end
+end
+
+-- A bolt from high in the column down onto the cone's side, with a branch and
+-- a crack of thunder from the volcano.
+local function strike()
+	local spread = E.PuffSpread
+	local from = middle.Position
+		+ Vector3.new(
+			random:NextNumber(-spread, spread),
+			random:NextNumber(E.BoltLow, E.BoltHigh),
+			random:NextNumber(-spread, spread)
+		)
+	local down = random:NextNumber(0, 1)
+	local yaw = random:NextNumber(0, 2 * math.pi)
+	local radius = V.Cone.TopRadius + (V.Cone.BaseRadius - V.Cone.TopRadius) * down
+	local to =
+		base:PointToWorldSpace(Vector3.new(radius * math.sin(yaw), V.Cone.Height * (1 - down), radius * math.cos(yaw)))
+	local points = Volcano.bolt(
+		{ x = from.X, y = from.Y, z = from.Z },
+		{ x = to.X, y = to.Y, z = to.Z },
+		E.BoltSegments,
+		E.BoltReach,
+		wander
+	)
+	boltPieces(points, E.BoltWidth)
+
+	-- The branch leaves partway down and stops in the air.
+	local fork = points[math.floor(#points / 2)]
+	local away = Vector3.new(random:NextNumber(-1, 1), -1, random:NextNumber(-1, 1)) * E.BoltReach * 2
+	boltPieces(
+		Volcano.bolt(
+			fork,
+			{ x = fork.x + away.X, y = fork.y + away.Y, z = fork.z + away.Z },
+			E.BoltSegments // 3,
+			E.BoltReach / 3,
+			wander
+		),
+		E.BoltWidth / 2
+	)
+
+	local sound = Instance.new("Sound")
+	sound.SoundId = E.BoomId
+	sound.PlaybackSpeed = E.ThunderPitch
+	sound.Volume = E.ThunderVolume
+	sound.RollOffMaxDistance = E.BoomReach
+	sound.Parent = middle
+	sound:Play()
+	Debris:AddItem(sound, 6)
+end
+
 local eruptingUntil = 0
+local eruptedAt = 0
 
 -- The burst at the vent now, and the crater blowing behind the car just
 -- after. Another launch while it erupts only makes it last longer.
@@ -276,6 +378,7 @@ local function erupt()
 		local now = os.clock()
 		if now >= eruptingUntil then
 			flash()
+			eruptedAt = now
 		end
 		eruptingUntil = now + E.Duration
 	end)
@@ -284,7 +387,7 @@ end
 local carsFolder = workspace:WaitForChild("Cars")
 local lastErupted: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
 local wasErupting = false
-local rocksDue, puffsDue = 0, 0
+local rocksDue, puffsDue, ashDue, boltsDue = 0, 0, 0, 0
 local ghostInZone = false
 
 local function inVentZone(position: Vector3): boolean
@@ -340,6 +443,20 @@ RunService.Heartbeat:Connect(function(dt: number)
 		while puffsDue >= 1 do
 			puffsDue -= 1
 			puff()
+		end
+		if now - eruptedAt >= E.BoltStart then
+			boltsDue += E.BoltRate * dt
+			while boltsDue >= 1 do
+				boltsDue -= 1
+				strike()
+			end
+		end
+	end
+	if now < eruptingUntil + E.AshLinger then
+		ashDue += E.AshRate * dt
+		while ashDue >= 1 do
+			ashDue -= 1
+			ash()
 		end
 	end
 end)

@@ -2937,7 +2937,14 @@ Tuning.Dino = {
 		-- across at MinSpeed to MaxSpeed within Spread degrees of straight up,
 		-- gone after RockTime, and PuffRate balls of fire a second that climb
 		-- PuffRise up the column, growing to PuffSize and cooling to smoke
-		-- over PuffTime.
+		-- over PuffTime. AshRate balls of dark smoke a second climb AshRise,
+		-- growing to AshSize over AshTime, the top leaning AshLean back from
+		-- the way cars are thrown so it doesn't hide them, and keep coming
+		-- AshLinger after the eruption ends. Starting BoltStart after the
+		-- blast, BoltRate lightning bolts a second strike from BoltLow to
+		-- BoltHigh up the column down onto the cone, BoltWidth thick, BoltTime
+		-- long, in BoltSegments pieces wandering BoltReach, each with a branch
+		-- and a crack of thunder.
 		-- While the car flies off the vent, the camera (EruptionCamera) swings
 		-- Above over the car and Back behind it, looking down between the car
 		-- and the crater, so both are in view. See Volcano.Watch for its times.
@@ -2950,7 +2957,7 @@ Tuning.Dino = {
 		-- thickest, 0 solid to 1 gone. EruptRate puffs a second while it erupts.
 		Smoke = {
 			Rate = 6,
-			EruptRate = 30,
+			EruptRate = 60,
 			MinSize = 40,
 			MaxSize = 100,
 			MinRise = 15,
@@ -2987,13 +2994,33 @@ Tuning.Dino = {
 			MaxSpeed = 520,
 			Spread = 22,
 			RockTime = 7,
-			PuffRate = 7,
+			PuffRate = 10,
 			PuffRise = 650,
 			PuffSize = 190,
 			PuffSpread = 90,
 			PuffTime = 7,
 			Fire = Color3.fromRGB(255, 120, 30),
 			PuffSmoke = Color3.fromRGB(58, 50, 46),
+			AshRate = 10,
+			AshRise = 800,
+			AshSize = 280,
+			AshSpread = 130,
+			AshLean = 160,
+			AshTime = 10,
+			AshLinger = 4,
+			AshClear = 0.4,
+			Ash = Color3.fromRGB(38, 34, 33),
+			BoltStart = 1,
+			BoltRate = 2,
+			BoltLow = 300,
+			BoltHigh = 650,
+			BoltWidth = 5,
+			BoltTime = 0.3,
+			BoltSegments = 12,
+			BoltReach = 60,
+			BoltColor = Color3.fromRGB(200, 220, 255),
+			ThunderPitch = 1.5,
+			ThunderVolume = 1,
 		},
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },

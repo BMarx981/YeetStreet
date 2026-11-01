@@ -72,6 +72,8 @@ export type Box = { x1: number, x2: number, y1: number, y2: number, z1: number, 
 -- How long the camera takes to swing to the eruption view, stays, and swings back.
 export type Watch = { EaseIn: number, Hold: number, EaseOut: number }
 
+export type Point = { x: number, y: number, z: number }
+
 -- The tiers from the ground up, all the same height, at most TierHeight.
 function Volcano.tiers(cone: Cone): { Tier }
 	local count = math.ceil(cone.Height / cone.TierHeight)
@@ -181,6 +183,23 @@ function Volcano.watchLook(
 	local x, y, z = carX / car + craterX / crater, carY / car + craterY / crater, carZ / car + craterZ / crater
 	local length = math.sqrt(x * x + y * y + z * z)
 	return x / length, y / length, z / length
+end
+
+-- The points of a lightning bolt from `top` to `bottom`, `segments` straight
+-- pieces long. Each point between wanders sideways, up to `reach` studs in the
+-- middle and less toward the ends; `wander` returns from -1 to 1 each time.
+function Volcano.bolt(top: Point, bottom: Point, segments: number, reach: number, wander: () -> number): { Point }
+	local points: { Point } = {}
+	for i = 0, segments do
+		local t = i / segments
+		local fade = math.sin(t * math.pi) * reach
+		table.insert(points, {
+			x = top.x + (bottom.x - top.x) * t + wander() * fade,
+			y = top.y + (bottom.y - top.y) * t,
+			z = top.z + (bottom.z - top.z) * t + wander() * fade,
+		})
+	end
+	return points
 end
 
 -- From x1 to x2 in equal columns at most `width` wide, left to right.

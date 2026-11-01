@@ -140,6 +140,29 @@ Check.test("the eruption view eases in, holds, and eases out", function()
 	Check.near(Volcano.watchWeight(W, 5), 0, "over")
 end)
 
+Check.test("a lightning bolt runs between its ends, wandering most in the middle", function()
+	local top = { x = 0, y = 600, z = 0 }
+	local bottom = { x = 100, y = 200, z = 0 }
+	local straight = Volcano.bolt(top, bottom, 4, 50, function()
+		return 0
+	end)
+	Check.eq(#straight, 5, "one more point than segments")
+	Check.near(straight[3].x, 50, "no wander goes straight")
+	Check.near(straight[3].y, 400)
+
+	local wild = Volcano.bolt(top, bottom, 4, 50, function()
+		return 1
+	end)
+	Check.near(wild[1].x, 0, "starts on the top")
+	Check.near(wild[1].y, 600)
+	Check.near(wild[5].x, 100, "ends on the bottom")
+	Check.near(wild[5].y, 200)
+	Check.near(wild[3].x, 100, "wanders the whole reach in the middle")
+	Check.near(wild[3].z, 50)
+	Check.near(wild[3].y, 400, "only sideways")
+	Check.eq(wild[2].x - 25 < 50, true, "less near the ends")
+end)
+
 Check.test("the eruption view looks halfway between the car and the crater", function()
 	-- The car straight ahead along +X, the crater straight down.
 	local x, y, z = Volcano.watchLook(10, 0, 0, 0, -300, 0)
