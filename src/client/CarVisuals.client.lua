@@ -40,6 +40,7 @@ local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
+local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 
 local T = Tuning.Toughness
 local F = Tuning.JetFlames
@@ -462,6 +463,33 @@ local function buildAxolotl(
 	return { addJet(nozzle, flameColor, jetStep) }
 end
 
+-- The mesh Velociraptor's fixed look in place of the generated one, welded to
+-- the hull. Its jet flame comes from an unseen part behind its body.
+local function buildVelociraptor(mesh: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
+	local function weldOn(part: BasePart)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = hull
+		weld.Part1 = part
+		weld.Parent = part
+		part.Anchored = false
+	end
+	for _, part in VelociraptorCar.build(mesh, hull.CFrame, folder) do
+		weldOn(part)
+	end
+	local nozzle = Instance.new("Part")
+	nozzle.Name = "VelociraptorJet"
+	nozzle.Size = VelociraptorCar.jetSize
+	nozzle.CFrame = hull.CFrame * VelociraptorCar.jetCFrame
+	nozzle.Transparency = 1
+	nozzle.CanCollide = false
+	nozzle.CanTouch = false
+	nozzle.CanQuery = false
+	nozzle.Massless = true
+	nozzle.Parent = folder
+	weldOn(nozzle)
+	return { addJet(nozzle, flameColor, jetStep) }
+end
+
 -- The PlaneCar's fixed look in place of the generated one. Each group of
 -- parts (body, nose, wings, guns) is welded to a pivot of its own, on a Weld
 -- from the hull that PlaneCar.pose moves through the transform: toward a
@@ -652,7 +680,10 @@ local function setUp(car: Model)
 	local axolotlMesh = if car:GetAttribute("AxolotlThrottle") == true and not (heli or plane)
 		then AxolotlThrottle.mesh()
 		else nil
-	local fixedLook = heli or plane or axolotlMesh ~= nil
+	local raptorMesh = if car:GetAttribute("VelociraptorMesh") == true and not (heli or plane)
+		then VelociraptorCar.mesh()
+		else nil
+	local fixedLook = heli or plane or axolotlMesh ~= nil or raptorMesh ~= nil
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Looks"
@@ -665,6 +696,8 @@ local function setUp(car: Model)
 		jets = buildHeliCar(car, hull, folder, rgb(design.flameColor), jetStep)
 	elseif axolotlMesh then
 		jets = buildAxolotl(car, axolotlMesh, hull, folder, rgb(design.flameColor), jetStep)
+	elseif raptorMesh then
+		jets = buildVelociraptor(raptorMesh, hull, folder, rgb(design.flameColor), jetStep)
 	end
 	local brakes: { Brake } = {}
 	for i, part in parts do
@@ -706,7 +739,7 @@ local function setUp(car: Model)
 		addRaptor(car, hull, 1, 1.5)
 	end
 
-	if design.hideWheels and not fixedLook then
+	if (design.hideWheels and not fixedLook) or raptorMesh then
 		for _, name in WHEEL_NAMES do
 			local wheel = car:FindFirstChild(name)
 			if wheel and wheel:IsA("BasePart") then
@@ -746,9 +779,10 @@ local function setUp(car: Model)
 		showBroken()
 	end
 
-	-- The axolotl has no generated parts to break, so its pieces fly off as
-	-- the share of the parts the server counts as broken grows.
-	if axolotlMesh then
+	-- The axolotl and raptor have no generated parts to break, so their pieces
+	-- fly off as the share of the parts the server counts as broken grows.
+	if axolotlMesh or raptorMesh then
+		local breakOrder = if raptorMesh then VelociraptorCar.BreakOrder else AxolotlThrottle.BreakOrder
 		local total = 0
 		for _, slot in CarParts.Slots do
 			total += #CarDesign.breakable(design, slot)
@@ -762,7 +796,7 @@ local function setUp(car: Model)
 			end
 			local off = AxolotlMoves.piecesOff(broken, total)
 			for k = shown + 1, off do
-				local piece = folder:FindFirstChild(AxolotlThrottle.BreakOrder[k])
+				local piece = folder:FindFirstChild(breakOrder[k])
 				if piece and piece:IsA("BasePart") then
 					knockOff(piece, hull)
 				end

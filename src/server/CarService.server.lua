@@ -135,7 +135,9 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	if player:GetAttribute("PlaneCarEquipped") == true then
 		car:SetAttribute("PlaneCar", true)
 	end
-	if player:GetAttribute("AxolotlEquipped") == true or ladderCar.Look == "Axolotl" then
+	if player:GetAttribute("VelociraptorEquipped") == true then
+		car:SetAttribute("VelociraptorMesh", true)
+	elseif player:GetAttribute("AxolotlEquipped") == true or ladderCar.Look == "Axolotl" then
 		car:SetAttribute("AxolotlThrottle", true)
 	end
 	car.Parent = carsFolder
@@ -309,6 +311,21 @@ toggleAxolotl.Event:Connect(function(player: Player)
 	end
 end)
 toggleAxolotl.Parent = ServerStorage
+
+-- Admin command: switch a player's car to the mesh Velociraptor look and back,
+-- the same way. Only the looks change.
+local toggleVelociraptor = Instance.new("BindableEvent")
+toggleVelociraptor.Name = "ToggleVelociraptor"
+toggleVelociraptor.Event:Connect(function(player: Player)
+	player:SetAttribute("VelociraptorEquipped", player:GetAttribute("VelociraptorEquipped") ~= true)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local car = cars[player]
+	if humanoid and humanoid.Health > 0 and car then
+		placeCar(player, humanoid, car:GetPivot())
+	end
+end)
+toggleVelociraptor.Parent = ServerStorage
 
 -- Client requested to exit the car: unseat the driver and place them beside
 -- the car so they can walk around. The exited flag prevents the SeatPart

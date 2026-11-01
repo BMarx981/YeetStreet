@@ -303,6 +303,7 @@ local COMMAND_INFO = {
 	{ name = "helicar",    desc = "Turn the HeliCar look on or off for you or a player", usage = ":helicar [playerName]",         optionsType = "player" },
 	{ name = "planecar",   desc = "Turn the PlaneCar on or off for you or a player",    usage = ":planecar [playerName]",        optionsType = "player" },
 	{ name = "axolotl",    desc = "Turn the Axolotl Throttle on or off for you or a player", usage = ":axolotl [playerName]",  optionsType = "player" },
+	{ name = "raptor",     desc = "Turn the mesh Velociraptor on or off for you or a player", usage = ":raptor [playerName]",  optionsType = "player" },
 	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
@@ -575,6 +576,22 @@ local COMMANDS = {
 		local turningOn = target:GetAttribute("AxolotlEquipped") ~= true
 		toggleAxolotl:Fire(target)
 		return if turningOn then target.Name .. " is driving the Axolotl Throttle!" else target.Name .. " is back in their own car."
+	end,
+
+	raptor = function(adminPlayer, args)
+		local targetName = string.match(args, "%S+")
+		local target = if targetName then findPlayer(targetName) else adminPlayer
+		if not target then
+			return if targetName then "Player not found: " .. targetName else "Usage: :raptor [playerName]"
+		end
+
+		local toggleVelociraptor = game:GetService("ServerStorage"):FindFirstChild("ToggleVelociraptor")
+		if not (toggleVelociraptor and toggleVelociraptor:IsA("BindableEvent")) then
+			return "Velociraptor isn't available"
+		end
+		local turningOn = target:GetAttribute("VelociraptorEquipped") ~= true
+		toggleVelociraptor:Fire(target)
+		return if turningOn then target.Name .. " is driving the Velociraptor!" else target.Name .. " is back in their own car."
 	end,
 
 	-- Puts a car on an obby pad from anywhere, as if every pad up to it had

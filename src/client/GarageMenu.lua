@@ -425,6 +425,7 @@ local function build()
 		return player:GetAttribute("HeliCarEquipped") == true
 			or player:GetAttribute("PlaneCarEquipped") == true
 			or player:GetAttribute("AxolotlEquipped") == true
+			or player:GetAttribute("VelociraptorEquipped") == true
 			or player:GetAttribute("FrogCarEquipped") == true
 	end
 
@@ -840,7 +841,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "BoneCoins" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "BoneCoins" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end
