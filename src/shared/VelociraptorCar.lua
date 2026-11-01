@@ -15,6 +15,7 @@ local VelociraptorCar = {}
 
 VelociraptorCar.Fit = Vector3.new(1.5, 1, 1.4) -- stretch from the raw mesh
 VelociraptorCar.Lift = 1 -- studs the stretched mesh sits above the hull's center
+VelociraptorCar.ArmLength = 1.25 -- how much longer the arms are, down and forward from the shoulder
 
 -- Where the jet flame comes from: the back of the body, over the tail.
 VelociraptorCar.jetCFrame = CFrame.new(0, 2.2, 4) * CFrame.Angles(0, math.rad(90), 0)
@@ -104,7 +105,14 @@ function VelociraptorCar.build(mesh: Model, hullCFrame: CFrame, parent: Instance
 		if piece:IsA("BasePart") then
 			local part = piece:Clone()
 			part.Size = piece.Size * fit
-			settle(part, hullCFrame * CFrame.new(piece.Position * fit + Vector3.new(0, VelociraptorCar.Lift, 0)), parent)
+			local at = piece.Position * fit + Vector3.new(0, VelociraptorCar.Lift, 0)
+			if piece.Name == "leftarm" or piece.Name == "rightarm" then
+				-- The top back corner, the shoulder, stays where it is.
+				local grow = VelociraptorCar.ArmLength - 1
+				at -= Vector3.new(0, part.Size.Y, part.Size.Z) * grow / 2
+				part.Size *= Vector3.new(1, 1 + grow, 1 + grow)
+			end
+			settle(part, hullCFrame * CFrame.new(at), parent)
 			table.insert(parts, part)
 		end
 	end
