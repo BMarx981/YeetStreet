@@ -110,6 +110,44 @@ Check.test("columns split a span evenly, none wider than asked", function()
 	Check.eq(#Volcano.columns(6, 5, 10), 0, "a backward span")
 end)
 
+Check.test("a boost zone starts clear of the mouth and reaches past the lip", function()
+	local vent = { Run = 4, Radius = 12, Angle = 70, ZoneFrom = 10, ZonePast = 10, ZoneWidth = 120, ZoneHeight = 120 }
+	local zone = Volcano.boostZone(-100, -80, 200, vent)
+	Check.near(zone.z2, -90, "starts ZoneFrom past the mouth")
+	local lipZ = Volcano.lip(-84, 12, 70)
+	Check.near(zone.z1, lipZ - 10, "ends ZonePast past the lip")
+	Check.near(zone.x1, -160)
+	Check.near(zone.x2, -40)
+	Check.near(zone.y1, 200)
+	Check.near(zone.y2, 320)
+end)
+
+Check.test("the point inside a boost zone is inside, the mouth is not", function()
+	local zone = { x1 = -160, x2 = -40, y1 = 200, y2 = 320, z1 = -115, z2 = -90 }
+	Check.eq(Volcano.inZone(zone, -100, 210, -100), true, "on the ramp")
+	Check.eq(Volcano.inZone(zone, -100, 300, -100), true, "up in the air")
+	Check.eq(Volcano.inZone(zone, -100, 210, -85), false, "still at the mouth")
+	Check.eq(Volcano.inZone(zone, -100, 330, -100), false, "above it")
+	Check.eq(Volcano.inZone(zone, -30, 210, -100), false, "beside it")
+end)
+
+Check.test("the eruption view eases in, holds, and eases out", function()
+	local W = { EaseIn = 0.5, Hold = 3, EaseOut = 1 }
+	Check.near(Volcano.watchWeight(W, 0), 0, "at launch")
+	Check.near(Volcano.watchWeight(W, 0.25), 0.5, "easing in")
+	Check.near(Volcano.watchWeight(W, 1), 1, "holding")
+	Check.near(Volcano.watchWeight(W, 4), 0.5, "easing out")
+	Check.near(Volcano.watchWeight(W, 5), 0, "over")
+end)
+
+Check.test("the eruption view looks halfway between the car and the crater", function()
+	-- The car straight ahead along +X, the crater straight down.
+	local x, y, z = Volcano.watchLook(10, 0, 0, 0, -300, 0)
+	Check.near(x, math.sqrt(0.5))
+	Check.near(y, -math.sqrt(0.5))
+	Check.near(z, 0)
+end)
+
 Check.test("a vent's lip is its radius's arc on from its foot, toward the front", function()
 	local z, up = Volcano.lip(-95, 30, 70)
 	Check.near(z, -95 - 30 * math.sin(math.rad(70)))

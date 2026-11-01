@@ -17,6 +17,8 @@
 -- optional LaunchExact attribute, true, also slows a faster car down to
 -- LaunchSpeed (PadPush), so every throw from it flies the same path.
 
+local CollectionService = game:GetService("CollectionService")
+
 local LaunchPad = {}
 
 local COLOR = Color3.fromRGB(255, 200, 40)
@@ -47,6 +49,30 @@ end
 function LaunchPad.anyWay(part: BasePart, launchSpeed: number, pitch: number, respawn: CFrame, payScale: number?)
 	LaunchPad.make(part, launchSpeed, respawn, payScale)
 	part:SetAttribute("LaunchPitch", pitch)
+end
+
+-- Makes `part` a launch zone: an invisible box that throws any car whose hull
+-- is inside it `direction` at exactly `launchSpeed`, whichever way the car is
+-- going or facing (CarSensor, CarController). A plain pad needs a wheel on it.
+-- An optional `watch` point has the driver's camera look back at it in flight
+-- (EruptionCamera).
+function LaunchPad.zone(
+	part: BasePart,
+	launchSpeed: number,
+	respawn: CFrame,
+	payScale: number?,
+	direction: Vector3,
+	watch: Vector3?
+)
+	LaunchPad.make(part, launchSpeed, respawn, payScale, direction)
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part:SetAttribute("LaunchZone", true)
+	part:SetAttribute("WatchPoint", watch)
+	CollectionService:AddTag(part, "LaunchZone")
 end
 
 -- A flat pad whose top face is centered on `top`, pushing along its LookVector.

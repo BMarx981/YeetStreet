@@ -156,12 +156,29 @@ function CarSensor.flying(model: Model): boolean
 		or model:GetAttribute("RotorOut") == true
 end
 
+-- The launch zone (Pieces.LaunchPad.zone) the hull is inside, if any. A car
+-- flying under its own power is left alone.
+local function zoneAt(sensor: Sensor, position: Vector3): BasePart?
+	if CarSensor.flying(sensor.model) then
+		return nil
+	end
+	for _, zone in CollectionService:GetTagged("LaunchZone") do
+		local at = zone.CFrame:PointToObjectSpace(position)
+		local half = zone.Size / 2
+		if math.abs(at.X) < half.X and math.abs(at.Y) < half.Y and math.abs(at.Z) < half.Z then
+			return zone
+		end
+	end
+	return nil
+end
+
 -- `up` is which way the car should be the right way up: world up, or inside
 -- a tube, toward its middle line.
 function CarSensor.read(sensor: Sensor, dt: number, up: Vector3?): Reading
 	local cf = sensor.hull.CFrame
 	local velocity = sensor.hull.AssemblyLinearVelocity
-	local wheelsDown, pad, wheelsInLava = probe(sensor, cf)
+	local wheelsDown, wheelPad, wheelsInLava = probe(sensor, cf)
+	local pad = zoneAt(sensor, cf.Position) or wheelPad
 	local C = Tuning.Contact
 	sensor.contact = Contact.step(sensor.contact, wheelsDown, dt, C.AirDelay, C.LandWheels)
 

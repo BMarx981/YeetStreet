@@ -622,11 +622,11 @@ local function buildDome(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTu
 	end
 end
 
--- The vent: a ramp on the path Run past the tube's mouth, as wide as the
--- path, curving up to Angle degrees. Its planks steeper than PadFrom are
--- pads pushing the car up the curve to LaunchSpeed, so it leaves the lip
--- nearly straight up and out over the rim like an eruption. A wreck after
--- it comes back on the causeway, facing the mouth.
+-- The vent: a short ramp on the path Run past the tube's mouth, as wide as
+-- the path, curving up to Angle degrees, painted like a pad. A launch zone
+-- over it throws every car that comes out of the tube up and out over the rim
+-- (Volcano.boostZone), so it can't miss and reaches nothing past it. A wreck
+-- after it comes back on the causeway, facing the mouth.
 local function buildVent(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTube)
 	local V = D.Volcano
 	local E = V.Crater.Vent
@@ -641,8 +641,25 @@ local function buildVent(parent: Instance, base: CFrame, climb: Tunnel.VolcanoTu
 	})
 	ramp.Name = "Vent"
 	local respawn = base * CFrame.new(V.Climb.Radius, HULL_HEIGHT, -V.Climb.Inset - 60) * CFrame.Angles(0, math.pi, 0)
-	local pads = math.ceil(E.Steps * (E.Angle - E.PadFrom) / E.Angle)
-	LaunchPad.top(ramp, pads, E.LaunchSpeed, respawn, D.PayScale)
+	for _, plank in ramp:GetDescendants() do
+		if plank:IsA("BasePart") then
+			LaunchPad.paint(plank)
+		end
+	end
+	local box = Volcano.boostZone(climb.mouth.x, climb.mouth.z, climb.floor, E :: any)
+	local zone = Instance.new("Part")
+	zone.Size = Vector3.new(box.x2 - box.x1, box.y2 - box.y1, box.z2 - box.z1)
+	zone.CFrame = base * CFrame.new((box.x1 + box.x2) / 2, (box.y1 + box.y2) / 2, (box.z1 + box.z2) / 2)
+	zone.Parent = ramp
+	local angle = math.rad(E.Angle)
+	LaunchPad.zone(
+		zone,
+		E.LaunchSpeed,
+		respawn,
+		D.PayScale,
+		base:VectorToWorldSpace(Vector3.new(0, math.sin(angle), -math.cos(angle))),
+		base:PointToWorldSpace(Vector3.new(0, climb.floor, 0))
+	)
 end
 
 -- The crater floor at the tube's floor: lava strips, a rock path from the
@@ -1311,10 +1328,26 @@ function DinoPark.start(folder: Folder, area: MapLayout.Area)
 	buildRaptors(folder, layout.trees, layout.raptorKeepOut, layout.covers)
 end
 
+-- Pieces a saved park can have rebuilt in place (ParkFreeze.patch).
+DinoPark.patches = {
+	Vent = function(folder: Folder, area: MapLayout.Area)
+		local V = D.Volcano
+		local model = folder:FindFirstChild("Volcano", true)
+		assert(model, "Dino: the saved park has no Volcano")
+		local old = model:FindFirstChild("Vent")
+		if old then
+			old:Destroy()
+		end
+		local base = at(area, V.X, 0, V.Z) * CFrame.Angles(0, math.rad(V.Heading), 0)
+		buildVent(model, base, Tunnel.volcano(V.Climb :: any, Tuning.City.Tunnels :: any))
+	end,
+}
+
 -- The tuning the parts are built from: all of Tuning.Dino but the numbers
--- only the T-Rex and the raptors use, while the game runs.
+-- only used while the game runs: the T-Rex's, the raptors', and the volcano's
+-- camera, smoke and eruption, drawn on each client.
 function DinoPark.fingerprint(): string
-	return Fingerprint.of(D :: any, { "Rex", "Raptors" })
+	return Fingerprint.of(D :: any, { "Rex", "Raptors", "Volcano.Watch", "Volcano.Smoke", "Volcano.Eruption" })
 end
 
 return DinoPark

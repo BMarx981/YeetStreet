@@ -2902,14 +2902,23 @@ Tuning.Dino = {
 			PathWidth = 80,
 			StripWidth = 12,
 			DomeStep = 12,
-			-- The vent: a ramp on the path Run past the tube's mouth, curving
-			-- up to Angle degrees round Radius in Steps planks. Its planks
-			-- steeper than PadFrom degrees are pads pushing the car up the
-			-- curve to LaunchSpeed, so it leaves the lip Angle degrees up
-			-- however fast it came, out over the rim and the lake (at 80 it
-			-- comes down in the lake). The lip must stay inside the rim
-			-- (Cone.TopRadius less Cone.Shell from the middle).
-			Vent = { Run = 15, Radius = 30, Angle = 70, Steps = 12, PadFrom = 30, LaunchSpeed = 320 },
+			-- The vent: a short ramp on the path Run past the tube's mouth,
+			-- curving up to Angle degrees round Radius in Steps planks. An
+			-- invisible box over it (Volcano.boostZone) throws any car that
+			-- comes out of the tube Angle degrees up at exactly LaunchSpeed,
+			-- whatever its speed or which way up it is, so nothing past the
+			-- mouth can be reached. Angle sets this launch alone.
+			Vent = {
+				Run = 4,
+				Radius = 12,
+				Angle = 70,
+				Steps = 8,
+				LaunchSpeed = 420,
+				ZoneFrom = 10,
+				ZonePast = 10,
+				ZoneWidth = 120,
+				ZoneHeight = 120,
+			},
 		},
 		Slot = { Half = 56, Top = 63, Column = 10 },
 		-- In front of the vent the crater wall above the floor is only Shell
@@ -2917,43 +2926,74 @@ Tuning.Dino = {
 		-- vent's line meets the rim, so it stands back from an eruption.
 		Breach = { Half = 30, Shell = 15 },
 		-- Only for looks, on each client (VolcanoEruption): when a car flies
-		-- up off the vent faster than UpSpeed, the crater erupts. Spray
-		-- drops of lava and Smoke puffs burst out of the vent, a light
-		-- flashes Glow bright and fades over GlowTime, and Rocks glowing
-		-- lumps MinRock to MaxRock across fly up at MinSpeed to MaxSpeed,
-		-- within Spread degrees of straight up, and are gone after
-		-- RockTime seconds. Each car erupts it at most every Cooldown
-		-- seconds.
+		-- up off the vent faster than UpSpeed, Spray drops of lava and Smoke
+		-- puffs burst out of the vent, at most every Cooldown seconds per car.
+		-- Delay seconds later, behind the car, the crater erupts for Duration
+		-- seconds (another launch makes it last longer): a flash FlashSize
+		-- across and a shock ring RingSize across, a boom, a light Glow bright
+		-- fading over GlowTime after it ends, a fountain of FountainRate lava
+		-- drops a second FountainSize across at FountainMinSpeed to
+		-- FountainMaxSpeed, RockRate glowing lumps a second MinRock to MaxRock
+		-- across at MinSpeed to MaxSpeed within Spread degrees of straight up,
+		-- gone after RockTime, and PuffRate balls of fire a second that climb
+		-- PuffRise up the column, growing to PuffSize and cooling to smoke
+		-- over PuffTime.
+		-- While the car flies off the vent, the camera (EruptionCamera) swings
+		-- Above over the car and Back behind it, looking down between the car
+		-- and the crater, so both are in view. See Volcano.Watch for its times.
+		Watch = { EaseIn = 0.5, Hold = 4.5, EaseOut = 1.2, Above = 40, Back = 6, Grace = 0.5 },
 		-- Smoke rising from the whole crater all the time (VolcanoEruption,
 		-- on each client): Rate puffs a second, MinSize to MaxSize across as
 		-- they grow, rising at MinRise to MaxRise studs a second, drifting
 		-- Drift studs a second faster each second toward +X, lasting about
 		-- Lifetime seconds. Thickness is how see-through they are at their
-		-- thickest, 0 solid to 1 gone.
+		-- thickest, 0 solid to 1 gone. EruptRate puffs a second while it erupts.
 		Smoke = {
-			Rate = 3,
-			MinSize = 30,
-			MaxSize = 90,
-			MinRise = 8,
-			MaxRise = 18,
+			Rate = 6,
+			EruptRate = 30,
+			MinSize = 40,
+			MaxSize = 100,
+			MinRise = 15,
+			MaxRise = 35,
 			Drift = 1.5,
-			Lifetime = 12,
-			Thickness = 0.45,
+			Lifetime = 14,
+			Thickness = 0.3,
 		},
 		Eruption = {
 			UpSpeed = 120,
 			Spray = 120,
 			Smoke = 30,
-			Glow = 8,
-			GlowTime = 2,
-			Rocks = 14,
-			MinRock = 2,
-			MaxRock = 6,
-			MinSpeed = 120,
-			MaxSpeed = 280,
-			Spread = 25,
-			RockTime = 5,
 			Cooldown = 2,
+			Delay = 0.5,
+			Duration = 6,
+			FlashSize = 420,
+			FlashTime = 0.6,
+			RingSize = 1200,
+			RingTime = 1.4,
+			BoomId = "rbxassetid://9125484367",
+			BoomVolume = 2,
+			BoomReach = 3000,
+			Glow = 20,
+			GlowRange = 60,
+			GlowTime = 2,
+			FountainRate = 200,
+			FountainSize = 14,
+			FountainMinSpeed = 200,
+			FountainMaxSpeed = 450,
+			RockRate = 14,
+			MinRock = 3,
+			MaxRock = 14,
+			MinSpeed = 200,
+			MaxSpeed = 520,
+			Spread = 22,
+			RockTime = 7,
+			PuffRate = 7,
+			PuffRise = 650,
+			PuffSize = 190,
+			PuffSpread = 90,
+			PuffTime = 7,
+			Fire = Color3.fromRGB(255, 120, 30),
+			PuffSmoke = Color3.fromRGB(58, 50, 46),
 		},
 		Causeway = { Width = 110 },
 		Lake = { Radius = 500, BlockWidth = 60 },

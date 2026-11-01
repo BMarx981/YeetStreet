@@ -56,6 +56,22 @@ export type FloorPiece = {
 	rock: boolean,
 }
 
+-- The vent's ramp and the box in front of the tube's mouth that throws a car.
+export type Vent = {
+	Run: number,
+	Radius: number,
+	Angle: number,
+	ZoneFrom: number,
+	ZonePast: number,
+	ZoneWidth: number,
+	ZoneHeight: number,
+}
+
+export type Box = { x1: number, x2: number, y1: number, y2: number, z1: number, z2: number }
+
+-- How long the camera takes to swing to the eruption view, stays, and swings back.
+export type Watch = { EaseIn: number, Hold: number, EaseOut: number }
+
 -- The tiers from the ground up, all the same height, at most TierHeight.
 function Volcano.tiers(cone: Cone): { Tier }
 	local count = math.ceil(cone.Height / cone.TierHeight)
@@ -120,6 +136,51 @@ end
 function Volcano.lip(footZ: number, radius: number, angle: number): (number, number)
 	local a = math.rad(angle)
 	return footZ - radius * math.sin(a), radius * (1 - math.cos(a))
+end
+
+-- The box a car is thrown from, in the volcano's own space: from ZoneFrom past
+-- the tube's mouth (so the car is clear of it) to ZonePast past the vent's lip,
+-- ZoneWidth across the vent's line and ZoneHeight up from the floor.
+function Volcano.boostZone(mouthX: number, mouthZ: number, floor: number, vent: Vent): Box
+	local lipZ = Volcano.lip(mouthZ - vent.Run, vent.Radius, vent.Angle)
+	return {
+		x1 = mouthX - vent.ZoneWidth / 2,
+		x2 = mouthX + vent.ZoneWidth / 2,
+		y1 = floor,
+		y2 = floor + vent.ZoneHeight,
+		z1 = lipZ - vent.ZonePast,
+		z2 = mouthZ - vent.ZoneFrom,
+	}
+end
+
+function Volcano.inZone(zone: Box, x: number, y: number, z: number): boolean
+	return x > zone.x1 and x < zone.x2 and y > zone.y1 and y < zone.y2 and z > zone.z1 and z < zone.z2
+end
+
+-- How far the camera has swung to the eruption view, 0 to 1, `since` seconds
+-- after the launch.
+function Volcano.watchWeight(watch: Watch, since: number): number
+	if since < watch.EaseIn then
+		return math.max(since, 0) / watch.EaseIn
+	end
+	return math.clamp(1 - (since - watch.EaseIn - watch.Hold) / watch.EaseOut, 0, 1)
+end
+
+-- The unit direction halfway between two others from the camera, the car's
+-- and the crater's, so both stay in view.
+function Volcano.watchLook(
+	carX: number,
+	carY: number,
+	carZ: number,
+	craterX: number,
+	craterY: number,
+	craterZ: number
+): (number, number, number)
+	local car = math.sqrt(carX * carX + carY * carY + carZ * carZ)
+	local crater = math.sqrt(craterX * craterX + craterY * craterY + craterZ * craterZ)
+	local x, y, z = carX / car + craterX / crater, carY / car + craterY / crater, carZ / car + craterZ / crater
+	local length = math.sqrt(x * x + y * y + z * z)
+	return x / length, y / length, z / length
 end
 
 -- From x1 to x2 in equal columns at most `width` wide, left to right.

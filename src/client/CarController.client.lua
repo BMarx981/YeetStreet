@@ -77,6 +77,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local ChaseCamera = require(script.Parent.ChaseCamera)
+local EruptionCamera = require(script.Parent.EruptionCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
 local GrindRide = require(script.Parent.GrindRide)
@@ -348,6 +349,14 @@ local function launch(r: Rig, pad: BasePart)
 	local pitch = pad:GetAttribute("LaunchPitch")
 	local velocity = r.hull.AssemblyLinearVelocity
 	local dir = if typeof(direction) == "Vector3" then direction.Unit else pad.CFrame.LookVector
+	if pad:GetAttribute("LaunchZone") == true then
+		setVelocity(r, dir * speed)
+		local watch = pad:GetAttribute("WatchPoint")
+		if typeof(watch) == "Vector3" then
+			EruptionCamera.start(watch, dir)
+		end
+		return
+	end
 	if typeof(pitch) == "number" then
 		local x, y, z = PadPush.anyWay(velocity.X, velocity.Z, math.rad(pitch), Tuning.Launch.AnyWayLeast)
 		if not x then
@@ -1087,6 +1096,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	else
 		MissileCamera.release()
 		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
+		EruptionCamera.update(current.hull, contact.airborne)
 	end
 	Hud.update(
 		fuel / current.jetFuel,

@@ -163,6 +163,12 @@ function ReplayWorld.car(name: string): CFrame?
 	return if now and now.car == name then now.carPose else nil
 end
 
+-- Where the ghost car is, whatever its name; nil when no replay plays.
+function ReplayWorld.ghost(): CFrame?
+	local now = moment
+	return if now then now.carPose else nil
+end
+
 -- Where `part` is in the world being drawn.
 function ReplayWorld.cframe(part: BasePart): CFrame
 	local now = moment
