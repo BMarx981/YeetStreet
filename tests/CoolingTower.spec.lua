@@ -11,10 +11,13 @@ local SHAPE: CoolingTower.Shape = {
 	InnerLean = 15,
 	FootHeight = 40,
 	FloorHeight = 80,
-	Rows = { Foot = 6, Outer = 14, Crest = 10, Inner = 12, Floor = 6 },
+	Rows = { Foot = 12, Outer = 10, Crest = 20, Inner = 10, Floor = 12 },
 }
 
 local profile = CoolingTower.profile(SHAPE)
+-- A row part way up the outside wall, and one part way down the inside.
+local OUTER = SHAPE.Rows.Foot + 5
+local INNER = #profile - SHAPE.Rows.Floor - 5
 
 local function angleBetween(a: CoolingTower.Point, b: CoolingTower.Point, c: CoolingTower.Point): number
 	local ux, uy = b.R - a.R, b.Y - a.Y
@@ -45,13 +48,13 @@ end)
 Check.test("the surface has no kinks a car would feel", function()
 	for i = 2, #profile - 1 do
 		local turn = angleBetween(profile[i - 1], profile[i], profile[i + 1])
-		Check.eq(turn < 20, true, `turn of {turn} degrees at point {i}`)
+		Check.eq(turn < 10, true, `turn of {turn} degrees at point {i}`)
 	end
 end)
 
 Check.test("the surface always faces away from the solid wall", function()
 	-- Up the outside it faces out, over the crest up, down the inside in.
-	local nr, ny = CoolingTower.normal(profile[10], profile[11])
+	local nr, ny = CoolingTower.normal(profile[OUTER], profile[OUTER + 1])
 	Check.eq(nr > 0.9, true, `outer faces out: {nr}, {ny}`)
 	local top = 1
 	for i, point in profile do
@@ -61,7 +64,7 @@ Check.test("the surface always faces away from the solid wall", function()
 	end
 	nr, ny = CoolingTower.normal(profile[top], profile[top + 1])
 	Check.eq(ny > 0.9, true, `crest faces up: {nr}, {ny}`)
-	nr, ny = CoolingTower.normal(profile[#profile - 12], profile[#profile - 11])
+	nr, ny = CoolingTower.normal(profile[INNER], profile[INNER + 1])
 	Check.eq(nr < -0.7, true, `inner faces in: {nr}, {ny}`)
 end)
 
@@ -109,8 +112,8 @@ local function midpoint(i: number): (number, number)
 end
 
 Check.test("the outside wall pulls in toward the tower", function()
-	local r, y = midpoint(12)
-	local nr, ny = CoolingTower.normal(profile[12], profile[13])
+	local r, y = midpoint(OUTER)
+	local nr, ny = CoolingTower.normal(profile[OUTER], profile[OUTER + 1])
 	local px, py, pz = CoolingTower.pull(profile, 14, r + 5 * nr, y + 5 * ny, 0)
 	Check.near(px :: number, -nr, "x", 1e-6)
 	Check.near(py :: number, -ny, "y", 1e-6)
@@ -118,8 +121,8 @@ Check.test("the outside wall pulls in toward the tower", function()
 end)
 
 Check.test("the pull turns with the car's place round the tower", function()
-	local r, y = midpoint(12)
-	local nr, ny = CoolingTower.normal(profile[12], profile[13])
+	local r, y = midpoint(OUTER)
+	local nr, ny = CoolingTower.normal(profile[OUTER], profile[OUTER + 1])
 	local px, _, pz = CoolingTower.pull(profile, 14, 0, y + 5 * ny, r + 5 * nr)
 	Check.near(px :: number, 0, "x", 1e-6)
 	Check.near(pz :: number, -nr, "z", 1e-6)
@@ -131,23 +134,23 @@ Check.test("the crest pulls down into the rim", function()
 end)
 
 Check.test("the inside wall pulls out toward the wall", function()
-	local r, y = midpoint(#profile - 12)
-	local nr, ny = CoolingTower.normal(profile[#profile - 12], profile[#profile - 11])
+	local r, y = midpoint(INNER)
+	local nr, ny = CoolingTower.normal(profile[INNER], profile[INNER + 1])
 	local px, py = CoolingTower.pull(profile, 14, r + 5 * nr, y + 5 * ny, 0)
 	Check.eq((px :: number) > 0.7, true, `pull x {px}`)
 	Check.near(py :: number, -ny, "y", 1e-6)
 end)
 
 Check.test("a car a little under the surface is still pulled onto it", function()
-	local r, y = midpoint(12)
-	local nr, ny = CoolingTower.normal(profile[12], profile[13])
+	local r, y = midpoint(OUTER)
+	local nr, ny = CoolingTower.normal(profile[OUTER], profile[OUTER + 1])
 	local px = CoolingTower.pull(profile, 14, r - 2 * nr, y - 2 * ny, 0)
 	Check.near(px :: number, -nr, "x", 1e-6)
 end)
 
 Check.test("nothing pulls out of reach, on the flat floors, or in the middle", function()
-	local r, y = midpoint(12)
-	local nr, ny = CoolingTower.normal(profile[12], profile[13])
+	local r, y = midpoint(OUTER)
+	local nr, ny = CoolingTower.normal(profile[OUTER], profile[OUTER + 1])
 	Check.eq(CoolingTower.pull(profile, 14, r + 20 * nr, y + 20 * ny, 0), nil, "out of reach")
 	Check.eq(CoolingTower.pull(profile, 14, profile[1].R + 5, 3, 0), nil, "the ground outside")
 	Check.eq(CoolingTower.pull(profile, 14, profile[#profile].R - 5, 3, 0), nil, "the floor inside")

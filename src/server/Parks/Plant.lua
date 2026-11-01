@@ -11,7 +11,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local MapLayout = require(ReplicatedStorage.MapLayout)
-local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local S = Tuning.Plant
@@ -74,12 +73,12 @@ local function buildTower(parent: Instance, index: number, center: CFrame)
 	local step = 2 * math.pi / T.Slices
 	local half = math.sin(step / 2)
 	local apothem = math.cos(step / 2)
-	local grime = Rng.new(T.Seed + index)
 	for i = 1, T.Slices do
 		local angle = (i - 0.5) * step
-		local color = T.Clean:Lerp(T.Stained, grime.next())
 		for j = 1, #profile - 1 do
-			plank(model, center, angle, profile[j], profile[j + 1], half, apothem, color)
+			local a, b = profile[j], profile[j + 1]
+			local color = T.Stained:Lerp(T.Clean, (a.Y + b.Y) / 2 / T.Height)
+			plank(model, center, angle, a, b, half, apothem, color)
 		end
 	end
 

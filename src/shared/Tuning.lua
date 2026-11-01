@@ -1395,11 +1395,10 @@ Tuning.Plant = {
 		InnerLean = 15,
 		FootHeight = 40,
 		FloorHeight = 80,
-		Rows = { Foot = 6, Outer = 14, Crest = 10, Inner = 12, Floor = 6 },
-		Slices = 64,
+		Rows = { Foot = 12, Outer = 10, Crest = 20, Inner = 10, Floor = 12 },
+		Slices = 96,
 		Thickness = 4,
-		Seed = 41, -- the streaks of grime
-		Clean = Color3.fromRGB(196, 192, 182),
+		Clean = Color3.fromRGB(196, 192, 182), -- at the top, fading to Stained at the bottom
 		Stained = Color3.fromRGB(150, 146, 136),
 		FloorColor = Color3.fromRGB(92, 92, 88),
 		Wall = {
