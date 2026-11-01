@@ -36,6 +36,9 @@ VelociraptorCar.Claw = {
 	Outer = { { -0.7, -1.0 }, { -0.35, -1.7 }, { -0.45, -2.5 } },
 	Inner = { { -1.7, -1.3 }, { -1.1, -1.7 }, { -0.95, -2.3 } },
 	Tip = { -1.35, -3.15 },
+	Scale = 0.85, -- of all the above but Side, about Root, where it meets the foot
+	Root = { -1.2, -1.15 },
+	Back = 0.32, -- studs the whole claw sits toward the tail, into the foot
 }
 
 function VelociraptorCar.mesh(): Model?
@@ -74,7 +77,7 @@ local function addTriangle(a: Vector3, b: Vector3, c: Vector3, hullCFrame: CFram
 	local function wedge(length: number, cframe: CFrame)
 		local part = Instance.new("WedgePart")
 		part.Name = "Claw"
-		part.Size = Vector3.new(C.Width, height, length)
+		part.Size = Vector3.new(C.Width * C.Scale, height, length)
 		part.Color = C.Color
 		part.Material = Enum.Material.SmoothPlastic
 		settle(part, hullCFrame * cframe, parent)
@@ -87,7 +90,9 @@ end
 local function addClaw(side: number, hullCFrame: CFrame, parent: Instance, parts: { BasePart })
 	local C = VelociraptorCar.Claw
 	local function point(at: { number }): Vector3
-		return Vector3.new(side * C.Side, at[1], at[2])
+		local y = C.Root[1] + (at[1] - C.Root[1]) * C.Scale
+		local z = C.Root[2] + (at[2] - C.Root[2]) * C.Scale + C.Back
+		return Vector3.new(side * C.Side, y, z)
 	end
 	for i = 1, #C.Outer - 1 do
 		local outer, inner = point(C.Outer[i]), point(C.Inner[i])
