@@ -1402,6 +1402,12 @@ Tuning.Plant = {
 		Clean = Color3.fromRGB(196, 192, 182),
 		Stained = Color3.fromRGB(150, 146, 136),
 		FloorColor = Color3.fromRGB(92, 92, 88),
+		Wall = {
+			Reach = 14, -- how far off the surface it still holds a car
+			MinSpeed = 40, -- slower than this along the wall, the car peels off
+			ExtraPull = 1, -- on top of the tubes' Pull, times world gravity, to hold it over the crest
+			FloorLike = 0.9, -- a surface this flat (the pull's -Y) never peels a car off
+		},
 	},
 }
 

@@ -60,6 +60,7 @@ local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local HeliFlight = require(ReplicatedStorage.HeliFlight)
 local Contact = require(ReplicatedStorage.Contact)
+local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
@@ -471,6 +472,34 @@ local function siloWallPull(position: Vector3, velocity: Vector3): Vector3?
 	return if siloPeeled then nil else pull
 end
 
+-- The same for the nuclear plant's cooling towers, inside and out.
+local plantArea = MapLayout.find(Tuning.Map.Areas :: any, "Plant")
+local towerProfile = CoolingTower.profile(Tuning.Plant.Tower :: any)
+local towerReach = CoolingTower.footRadius(Tuning.Plant.Tower :: any) + Tuning.Plant.Tower.Wall.Reach
+local towerPeeled = false
+local function towerWallPull(position: Vector3, velocity: Vector3): Vector3?
+	if not plantArea then
+		return nil
+	end
+	local W = Tuning.Plant.Tower.Wall
+	for _, place in Tuning.Plant.Towers do
+		local x, z = position.X - plantArea.X - place.X, position.Z - plantArea.Z - place.Z
+		if x * x + z * z <= towerReach * towerReach then
+			local px, py, pz = CoolingTower.pull(towerProfile, W.Reach, x, position.Y - Tuning.Map.FloorTop, z)
+			if not px or not py or not pz then
+				break
+			end
+			local pull = Vector3.new(px, py, pz)
+			local along = velocity - pull * velocity:Dot(pull)
+			local holding
+			towerPeeled, holding = CoolingTower.stepHold(towerPeeled, py, along.Magnitude, W.MinSpeed, W.FloorLike)
+			return if holding then pull else nil
+		end
+	end
+	towerPeeled = false
+	return nil
+end
+
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
 -- its BreakSpeed and the time it turns solid again (0 while it is solid).
 -- A car faster than that is let through the boulders near it, on this
@@ -522,7 +551,8 @@ local function step(r: Rig, dt: number)
 	-- The silo's wall holds a car the same way.
 	local tube = tubePull(cf.Position)
 	local siloWall = if tube then nil else siloWallPull(cf.Position, velocity)
-	local pull = tube or siloWall
+	local towerWall = if tube or siloWall then nil else towerWallPull(cf.Position, velocity)
+	local pull = tube or siloWall or towerWall
 	up = if pull then -pull else Vector3.yAxis
 	-- In the gravitron, up is out of the surface nearest the car.
 	local now = workspace:GetServerTimeNow()
@@ -543,6 +573,9 @@ local function step(r: Rig, dt: number)
 		end
 		if siloWall then
 			r.stick.Force += siloWall * Tuning.Silo.Wall.ExtraPull * workspace.Gravity * r.hull.AssemblyMass
+		end
+		if towerWall then
+			r.stick.Force += towerWall * Tuning.Plant.Tower.Wall.ExtraPull * workspace.Gravity * r.hull.AssemblyMass
 		end
 	end
 

@@ -126,6 +126,71 @@ function CoolingTower.profile(shape: Shape): { Point }
 	return points
 end
 
+-- Which way the surface holds a car at (x, y, z), from the tower's middle, as
+-- a unit vector toward the surface: nil further than `reach` off it, or past
+-- either end of the profile, which leaves the flat ground to plain gravity.
+function CoolingTower.pull(
+	profile: { Point },
+	reach: number,
+	x: number,
+	y: number,
+	z: number
+): (number?, number?, number?)
+	local r = math.sqrt(x * x + z * z)
+	if r < 1e-6 then
+		return nil, nil, nil
+	end
+	local best = math.huge
+	local bestI, bestT = 0, 0
+	local count = #profile
+	for i = 1, count - 1 do
+		local a, b = profile[i], profile[i + 1]
+		local dr, dy = b.R - a.R, b.Y - a.Y
+		local t = math.clamp(((r - a.R) * dr + (y - a.Y) * dy) / (dr * dr + dy * dy), 0, 1)
+		local gapR, gapY = r - (a.R + dr * t), y - (a.Y + dy * t)
+		local distance = gapR * gapR + gapY * gapY
+		if distance < best then
+			best, bestI, bestT = distance, i, t
+		end
+	end
+	if best > reach * reach or (bestI == 1 and bestT == 0) or (bestI == count - 1 and bestT == 1) then
+		return nil, nil, nil
+	end
+	local a, b = profile[bestI], profile[bestI + 1]
+	local nr, ny = CoolingTower.normal(a, b)
+	local gapR = r - (a.R + (b.R - a.R) * bestT)
+	local gapY = y - (a.Y + (b.Y - a.Y) * bestT)
+	local distance = math.sqrt(best)
+	-- Past a corner of the line, or just under it, the segment's own normal
+	-- would not point at the surface.
+	if distance > 1e-6 and (bestT == 0 or bestT == 1) and gapR * nr + gapY * ny > 0 then
+		nr, ny = gapR / distance, gapY / distance
+	end
+	return -nr * x / r, -ny, -nr * z / r
+end
+
+-- Whether a car has peeled off the surface, and whether the surface holds it
+-- now. `pullY` is the pull's Y and `speed` the car's along the surface. As on
+-- the silo's wall (Silo.stepPeel), a car too slow on a wall comes off and stays
+-- off. Where the surface is as flat as `floorLike` (a pull's -Y), gravity
+-- already holds it, so a car stopped there is simply left alone and can set off
+-- up the wall again.
+function CoolingTower.stepHold(
+	peeled: boolean,
+	pullY: number,
+	speed: number,
+	minSpeed: number,
+	floorLike: number
+): (boolean, boolean)
+	if pullY <= -floorLike then
+		return false, speed >= minSpeed
+	end
+	if peeled or speed < minSpeed then
+		return true, false
+	end
+	return false, true
+end
+
 -- How far out the foot reaches on the ground.
 function CoolingTower.footRadius(shape: Shape): number
 	return CoolingTower.profile(shape)[1].R
