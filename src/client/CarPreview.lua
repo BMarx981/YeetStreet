@@ -98,8 +98,8 @@ function CarPreview.new(parent: Instance): Preview
 			AxolotlThrottle.build(axolotl, CFrame.new(), built)
 		else
 			CarParts.build(design, CFrame.new(), built)
+			CarPreview.wheels(design, built)
 		end
-		CarPreview.wheels(design, built)
 		built.Parent = viewport
 		model = built
 		local box, size = built:GetBoundingBox()

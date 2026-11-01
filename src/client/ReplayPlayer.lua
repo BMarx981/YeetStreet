@@ -144,7 +144,6 @@ local function buildAxolotl(
 			breakAt[part] = times[k]
 		end
 	end
-	CarPreview.wheels(design, ghost)
 
 	local pieces: { Piece } = {}
 	local axolotl: AxolotlGhost = { moves = AxolotlMoves.newMoves(), time = 0, hits = hits }

@@ -350,6 +350,10 @@ end
 -- one. What moves them comes from what replicates, so every client sees it:
 -- the front wheels' angle to the hull, the hull's speed, a ray for the ground
 -- under it, and its ToughnessLeft dropping for a hit.
+--
+-- Its wheels sit under its feet, away from the hidden physics wheels, so each
+-- copies how far its hub has steered and sprung. Welding them to the hubs
+-- would swing them around the hub when steering.
 local function buildAxolotl(
 	car: Model,
 	mesh: Model,
@@ -370,8 +374,16 @@ local function buildAxolotl(
 		return weld
 	end
 	local tail: Weld?, leftGill: Weld?, rightGill: Weld?, mouth: Weld?
+	local rollers: { { weld: Weld, hub: BasePart, rest: CFrame } } = {}
 	for _, part in AxolotlThrottle.build(mesh, hull.CFrame, folder) do
-		if part.Name == "tail" then
+		if part.Name == "Wheel" then
+			local rest = hull.CFrame:ToObjectSpace(part.CFrame)
+			local weld = weldFrom(part, rest)
+			local hub = car:WaitForChild(part:GetAttribute("Hub") :: string, HULL_WAIT)
+			if hub and hub:IsA("BasePart") then
+				table.insert(rollers, { weld = weld, hub = hub, rest = rest })
+			end
+		elseif part.Name == "tail" then
 			tail = weldFrom(part, AxolotlThrottle.tailRoot)
 		elseif part.Name == "leftgills" then
 			leftGill = weldFrom(part, AxolotlThrottle.leftGillRoot)
@@ -435,6 +447,11 @@ local function buildAxolotl(
 		end
 		if rightGill then
 			rightGill.C0 = AxolotlThrottle.rightGillRoot * CFrame.Angles(0, -moves.sweep, moves.flap)
+		end
+		for _, roller in rollers do
+			local hubNow = hull.CFrame:ToObjectSpace(roller.hub.CFrame)
+			local sprung = Vector3.new(0, hubNow.Y - AxolotlThrottle.hubRestY, 0)
+			roller.weld.C0 = CFrame.new(roller.rest.Position + sprung) * hubNow.Rotation
 		end
 
 		if mouth then
@@ -739,7 +756,7 @@ local function setUp(car: Model)
 		addRaptor(car, hull, 1, 1.5)
 	end
 
-	if (design.hideWheels and not fixedLook) or raptorMesh then
+	if (design.hideWheels and not fixedLook) or raptorMesh or axolotlMesh then
 		for _, name in WHEEL_NAMES do
 			local wheel = car:FindFirstChild(name)
 			if wheel and wheel:IsA("BasePart") then

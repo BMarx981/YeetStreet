@@ -33,12 +33,12 @@ AxolotlMoves.Gills = {
 
 AxolotlMoves.Smile = {
 	Count = 31, -- close enough to overlap into one line
-	CenterY = 0.85, -- the middle of the smile, in car space
+	CenterY = 2.05, -- the middle of the smile, in car space
 	HalfWidth = 1.7,
 	Rise = 0.35, -- how far the ends sit above the middle
 	DotSize = 0.26,
 	-- The stretched head's shape, close enough to lay the smile on.
-	Head = { Y = 1.46, Z = -3.14, RadiusX = 2.7, RadiusY = 2.6, RadiusZ = 3.59 },
+	Head = { Y = 2.66, Z = -3.14, RadiusX = 2.7, RadiusY = 2.6, RadiusZ = 3.59 },
 	-- Seconds for the laugh after a hit.
 	OpenTime = 0.08,
 	Hold = 0.7,
