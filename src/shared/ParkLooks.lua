@@ -55,6 +55,12 @@ local LOOKS: { [string]: Look } = {
 		tagline = "Buttons, klaxons, and a missile",
 		sign = HAZARD,
 	},
+	Plant = {
+		color = "#B7A916",
+		icon = "☢️",
+		tagline = "Cooling towers and boiling water",
+		sign = { stripe = "#7CFC3C", stripeBack = "#16161A", post = "#C9CDD2", postMaterial = "Metal" },
+	},
 	Obby = { color = "#785ADC", icon = "🏁", tagline = "Sky course with checkpoints", sign = HAZARD },
 }
 

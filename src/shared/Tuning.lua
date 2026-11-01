@@ -1239,7 +1239,7 @@ Tuning.TestPark = {
 	-- Ground rectangle, tiled because a part is at most 2048 studs on a side.
 	-- Jets can carry a run well past 4000 studs from the lip.
 	GroundBackZ = 900, -- edge behind the spawn
-	GroundFrontZ = -6000, -- far edge past the ramp
+	GroundFrontZ = -7100, -- far edge past the ramp
 	GroundHalfWidth = 3000,
 	GroundTile = 2048,
 	-- Curved wall around the ground's edge: flat, vertical at the edge, then on
@@ -1281,7 +1281,7 @@ Tuning.TestPark = {
 Tuning.Map = {
 	FloorTop = 0.1, -- park floors sit just above the grass, so the two never flicker
 	Gap = 100,
-	Bounds = { MinX = -2900, MaxX = 2900, MinZ = -5900, MaxZ = 800 },
+	Bounds = { MinX = -2900, MaxX = 2900, MinZ = -7000, MaxZ = 800 },
 	Areas = {
 		{
 			Id = "Hub",
@@ -1367,6 +1367,41 @@ Tuning.Map = {
 			ArriveZ = -4960,
 			Heading = 0,
 		},
+		{
+			Id = "Plant",
+			Name = "Nuclear Plant",
+			Kind = "Park",
+			X = 1750,
+			Z = -6450,
+			Width = 1900,
+			Depth = 900,
+			ArriveX = 1430, -- facing the gap between the two towers
+			ArriveZ = -6030,
+			Heading = 0,
+		},
+	},
+}
+
+-- The nuclear plant (ServerScriptService.Parks.Plant): two cooling towers a car
+-- drives up, over, and down inside. Places are from the park's middle.
+Tuning.Plant = {
+	Towers = { { X = -620, Z = 0 }, { X = -20, Z = 0 } },
+	Tower = { -- the shape, in CoolingTower
+		Height = 400,
+		WaistHeight = 300,
+		WaistRadius = 190,
+		Curve = 430,
+		CrestRadius = 45, -- half as wide as the rim; a tighter crest throws a car off
+		InnerLean = 15,
+		FootHeight = 40,
+		FloorHeight = 80,
+		Rows = { Foot = 6, Outer = 14, Crest = 10, Inner = 12, Floor = 6 },
+		Slices = 64,
+		Thickness = 4,
+		Seed = 41, -- the streaks of grime
+		Clean = Color3.fromRGB(196, 192, 182),
+		Stained = Color3.fromRGB(150, 146, 136),
+		FloorColor = Color3.fromRGB(92, 92, 88),
 	},
 }
 
