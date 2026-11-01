@@ -1434,6 +1434,22 @@ Tuning.Plant = {
 			Jet = { Radius = 45, Height = 520, Rise = 0.35, Fade = 1.4 },
 		},
 	},
+	-- Steam rising out of each tower all the time, like the volcano's smoke:
+	-- Rate puffs a second from a square Width across, Below the rim, growing
+	-- from MinSize to MaxSize, drifting Drift studs a second faster each second
+	-- toward +X. Thickness is how see-through at their thickest, 0 solid to 1 gone.
+	Steam = {
+		Width = 150,
+		Below = 20,
+		Rate = 8,
+		MinSize = 50,
+		MaxSize = 170,
+		MinRise = 30,
+		MaxRise = 50,
+		Drift = 3,
+		Lifetime = 12,
+		Thickness = 0.25,
+	},
 }
 
 -- The missile silo (ServerScriptService.Parks.Silo, shape in Silo): a hole in

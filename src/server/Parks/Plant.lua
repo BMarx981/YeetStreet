@@ -63,6 +63,43 @@ local function plank(
 	)
 end
 
+-- An unseen part in the tower's opening, with steam rising from it all the time.
+local function buildSteam(parent: Instance, center: CFrame)
+	local F = S.Steam
+	local part = block(
+		parent,
+		"Steam",
+		Vector3.new(F.Width, 1, F.Width),
+		center * CFrame.new(0, T.Height - F.Below, 0),
+		Color3.new(1, 1, 1)
+	)
+	part.Transparency = 1
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+
+	local steam = Instance.new("ParticleEmitter")
+	steam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	steam.EmissionDirection = Enum.NormalId.Top
+	steam.Rate = F.Rate
+	steam.Color = ColorSequence.new(Color3.fromRGB(245, 247, 250), Color3.fromRGB(215, 220, 226))
+	steam.Size = NumberSequence.new(F.MinSize, F.MaxSize)
+	steam.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.12, F.Thickness),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	steam.Lifetime = NumberRange.new(F.Lifetime * 0.8, F.Lifetime * 1.2)
+	steam.Speed = NumberRange.new(F.MinRise, F.MaxRise)
+	steam.SpreadAngle = Vector2.new(8, 8)
+	steam.RotSpeed = NumberRange.new(-12, 12)
+	steam.Rotation = NumberRange.new(0, 360)
+	steam.Acceleration = Vector3.new(F.Drift, 0, 0)
+	steam.LightInfluence = 1
+	steam.Parent = part
+end
+
 local function buildTower(parent: Instance, index: number, center: CFrame)
 	local model = Instance.new("Model")
 	model.Name = `CoolingTower{index}`
@@ -101,6 +138,8 @@ local function buildTower(parent: Instance, index: number, center: CFrame)
 	water.CastShadow = false
 	water:SetAttribute("Tower", index)
 	CollectionService:AddTag(water, "TowerWater")
+
+	buildSteam(model, center)
 end
 
 function Plant.build(folder: Folder, area: MapLayout.Area)
