@@ -11,6 +11,8 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Claw = require(ReplicatedStorage.VelociraptorClaw)
+
 local VelociraptorCar = {}
 
 VelociraptorCar.Fit = Vector3.new(1.5, 1, 1.4) -- stretch from the raw mesh
@@ -25,21 +27,9 @@ VelociraptorCar.jetSize = Vector3.new(0.6, 1.2, 1.2)
 -- legs stay on, since they are what the car stands on.
 VelociraptorCar.BreakOrder = { "leftarm", "rightarm", "tail" }
 
--- The big sickle claw on each foot, held up off the ground with its point
--- hooking forward and down. On the outside of the foot, where it can be seen.
--- Its side view is a crescent: the Outer and Inner curves run from the foot
--- toward the Tip, as { y, z } in car space.
-VelociraptorCar.Claw = {
-	Side = 2.6, -- studs out from the car's middle
-	Color = Color3.fromRGB(200, 120, 40),
-	Width = 0.5,
-	Outer = { { -0.7, -1.0 }, { -0.35, -1.7 }, { -0.45, -2.5 } },
-	Inner = { { -1.7, -1.3 }, { -1.1, -1.7 }, { -0.95, -2.3 } },
-	Tip = { -1.35, -3.15 },
-	Scale = 0.85, -- of all the above but Side, about Root, where it meets the foot
-	Root = { -1.2, -1.15 },
-	Back = 0.32, -- studs the whole claw sits toward the tail, into the foot
-}
+VelociraptorCar.Claw = Claw
+local CLAW_COLOR = Color3.fromRGB(200, 120, 40)
+local CLAW_SURFACE = 0.015 -- thin facets meet at the blade's cutting edge
 
 function VelociraptorCar.mesh(): Model?
 	local mesh = ReplicatedStorage:FindFirstChild("VelociraptorMesh")
@@ -56,30 +46,45 @@ local function settle(part: BasePart, cframe: CFrame, parent: Instance)
 	part.Parent = parent
 end
 
--- One flat triangle of the claw, from two wedges (the same split as
+-- One beveled surface of the claw, from two thin wedges (the same split as
 -- Pieces.Triangle, which only the server can reach).
-local function addTriangle(a: Vector3, b: Vector3, c: Vector3, hullCFrame: CFrame, parent: Instance, parts: { BasePart })
-	local C = VelociraptorCar.Claw
+local function addTriangle(
+	a: Vector3,
+	b: Vector3,
+	c: Vector3,
+	hullCFrame: CFrame,
+	parent: Instance,
+	parts: { BasePart }
+)
 	local ab, ac, bc = b - a, c - a, c - b
 	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
 	-- Make bc the longest side, so a is the widest corner.
-	if abd > acd and abd > bcd then
+	if abd >= acd and abd >= bcd then
 		c, a = a, c
-	elseif acd > bcd and acd > abd then
+	elseif acd >= bcd then
 		a, b = b, a
 	end
 	ab, ac, bc = b - a, c - a, c - b
 
-	local right = ac:Cross(ab).Unit
+	local normal = ac:Cross(ab)
+	if normal.Magnitude < 1e-6 then
+		return
+	end
+	local right = normal.Unit
 	local upward = bc:Cross(right).Unit
 	local back = bc.Unit
 	local height = math.abs(ab:Dot(upward))
 	local function wedge(length: number, cframe: CFrame)
+		if length < 1e-6 then
+			return
+		end
 		local part = Instance.new("WedgePart")
 		part.Name = "Claw"
-		part.Size = Vector3.new(C.Width * C.Scale, height, length)
-		part.Color = C.Color
+		part.Size = Vector3.new(CLAW_SURFACE, height, length)
+		part.Color = CLAW_COLOR
 		part.Material = Enum.Material.SmoothPlastic
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
 		settle(part, hullCFrame * cframe, parent)
 		table.insert(parts, part)
 	end
@@ -87,20 +92,31 @@ local function addTriangle(a: Vector3, b: Vector3, c: Vector3, hullCFrame: CFram
 	wedge(math.abs(ac:Dot(back)), CFrame.fromMatrix((a + c) / 2, -right, upward, -back))
 end
 
-local function addClaw(side: number, hullCFrame: CFrame, parent: Instance, parts: { BasePart })
-	local C = VelociraptorCar.Claw
-	local function point(at: { number }): Vector3
-		local y = C.Root[1] + (at[1] - C.Root[1]) * C.Scale
-		local z = C.Root[2] + (at[2] - C.Root[2]) * C.Scale + C.Back
-		return Vector3.new(side * C.Side, y, z)
+-- Explicit foot pieces take precedence over a combined leg-and-foot mesh.
+local function footBounds(side: number, hullCFrame: CFrame, parts: { BasePart }): Claw.Foot?
+	local found: Claw.Foot? = nil
+	local priority = 0
+	for _, part in parts do
+		local name = string.lower(part.Name)
+		local rank = if string.find(name, "foot", 1, true) then 2 elseif string.find(name, "leg", 1, true) then 1 else 0
+		local at = hullCFrame:PointToObjectSpace(part.Position)
+		if at.X * side > 0 and rank > priority then
+			found = { x = at.X, y = at.Y, z = at.Z, sx = part.Size.X, sy = part.Size.Y, sz = part.Size.Z }
+			priority = rank
+		end
 	end
-	for i = 1, #C.Outer - 1 do
-		local outer, inner = point(C.Outer[i]), point(C.Inner[i])
-		local nextOuter, nextInner = point(C.Outer[i + 1]), point(C.Inner[i + 1])
-		addTriangle(outer, inner, nextOuter, hullCFrame, parent, parts)
-		addTriangle(inner, nextInner, nextOuter, hullCFrame, parent, parts)
+	return found
+end
+
+local function addClaw(root: Claw.Vec, hullCFrame: CFrame, parent: Instance, parts: { BasePart })
+	local shape = Claw.shape(root)
+	local vertices: { Vector3 } = {}
+	for _, p in shape.vertices do
+		table.insert(vertices, Vector3.new(p.x, p.y, p.z))
 	end
-	addTriangle(point(C.Outer[#C.Outer]), point(C.Inner[#C.Inner]), point(C.Tip), hullCFrame, parent, parts)
+	for _, face in shape.faces do
+		addTriangle(vertices[face[1]], vertices[face[2]], vertices[face[3]], hullCFrame, parent, parts)
+	end
 end
 
 function VelociraptorCar.build(mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
@@ -121,8 +137,10 @@ function VelociraptorCar.build(mesh: Model, hullCFrame: CFrame, parent: Instance
 			table.insert(parts, part)
 		end
 	end
-	addClaw(-1, hullCFrame, parent, parts)
-	addClaw(1, hullCFrame, parent, parts)
+	local left = Claw.root(-1, footBounds(-1, hullCFrame, parts))
+	local right = Claw.root(1, footBounds(1, hullCFrame, parts))
+	addClaw(left, hullCFrame, parent, parts)
+	addClaw(right, hullCFrame, parent, parts)
 	return parts
 end
 
