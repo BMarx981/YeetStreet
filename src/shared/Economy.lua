@@ -33,7 +33,7 @@ export type Car = {
 	Archetype: string,
 	Tier: string,
 	ForSale: boolean?, -- false for cars only won, never bought (dino cars, invite prize)
-	Look: string?, -- a fixed look in place of the generated one ("Axolotl")
+	Look: string?, -- a fixed look in place of the generated one ("Axolotl", or one of DinoCars.Looks)
 	-- Other bodies it can wear for a new shape, on top of its own Seed, which
 	-- comes free with the car. Any car type of the same Tier, with the same
 	-- stats. Seeds are what get saved, so each is used once per car.

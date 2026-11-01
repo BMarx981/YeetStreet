@@ -4,7 +4,9 @@
 -- them on PlayerData and tells everyone else.
 --
 -- Clients buy through RemoteFunctions in ReplicatedStorage, each returning
--- (ok, reason) with Economy's reasons, plus "TooSoon" and "NotLoaded":
+-- (ok, reason) with Economy's reasons, plus "TooSoon" and "NotLoaded". A
+-- BuyBoneShop of the Dino Mystery Box returns the id of the car won in place
+-- of the reason, for the client to spin to:
 --   BuyUpgrade(stat)  one level of Speed, Jets, Toughness, Grip, or Brakes
 --   BuyCar(id)        a ladder car, without equipping it
 --   EquipCar(id)      an owned car
@@ -29,6 +31,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Leaderstats = require(ServerScriptService.Leaderstats)
@@ -245,6 +248,9 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	if not data then
 		return false, "NotLoaded"
 	end
+	if item.Mystery and DinoBox.allOwned(Tuning.DinoMystery.Rewards, data.Economy.Cars) then
+		return false, "AllOwned"
+	end
 	local boneCoins = Leaderstats.value(player, "BoneCoins")
 	if not boneCoins or boneCoins.Value < item.BonePrice then
 		return false, "NotEnoughBones"
@@ -252,49 +258,10 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	boneCoins.Value -= item.BonePrice
 	player:SetAttribute("BoneCoins", boneCoins.Value)
 	if item.Mystery then
-		-- Roll a weighted reward from the Dino Mystery table.
-		local rewards = Tuning.DinoMystery.Rewards
-		local totalWeight = 0
-		for _, reward in rewards do
-			totalWeight += reward.Weight
-		end
-		local roll = math.random() * totalWeight
-		local picked
-		for _, reward in rewards do
-			roll -= reward.Weight
-			if roll <= 0 then
-				picked = reward
-				break
-			end
-		end
-		picked = picked or rewards[#rewards]
-		if picked.Kind == "Car" then
-			if table.find(data.Economy.Cars, picked.CarId) then
-				-- Already owns that dino: reroll once, so a duplicate egg still pays out.
-				local fallback = rewards[#rewards]
-				for _, reward in rewards do
-					if reward.Kind ~= "Car" then
-						fallback = reward
-						break
-					end
-				end
-				local amount = fallback.Amount or 20000
-				data.Economy.Cash += amount
-				publish(player, data.Economy)
-				return true, "You already had that dino, so the egg held $" .. amount .. " cash!"
-			end
-			table.insert(data.Economy.Cars, picked.CarId)
-			publish(player, data.Economy)
-			return true, "The egg hatched... " .. picked.Label
-		elseif picked.Kind == "Bones" then
-			boneCoins.Value += picked.Amount
-			player:SetAttribute("BoneCoins", boneCoins.Value)
-			return true, "The egg held " .. picked.Label .. "!"
-		else
-			data.Economy.Cash += picked.Amount
-			publish(player, data.Economy)
-			return true, "The egg held " .. picked.Label .. "!"
-		end
+		local won = DinoBox.pick(Tuning.DinoMystery.Rewards, data.Economy.Cars, math.random()) :: DinoBox.Reward
+		table.insert(data.Economy.Cars, won.CarId)
+		publish(player, data.Economy)
+		return true, won.CarId
 	end
 	if item.CarId then
 		if table.find(data.Economy.Cars, item.CarId) then

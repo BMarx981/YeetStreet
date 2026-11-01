@@ -22,11 +22,13 @@ local UserInputService = game:GetService("UserInputService")
 
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarKit = require(ReplicatedStorage.CarKit)
+local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
 local Pips = require(ReplicatedStorage.Pips)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
+local DinoSpin = require(script.Parent.DinoSpin)
 local UiStyle = require(script.Parent.UiStyle)
 
 local GarageMenu = {}
@@ -87,6 +89,7 @@ local REASONS: { [string]: string } = {
 	SoldOut = "That item is sold out.",
 	UnknownLimited = "That item doesn't exist.",
 	NotEnoughBones = "Not enough bones yet.",
+	AllOwned = "You already have every dino car!",
 	UnknownBoneShop = "That trade doesn't exist.",
 	UnknownBody = "That body doesn't exist.",
 }
@@ -554,6 +557,8 @@ local function build()
 			local boneOwned = item.CarId and table.find(cars, item.CarId) ~= nil
 			if boneOwned then
 				setButton(r.button, "OWNED", false)
+			elseif item.Mystery and DinoBox.allOwned(Tuning.DinoMystery.Rewards, cars) then
+				setButton(r.button, "ALL OWNED", false)
 			else
 				setButton(r.button, `{item.BonePrice} bones`, loaded and not busy and boneBalance >= item.BonePrice, true)
 			end
@@ -573,7 +578,7 @@ local function build()
 						setButton(r.button, "EQUIP", loaded and not busy)
 					end
 				else
-					r.detail.Text = "Not owned. Visit the Bone Trader during bone rain to buy this car for 1,000 bones."
+					r.detail.Text = "Not owned. Win it from the Dino Mystery Box at the Bone Trader during bone rain."
 					setButton(r.button, "LOCKED", false)
 				end
 			end
@@ -597,8 +602,9 @@ local function build()
 	end
 
 	-- Sends one request to the server and reports how it went. The row it came
-	-- from bounces and flashes when it goes through.
-	local function ask(remoteName: string, arg: string, success: string, r: Row, seed: number?)
+	-- from bounces and flashes when it goes through, and `after` gets what the
+	-- server sent back.
+	local function ask(remoteName: string, arg: string, success: string, r: Row, seed: number?, after: ((string?) -> ())?)
 		if busy then
 			return
 		end
@@ -625,6 +631,9 @@ local function build()
 			UiStyle.flash(r.frame)
 			if string.sub(remoteName, 1, 3) == "Buy" then
 				UiStyle.play("Buy")
+			end
+			if after then
+				after(reason)
 			end
 		else
 			UiStyle.play("Denied")
@@ -687,13 +696,36 @@ local function build()
 			end
 		end)
 	end
+	local spin = DinoSpin.new(player:WaitForChild("PlayerGui"))
+	local function spinTo(winner: string)
+		busy = true
+		refresh()
+		spin.play(winner, function()
+			busy = false
+			refresh()
+		end, function()
+			local r = eventRows[winner]
+			local car = Economy.findCar(Tuning.Ladder, winner)
+			if r and car then
+				ask("EquipCar", winner, `Now driving the {car.Name}!`, r)
+			end
+		end)
+	end
 	for _, item in Tuning.BoneShop do
 		local r = boneRows[item.Id]
 		r.button.Activated:Connect(function()
 			if not r.button.Active then
 				return
 			end
-			ask("BuyBoneShop", item.Id, if item.Mystery then "The egg is hatching... what's inside?" elseif item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`, r)
+			if item.Mystery then
+				ask("BuyBoneShop", item.Id, "", r, nil, function(winner: string?)
+					if winner then
+						spinTo(winner)
+					end
+				end)
+				return
+			end
+			ask("BuyBoneShop", item.Id, if item.CarId then `Got the {item.Name}! Equip it to drive it.` else `Traded {item.BonePrice} bones for $ {withCommas(item.CashReward)}!`, r)
 		end)
 	end
 	for _, ladderCar in Tuning.Ladder do
@@ -723,6 +755,9 @@ local function build()
 		end
 		open = value
 		UiStyle.show(panel, value)
+		if not value then
+			spin.close()
+		end
 		if value then
 			status.Text = ""
 			refresh()

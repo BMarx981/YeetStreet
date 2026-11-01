@@ -12,6 +12,7 @@ local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarKit = require(ReplicatedStorage.CarKit)
 local CarParts = require(ReplicatedStorage.CarParts)
+local DinoCars = require(ReplicatedStorage.DinoCars)
 local Economy = require(ReplicatedStorage.Economy)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -55,7 +56,8 @@ function CarPreview.wheels(design: CarDesign.Design, model: Model)
 	end
 end
 
-function CarPreview.new(parent: Instance): Preview
+-- `fit` overrides FIT, for a window that isn't wide like the garage's.
+function CarPreview.new(parent: Instance, fit: number?): Preview
 	local viewport = Instance.new("ViewportFrame")
 	viewport.Name = "Preview"
 	viewport.BackgroundTransparency = 1
@@ -94,8 +96,11 @@ function CarPreview.new(parent: Instance): Preview
 		local built = Instance.new("Model")
 		built.Name = "Car"
 		local axolotl = if car.Look == "Axolotl" then AxolotlThrottle.mesh() else nil
+		local dino = DinoCars.mesh(car.Look)
 		if axolotl then
 			AxolotlThrottle.build(axolotl, CFrame.new(), built)
+		elseif dino then
+			DinoCars.build(car.Look :: string, dino, CFrame.new(), built)
 		else
 			CarParts.build(design, CFrame.new(), built)
 			CarPreview.wheels(design, built)
@@ -104,7 +109,7 @@ function CarPreview.new(parent: Instance): Preview
 		model = built
 		local box, size = built:GetBoundingBox()
 		center = box.Position
-		distance = FIT * (size.Magnitude / 2) / math.sin(math.rad(FIELD_OF_VIEW / 2))
+		distance = (fit or FIT) * (size.Magnitude / 2) / math.sin(math.rad(FIELD_OF_VIEW / 2))
 		aim()
 	end
 

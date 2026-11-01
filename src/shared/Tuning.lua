@@ -626,6 +626,8 @@ Tuning.Ladder = {
 		ForSale = false,
 	},
 	-- Dino cars: only obtainable from the Dino Mystery Box at the Bone Trader.
+	-- Look replaces the generated body (DinoCars); the Seed, Archetype, and Tier
+	-- still set how many parts count as breakable.
 	{
 		Id = "Velociraptor",
 		Name = "Velociraptor",
@@ -636,6 +638,7 @@ Tuning.Ladder = {
 		Archetype = "buggy",
 		Tier = "Dino",
 		ForSale = false,
+		Look = "Velociraptor",
 	},
 	{
 		Id = "Triceratops",
@@ -647,6 +650,7 @@ Tuning.Ladder = {
 		Archetype = "triceratops",
 		Tier = "Dino",
 		ForSale = false,
+		Look = "Triceratops",
 	},
 	{
 		Id = "Brachiosaurus",
@@ -658,6 +662,7 @@ Tuning.Ladder = {
 		Archetype = "brachiosaurus",
 		Tier = "Dino",
 		ForSale = false,
+		Look = "Brachiosaurus",
 	},
 	{
 		Id = "Spinosaurus",
@@ -669,6 +674,7 @@ Tuning.Ladder = {
 		Archetype = "spinosaurus",
 		Tier = "Dino",
 		ForSale = false,
+		Look = "Spinosaurus",
 	},
 	{
 		Id = "TRex",
@@ -680,6 +686,7 @@ Tuning.Ladder = {
 		Archetype = "trex",
 		Tier = "Dino",
 		ForSale = false,
+		Look = "TRex",
 	},
 }
 
@@ -761,24 +768,23 @@ Tuning.BoneShop = {
 		Name = "Dino Mystery Box",
 		BonePrice = 50,
 		Mystery = true,
-		Description = "A mysterious dino egg. It could hatch into cash, bones... or a Velociraptor, Triceratops, Brachiosaurus, Spinosaurus, or the mighty T-Rex car!",
+		Description = "A mysterious dino egg. It hatches into a dino car you don't own yet, maybe even the mighty T-Rex!",
 		Stock = -1,
 	},
 }
 
--- Rewards from the Dino Mystery Box. Weight is how likely each reward is
--- (higher = more common). The five dino cars run from the Velociraptor (most
--- common) up to the T-Rex, the rare jackpot.
+-- The Dino Mystery Box's wheel. Weight is how likely each car is among the ones
+-- the player doesn't own yet (higher = more common), from the Velociraptor up
+-- to the T-Rex, the rare jackpot.
 Tuning.DinoMystery = {
+	SpinTime = 5.5, -- seconds the wheel turns
+	SpinTurns = 4, -- full loops of the cars before it lands
 	Rewards = {
-		{ Weight = 8,  Kind = "Car",   CarId = "Velociraptor", Label = "a VELOCIRAPTOR car! Quick and nimble!" },
-		{ Weight = 6,  Kind = "Car",   CarId = "Triceratops",  Label = "a TRICERATOPS car! Built like a tank!" },
-		{ Weight = 4,  Kind = "Car",   CarId = "Brachiosaurus", Label = "a BRACHIOSAURUS car! The biggest of them all!" },
-		{ Weight = 2,  Kind = "Car",   CarId = "Spinosaurus",  Label = "a SPINOSAURUS car! Fierce and fast!" },
-		{ Weight = 1,  Kind = "Car",   CarId = "TRex",        Label = "the T-REX CAR! The king of the dinosaurs is yours!" },
-		{ Weight = 20, Kind = "Cash",  Amount = 20000, Label = "$20,000 cash" },
-		{ Weight = 30, Kind = "Cash",  Amount = 8000,  Label = "$8,000 cash" },
-		{ Weight = 40, Kind = "Bones", Amount = 25,    Label = "25 bones back" },
+		{ Weight = 8, CarId = "Velociraptor", Blurb = "Quick and nimble!" },
+		{ Weight = 6, CarId = "Triceratops", Blurb = "Built like a tank!" },
+		{ Weight = 4, CarId = "Brachiosaurus", Blurb = "The biggest of them all!" },
+		{ Weight = 2, CarId = "Spinosaurus", Blurb = "Fierce and fast!" },
+		{ Weight = 1, CarId = "TRex", Blurb = "The king of the dinosaurs is yours!" },
 	},
 }
 

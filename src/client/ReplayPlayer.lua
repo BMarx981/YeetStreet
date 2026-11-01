@@ -53,12 +53,12 @@ local RunService = game:GetService("RunService")
 local AxolotlMoves = require(ReplicatedStorage.AxolotlMoves)
 local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
+local DinoCars = require(ReplicatedStorage.DinoCars)
 local CarParts = require(ReplicatedStorage.CarParts)
 local ReplayClock = require(ReplicatedStorage.ReplayClock)
 local ReplayOrbit = require(ReplicatedStorage.ReplayOrbit)
 local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
-local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 local CarPreview = require(script.Parent.CarPreview)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
@@ -151,16 +151,16 @@ local function meshBreaks(
 	return breakAt, hits
 end
 
--- The mesh Velociraptor under `ghost`, leaving off the pieces lost before the
--- clip.
-local function buildVelociraptor(
+-- A dino car under `ghost`, leaving off the pieces lost before the clip.
+local function buildDino(
 	replay: ReplayRecorder.Replay,
+	dino: string,
 	mesh: Model,
 	design: CarDesign.Design,
 	ghost: Model
 ): { Piece }
-	VelociraptorCar.build(mesh, CFrame.new(), ghost)
-	local breakAt = meshBreaks(replay, design, ghost, VelociraptorCar.BreakOrder)
+	DinoCars.build(dino, mesh, CFrame.new(), ghost)
+	local breakAt = meshBreaks(replay, design, ghost, DinoCars.Looks[dino].BreakOrder)
 	local pieces: { Piece } = {}
 	for _, part in ghost:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -226,13 +226,9 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 		return nil, {}, nil
 	end
 
-	local raptorMesh = if look.VelociraptorMesh == true
-			and look.HeliCar ~= true
-			and look.PlaneCar ~= true
-		then VelociraptorCar.mesh()
-		else nil
-	if raptorMesh then
-		return ghost, buildVelociraptor(replay, raptorMesh, design, ghost), nil
+	local dinoMesh = if look.HeliCar ~= true and look.PlaneCar ~= true then DinoCars.mesh(look.DinoMesh) else nil
+	if dinoMesh then
+		return ghost, buildDino(replay, look.DinoMesh, dinoMesh, design, ghost), nil
 	end
 
 	local mesh = if look.AxolotlThrottle == true
