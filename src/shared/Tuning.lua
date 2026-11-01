@@ -1450,6 +1450,63 @@ Tuning.Plant = {
 		Lifetime = 12,
 		Thickness = 0.25,
 	},
+	-- The operations building beside the towers (Parks.PlantOps). Curve and Lip
+	-- are the same as a Downtown building's, so it drives like one.
+	Ops = {
+		X = 520,
+		Z = 0,
+		Width = 260,
+		Depth = 200,
+		Height = 140,
+		CurveRadius = 20,
+		CurveSteps = 10,
+		CornerSlices = 4,
+		Lip = { Height = 3, Length = 6 },
+		Wall = Color3.fromRGB(226, 231, 234),
+		Fin = Color3.fromRGB(150, 160, 168),
+		Glass = Color3.fromRGB(35, 80, 100),
+		Glow = Color3.fromRGB(70, 225, 215),
+		Beacon = Color3.fromRGB(255, 50, 40),
+		SignColor = Color3.fromRGB(18, 28, 36),
+		WindowHeight = 14,
+		WindowGap = 8,
+		WindowInset = 10, -- from each end of a side
+		TopBand = 14, -- the plain strip at the top, with the glowing band in it
+		BandHeight = 3,
+		FinWidth = 1.2,
+		FinDepth = 2,
+		FinEvery = 20,
+		Sign = {
+			Text = "☢ OPERATIONS",
+			Width = 170,
+			Height = 24,
+			Y = 106,
+			PixelsPerStud = 4, -- TextSize tops out at 100, so a bigger canvas leaves the text small
+			Lights = 16,
+			LightHeight = 2.5,
+			Seed = 5,
+			LightColors = {
+				Color3.fromRGB(70, 230, 110),
+				Color3.fromRGB(70, 230, 110),
+				Color3.fromRGB(255, 190, 50),
+				Color3.fromRGB(255, 60, 50),
+			},
+		},
+		Dome = { X = -55, Z = 0, Diameter = 80, Transparency = 0.25 },
+		Dish = {
+			X = 70,
+			Z = -40,
+			PostWidth = 4,
+			PostHeight = 14,
+			Diameter = 44,
+			Thickness = 2,
+			Tilt = 50, -- degrees up from flat
+			Facing = -30,
+			FeedLength = 16,
+		},
+		Mast = { X = 100, Z = 60, Width = 2, Height = 60, Bars = 3, BarLength = 18 },
+		Vents = { X = 40, Z = 55, Count = 3, Every = 14, Width = 8, Height = 16 },
+	},
 }
 
 -- The missile silo (ServerScriptService.Parks.Silo, shape in Silo): a hole in

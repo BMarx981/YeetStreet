@@ -8,10 +8,12 @@
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local PlantOps = require(ServerScriptService.Parks.PlantOps)
 
 local S = Tuning.Plant
 local T = S.Tower
@@ -146,6 +148,7 @@ function Plant.build(folder: Folder, area: MapLayout.Area)
 	for i, place in S.Towers do
 		buildTower(folder, i, CFrame.new(area.X + place.X, FLOOR, area.Z + place.Z))
 	end
+	PlantOps.build(folder, area)
 end
 
 return Plant
