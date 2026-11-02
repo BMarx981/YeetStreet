@@ -35,6 +35,8 @@ local TUNING: Ptero.Tuning = {
 	FumbleTo = 650,
 	PerchTime = 10,
 	PerchReach = 20,
+	SnatchReach = 48,
+	SnatchHeight = 12,
 }
 
 local CIRCLE: Scatter.Line = { AX = 400, AZ = 0, BX = 400, BZ = 0, Radius = 150 }
@@ -271,6 +273,122 @@ Check.test("it lets go on EscapeJets of jets, at a fumble's height, or at the to
 	Check.eq(Ptero.releases(450, 0, 450, TUNING), true, "at the fumble")
 	Check.eq(Ptero.releases(799, 0, nil, TUNING), false, "under the top")
 	Check.eq(Ptero.releases(800, 0, nil, TUNING), true, "the top")
+end)
+
+-- A car parked on top of the spire, whose top is the perch at the middle.
+local function onTop(id: string?): Ptero.Car
+	return car(id or "climber", 25, PERCH_Y + 3, 10)
+end
+
+Check.test("a car reaching the top wakes it on its perch and is grabbed at once", function()
+	local s = Ptero.new(0, PERCH_Y, 0, 0)
+	local grabbed, at = run(s, { onTop() }, 5)
+	Check.eq(grabbed, "climber", "grabbed")
+	Check.eq(at ~= nil and at < 3, true, "soon")
+	Check.eq(s.mode, "carry", "mode")
+end)
+
+Check.test("it comes straight back from far away, up from low down, and grabs", function()
+	for _, start in { { 1500, 300 }, { -1200, 20 }, { 60, 10 } } do
+		local s = circling(start[1])
+		s.y = start[2]
+		local grabbed, at = run(s, { onTop() }, 25)
+		Check.eq(grabbed, "climber", `grabbed from {start[1]}, {start[2]}`)
+		Check.eq(at ~= nil and at < 20, true, `soon from {start[1]}, {start[2]}`)
+	end
+end)
+
+Check.test("it comes straight back while recovering or flying home", function()
+	for _, mode: Ptero.Mode in { "recover", "home" } do
+		local s = circling(500)
+		s.mode = mode
+		local grabbed = run(s, { onTop() }, 15)
+		Check.eq(grabbed, "climber", mode)
+	end
+end)
+
+Check.test("it drops a car it was swooping on for the one on top", function()
+	local s = circling(300)
+	local parked = car("parked", 300, GROUND, 200)
+	run(s, { parked }, 0.5)
+	Check.eq(s.mode, "swoop", "swooping")
+	Check.eq(s.target, "parked", "on the parked car")
+	local grabbed = run(s, { parked, onTop() }, 15)
+	Check.eq(grabbed, "climber", "grabbed")
+end)
+
+Check.test("a car in its talons comes first: the one on top waits its turn", function()
+	local s = circling(1000)
+	s.mode = "carry"
+	local grabbed = run(s, { onTop() }, 3)
+	Check.eq(grabbed, nil, "nothing new")
+	Check.eq(s.mode, "carry", "still carrying")
+	Ptero.letGo(s)
+	Check.eq(run(s, { onTop() }, 20), "climber", "grabbed after letting go")
+end)
+
+Check.test("it never gives up on a car on top, however long it takes", function()
+	local s = circling(1900)
+	s.y = TUNING.CruiseHeight
+	-- Far past Lose, and further than SwoopTime of flying.
+	local grabbed = run(s, { onTop() }, 30)
+	Check.eq(grabbed, "climber")
+end)
+
+Check.test("a car still climbing, below the top, wakes nothing", function()
+	local s = Ptero.new(0, PERCH_Y, 0, 0)
+	Check.eq(run(s, { car("climber", 40, PERCH_Y - 8, 0) }, 5), nil, "below")
+	Check.eq(s.mode, "perch", "still perched")
+end)
+
+Check.test("a car flying over the top, or past its edge, wakes nothing", function()
+	local s = Ptero.new(0, PERCH_Y, 0, 0)
+	Check.eq(run(s, { car("over", 0, PERCH_Y + 13, 0) }, 2), nil, "over it")
+	Check.eq(run(s, { car("past", 49, PERCH_Y + 3, 0) }, 2), nil, "past the edge")
+	Check.eq(s.mode, "perch", "still perched")
+end)
+
+Check.test("a car that reached the top is still caught after driving off it", function()
+	local s = circling(800)
+	local climber = onTop()
+	run(s, { climber }, 1)
+	Check.eq(s.mode, "swoop", "on its way")
+	climber.y = 100 -- back down the ledge or falling, and past the top's edge
+	climber.x = 120
+	Check.eq(run(s, { climber }, 15), "climber", "grabbed")
+end)
+
+Check.test("it catches a car still driving away after reaching the top", function()
+	local s = circling(800)
+	local climber = onTop()
+	run(s, { climber }, 0.1)
+	climber.x, climber.z = 60, 0
+	climber.vx, climber.vz = -40, 0
+	climber.y = PERCH_Y - 20
+	local grabbed = run(s, { climber }, 25)
+	Check.eq(grabbed, "climber")
+end)
+
+Check.test("it gives up on a car that gets back to the ground out of reach", function()
+	local s = circling(800)
+	local climber = onTop()
+	run(s, { climber }, 1)
+	-- On the ground inside a keep-out, where it never swoops.
+	climber.x, climber.y, climber.z = 400, GROUND, 0
+	Check.eq(run(s, { climber }, 1), nil, "no grab")
+	Check.eq(s.mode, "recover", "gave up")
+	climber.y = 100
+	Check.eq(run(s, { climber }, 1), nil, "forgotten once given up")
+end)
+
+Check.test("the car it drops is not chased again", function()
+	local s = circling(100)
+	local climber = onTop()
+	Check.eq(run(s, { climber }, 15), "climber", "grabbed")
+	Ptero.letGo(s)
+	climber.x, climber.y, climber.z = 500, 500, 500 -- falling from where it was dropped
+	Check.eq(run(s, { climber }, 2), nil, "no second grab")
+	Check.eq(s.mode, "home", "flies home")
 end)
 
 Check.finish("Ptero")

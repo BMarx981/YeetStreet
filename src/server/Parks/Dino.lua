@@ -48,6 +48,7 @@ local Mound = require(ReplicatedStorage.Mound)
 local Raptors = require(ReplicatedStorage.Raptors)
 local Rng = require(ReplicatedStorage.Rng)
 local Scatter = require(ReplicatedStorage.Scatter)
+local Spire = require(ReplicatedStorage.Spire)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local Volcano = require(ReplicatedStorage.Volcano)
@@ -1242,9 +1243,62 @@ local function buildRex(parent: Instance, area: MapLayout.Area, rect: Scatter.Re
 	DinoRex.start(model, territory, area.X + R.X, area.Z + R.Z, math.rad(R.Heading))
 end
 
+-- One plank of the spire's ledge, between two lines across it (a0 to b0, a1
+-- to b1), lying with its top on them.
+local function ledgePlank(parent: Instance, a0: Vector3, b0: Vector3, a1: Vector3, b1: Vector3)
+	local thickness = D.Ptero.Spire.Ledge.Thickness
+	local normal = (b1 - a0):Cross(b0 - a1).Unit
+	if normal.Y < 0 then
+		normal = -normal
+	end
+	local along = (a1 + b1 - a0 - b0) / 2
+	local forward = (along - normal * along:Dot(normal)).Unit
+	local plank = block(
+		parent,
+		"Plank",
+		Vector3.new(
+			math.max((b0 - a0).Magnitude, (b1 - a1).Magnitude) + OVERLAP,
+			thickness,
+			math.max((a1 - a0).Magnitude, (b1 - b0).Magnitude) + OVERLAP
+		),
+		CFrame.fromMatrix((a0 + b0 + a1 + b1) / 4 - normal * thickness / 2, normal:Cross(forward), normal, forward),
+		CAUSEWAY_COLOR
+	)
+	plank.Material = Enum.Material.Concrete
+end
+
+-- The narrow ledge winding up the spire from the ground to the top, with an
+-- open edge the whole way (Spire).
+local function buildLedge(parent: Instance, base: CFrame, top: number)
+	local S = D.Ptero.Spire
+	local shape: Spire.Shape = S :: any
+	local model = Instance.new("Model")
+	model.Name = "Ledge"
+	local sweep = Spire.sweep(shape, top)
+	local steps = math.ceil(sweep / (2 * math.pi) * S.Ledge.StepsPerTurn)
+	local function point(radius: number, along: number): Vector3
+		local x, y, z = Spire.point(shape, top, radius, along)
+		return base:PointToWorldSpace(Vector3.new(x, y, z))
+	end
+	for i = 1, steps do
+		local a0, a1 = sweep * (i - 1) / steps, sweep * i / steps
+		local rows0, rows1 = Spire.rowsAt(shape, top, a0), Spire.rowsAt(shape, top, a1)
+		for j = 1, #rows0 - 1 do
+			ledgePlank(
+				model,
+				point(rows0[j], a0),
+				point(rows0[j + 1], a0),
+				point(rows1[j], a1),
+				point(rows1[j + 1], a1)
+			)
+		end
+	end
+	model.Parent = parent
+end
+
 -- The pterodactyl's rock spire, tiers of turned blocks narrowing to a nest
--- of sticks. Adds the circle round its foot to `keepOut`, and returns where
--- the pterodactyl stands on it, facing Heading.
+-- of sticks, with a ledge up it. Adds the circle round its foot to `keepOut`,
+-- and returns where the pterodactyl stands on it, facing Heading.
 local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Scatter.Line }): CFrame
 	local P = D.Ptero
 	local S = P.Spire
@@ -1265,6 +1319,7 @@ local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 		)
 	end
 	local top = S.Height + OVERLAP / 2
+	buildLedge(model, base, top)
 	for k = 1, S.NestSticks do
 		local yaw = k * math.pi / S.NestSticks
 		local tilt = math.rad(if k % 2 == 0 then 6 else -6)

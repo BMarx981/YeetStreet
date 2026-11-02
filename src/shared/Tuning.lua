@@ -3158,6 +3158,11 @@ Tuning.Dino = {
 	-- The spire stands Spire.Height, in Tiers of rock blocks from
 	-- BaseWidth to TopWidth across, a nest NestWidth across on top; the
 	-- T-Rex and the palms keep Clear past its foot.
+	-- A ledge winds up it (Spire): no lip, climbing Pitch studs a turn and
+	-- narrowing from StartWidth to EndWidth, cars being 6 wide. Fall off and
+	-- it is back to the ground. A car that gets to the top, within SnatchReach
+	-- of the perch flat and SnatchHeight above it, brings the pterodactyl
+	-- straight back to grab it.
 	Ptero = {
 		X = 950,
 		Z = 700,
@@ -3172,7 +3177,20 @@ Tuning.Dino = {
 			NestWidth = 50,
 			NestSticks = 10,
 			Clear = 40,
+			Ledge = {
+				Pitch = 50,
+				StartWidth = 20,
+				EndWidth = 11,
+				StepsPerTurn = 60,
+				Thickness = 2,
+				Clear = 1,
+				Into = 18,
+				LevelTurn = 0.25,
+				Start = math.pi,
+			},
 		},
+		SnatchReach = 48,
+		SnatchHeight = 12,
 		CruiseHeight = 300,
 		CruiseSpeed = 70,
 		TurnRate = 40,

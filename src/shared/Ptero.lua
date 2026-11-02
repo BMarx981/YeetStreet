@@ -32,6 +32,12 @@
 -- shape, as for Rex). It flies over keep-outs, but never swoops on a car
 -- inside one or outside the rectangle.
 --
+-- The exception is a car that has climbed to its perch: on top of the spire,
+-- within SnatchReach of the perch flat and up to SnatchHeight above it. In
+-- any mode but carry it swoops on that car at once with no warning, from
+-- wherever it is and however far. Driving off the top does not save it: it
+-- stays after that car until it grabs it or the car is back on the ground.
+--
 -- Its position is its talons, where a held car's top is. Heading is in
 -- radians, 0 facing -Z and positive turning left, like the parks' Heading.
 -- Positions are world studs.
@@ -93,6 +99,7 @@ export type State = {
 	goalZ: number,
 	goalAge: number,
 	target: any?, -- the id of the car it swoops on
+	snatching: any?, -- the id of a car that reached the top, until it is caught
 	perchX: number,
 	perchY: number,
 	perchZ: number,
@@ -134,6 +141,8 @@ export type Tuning = {
 	FumbleTo: number,
 	PerchTime: number,
 	PerchReach: number,
+	SnatchReach: number,
+	SnatchHeight: number,
 }
 
 local TAU = 2 * math.pi
@@ -147,6 +156,9 @@ local SHORTEST_DESCENT = 0.25
 local SPIRAL_AHEAD = 0.4
 -- The longest it leads a car it dives at, in seconds.
 local LONGEST_LEAD = 2
+-- Snatching, it slows to this many studs a second for each stud left, gently
+-- enough for Accel to brake it, so it never overshoots into an orbit.
+local SNATCH_SLOW = 0.3
 
 local function wrap(angle: number): number
 	return (angle + math.pi) % TAU - math.pi
@@ -356,6 +368,52 @@ local function dive(s: State, car: Car, dt: number, tuning: Tuning): boolean
 	return false
 end
 
+-- Whether the car is on top of the spire, at its perch.
+local function onTop(s: State, car: Car, tuning: Tuning): boolean
+	local dx, dz = car.x - s.perchX, car.z - s.perchZ
+	local above = car.y - s.perchY
+	return dx * dx + dz * dz <= tuning.SnatchReach * tuning.SnatchReach and above >= 0 and above <= tuning.SnatchHeight
+end
+
+-- The car to snatch: the one it is already after while that stays off the
+-- ground, or else the first it finds on top of the spire.
+local function climber(s: State, cars: { Car }, territory: Territory, tuning: Tuning): Car?
+	if s.snatching ~= nil then
+		local car = find(cars, s.snatching)
+		if car and airborne(car, territory, tuning) then
+			return car
+		end
+		s.snatching = nil
+	end
+	for _, car in cars do
+		if onTop(s, car, tuning) then
+			return car
+		end
+	end
+	return nil
+end
+
+-- Flies straight at a car that reached the top, climbing as fast as it does
+-- with a car in its talons if it has to, and slowing as it nears but never
+-- below the car's own speed. Returns whether its talons reach it.
+local function snatch(s: State, car: Car, dt: number, tuning: Tuning): boolean
+	local topY = car.y + tuning.CarTop
+	local dx, dz = car.x - s.x, car.z - s.z
+	local flat = math.sqrt(dx * dx + dz * dz)
+	if flat * flat + (topY - s.y) ^ 2 <= tuning.Grab * tuning.Grab then
+		return true
+	end
+	local lead = math.min(flat / math.max(s.speed, SLOWEST), LONGEST_LEAD)
+	steer(s, car.x + car.vx * lead, car.z + car.vz * lead, tuning.DiveTurnRate, dt)
+	local carSpeed = math.sqrt(car.vx * car.vx + car.vz * car.vz)
+	local wanted = math.clamp(flat * SNATCH_SLOW + carSpeed, SLOWEST, tuning.DiveSpeed)
+	s.speed = approach(s.speed, wanted, tuning.Accel * dt)
+	local time = math.max(flat / math.max(s.speed, SLOWEST), SHORTEST_DESCENT)
+	s.vy = math.clamp((topY - s.y) / time, -tuning.DiveDrop, tuning.CarryClimb)
+	fly(s, dt)
+	return false
+end
+
 -- Flies home and lands on its perch.
 local function home(s: State, dt: number, tuning: Tuning)
 	local dx, dz = s.perchX - s.x, s.perchZ - s.z
@@ -378,6 +436,26 @@ end
 function Ptero.step(s: State, cars: { Car }, territory: Territory, rng: Rng, dt: number, tuning: Tuning): any?
 	s.timer += dt
 
+	if s.mode == "carry" then
+		carry(s, territory, dt, tuning)
+		return nil
+	end
+
+	local top = climber(s, cars, territory, tuning)
+	if top then
+		s.snatching = top.id
+		if s.mode ~= "swoop" or s.target ~= top.id then
+			s.target = top.id
+			setMode(s, "swoop")
+		end
+		if snatch(s, top, dt, tuning) then
+			s.target, s.snatching = nil, nil
+			startCarry(s, territory, tuning)
+			return top.id
+		end
+		return nil
+	end
+
 	if s.mode == "perch" then
 		s.speed, s.vy = 0, 0
 		if s.timer < tuning.PerchTime then
@@ -387,10 +465,6 @@ function Ptero.step(s: State, cars: { Car }, territory: Territory, rng: Rng, dt:
 		setMode(s, "circle")
 	end
 
-	if s.mode == "carry" then
-		carry(s, territory, dt, tuning)
-		return nil
-	end
 	if s.mode == "home" then
 		home(s, dt, tuning)
 		return nil
