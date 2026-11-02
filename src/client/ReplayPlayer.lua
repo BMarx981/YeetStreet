@@ -141,11 +141,14 @@ local function meshBreaks(
 	local gone, times = AxolotlMoves.pieceBreaks(before, hits, total)
 	local breakAt: { [Instance]: number } = {}
 	for k, name in order do
-		local part = ghost:FindFirstChild(name)
-		if part and k <= gone then
-			part:Destroy()
-		elseif part then
-			breakAt[part] = times[k]
+		for _, part in ghost:GetChildren() do
+			if part.Name == name or part:GetAttribute("DinoPiece") == name then
+				if k <= gone then
+					part:Destroy()
+				else
+					breakAt[part] = times[k]
+				end
+			end
 		end
 	end
 	return breakAt, hits

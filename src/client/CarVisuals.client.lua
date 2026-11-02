@@ -756,9 +756,13 @@ local function setUp(car: Model)
 			end
 			local off = AxolotlMoves.piecesOff(broken, total)
 			for k = shown + 1, off do
-				local piece = folder:FindFirstChild(breakOrder[k])
-				if piece and piece:IsA("BasePart") then
-					knockOff(piece, hull)
+				for _, piece in folder:GetChildren() do
+					if
+						piece:IsA("BasePart")
+						and (piece.Name == breakOrder[k] or piece:GetAttribute("DinoPiece") == breakOrder[k])
+					then
+						knockOff(piece, hull)
+					end
 				end
 			end
 			shown = math.max(shown, off)

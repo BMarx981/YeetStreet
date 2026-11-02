@@ -13,6 +13,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
+local TriceratopsCar = require(ReplicatedStorage.TriceratopsCar)
 
 local DinoCars = {}
 
@@ -36,30 +37,30 @@ DinoCars.Looks = {
 		BreakOrder = VelociraptorCar.BreakOrder,
 	},
 	Triceratops = {
-		Fit = Vector3.new(1.6, 1.1, 1.8),
+		Fit = Vector3.new(1.7, 1.1, 2.1),
 		Lift = 0.475,
-		jetCFrame = CFrame.new(0, 0.6, 4) * JET_TURN,
+		jetCFrame = CFrame.new(0, 0.2, 3.75) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "tail", "backrightleg", "head" },
 	},
 	Brachiosaurus = {
-		Fit = Vector3.new(1.5, 0.85, 1.1),
-		Lift = 2.25,
-		jetCFrame = CFrame.new(0, 1.4, 3.2) * JET_TURN,
+		Fit = Vector3.new(1.5, 0.9, 1.1),
+		Lift = 2.03,
+		jetCFrame = CFrame.new(0, 1, 4.05) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "tail", "head", "neck" },
 	},
 	Spinosaurus = {
-		Fit = Vector3.new(1.5, 1.2, 1.6),
-		Lift = 0.89,
-		jetCFrame = CFrame.new(0, 0.8, 3.5) * JET_TURN,
+		Fit = Vector3.new(1.9, 0.9, 1.55),
+		Lift = 0.925,
+		jetCFrame = CFrame.new(0, 0.2, 4.45) * JET_TURN,
 		jetSize = JET_SIZE,
-		BreakOrder = { "leftarm", "sail", "tail" },
+		BreakOrder = { "tail", "sail", "head" },
 	},
 	TRex = {
-		Fit = Vector3.new(1.5, 0.9, 1.6),
-		Lift = 0.85,
-		jetCFrame = CFrame.new(0, 1.7, 4) * JET_TURN,
+		Fit = Vector3.new(1.6, 0.9, 1.7),
+		Lift = 0.925,
+		jetCFrame = CFrame.new(0, 0.7, 3.4) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "leftarm", "rightarm", "tail" },
 	},
@@ -80,6 +81,9 @@ function DinoCars.build(look: string, mesh: Model, hullCFrame: CFrame, parent: I
 		return VelociraptorCar.build(mesh, hullCFrame, parent)
 	end
 	local info = DinoCars.Looks[look]
+	if look == "Triceratops" then
+		return TriceratopsCar.build(mesh, info.Fit, info.Lift, hullCFrame, parent)
+	end
 	local parts: { BasePart } = {}
 	for _, piece in mesh:GetChildren() do
 		if piece:IsA("BasePart") then
