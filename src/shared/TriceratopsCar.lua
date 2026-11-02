@@ -3,7 +3,8 @@
 -- The head mesh has holes where its first horns and eyes were split off, and
 -- these cover them. The Model's "horn" piece is one horn, base down and tip
 -- curving toward -z, placed three times. All added parts carry the original
--- piece's damage group.
+-- piece's damage group. Tail parts carry a TailRoot attribute, the point in
+-- hull space they sway about (DinoCars.tailTurn).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Style = require(ReplicatedStorage.TriceratopsStyle)
@@ -123,7 +124,12 @@ function TriceratopsCar.build(mesh: Model, fit: Vector3, lift: number, hull: CFr
 	end
 	if tail then
 		local shape = Style.tail(bounds(tail), if body then bounds(body).sx else bounds(tail).sx)
+		local first = #parts + 1
 		surface(shape, "tail", "tail", SKIN)
+		local root = Style.tailRoot(bounds(tail))
+		for i = first, #parts do
+			parts[i]:SetAttribute("TailRoot", Vector3.new(root.x, root.y, root.z))
+		end
 	end
 	if head then
 		local headBounds = bounds(head)

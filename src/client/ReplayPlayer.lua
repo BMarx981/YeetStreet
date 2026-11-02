@@ -80,6 +80,7 @@ type Piece = {
 	path: { CFrame }?, -- where it flies once broken, worked out when first needed
 	wheel: boolean?, -- a wheel, which rolls once off
 	on: number?, -- the index of the wheel piece it rides on, for a brake
+	tailRoot: Vector3?, -- the point a dino's tail part sways about, in the car's space
 }
 
 -- The moving pieces of an Axolotl Throttle ghost, each moved by changing its
@@ -169,7 +170,13 @@ local function buildDino(
 		if part:IsA("BasePart") then
 			noPhysics(part)
 			part.Anchored = true
-			table.insert(pieces, { part = part, offset = part.CFrame, breakAt = breakAt[part] })
+			local root = part:GetAttribute("TailRoot")
+			table.insert(pieces, {
+				part = part,
+				offset = part.CFrame,
+				breakAt = breakAt[part],
+				tailRoot = if typeof(root) == "Vector3" then root else nil,
+			})
 		end
 	end
 	return pieces
@@ -423,7 +430,10 @@ local function show(now: Playing, dt: number)
 			now.cframes[i] = ReplayDebris.at(piece.path or flyOff(now, piece, breakAt), time - breakAt)
 			piece.part.LocalTransparencyModifier = if time - breakAt > T.PartLifetime then 1 else 0
 		else
-			now.cframes[i] = pose * piece.offset
+			local tailRoot = piece.tailRoot
+			now.cframes[i] = if tailRoot
+				then pose * CFrame.new(tailRoot) * DinoCars.tailTurn(time) * CFrame.new(-tailRoot) * piece.offset
+				else pose * piece.offset
 			piece.part.LocalTransparencyModifier = 0
 		end
 	end

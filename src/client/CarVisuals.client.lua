@@ -431,17 +431,67 @@ local function buildAxolotl(
 end
 
 -- A dino car's fixed look in place of the generated one, welded to the hull.
--- Its jet flame comes from an unseen part behind its body.
-local function buildDino(look: string, mesh: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
-	local function weldOn(part: BasePart)
+-- Its jet flame comes from an unseen part behind its body. Parts with a
+-- TailRoot are welded to one massless pivot instead, on a Weld from the hull
+-- that turns each frame.
+local function buildDino(
+	car: Model,
+	look: string,
+	mesh: Model,
+	hull: BasePart,
+	folder: Folder,
+	flameColor: Color3,
+	jetStep: number
+): { Jet }
+	local function weldTo(base: BasePart, part: BasePart)
 		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = hull
+		weld.Part0 = base
 		weld.Part1 = part
 		weld.Parent = part
 		part.Anchored = false
 	end
+	local function weldOn(part: BasePart)
+		weldTo(hull, part)
+	end
+	local tailParts: { BasePart } = {}
+	local tailRoot: Vector3? = nil
 	for _, part in DinoCars.build(look, mesh, hull.CFrame, folder) do
-		weldOn(part)
+		local root = part:GetAttribute("TailRoot")
+		if typeof(root) == "Vector3" then
+			tailRoot = root
+			table.insert(tailParts, part)
+		else
+			weldOn(part)
+		end
+	end
+	if tailRoot then
+		local rest = CFrame.new(tailRoot)
+		local pivot = Instance.new("Part")
+		pivot.Name = "DinoTailPivot"
+		pivot.Size = Vector3.one * 0.2
+		pivot.CFrame = hull.CFrame * rest
+		pivot.Transparency = 1
+		pivot.CanCollide = false
+		pivot.CanTouch = false
+		pivot.CanQuery = false
+		pivot.Massless = true
+		pivot.Parent = folder
+		for _, part in tailParts do
+			weldTo(pivot, part)
+		end
+		local swing = Instance.new("Weld")
+		swing.Part0 = hull
+		swing.Part1 = pivot
+		swing.C0 = rest
+		swing.Parent = pivot
+		local connection: RBXScriptConnection
+		connection = RunService.RenderStepped:Connect(function()
+			if car.Parent == nil then
+				connection:Disconnect()
+				return
+			end
+			swing.C0 = rest * DinoCars.tailTurn(os.clock())
+		end)
 	end
 	local nozzle = Instance.new("Part")
 	nozzle.Name = "DinoJet"
@@ -663,7 +713,7 @@ local function setUp(car: Model)
 	elseif axolotlMesh then
 		jets = buildAxolotl(car, axolotlMesh, hull, folder, rgb(design.flameColor), jetStep)
 	elseif dinoMesh then
-		jets = buildDino(dinoLook :: string, dinoMesh, hull, folder, rgb(design.flameColor), jetStep)
+		jets = buildDino(car, dinoLook :: string, dinoMesh, hull, folder, rgb(design.flameColor), jetStep)
 	end
 	local brakes: { Brake } = {}
 	for i, part in parts do

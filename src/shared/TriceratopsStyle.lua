@@ -50,8 +50,24 @@ end
 -- How far the tail reaches back, in lengths of the mesh's own tail.
 Style.TailLength = 2
 
+-- The tail's side to side swing.
+Style.TailSway = {
+	Degrees = 14, -- to each side
+	Period = 1.8, -- seconds for one full swing there and back
+}
+
+-- The tail's angle about its root at `time` seconds, in radians.
+function Style.tailSway(time: number): number
+	local sway = Style.TailSway
+	return math.rad(sway.Degrees) * math.sin(2 * math.pi * time / sway.Period)
+end
+
+function Style.tailRoot(tail: Bounds): Vec
+	return { x = tail.x, y = tail.y + tail.sy * 0.15, z = tail.z - tail.sz / 2 }
+end
+
 function Style.tail(tail: Bounds, bodyWidth: number): Mesh
-	local root = { x = tail.x, y = tail.y + tail.sy * 0.15, z = tail.z - tail.sz / 2 }
+	local root = Style.tailRoot(tail)
 	local width = math.min(tail.sx * 0.28, bodyWidth * 0.3)
 	local reach = tail.sz * Style.TailLength
 	return spike(

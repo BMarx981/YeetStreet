@@ -17,6 +17,18 @@ Check.test("the tail has a narrow root and a single tapered tip", function()
 	Check.near(mesh.vertices[1].z, TAIL.z - TAIL.sz / 2, "keeps its attachment")
 end)
 
+Check.test("the tail sways to both sides and repeats, within its angle", function()
+	local period = Style.TailSway.Period
+	local most = math.rad(Style.TailSway.Degrees)
+	Check.near(Style.tailSway(0), 0, "starts centered")
+	Check.near(Style.tailSway(period / 4), most, "full swing one way")
+	Check.near(Style.tailSway(period * 3 / 4), -most, "full swing the other way")
+	Check.near(Style.tailSway(1.3), Style.tailSway(1.3 + period), "repeats")
+	for t = 0, 10, 0.1 do
+		Check.eq(math.abs(Style.tailSway(t)) <= most + 1e-6, true, "stays within its angle")
+	end
+end)
+
 Check.test("the tail's root is thick enough to meet a narrow body", function()
 	local bodyWidth = 2
 	local mesh = Style.tail(TAIL, bodyWidth)

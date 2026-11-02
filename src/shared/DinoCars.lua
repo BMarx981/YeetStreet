@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 local TriceratopsCar = require(ReplicatedStorage.TriceratopsCar)
+local TriceratopsStyle = require(ReplicatedStorage.TriceratopsStyle)
 
 local DinoCars = {}
 
@@ -74,6 +75,12 @@ function DinoCars.mesh(look: string?): Model?
 	end
 	local mesh = ReplicatedStorage:FindFirstChild(`{look}Mesh`)
 	return if mesh and mesh:IsA("Model") then mesh else nil
+end
+
+-- How far a part with a TailRoot attribute has turned about that root at
+-- `time` seconds.
+function DinoCars.tailTurn(time: number): CFrame
+	return CFrame.Angles(0, TriceratopsStyle.tailSway(time), 0)
 end
 
 function DinoCars.build(look: string, mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
