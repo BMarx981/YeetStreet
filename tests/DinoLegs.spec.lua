@@ -56,12 +56,29 @@ Check.test("steps get quicker with speed, up to a limit", function()
 	Check.near(L.rate(-30), -L.rate(30), "backward when reversing")
 end)
 
-Check.test("legs settle back in the air", function()
+Check.test("every leg points backward in the air", function()
 	local moves = run(30, false, 1)
 	for _ = 1, 180 do
 		L.step(moves, 30, true, 1 / 60)
 	end
-	Check.eq(math.abs(L.angle(moves, "leftleg")) < 0.01, true)
+	for _, name in { "leftleg", "rightleg", "frontleftleg", "frontrightleg", "backleftleg", "backrightleg" } do
+		Check.near(L.angle(moves, name), L.flyAngle(), name)
+	end
+	Check.eq(L.flyAngle() < 0, true, "a negative angle swings the foot toward the tail")
+end)
+
+Check.test("legs swing into the flying pose smoothly and back out on landing", function()
+	local moves = run(0, false, 1)
+	L.step(moves, 0, true, 1 / 60)
+	local first = L.angle(moves, "leftleg")
+	Check.eq(first < 0 and first > L.flyAngle() / 2, true, "starts moving, doesn't jump")
+	for _ = 1, 180 do
+		L.step(moves, 0, true, 1 / 60)
+	end
+	for _ = 1, 180 do
+		L.step(moves, 0, false, 1 / 60)
+	end
+	Check.eq(math.abs(L.angle(moves, "leftleg")) < 0.01, true, "standing again")
 end)
 
 Check.test("legs pick up smoothly instead of jumping", function()

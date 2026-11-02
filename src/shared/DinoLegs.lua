@@ -1,8 +1,8 @@
 --!strict
 -- DinoLegs (ModuleScript) -> ReplicatedStorage.DinoLegs
 -- How a dino car's legs swing from the hip as it moves. Speed is signed, along
--- the car's forward direction, so the legs run backward in reverse. They settle
--- back to standing in the air.
+-- the car's forward direction, so the legs run backward in reverse. In the air
+-- they all point backward, toward the tail.
 
 local DinoLegs = {}
 
@@ -11,7 +11,8 @@ DinoLegs.Gait = {
 	FullAt = 25, -- studs per second at which the swing reaches Degrees
 	RatePerStud = 0.35, -- radians of step per stud travelled
 	MostRate = 16, -- radians per second, so they don't blur at top speed
-	Follow = 8, -- how quickly the swing size catches up, per second
+	Follow = 8, -- how quickly the swing size and flying pose catch up, per second
+	FlyDegrees = 60, -- how far back from straight down the legs point in the air
 }
 
 DinoLegs.AirCheck = 5 -- no ground this far under the hull's center means airborne
@@ -19,10 +20,11 @@ DinoLegs.AirCheck = 5 -- no ground this far under the hull's center means airbor
 export type Moves = {
 	phase: number,
 	size: number, -- how far the legs swing this moment, in radians
+	flying: number, -- how far into the flying pose, from 0 to 1
 }
 
 function DinoLegs.newMoves(): Moves
-	return { phase = 0, size = 0 }
+	return { phase = 0, size = 0, flying = 0 }
 end
 
 function DinoLegs.isLeg(name: string): boolean
@@ -41,10 +43,18 @@ function DinoLegs.rate(speed: number): number
 	return math.clamp(speed * G.RatePerStud, -G.MostRate, G.MostRate)
 end
 
+-- A leg's angle in the flying pose. A negative angle swings the foot back.
+function DinoLegs.flyAngle(): number
+	return -math.rad(DinoLegs.Gait.FlyDegrees)
+end
+
 -- Moves the legs on by `dt` seconds.
 function DinoLegs.step(moves: Moves, speed: number, airborne: boolean, dt: number)
 	local target = if airborne then 0 else DinoLegs.reach(speed)
-	moves.size = target + (moves.size - target) * math.exp(-DinoLegs.Gait.Follow * dt)
+	local catchUp = math.exp(-DinoLegs.Gait.Follow * dt)
+	moves.size = target + (moves.size - target) * catchUp
+	local flying = if airborne then 1 else 0
+	moves.flying = flying + (moves.flying - flying) * catchUp
 	moves.phase = (moves.phase + DinoLegs.rate(speed) * dt) % (2 * math.pi)
 end
 
@@ -55,7 +65,8 @@ function DinoLegs.angle(moves: Moves, name: string): number
 	local left = string.find(lower, "left", 1, true) ~= nil
 	local back = string.find(lower, "back", 1, true) ~= nil
 	local inStep = left ~= back
-	return moves.size * math.sin(moves.phase + if inStep then 0 else math.pi)
+	local swing = moves.size * math.sin(moves.phase + if inStep then 0 else math.pi)
+	return swing + moves.flying * DinoLegs.flyAngle()
 end
 
 return DinoLegs
