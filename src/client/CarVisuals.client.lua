@@ -36,6 +36,7 @@ local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarParts = require(ReplicatedStorage.CarParts)
 local DinoCars = require(ReplicatedStorage.DinoCars)
+local DinoLegs = require(ReplicatedStorage.DinoLegs)
 local HeliCar = require(ReplicatedStorage.HeliCar)
 local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
@@ -432,8 +433,9 @@ end
 
 -- A dino car's fixed look in place of the generated one, welded to the hull.
 -- Its jet flame comes from an unseen part behind its body. Parts with a
--- TailRoot are welded to one massless pivot instead, on a Weld from the hull
--- that turns each frame.
+-- TailRoot, and each leg with its claw, are welded to a massless pivot instead,
+-- on a Weld from the hull that turns each frame. The legs go by the hull's
+-- replicated motion, so every client sees them run.
 local function buildDino(
 	car: Model,
 	look: string,
@@ -453,21 +455,9 @@ local function buildDino(
 	local function weldOn(part: BasePart)
 		weldTo(hull, part)
 	end
-	local tailParts: { BasePart } = {}
-	local tailRoot: Vector3? = nil
-	for _, part in DinoCars.build(look, mesh, hull.CFrame, folder) do
-		local root = part:GetAttribute("TailRoot")
-		if typeof(root) == "Vector3" then
-			tailRoot = root
-			table.insert(tailParts, part)
-		else
-			weldOn(part)
-		end
-	end
-	if tailRoot then
-		local rest = CFrame.new(tailRoot)
+	local function swingFrom(name: string, rest: CFrame, riders: { BasePart }): Weld
 		local pivot = Instance.new("Part")
-		pivot.Name = "DinoTailPivot"
+		pivot.Name = name
 		pivot.Size = Vector3.one * 0.2
 		pivot.CFrame = hull.CFrame * rest
 		pivot.Transparency = 1
@@ -476,7 +466,7 @@ local function buildDino(
 		pivot.CanQuery = false
 		pivot.Massless = true
 		pivot.Parent = folder
-		for _, part in tailParts do
+		for _, part in riders do
 			weldTo(pivot, part)
 		end
 		local swing = Instance.new("Weld")
@@ -484,15 +474,54 @@ local function buildDino(
 		swing.Part1 = pivot
 		swing.C0 = rest
 		swing.Parent = pivot
-		local connection: RBXScriptConnection
-		connection = RunService.RenderStepped:Connect(function()
-			if car.Parent == nil then
-				connection:Disconnect()
-				return
-			end
-			swing.C0 = rest * DinoCars.tailTurn(os.clock())
-		end)
+		return swing
 	end
+	local tailParts: { BasePart } = {}
+	local tailRoot: Vector3? = nil
+	local legParts: { [string]: { BasePart } } = {}
+	local hips: { [string]: Vector3 } = {}
+	for _, part in DinoCars.build(look, mesh, hull.CFrame, folder) do
+		local root = part:GetAttribute("TailRoot")
+		local leg = part:GetAttribute("DinoLeg")
+		local hip = part:GetAttribute("LegHip")
+		if typeof(root) == "Vector3" then
+			tailRoot = root
+			table.insert(tailParts, part)
+		elseif typeof(leg) == "string" and typeof(hip) == "Vector3" then
+			hips[leg] = hip
+			legParts[leg] = legParts[leg] or {}
+			table.insert(legParts[leg], part)
+		else
+			weldOn(part)
+		end
+	end
+	local tailRest = if tailRoot then CFrame.new(tailRoot) else nil
+	local tail = if tailRest then swingFrom("DinoTailPivot", tailRest, tailParts) else nil
+	local legs: { { name: string, weld: Weld, rest: CFrame } } = {}
+	for name, riders in legParts do
+		local rest = CFrame.new(hips[name])
+		table.insert(legs, { name = name, weld = swingFrom("DinoLegPivot", rest, riders), rest = rest })
+	end
+	local ground = RaycastParams.new()
+	ground.FilterType = Enum.RaycastFilterType.Exclude
+	ground.FilterDescendantsInstances = { car.Parent :: Instance }
+	local moves = DinoLegs.newMoves()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(dt: number)
+		if car.Parent == nil then
+			connection:Disconnect()
+			return
+		end
+		if tail and tailRest then
+			tail.C0 = tailRest * DinoCars.tailTurn(os.clock())
+		end
+		local speed = hull.AssemblyLinearVelocity:Dot(hull.CFrame.LookVector)
+		local airborne = workspace:Raycast(hull.Position, Vector3.new(0, -DinoLegs.AirCheck, 0), ground) == nil
+		DinoLegs.step(moves, speed, airborne, dt)
+		for _, leg in legs do
+			leg.weld.C0 = leg.rest * CFrame.Angles(DinoLegs.angle(moves, leg.name), 0, 0)
+		end
+	end)
 	local nozzle = Instance.new("Part")
 	nozzle.Name = "DinoJet"
 	nozzle.Size = DinoCars.Looks[look].jetSize

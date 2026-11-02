@@ -8,13 +8,15 @@
 --
 -- Fit and Lift put a dino's feet on the ground and its back near the driver's
 -- seat. Parts come out anchored, with no collisions, touches, or mass, like
--- CarParts.
+-- CarParts. Leg parts, and the claws that ride on them, carry the attributes
+-- DinoLeg, the leg's name, and LegHip, the point in hull space it swings about.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 local TriceratopsCar = require(ReplicatedStorage.TriceratopsCar)
 local TriceratopsStyle = require(ReplicatedStorage.TriceratopsStyle)
+local DinoLegs = require(ReplicatedStorage.DinoLegs)
 
 local DinoCars = {}
 
@@ -83,7 +85,7 @@ function DinoCars.tailTurn(time: number): CFrame
 	return CFrame.Angles(0, TriceratopsStyle.tailSway(time), 0)
 end
 
-function DinoCars.build(look: string, mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
+local function buildLook(look: string, mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
 	if look == "Velociraptor" then
 		return VelociraptorCar.build(mesh, hullCFrame, parent)
 	end
@@ -104,6 +106,28 @@ function DinoCars.build(look: string, mesh: Model, hullCFrame: CFrame, parent: I
 			part.Massless = true
 			part.Parent = parent
 			table.insert(parts, part)
+		end
+	end
+	return parts
+end
+
+function DinoCars.build(look: string, mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
+	local parts = buildLook(look, mesh, hullCFrame, parent)
+	local function side(part: BasePart): number
+		return math.sign(hullCFrame:PointToObjectSpace(part.Position).X)
+	end
+	for _, leg in parts do
+		if DinoLegs.isLeg(leg.Name) then
+			local at = hullCFrame:PointToObjectSpace(leg.Position)
+			local hip = at + Vector3.new(0, leg.Size.Y / 2, 0)
+			leg:SetAttribute("DinoLeg", leg.Name)
+			leg:SetAttribute("LegHip", hip)
+			for _, part in parts do
+				if part.Name == "Claw" and side(part) == side(leg) then
+					part:SetAttribute("DinoLeg", leg.Name)
+					part:SetAttribute("LegHip", hip)
+				end
+			end
 		end
 	end
 	return parts

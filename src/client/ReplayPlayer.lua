@@ -54,6 +54,7 @@ local AxolotlMoves = require(ReplicatedStorage.AxolotlMoves)
 local AxolotlThrottle = require(ReplicatedStorage.AxolotlThrottle)
 local CarDesign = require(ReplicatedStorage.CarDesign)
 local DinoCars = require(ReplicatedStorage.DinoCars)
+local DinoLegs = require(ReplicatedStorage.DinoLegs)
 local CarParts = require(ReplicatedStorage.CarParts)
 local ReplayClock = require(ReplicatedStorage.ReplayClock)
 local ReplayOrbit = require(ReplicatedStorage.ReplayOrbit)
@@ -81,6 +82,8 @@ type Piece = {
 	wheel: boolean?, -- a wheel, which rolls once off
 	on: number?, -- the index of the wheel piece it rides on, for a brake
 	tailRoot: Vector3?, -- the point a dino's tail part sways about, in the car's space
+	leg: string?, -- the dino leg this part swings with
+	legHip: Vector3?, -- the point that leg swings about, in the car's space
 }
 
 -- The moving pieces of an Axolotl Throttle ghost, each moved by changing its
@@ -98,10 +101,18 @@ type AxolotlGhost = {
 	mouth: Piece?,
 }
 
+-- A dino ghost's running legs.
+type LegsGhost = {
+	moves: DinoLegs.Moves,
+	time: number, -- the clip time last moved to
+	ground: RaycastParams,
+}
+
 type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
 	axolotl: AxolotlGhost?,
+	legs: LegsGhost?,
 	pieces: { Piece },
 	parts: { BasePart }, -- the pieces' parts, for BulkMoveTo
 	cframes: { CFrame }, -- reused each frame
@@ -171,11 +182,15 @@ local function buildDino(
 			noPhysics(part)
 			part.Anchored = true
 			local root = part:GetAttribute("TailRoot")
+			local leg = part:GetAttribute("DinoLeg")
+			local hip = part:GetAttribute("LegHip")
 			table.insert(pieces, {
 				part = part,
 				offset = part.CFrame,
 				breakAt = breakAt[part],
 				tailRoot = if typeof(root) == "Vector3" then root else nil,
+				leg = if typeof(leg) == "string" then leg else nil,
+				legHip = if typeof(hip) == "Vector3" then hip else nil,
 			})
 		end
 	end
@@ -407,11 +422,25 @@ local function moveAxolotl(axolotl: AxolotlGhost, clip: ReplayTape.Clip<CFrame>,
 	end
 end
 
+-- Moves a dino ghost's legs to clip time `time`, by how the car moved around
+-- then. Like the Axolotl's pieces, scrubbing back doesn't run them backward.
+local function moveLegs(legs: LegsGhost, clip: ReplayTape.Clip<CFrame>, time: number, pose: CFrame)
+	local d = R.DebrisStep
+	local speed = -poseAt(clip, time - d):ToObjectSpace(poseAt(clip, time + d)).Z / (2 * d)
+	local airborne = workspace:Raycast(pose.Position, Vector3.new(0, -DinoLegs.AirCheck, 0), legs.ground) == nil
+	DinoLegs.step(legs.moves, speed, airborne, math.max(time - legs.time, 0))
+	legs.time = time
+end
+
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
 	local pose = poseAt(now.replay.clip, time)
 	if now.axolotl then
 		moveAxolotl(now.axolotl, now.replay.clip, time, pose)
+	end
+	local legs = now.legs
+	if legs then
+		moveLegs(legs, now.replay.clip, time, pose)
 	end
 	ReplayWorld.watch({
 		world = now.replay.world,
@@ -431,9 +460,19 @@ local function show(now: Playing, dt: number)
 			piece.part.LocalTransparencyModifier = if time - breakAt > T.PartLifetime then 1 else 0
 		else
 			local tailRoot = piece.tailRoot
-			now.cframes[i] = if tailRoot
-				then pose * CFrame.new(tailRoot) * DinoCars.tailTurn(time) * CFrame.new(-tailRoot) * piece.offset
-				else pose * piece.offset
+			local hip = piece.legHip
+			if tailRoot then
+				now.cframes[i] = pose
+					* CFrame.new(tailRoot)
+					* DinoCars.tailTurn(time)
+					* CFrame.new(-tailRoot)
+					* piece.offset
+			elseif hip and legs then
+				local turn = DinoLegs.angle(legs.moves, piece.leg :: string)
+				now.cframes[i] = pose * CFrame.new(hip) * CFrame.Angles(turn, 0, 0) * CFrame.new(-hip) * piece.offset
+			else
+				now.cframes[i] = pose * piece.offset
+			end
 			piece.part.LocalTransparencyModifier = 0
 		end
 	end
@@ -487,12 +526,18 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		warn("ReplayPlayer: the replay's car has no look attributes; nothing to play")
 		return
 	end
+	local ground = RaycastParams.new()
+	ground.FilterType = Enum.RaycastFilterType.Exclude
+	ground.FilterDescendantsInstances = { ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
 	if axolotl then
-		local ground = RaycastParams.new()
-		ground.FilterType = Enum.RaycastFilterType.Exclude
-		ground.FilterDescendantsInstances =
-			{ ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
 		axolotl.ground = ground
+	end
+	local legs: LegsGhost? = nil
+	for _, piece in pieces do
+		if piece.legHip then
+			legs = { moves = DinoLegs.newMoves(), time = 0, ground = ground }
+			break
+		end
 	end
 	local hidden: { BasePart } = {}
 	for _, model in { car, character } do
@@ -513,6 +558,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		replay = replay,
 		ghost = ghost,
 		axolotl = axolotl,
+		legs = legs,
 		pieces = pieces,
 		parts = parts,
 		cframes = table.create(#pieces),
