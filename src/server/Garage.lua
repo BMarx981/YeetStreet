@@ -34,6 +34,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Analytics = require(ServerScriptService.Analytics)
 local Leaderstats = require(ServerScriptService.Leaderstats)
 local PlayerData = require(ServerScriptService.PlayerData)
 
@@ -89,12 +90,14 @@ function Garage.car(player: Player): (Economy.Car?, Economy.CarStats?, Economy.L
 	return Economy.withSeed(car, Economy.wornSeed(state, car)), stats, Economy.lookLevels(state.Levels, car)
 end
 
--- Adds `amount` cash, if the player's data is loaded.
-function Garage.pay(player: Player, amount: number)
+-- Adds `amount` cash for `reason` (a source in Tuning.Analytics), if the
+-- player's data is loaded.
+function Garage.pay(player: Player, amount: number, reason: string)
 	local data = PlayerData.get(player)
 	if data and amount > 0 then
 		data.Economy.Cash += amount
 		publish(player, data.Economy)
+		Analytics.gained(player, "Cash", reason, amount, data.Economy.Cash)
 	end
 end
 
@@ -117,11 +120,14 @@ local function leaveAdminCar(player: Player): boolean
 end
 
 -- Runs one purchase. `buy` returns the new state or why not, and `respawns`
--- says whether the car's stats changed.
+-- says whether the car's stats changed. Cash it spends is logged as `sink`
+-- `id` (Tuning.Analytics.Sinks).
 local function request(
 	player: Player,
 	buy: (Economy.State) -> (Economy.State?, string?),
-	respawns: boolean
+	respawns: boolean,
+	sink: string,
+	id: string
 ): (boolean, string?)
 	local now = os.clock()
 	if now - (lastRequestAt[player] or -math.huge) < Tuning.Garage.RequestGap then
@@ -132,12 +138,14 @@ local function request(
 	if not data then
 		return false, "NotLoaded"
 	end
-	local after, reason = buy(data.Economy)
+	local before = data.Economy
+	local after, reason = buy(before)
 	if not after then
 		return false, reason
 	end
 	data.Economy = after
 	publish(player, after)
+	Analytics.spent(player, "Cash", sink, id, before.Cash - after.Cash, after.Cash)
 	if respawns then
 		respawn(player)
 	end
@@ -156,8 +164,13 @@ remote("BuyUpgrade", function(player: Player, stat: any): (boolean, string?)
 		return false, "UnknownStat"
 	end
 	return request(player, function(state)
-		return Economy.upgrade(state, stat, Tuning.Ladder, Tuning.Upgrades)
-	end, true)
+		local after, reason = Economy.upgrade(state, stat, Tuning.Ladder, Tuning.Upgrades)
+		if after then
+			local levels = state.Levels
+			Analytics.upgraded(player, levels.Speed + levels.Jets + levels.Toughness + levels.Grip + levels.Brakes == 0)
+		end
+		return after, reason
+	end, true, "Upgrade", stat)
 end)
 
 remote("BuyCar", function(player: Player, id: any): (boolean, string?)
@@ -165,8 +178,12 @@ remote("BuyCar", function(player: Player, id: any): (boolean, string?)
 		return false, "UnknownCar"
 	end
 	return request(player, function(state)
-		return Economy.buyCar(state, id, Tuning.Ladder)
-	end, false)
+		local after, reason = Economy.buyCar(state, id, Tuning.Ladder)
+		if after then
+			Analytics.gotCar(player, #state.Cars == 1)
+		end
+		return after, reason
+	end, false, "Car", id)
 end)
 
 remote("EquipCar", function(player: Player, id: any): (boolean, string?)
@@ -186,7 +203,7 @@ remote("EquipCar", function(player: Player, id: any): (boolean, string?)
 			leaveAdminCar(player)
 		end
 		return after, reason
-	end, true)
+	end, true, "Car", id)
 end)
 
 remote("BuyBody", function(player: Player, id: any, seed: any): (boolean, string?)
@@ -195,7 +212,7 @@ remote("BuyBody", function(player: Player, id: any, seed: any): (boolean, string
 	end
 	return request(player, function(state)
 		return Economy.buyBody(state, id, seed, Tuning.Ladder)
-	end, false)
+	end, false, "Body", id)
 end)
 
 remote("WearBody", function(player: Player, id: any, seed: any): (boolean, string?)
@@ -213,7 +230,7 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 			leaveAdminCar(player)
 		end
 		return after, reason
-	end, true)
+	end, true, "Body", id)
 end)
 
 remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
@@ -222,7 +239,7 @@ remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
 	end
 	return request(player, function(state)
 		return Economy.buyLimited(state, id, Tuning.Limiteds, limitedStock)
-	end, false)
+	end, false, "Limited", id)
 end)
 
 remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
@@ -261,6 +278,8 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 		local won = DinoBox.pick(Tuning.DinoMystery.Rewards, data.Economy.Cars, math.random()) :: DinoBox.Reward
 		table.insert(data.Economy.Cars, won.CarId)
 		publish(player, data.Economy)
+		Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, boneCoins.Value)
+		Analytics.gotCar(player, #data.Economy.Cars == 2)
 		return true, won.CarId
 	end
 	if item.CarId then
@@ -274,13 +293,20 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 		data.Economy.Cash += item.CashReward
 	end
 	publish(player, data.Economy)
+	Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, boneCoins.Value)
+	if item.CarId then
+		Analytics.gotCar(player, #data.Economy.Cars == 2)
+	else
+		Analytics.gained(player, "Cash", "BoneTrade", item.CashReward, data.Economy.Cash)
+	end
 	return true, nil
 end)
 
 -- Adds `amount` bones, the same as collecting that many from bone rain:
 -- both the "Bones" counter (shown on the HUD) and the "BoneCoins" currency
 -- (used in the bone shop) go up. Used by admin commands (e.g. :bones).
-function Garage.giveBones(player: Player, amount: number)
+-- `reason` is a source in Tuning.Analytics.
+function Garage.giveBones(player: Player, amount: number, reason: string)
 	if amount <= 0 then
 		return
 	end
@@ -289,6 +315,7 @@ function Garage.giveBones(player: Player, amount: number)
 	local coins = Leaderstats.value(player, "BoneCoins")
 	coins.Value += amount
 	player:SetAttribute("BoneCoins", coins.Value)
+	Analytics.gained(player, "Bones", reason, amount, coins.Value)
 end
 
 -- Grants a limited item without charge. Used by admin commands (e.g. :frog)
@@ -315,6 +342,7 @@ function Garage.giveCar(player: Player, id: string)
 	if not table.find(data.Economy.Cars, id) then
 		table.insert(data.Economy.Cars, id)
 		publish(player, data.Economy)
+		Analytics.gotCar(player, #data.Economy.Cars == 2)
 	end
 end
 

@@ -58,6 +58,76 @@ Tuning.Invites = {
 	CheckInterval = 300,
 }
 
+-- Analytics (see AnalyticsEvents and the server's Analytics). Logged only in
+-- the live game: never in Studio, and never in a game listed in DevGameIds.
+Tuning.Analytics = {
+	DevGameIds = {},
+	-- In Studio, print what would be logged instead, to check the hooks in Play.
+	PrintInStudio = false,
+	-- Each server sends at most BaseRate + PerPlayerRate * players events a
+	-- minute and drops the rest. Roblox allows 120 + 20 per player.
+	BaseRate = 100,
+	PerPlayerRate = 15,
+	Currencies = { Cash = "Cash", Bones = "Bones" },
+	-- Why cash or bones were gained (the reason given to Garage.pay), with the
+	-- transaction type the economy dashboard groups it under. The reason is
+	-- the event's item SKU.
+	Sources = {
+		Run = "Gameplay", -- a run's payout, wrecks included (ScoreService)
+		RaptorShake = "Gameplay",
+		RaptorSurvive = "Gameplay",
+		NearMiss = "Gameplay", -- a Downtown walker diving clear
+		Bounty = "Gameplay", -- shooting down a car with a PlaneCar
+		ObbyStage = "Gameplay",
+		ObbyPrize = "Gameplay",
+		InviteWelcome = "Onboarding",
+		InviteFriends = "Invite",
+		BoneRain = "Gameplay",
+		BoneTrade = "Shop", -- cash bought with bones at the Bone Trader
+	},
+	-- What cash or bones were spent on, with its transaction type. The item
+	-- SKU is the kind and its id, such as Upgrade_Jets or Car_Hatchback.
+	Sinks = {
+		Upgrade = "Shop",
+		Car = "Shop",
+		Body = "Shop",
+		Limited = "Shop",
+		BoneShop = "Shop",
+	},
+	-- Reasons left out of the economy events on purpose.
+	Unlogged = { "Admin" },
+	-- Reasons that can pay many times a minute, added up and logged as one
+	-- event every BatchGap seconds, and when the player leaves.
+	Batched = { "BoneRain", "NearMiss" },
+	BatchGap = 15,
+	-- The onboarding funnel's steps, in order. Each counts once per session,
+	-- and Roblox keeps only a player's first.
+	Onboarding = {
+		"Joined", -- their data loaded
+		"CarSpawned",
+		"FirstDrive", -- moving at DriveSpeed on the ground
+		"FirstLaunch", -- a run starts
+		"FirstPaidRun",
+		"ReachedGarage", -- their car within Tuning.Garage.Reach of a garage
+		"FirstUpgrade",
+		"FifthRun",
+		"FirstTeleport",
+		"FirstNewCar", -- bought or won
+	},
+	FifthRun = 5, -- runs in a session for the FifthRun step
+	DriveSpeed = 15, -- studs per second
+	WatchGap = 1, -- seconds between checks for FirstDrive and ReachedGarage
+	-- Custom event names.
+	Events = {
+		Run = "Run", -- each run that ends: park, score range, ending
+		FirstUpgrade = "FirstUpgrade", -- a player's first ever upgrade: minutes into the session, first session or not
+		FirstNewCar = "FirstNewCar",
+	},
+	ObbyFunnel = "Obby", -- one funnel session per obby visit, one step per pad
+	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },
+	MinuteBuckets = { 2, 5, 10, 20, 40, 80 },
+}
+
 -- The car obby, world 1 (see Obby). Stage cash pays on every visit, so it is
 -- kept small; the world prize pays once ever.
 Tuning.Obby = {

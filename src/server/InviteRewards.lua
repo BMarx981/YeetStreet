@@ -106,7 +106,7 @@ function InviteRewards.check(player: Player)
 		return
 	end
 	data.Invites = state
-	Garage.pay(player, payout.Cash)
+	Garage.pay(player, payout.Cash, "InviteFriends")
 	player:SetAttribute("InviteFriends", #state.Friends)
 	local prizes = {}
 	for _, prize in payout.Prizes do
@@ -157,7 +157,7 @@ local function onPlayerAdded(player: Player)
 		local before = data.Invites.InvitedBy
 		data.Invites = Invites.acceptInvite(data.Invites, inviterOf(player), player.UserId, true)
 		if data.Invites.InvitedBy ~= before then
-			Garage.pay(player, T.WelcomeCash)
+			Garage.pay(player, T.WelcomeCash, "InviteWelcome")
 			inviteReward:FireClient(player, { Welcome = T.WelcomeCash })
 		end
 	end

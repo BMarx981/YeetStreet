@@ -100,6 +100,7 @@ local Toughness = require(ReplicatedStorage.Toughness)
 local Trains = require(ReplicatedStorage.Trains)
 local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
+local Analytics = require(ServerScriptService.Analytics)
 local CarDamage = require(ServerScriptService.CarDamage)
 local Garage = require(ServerScriptService.Garage)
 local InviteRewards = require(ServerScriptService.InviteRewards)
@@ -289,6 +290,19 @@ local function onHelipad(watch: Watch): boolean
 	return workspace:Raycast(watch.sensor.hull.Position, reach, params) ~= nil
 end
 
+-- The Id of the area holding the player's last launch pad, or their car if
+-- they have none; "None" outside every area.
+local function parkOf(watch: Watch): string
+	local launch = lastLaunch[watch.player]
+	local at = if launch then launch.Position else watch.sensor.hull.Position
+	for _, area: MapLayout.Area in Tuning.Map.Areas :: any do
+		if MapLayout.contains(area, at.X, at.Z) then
+			return area.Id
+		end
+	end
+	return "None"
+end
+
 local function finish(watch: Watch, result: RunTracker.Result)
 	if result.ending == "landed" and onHelipad(watch) then
 		table.insert(watch.targets, "Helipad")
@@ -308,10 +322,12 @@ local function finish(watch: Watch, result: RunTracker.Result)
 		data.Best = math.max(data.Best, score.total)
 	end)
 	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player)
-	Garage.pay(watch.player, Economy.payout(score.total, rate))
+	local paid = Economy.payout(score.total, rate)
+	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
 	runResult:FireClient(watch.player, result, score)
 	InviteRewards.ranRun(watch.player)
+	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
 end
 
 local carsFolder = workspace:WaitForChild("Cars")
@@ -708,7 +724,7 @@ carBitten.Event:Connect(function(car: Model, moment: "bite" | "shakeOff" | "surv
 	if moment == "survived" then
 		label, amount = "Survived the raptors", Raptor.SurviveBonus
 	end
-	Garage.pay(watch.player, amount)
+	Garage.pay(watch.player, amount, if moment == "survived" then "RaptorSurvive" else "RaptorShake")
 	print(`{label}, paid {amount}, {watch.player.Name}`)
 	cashBonus:FireClient(watch.player, label, amount)
 end)
@@ -736,7 +752,7 @@ local function payBounty(shooter: Player, victim: Player)
 		return
 	end
 	paid[victim] = now
-	Garage.pay(shooter, G.WreckBonus)
+	Garage.pay(shooter, G.WreckBonus, "Bounty")
 	local label = `Shot down {victim.DisplayName}`
 	print(`{label}, paid {G.WreckBonus}, {shooter.Name}`)
 	cashBonus:FireClient(shooter, label, G.WreckBonus)
@@ -775,7 +791,7 @@ pedestrianNearMiss.Event:Connect(function(car: Model)
 		return
 	end
 	local amount = Tuning.City.Pedestrians.NearMissBonus
-	Garage.pay(watch.player, amount)
+	Garage.pay(watch.player, amount, "NearMiss")
 	print(`Near miss, paid {amount}, {watch.player.Name}`)
 	cashBonus:FireClient(watch.player, "Near miss", amount)
 end)
@@ -957,9 +973,13 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if watch.toughness <= 0 and not watch.wrecked then
 					wreck(watch)
 				else
+					local wasFlying = watch.run.phase == "flying"
 					local result = RunTracker.step(watch.run, reading.sample, Tuning.Run)
 					if result then
 						finish(watch, result)
+					end
+					if not wasFlying and watch.run.phase == "flying" then
+						Analytics.reach(watch.player, "FirstLaunch")
 					end
 				end
 				local armTarget = watch.armTarget

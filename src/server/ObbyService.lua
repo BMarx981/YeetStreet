@@ -21,6 +21,10 @@
 -- has seen the player in a HeliCar pays neither, even if they swap cars later,
 -- since it can fly past the course. Its checkpoints still work.
 --
+-- Each visit is one session of the obby funnel (Analytics): the start pad
+-- and every stage cleared for cash log a step. A visit the :obby admin skip
+-- moved logs nothing more.
+--
 -- Clients see a visit as Player attributes ObbyReached and ObbyCheckpoint
 -- (nil outside the obby) and hear about cash on ReplicatedStorage.ObbyReward
 -- ({ Stage, Cash, Prize }). They respawn at a reached checkpoint by invoking
@@ -28,15 +32,18 @@
 -- "TooSoon", "NotInObby", "NotReached", or "NoPad".
 
 local CollectionService = game:GetService("CollectionService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local AnalyticsEvents = require(ReplicatedStorage.AnalyticsEvents)
 local Economy = require(ReplicatedStorage.Economy)
 local Obby = require(ReplicatedStorage.Obby)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Analytics = require(ServerScriptService.Analytics)
 local Garage = require(ServerScriptService.Garage)
 local ObbyBuilder = require(ServerScriptService.ObbyBuilder)
 local PlayerData = require(ServerScriptService.PlayerData)
@@ -53,6 +60,12 @@ local visits: { [Player]: Obby.Visit } = {}
 local unpaid: { [Player]: boolean } = {}
 local lastSelectAt: { [Player]: number } = {}
 local lastFallAt: { [Player]: number } = {}
+-- Each paid visit's id in the obby funnel (Analytics); none after a skip.
+local visitIds: { [Player]: string } = {}
+local stageNames: { string } = {}
+for i, stage in T.World1.Stages do
+	stageNames[i] = stage.Name
+end
 
 local setPlayerCheckpoint = ServerStorage:WaitForChild("SetPlayerCheckpoint") :: BindableFunction
 local movePlayerCar = ServerStorage:WaitForChild("MovePlayerCar") :: BindableFunction
@@ -115,6 +128,15 @@ local function setVisit(player: Player, visit: Obby.Visit)
 	end
 end
 
+-- Logs reaching `checkpoint` in the obby funnel, for a visit that has an id.
+local function logStep(player: Player, checkpoint: number)
+	local id = visitIds[player]
+	if id then
+		local step, name = AnalyticsEvents.obbyStep(checkpoint, stageNames)
+		Analytics.funnel(player, Tuning.Analytics.ObbyFunnel, id, step, name)
+	end
+end
+
 local function touch(player: Player, visit: Obby.Visit, checkpoint: number)
 	local after, cash = Obby.touch(visit, checkpoint, T)
 	if after == visit then
@@ -124,13 +146,14 @@ local function touch(player: Player, visit: Obby.Visit, checkpoint: number)
 	if cash <= 0 or unpaid[player] then
 		return
 	end
-	Garage.pay(player, cash)
+	logStep(player, checkpoint)
+	Garage.pay(player, cash, "ObbyStage")
 	local prize = 0
 	local data = PlayerData.get(player)
 	if Obby.finished(after, T) and data and not data.ObbyCleared then
 		data.ObbyCleared = true
 		prize = T.WorldPrize
-		Garage.pay(player, prize)
+		Garage.pay(player, prize, "ObbyPrize")
 	end
 	local car: string? = nil
 	if Obby.finished(after, T) and data and not table.find(data.Economy.Cars, T.PrizeCar) then
@@ -151,6 +174,8 @@ function ObbyService.enter(player: Player): CFrame?
 	visits[player] = nil
 	unpaid[player] = nil
 	setVisit(player, Obby.newVisit())
+	visitIds[player] = HttpService:GenerateGUID(false)
+	logStep(player, 0)
 	return respawnAt(start)
 end
 
@@ -164,6 +189,7 @@ function ObbyService.skipTo(player: Player, checkpoint: number): CFrame?
 	if not (after and part) then
 		return nil
 	end
+	visitIds[player] = nil
 	setVisit(player, after)
 	return respawnAt(part)
 end
@@ -175,6 +201,7 @@ function ObbyService.leave(player: Player)
 	end
 	visits[player] = nil
 	unpaid[player] = nil
+	visitIds[player] = nil
 	player:SetAttribute("ObbyReached", nil)
 	player:SetAttribute("ObbyCheckpoint", nil)
 	setPlayerCheckpoint:Invoke(player, nil)
@@ -259,6 +286,7 @@ end
 Players.PlayerRemoving:Connect(function(player: Player)
 	visits[player] = nil
 	unpaid[player] = nil
+	visitIds[player] = nil
 	lastSelectAt[player] = nil
 	lastFallAt[player] = nil
 end)

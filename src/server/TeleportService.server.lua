@@ -22,6 +22,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Analytics = require(ServerScriptService.Analytics)
 local ObbyService = require(ServerScriptService.ObbyService)
 
 local GARAGE = "Garage"
@@ -126,6 +127,7 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	if not movePlayerCar:Invoke(player, arrival, home) then
 		character:PivotTo(arrival + Vector3.new(0, 3, 0))
 	end
+	Analytics.reach(player, "FirstTeleport")
 	return true, nil
 end
 

@@ -351,7 +351,7 @@ local COMMANDS = {
 
 		if string.lower(targetName) == "all" then
 			for _, p in Players:GetPlayers() do
-				Garage.pay(p, amount)
+				Garage.pay(p, amount, "Admin")
 			end
 			return "Gave " .. amount .. " cash to all players."
 		end
@@ -361,7 +361,7 @@ local COMMANDS = {
 			return "Player not found: " .. targetName
 		end
 
-		Garage.pay(target, amount)
+		Garage.pay(target, amount, "Admin")
 		return "Gave " .. amount .. " cash to " .. target.Name .. "."
 	end,
 
@@ -399,7 +399,7 @@ local COMMANDS = {
 
 		if string.lower(targetName) == "all" then
 			for _, p in Players:GetPlayers() do
-				Garage.giveBones(p, amount)
+				Garage.giveBones(p, amount, "Admin")
 			end
 			return "Gave " .. amount .. " BoneCoins to all players."
 		end
@@ -409,7 +409,7 @@ local COMMANDS = {
 			return "Player not found: " .. targetName
 		end
 
-		Garage.giveBones(target, amount)
+		Garage.giveBones(target, amount, "Admin")
 		return "Gave " .. amount .. " BoneCoins to " .. target.Name .. "."
 	end,
 

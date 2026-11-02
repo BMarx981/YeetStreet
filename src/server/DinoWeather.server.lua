@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Analytics = require(ServerScriptService.Analytics)
 local Leaderstats = require(ServerScriptService.Leaderstats)
 
 local boneRainEvent = ReplicatedStorage:FindFirstChild("BoneRainEvent")
@@ -214,6 +215,7 @@ local function spawnBone(center: Vector3)
 		bones.Value += 1
 		-- Also publish as an attribute so the GarageMenu client can refresh
 		player:SetAttribute("BoneCoins", coins.Value)
+		Analytics.gained(player, "Bones", "BoneRain", BONE_VALUE, coins.Value)
 		bone:Destroy()
 	end)
 
