@@ -1268,31 +1268,40 @@ local function ledgePlank(parent: Instance, a0: Vector3, b0: Vector3, a1: Vector
 end
 
 -- The narrow ledge winding up the spire from the ground to the top, with an
--- open edge the whole way (Spire).
+-- open edge the whole way, and the flat platform it comes up onto (Spire).
 local function buildLedge(parent: Instance, base: CFrame, top: number)
 	local S = D.Ptero.Spire
 	local shape: Spire.Shape = S :: any
 	local model = Instance.new("Model")
 	model.Name = "Ledge"
-	local sweep = Spire.sweep(shape, top)
-	local steps = math.ceil(sweep / (2 * math.pi) * S.Ledge.StepsPerTurn)
 	local function point(radius: number, along: number): Vector3
 		local x, y, z = Spire.point(shape, top, radius, along)
 		return base:PointToWorldSpace(Vector3.new(x, y, z))
 	end
-	for i = 1, steps do
-		local a0, a1 = sweep * (i - 1) / steps, sweep * i / steps
-		local rows0, rows1 = Spire.rowsAt(shape, top, a0), Spire.rowsAt(shape, top, a1)
-		for j = 1, #rows0 - 1 do
-			ledgePlank(
-				model,
-				point(rows0[j], a0),
-				point(rows0[j + 1], a0),
-				point(rows1[j], a1),
-				point(rows1[j + 1], a1)
-			)
+	-- Planks from `from` to `to` radians round, across `rowsAt`'s rows.
+	local function deck(from: number, to: number, rowsAt: (along: number) -> { number })
+		local steps = math.ceil((to - from) / (2 * math.pi) * S.Ledge.StepsPerTurn)
+		for i = 1, steps do
+			local a0, a1 = from + (to - from) * (i - 1) / steps, from + (to - from) * i / steps
+			local rows0, rows1 = rowsAt(a0), rowsAt(a1)
+			for j = 1, #rows0 - 1 do
+				ledgePlank(
+					model,
+					point(rows0[j], a0),
+					point(rows0[j + 1], a0),
+					point(rows1[j], a1),
+					point(rows1[j + 1], a1)
+				)
+			end
 		end
 	end
+	local climb = Spire.climbSweep(shape, top)
+	deck(0, climb, function(along: number): { number }
+		return Spire.rowsAt(shape, top, along)
+	end)
+	deck(climb, Spire.sweep(shape, top), function(): { number }
+		return Spire.platformRows(shape)
+	end)
 	model.Parent = parent
 end
 
@@ -1319,7 +1328,8 @@ local function buildSpire(parent: Instance, area: MapLayout.Area, keepOut: { Sca
 		)
 	end
 	local top = S.Height + OVERLAP / 2
-	buildLedge(model, base, top)
+	-- A hair over the rock, so the platform never flickers against its top.
+	buildLedge(model, base, top + 0.05)
 	for k = 1, S.NestSticks do
 		local yaw = k * math.pi / S.NestSticks
 		local tilt = math.rad(if k % 2 == 0 then 6 else -6)

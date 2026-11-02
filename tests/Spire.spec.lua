@@ -15,7 +15,8 @@ local SHAPE: Spire.Shape = {
 		Thickness = 2,
 		Clear = 1,
 		Into = 18,
-		LevelTurn = 0.25,
+		PlatformRadius = 50,
+		PlatformTurn = 0.75,
 		Start = math.pi,
 	},
 }
@@ -35,10 +36,27 @@ Check.test("the ledge starts on the ground and climbs to the top in Pitch a turn
 	Check.near(Spire.heightAt(SHAPE, TOP, Spire.climbSweep(SHAPE, TOP)), TOP, "top")
 end)
 
-Check.test("it runs level round the top for its last LevelTurn", function()
+Check.test("past the climb the platform runs level for its PlatformTurn", function()
 	local climb = Spire.climbSweep(SHAPE, TOP)
-	Check.near(Spire.sweep(SHAPE, TOP), climb + 2 * math.pi * 0.25, "sweep")
+	Check.near(Spire.sweep(SHAPE, TOP), climb + 2 * math.pi * 0.75, "sweep")
+	Check.near(Spire.heightAt(SHAPE, TOP, climb + 1), TOP, "partway round")
 	Check.near(Spire.heightAt(SHAPE, TOP, Spire.sweep(SHAPE, TOP)), TOP, "end")
+end)
+
+Check.test("the platform reaches from the deck's inside past the lane's open edge", function()
+	local rows = Spire.platformRows(SHAPE)
+	Check.eq(#rows, 2)
+	Check.near(rows[1], 18, "inside")
+	Check.near(rows[2], 50, "outside")
+	local climb = Spire.climbSweep(SHAPE, TOP)
+	Check.eq(rows[2] > Spire.innerAt(SHAPE, TOP, climb) + Spire.widthAt(SHAPE, TOP, climb), true, "past the lane")
+end)
+
+Check.test("the lane passes under the platform with room for a car", function()
+	-- Where the platform ends, one turn on from a point this far below the top.
+	local below = SHAPE.Ledge.Pitch * (1 - SHAPE.Ledge.PlatformTurn)
+	local underside = below - SHAPE.Ledge.Thickness
+	Check.eq(underside >= 6, true, `{underside} of room`)
 end)
 
 Check.test("it narrows from StartWidth to EndWidth, holding that on the level", function()

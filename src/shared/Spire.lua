@@ -5,7 +5,9 @@
 --
 -- `along` is radians round the ledge from its start, on the side Start
 -- radians round from +X toward -Z. It climbs Pitch studs a turn up to `top`,
--- then runs level for LevelTurn of a turn. The lane is the part a car drives:
+-- where a flat platform PlatformRadius from the middle carries on round for
+-- PlatformTurn of a turn. The rest of the turn is left open, a notch for the
+-- end of the climb to rise through. The lane is the part a car drives:
 -- its inner edge stays clear of the corners of the rock beside it (the tiers
 -- are square and turned), and it narrows from StartWidth to EndWidth over the
 -- climb. The deck carries on inward past the lane to Into from the middle,
@@ -21,7 +23,8 @@ export type Ledge = {
 	Thickness: number,
 	Clear: number, -- how far the lane stays off the rock's corners
 	Into: number,
-	LevelTurn: number,
+	PlatformRadius: number,
+	PlatformTurn: number,
 	Start: number,
 }
 
@@ -40,9 +43,9 @@ function Spire.climbSweep(shape: Shape, top: number): number
 	return TAU * top / shape.Ledge.Pitch
 end
 
--- Radians the whole ledge turns, with its level end.
+-- Radians the whole ledge turns, with its platform.
 function Spire.sweep(shape: Shape, top: number): number
-	return Spire.climbSweep(shape, top) + TAU * shape.Ledge.LevelTurn
+	return Spire.climbSweep(shape, top) + TAU * shape.Ledge.PlatformTurn
 end
 
 function Spire.heightAt(shape: Shape, top: number, along: number): number
@@ -71,6 +74,11 @@ function Spire.rowsAt(shape: Shape, top: number, along: number): { number }
 	local inner = Spire.innerAt(shape, top, along)
 	local width = Spire.widthAt(shape, top, along)
 	return { shape.Ledge.Into, inner, inner + width / 2, inner + width }
+end
+
+-- The radii the platform's planks run between.
+function Spire.platformRows(shape: Shape): { number }
+	return { shape.Ledge.Into, shape.Ledge.PlatformRadius }
 end
 
 -- A point on the deck, `radius` from the middle, as x, y, z from the foot.
