@@ -71,7 +71,10 @@ local SPOT_COLOR = Color3.fromRGB(66, 98, 56)
 local SCALE_COLOR = Color3.fromRGB(214, 150, 64)
 local BODY_COLOR = Color3.fromRGB(88, 128, 74)
 local CLAW_COLOR = Color3.fromRGB(235, 225, 200)
-local EYE_COLOR = Color3.fromRGB(250, 250, 240)
+local JAW_COLOR = Color3.fromRGB(150, 170, 110)
+local MOUTH_COLOR = Color3.fromRGB(70, 24, 28)
+local IRIS_COLOR = Color3.fromRGB(196, 140, 40)
+local GLINT_COLOR = Color3.new(1, 1, 1)
 local DARK_COLOR = Color3.fromRGB(25, 25, 25)
 local BARK_COLORS = { Color3.fromRGB(120, 88, 56), Color3.fromRGB(98, 70, 44) }
 local FROND_COLORS = { Color3.fromRGB(62, 140, 52), Color3.fromRGB(80, 160, 60), Color3.fromRGB(50, 120, 46) }
@@ -87,6 +90,8 @@ local OVERLAP = 0.4
 -- How far the body sits in from each edge of the path, so a car sliding off
 -- the side drops clear instead of catching a ledge.
 local BODY_INSET = 1
+-- How many body blocks at the end of the head are rounded off.
+local HEAD_ROUND = 5
 
 local DinoPark = {}
 
@@ -256,25 +261,66 @@ local function buildScales(parent: Instance, base: CFrame, planks: { Bronto.Plan
 	end
 end
 
--- Eyes beside the back of the head, standing up past its edges so they show
--- over the top of the neck on the way up, and a mouth along each side.
-local function buildFace(parent: Instance, base: CFrame, planks: { Bronto.Plank }, headStart: number, headEnd: number)
-	local head = planks[#planks]
-	local edge = head.width / 2
-	local eye = onPath(base, planks, headStart + 10)
-	local mouth = onPath(base, planks, (headStart + headEnd) / 2 + 6)
-		* CFrame.new(0, -D.Thickness - dropOf(head.width) - head.depth * 0.6, 0)
+-- A stretched ball, only for looks.
+local function roundDecoration(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3): Part
+	local part = decoration(parent, name, size, cframe, color)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = part
+	return part
+end
+
+-- The head past the end of the track: a snout tipped down from the neck's
+-- slope, a paler jaw under it and a dark mouth wrapping round between them,
+-- with blunt peg teeth, since it eats plants. Eyes in mounds at the sides of
+-- the head, standing up past its edges so they show over the top of the neck
+-- on the way up. All of it sits under the launch surface.
+local function buildFace(parent: Instance, base: CFrame, planks: { Bronto.Plank }, headEnd: number)
+	local model = Instance.new("Model")
+	model.Name = "Face"
+	model.Parent = parent
+	local tip = onPath(base, planks, headEnd)
+	local snout = tip * CFrame.new(0, -9, 2) * CFrame.Angles(math.rad(-16), 0, 0)
+	local upper = snout * CFrame.new(0, -2, -5)
+	local jaw = snout * CFrame.new(0, -8, 6) * CFrame.Angles(math.rad(-5), 0, 0)
+	roundDecoration(model, "Snout", Vector3.new(36, 18, 46), upper, SKIN_COLOR)
+	roundDecoration(model, "Jaw", Vector3.new(32, 12, 42), jaw * CFrame.new(0, -1, -11), JAW_COLOR)
+	-- Tipped so the corners of the mouth rise into a slight smile.
+	roundDecoration(
+		model,
+		"MouthInside",
+		Vector3.new(34, 5, 44),
+		snout * CFrame.new(0, -7.5, -6) * CFrame.Angles(math.rad(4), 0, 0),
+		MOUTH_COLOR
+	)
+	roundDecoration(model, "Throat", Vector3.new(31, 19, 38), tip * CFrame.new(0, -17, 14), BODY_COLOR)
+	for i = 0, 14 do
+		local angle = math.rad(20 + i * 10)
+		roundDecoration(
+			model,
+			"Tooth",
+			Vector3.new(2.2, 3.2, 2),
+			upper * CFrame.new(math.cos(angle) * 16, -4.5, -math.sin(angle) * 20.5),
+			CLAW_COLOR
+		)
+	end
 	for _, s in { -1, 1 } do
-		decoration(parent, "Eye", Vector3.new(6, 9, 9), eye * CFrame.new(s * (edge + 2), 1.5, 0), EYE_COLOR)
-		decoration(parent, "Pupil", Vector3.new(1.5, 5, 5), eye * CFrame.new(s * (edge + 5.2), 2.5, -1.5), DARK_COLOR)
-		decoration(parent, "Brow", Vector3.new(7, 2, 11), eye * CFrame.new(s * (edge + 2), 7, 0), BODY_COLOR)
-		decoration(
-			parent,
-			"Mouth",
-			Vector3.new(1, 1.5, headEnd - headStart - 12),
-			mouth * CFrame.new(s * (edge - BODY_INSET + 0.5), 0, 0),
+		roundDecoration(
+			model,
+			"Nostril",
+			Vector3.new(2.6, 1.4, 3.6),
+			snout * CFrame.new(s * 5, 2.9, -22) * CFrame.Angles(math.rad(-25), 0, 0),
 			DARK_COLOR
 		)
+		roundDecoration(model, "EyeMound", Vector3.new(10, 11, 14), tip * CFrame.new(s * 15.5, -3.5, 18), BODY_COLOR)
+		-- Turned a little forward, so its local X points where it looks.
+		local eye = tip * CFrame.new(s * 18.6, -3.5, 17) * CFrame.Angles(0, s * math.rad(22), 0)
+		decoration(model, "Eye", Vector3.one * 6.4, eye, IRIS_COLOR).Shape = Enum.PartType.Ball
+		roundDecoration(model, "Pupil", Vector3.new(1, 3.8, 3), eye * CFrame.new(s * 2.95, 0, 0), DARK_COLOR)
+		decoration(model, "Glint", Vector3.one * 0.8, eye * CFrame.new(s * 3.1, 1, -0.6), GLINT_COLOR).Shape =
+			Enum.PartType.Ball
+		roundDecoration(model, "UpperLid", Vector3.new(7.8, 4.6, 8.8), eye * CFrame.new(0, 2.8, 0), BODY_COLOR)
+		roundDecoration(model, "LowerLid", Vector3.new(7.6, 3.6, 8.6), eye * CFrame.new(0, -3.1, 0), BODY_COLOR)
 	end
 end
 
@@ -330,11 +376,18 @@ local function buildBronto(parent: Instance, area: MapLayout.Area): Scatter.Line
 			end
 		end
 		local drop = dropOf(p.width)
+		-- The last few blocks shrink toward the top, rounding off the end of
+		-- the head so the snout and jaw can cover it.
+		local fromEnd = #planks - i
+		local round = if fromEnd < HEAD_ROUND
+			then math.sqrt(1 - ((HEAD_ROUND - fromEnd) / HEAD_ROUND) ^ 2 * 0.75)
+			else 1
+		local depth = p.depth * round
 		block(
 			model,
 			"Body",
-			Vector3.new(p.width - 2 * BODY_INSET, p.depth, p.length + OVERLAP),
-			frame * CFrame.new(0, -D.Thickness - drop - p.depth / 2, 0),
+			Vector3.new((p.width - 2 * BODY_INSET) * round, depth, p.length + OVERLAP),
+			frame * CFrame.new(0, -D.Thickness - drop - depth / 2, 0),
 			BODY_COLOR
 		)
 	end
@@ -346,7 +399,7 @@ local function buildBronto(parent: Instance, area: MapLayout.Area): Scatter.Line
 	end
 	buildSpots(model, base, planks)
 	buildScales(model, base, planks, headStart)
-	buildFace(model, base, planks, headStart, headEnd)
+	buildFace(model, base, planks, headEnd)
 
 	-- Seen from above, from the end of the tail's tip to the head.
 	local tail = base:PointToWorldSpace(Vector3.new(0, 0, B.Tail.Length))
