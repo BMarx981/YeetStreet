@@ -1037,6 +1037,27 @@ Tuning.Run = {
 	TeleportDistance = 250,
 }
 
+-- Whether a run the server saw could have been flown (RunCheck). Picked from
+-- real flights in Studio (FlightProbe, 2026-11-03): the hardest full burns
+-- took about 63% of FuelMargin and FuelSlack, the worst drift 83% of its
+-- limit (1400 studs/s with 67 ms between updates), and no hit gained energy
+-- unless the game threw the car. Loosen these if a real run gets flagged.
+Tuning.RunCheck = {
+	Gravity = Tuning.World.Gravity,
+	Window = 0.5, -- seconds the Fuel and Boost checks measure at a time
+	-- An update whose velocity changed this much more than gravity and full
+	-- jets explain is a hit.
+	HitChange = 20,
+	FuelMargin = 1.3, -- times the car's JetFuel
+	FuelSlack = 1, -- seconds of jets on top
+	BoostSlack = 2000, -- energy per unit mass a hit may add
+	DriftWindow = 1, -- seconds
+	DriftBase = 40, -- studs
+	-- Studs of drift allowed per stud a second of top speed, per second of the
+	-- longest gap between updates.
+	DriftGapScale = 2,
+}
+
 -- Starting values, tuned by playtesting. A plain jump off the test ramp scores
 -- about 440; two different tricks and a clean landing about 2100.
 Tuning.Score = {
