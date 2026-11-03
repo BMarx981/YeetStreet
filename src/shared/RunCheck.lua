@@ -10,7 +10,9 @@
 --          explain is push, and jets give at most JetPower of it a second.
 --          The push of the whole run, in seconds of jets, must fit the tank:
 --          JetFuel times FuelMargin, plus FuelSlack. Endless fuel or a car
---          held up in the air runs over.
+--          held up in the air runs over. A car with weaker jets than
+--          MinJetPower (the Frog Car has none) is measured as if it had
+--          that much, for the scrapes and bounces every flight has.
 --   Boost  A Window with a hit in it (one update whose velocity changed by
 --          HitChange more than gravity and full jets explain) pushed the car
 --          off something. Hitting things never adds energy, so it may end at
@@ -60,6 +62,7 @@ export type Tuning = {
 	HitChange: number,
 	FuelMargin: number,
 	FuelSlack: number,
+	MinJetPower: number,
 	BoostSlack: number,
 	DriftWindow: number,
 	DriftBase: number,
@@ -170,7 +173,7 @@ local function closeWindow(state: State, b: Sample, stats: Stats, tuning: Tuning
 		return
 	end
 	local push = length(b.vx - a.vx, b.vy - a.vy + tuning.Gravity * dt, b.vz - a.vz)
-	state.fuel += push / math.max(stats.JetPower, 1)
+	state.fuel += push / math.max(stats.JetPower, tuning.MinJetPower)
 	if state.fuel > fuelLimit(stats, tuning) then
 		fail(state, "Fuel")
 	end
@@ -207,7 +210,7 @@ function RunCheck.step(state: State, sample: Sample, stats: Stats, tuning: Tunin
 	local excused = sample.excused == true
 
 	local change = length(sample.vx - last.vx, sample.vy - last.vy + tuning.Gravity * dt, sample.vz - last.vz)
-	state.windowHit = state.windowHit or change >= tuning.HitChange + stats.JetPower * dt
+	state.windowHit = state.windowHit or change >= tuning.HitChange + math.max(stats.JetPower, tuning.MinJetPower) * dt
 	state.windowExcused = state.windowExcused or excused
 	local windowStart = state.windowStart
 	if windowStart and sample.t - windowStart.t >= tuning.Window then

@@ -1050,12 +1050,16 @@ Tuning.RunCheck = {
 	HitChange = 20,
 	FuelMargin = 1.3, -- times the car's JetFuel
 	FuelSlack = 1, -- seconds of jets on top
+	MinJetPower = 50, -- a car with weaker jets (the Frog Car has none) is measured as if it had this
 	BoostSlack = 2000, -- energy per unit mass a hit may add
 	DriftWindow = 1, -- seconds
 	DriftBase = 40, -- studs
 	-- Studs of drift allowed per stud a second of top speed, per second of the
 	-- longest gap between updates.
 	DriftGapScale = 2,
+	-- Seconds after a launch pad, swing seat or rail last moved the car that
+	-- its motion is the game's, not the driver's (ScoreService).
+	ThrowGrace = 0.5,
 }
 
 -- Starting values, tuned by playtesting. A plain jump off the test ramp scores

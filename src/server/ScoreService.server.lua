@@ -13,6 +13,11 @@
 -- InviteRewards hears of every run that ends, so a first run can credit the
 -- player's inviter.
 --
+-- Each update of the car the server gets during a run also goes through
+-- RunCheck, which says whether it could have been flown with the car's own
+-- jets, and the result prints to Output when the run ends. The game's own
+-- throws are excused (checkStep).
+--
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
 -- placed on a slot (Impact). Body hits during a run drain the car's
 -- ToughnessLeft attribute and break parts off that slot (Toughness,
@@ -94,6 +99,7 @@ local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
 local Impact = require(ReplicatedStorage.Impact)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local RunCheck = require(ReplicatedStorage.RunCheck)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Toughness = require(ReplicatedStorage.Toughness)
@@ -143,6 +149,12 @@ type Watch = {
 	-- once it goes over the rim.
 	gravitronArmed: boolean,
 	wet: boolean, -- in a pool's water at the last step
+	-- Whether the run could have been flown (RunCheck), from each update of
+	-- the hull the server gets while it flies, the last one being checkedAt.
+	check: RunCheck.State?,
+	checkedAt: CFrame?,
+	-- os.clock() when a launch pad, swing seat or rail last moved the car.
+	thrownAt: number,
 }
 
 local runResult = Instance.new("RemoteEvent")
@@ -238,6 +250,9 @@ local function watchFor(car: Model): Watch?
 		armUntil = -math.huge,
 		gravitronArmed = false,
 		wet = false,
+		check = nil,
+		checkedAt = nil,
+		thrownAt = -math.huge,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -303,7 +318,57 @@ local function parkOf(watch: Watch): string
 	return "None"
 end
 
+-- The car's own jets, as the server built it.
+local function jets(watch: Watch): RunCheck.Stats
+	local power = watch.car:GetAttribute("JetPower")
+	local fuel = watch.car:GetAttribute("JetFuel")
+	return {
+		JetPower = if typeof(power) == "number" then power else 0,
+		JetFuel = if typeof(fuel) == "number" then fuel else 0,
+	}
+end
+
+-- Feeds RunCheck the hull as the server sees it now, if it moved since the
+-- last update. The game's own throws are excused: while hits are not
+-- measured (hitsFrom: the zap, a tower burst, a wrecking ball, a train, the
+-- gravitron, the globe, a pterodactyl drop), and for ThrowGrace after a
+-- launch pad, swing seat or rail moved it.
+local function checkStep(watch: Watch)
+	local hull = watch.sensor.hull
+	local cf = hull.CFrame
+	if cf == watch.checkedAt then
+		return
+	end
+	watch.checkedAt = cf
+	local check = watch.check or RunCheck.new()
+	watch.check = check
+	local now = os.clock()
+	local velocity = hull.AssemblyLinearVelocity
+	local excused = now < watch.hitsFrom or now - watch.thrownAt < Tuning.RunCheck.ThrowGrace
+	RunCheck.step(check, {
+		t = now,
+		x = cf.X,
+		y = cf.Y,
+		z = cf.Z,
+		vx = velocity.X,
+		vy = velocity.Y,
+		vz = velocity.Z,
+		excused = excused,
+	}, jets(watch), Tuning.RunCheck)
+end
+
 local function finish(watch: Watch, result: RunTracker.Result)
+	local check = watch.check
+	watch.check = nil
+	if check then
+		local report = RunCheck.finish(check, jets(watch), Tuning.RunCheck)
+		print(
+			`Run check {report.reason or "ok"}: fuel {string.format("%.1f", report.fuel)} of {string.format(
+				"%.1f",
+				report.fuelLimit
+			)} s, drift {math.floor(report.drift * 100 + 0.5)}% of limit, boost {math.floor(report.boost + 0.5)}, {watch.player.Name}`
+		)
+	end
 	if result.ending == "landed" and onHelipad(watch) then
 		table.insert(watch.targets, "Helipad")
 	end
@@ -931,6 +996,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 					local payScale = pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 				end
+				if reading.pad or reading.padBelow or reading.sample.swing or reading.sample.grinding then
+					watch.thrownAt = os.clock()
+				end
 				if reading.lava and watch.run.phase == "flying" then
 					splash(watch, "Lava")
 				end
@@ -980,6 +1048,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 					end
 					if not wasFlying and watch.run.phase == "flying" then
 						Analytics.reach(watch.player, "FirstLaunch")
+					end
+					if watch.run.phase == "flying" then
+						checkStep(watch)
 					end
 				end
 				local armTarget = watch.armTarget

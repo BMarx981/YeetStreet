@@ -9,6 +9,7 @@ local T: RunCheck.Tuning = {
 	HitChange = 20,
 	FuelMargin = 1.3,
 	FuelSlack = 1,
+	MinJetPower = 50,
 	BoostSlack = 2000,
 	DriftWindow = 1,
 	DriftBase = 40,
@@ -128,6 +129,19 @@ end)
 
 Check.test("a zap without its mark is a boost", function()
 	Check.eq(check(FLIGHTS.KaijuZap, 1, nil, true).reason, "Boost")
+end)
+
+Check.test("a car with no jets is measured as if it had MinJetPower", function()
+	-- The Frog Car has JetPower 0; half a second held up is push it could
+	-- only get from a scrape or a bounce.
+	local state = RunCheck.new()
+	local car = { JetPower = 0, JetFuel = 1 }
+	for i = 0, 30 do
+		RunCheck.step(state, { t = i / 60, x = 0, y = 300, z = 0, vx = 0, vy = 0, vz = 0 }, car, T)
+	end
+	local report = RunCheck.finish(state, car, T)
+	Check.eq(report.reason, nil)
+	Check.near(report.fuel, 65 / 50, "fuel", 0.05)
 end)
 
 Check.test("hovering in place for longer than the tank lasts runs out of fuel", function()
