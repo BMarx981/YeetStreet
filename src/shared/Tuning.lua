@@ -122,6 +122,7 @@ Tuning.Analytics = {
 		Run = "Run", -- each run that ends: park, score range, ending
 		FirstUpgrade = "FirstUpgrade", -- a player's first ever upgrade: minutes into the session, first session or not
 		FirstNewCar = "FirstNewCar",
+		FlaggedRun = "FlaggedRun", -- a run that failed RunCheck: reason, park, car
 	},
 	ObbyFunnel = "Obby", -- one funnel session per obby visit, one step per pad
 	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },

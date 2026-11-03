@@ -16,7 +16,8 @@
 -- Each update of the car the server gets during a run also goes through
 -- RunCheck, which says whether it could have been flown with the car's own
 -- jets, and the result prints to Output when the run ends. The game's own
--- throws are excused (checkStep).
+-- throws are excused (checkStep). A run that fails still pays as usual, but
+-- never becomes the player's Best, and is logged (Analytics.flaggedRun).
 --
 -- It also owns toughness. Every hit a car takes is measured (CarSensor) and
 -- placed on a slot (Impact). Body hits during a run drain the car's
@@ -360,8 +361,10 @@ end
 local function finish(watch: Watch, result: RunTracker.Result)
 	local check = watch.check
 	watch.check = nil
+	local flagged: RunCheck.Reason? = nil
 	if check then
 		local report = RunCheck.finish(check, jets(watch), Tuning.RunCheck)
+		flagged = report.reason
 		print(
 			`Run check {report.reason or "ok"}: fuel {string.format("%.1f", report.fuel)} of {string.format(
 				"%.1f",
@@ -379,13 +382,15 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	watch.smashes = 0
 	watch.toughness = watch.maxToughness
 	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
-	local best = Leaderstats.value(watch.player, "Best")
-	if score.total > best.Value then
-		best.Value = score.total
+	if not flagged then
+		local best = Leaderstats.value(watch.player, "Best")
+		if score.total > best.Value then
+			best.Value = score.total
+		end
+		PlayerData.update(watch.player, function(data)
+			data.Best = math.max(data.Best, score.total)
+		end)
 	end
-	PlayerData.update(watch.player, function(data)
-		data.Best = math.max(data.Best, score.total)
-	end)
 	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player)
 	local paid = Economy.payout(score.total, rate)
 	Garage.pay(watch.player, paid, "Run")
@@ -393,6 +398,10 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	runResult:FireClient(watch.player, result, score)
 	InviteRewards.ranRun(watch.player)
 	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
+	if flagged then
+		local carId = watch.car:GetAttribute("CarId")
+		Analytics.flaggedRun(watch.player, flagged, parkOf(watch), if typeof(carId) == "string" then carId else "None")
+	end
 end
 
 local carsFolder = workspace:WaitForChild("Cars")

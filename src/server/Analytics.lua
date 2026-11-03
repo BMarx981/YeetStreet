@@ -15,6 +15,7 @@
 --   funnel            a step of a recurring funnel, such as an obby visit
 --   custom            a custom event, with up to three string fields
 --   ranRun, upgraded, gotCar   onboarding steps plus their custom events
+--   flaggedRun        a run that failed RunCheck
 -- Onboarding steps, run counts, and the session clock live in memory for
 -- this session only. Nothing here is saved. AnalyticsWatch reaches the
 -- steps no other script sees: joining, the car spawning, the first drive,
@@ -187,6 +188,12 @@ function Analytics.ranRun(player: Player, park: string, score: number, ending: s
 		Analytics.reach(player, "FifthRun")
 	end
 	Analytics.custom(player, T.Events.Run, { park, AnalyticsEvents.bucket(score, T.ScoreBuckets), ending })
+end
+
+-- A run of the player's in `park` failed RunCheck for `reason` ("Fuel",
+-- "Boost" or "Drift") in the car `car` (its CarId). It still paid.
+function Analytics.flaggedRun(player: Player, reason: string, park: string, car: string)
+	Analytics.custom(player, T.Events.FlaggedRun, { reason, park, car })
 end
 
 -- How far into this session, and whether it is the player's first.
