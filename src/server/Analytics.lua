@@ -190,8 +190,8 @@ function Analytics.ranRun(player: Player, park: string, score: number, ending: s
 	Analytics.custom(player, T.Events.Run, { park, AnalyticsEvents.bucket(score, T.ScoreBuckets), ending })
 end
 
--- A run of the player's in `park` failed RunCheck for `reason` ("Fuel",
--- "Boost" or "Drift") in the car `car` (its CarId). It still paid.
+-- A run of the player's in `park` failed RunCheck for `reason` (a
+-- RunCheck.Reason) in the car `car` (its CarId). It still paid.
 function Analytics.flaggedRun(player: Player, reason: string, park: string, car: string)
 	Analytics.custom(player, T.Events.FlaggedRun, { reason, park, car })
 end

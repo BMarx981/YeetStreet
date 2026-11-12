@@ -124,6 +124,25 @@ function Grind.capture(
 	return if speed > 0 then 1 else -1, t, speed
 end
 
+-- How many studs along the rail from a a car here moving like this is, if it
+-- is grinding the rail (onRail), else nil.
+function Grind.held(
+	rail: Rail,
+	x: number,
+	y: number,
+	z: number,
+	vx: number,
+	vy: number,
+	vz: number,
+	tuning: Tuning
+): number?
+	if not Grind.onRail(rail, x, y, z, vx, vy, vz, tuning) then
+		return nil
+	end
+	local t = locate(rail, x, y, z, tuning)
+	return t * Grind.length(rail)
+end
+
 -- Whether a car here moving like this is grinding the rail.
 function Grind.onRail(
 	rail: Rail,

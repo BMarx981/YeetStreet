@@ -26,6 +26,11 @@
 --          updates arrive unevenly. A car moved without the velocity showing
 --          it drifts; one whose velocity is faked to match is caught by Fuel
 --          or Boost instead.
+--   Grind  A rail moves a car along it at GrindSpeed or faster, one way, and
+--          the time on it pays. So each stay on one rail may last at most
+--          the studs it got along the rail at GrindSpeed, times GrindMargin,
+--          plus GrindSlack. Sitting on a rail, crawling, or rocking back
+--          and forth runs over.
 --
 -- Turning is not checked: real tumbles spin far faster than air control.
 --
@@ -36,7 +41,7 @@
 
 local RunCheck = {}
 
-export type Reason = "Fuel" | "Boost" | "Drift"
+export type Reason = "Fuel" | "Boost" | "Drift" | "Grind"
 
 -- One update of the car's hull, t in seconds.
 export type Sample = {
@@ -48,6 +53,10 @@ export type Sample = {
 	vy: number,
 	vz: number,
 	excused: boolean?,
+	-- The rail it grinds, if any (any value that tells rails apart), and how
+	-- many studs along it the car is (Grind.held).
+	rail: unknown?,
+	railAt: number?,
 }
 
 -- The car's own jets (Economy.CarStats).
@@ -67,6 +76,9 @@ export type Tuning = {
 	DriftWindow: number,
 	DriftBase: number,
 	DriftGapScale: number,
+	GrindSpeed: number,
+	GrindMargin: number,
+	GrindSlack: number,
 }
 
 export type Report = {
@@ -75,6 +87,7 @@ export type Report = {
 	fuelLimit: number,
 	boost: number, -- most energy a Window with a hit gained, per unit mass
 	drift: number, -- worst drift as a share of its limit; over 1 fails
+	grind: number, -- longest stay on a rail as a share of its limit; over 1 fails
 }
 
 export type State = {
@@ -93,10 +106,17 @@ export type State = {
 	driftGap: number,
 	driftSpeed: number,
 	driftExcused: boolean,
+	-- The rail it is on: since when (t), and from and to where along it.
+	rail: unknown?,
+	railSince: number,
+	railFrom: number,
+	railUntil: number,
+	railTo: number,
 	reason: Reason?,
 	fuel: number,
 	boost: number,
 	drift: number,
+	grind: number,
 }
 
 function RunCheck.new(): State
@@ -114,10 +134,16 @@ function RunCheck.new(): State
 		driftGap = 0,
 		driftSpeed = 0,
 		driftExcused = false,
+		rail = nil,
+		railSince = 0,
+		railFrom = 0,
+		railUntil = 0,
+		railTo = 0,
 		reason = nil,
 		fuel = 0,
 		boost = 0,
 		drift = 0,
+		grind = 0,
 	}
 end
 
@@ -193,6 +219,36 @@ local function closeDrift(state: State, b: Sample, tuning: Tuning)
 	end
 end
 
+-- Measures the stay on the rail the car was on, if any.
+local function closeRail(state: State, tuning: Tuning)
+	if state.rail == nil then
+		return
+	end
+	state.rail = nil
+	local along = math.abs(state.railTo - state.railFrom)
+	local limit = along / tuning.GrindSpeed * tuning.GrindMargin + tuning.GrindSlack
+	local time = state.railUntil - state.railSince
+	state.grind = math.max(state.grind, time / limit)
+	if time > limit then
+		fail(state, "Grind")
+	end
+end
+
+-- Follows the car on and off rails.
+local function railStep(state: State, sample: Sample, tuning: Tuning)
+	local railAt = sample.railAt
+	if sample.rail ~= state.rail then
+		closeRail(state, tuning)
+		if sample.rail ~= nil and railAt then
+			state.rail = sample.rail
+			state.railSince, state.railFrom = sample.t, railAt
+		end
+	end
+	if state.rail ~= nil and railAt then
+		state.railUntil, state.railTo = sample.t, railAt
+	end
+end
+
 -- Adds one update the server saw while the run flies. Updates no later than
 -- the last one are skipped.
 function RunCheck.step(state: State, sample: Sample, stats: Stats, tuning: Tuning)
@@ -201,6 +257,7 @@ function RunCheck.step(state: State, sample: Sample, stats: Stats, tuning: Tunin
 		return
 	end
 	state.last = sample
+	railStep(state, sample, tuning)
 	if not last then
 		openWindow(state, sample, tuning)
 		openDrift(state, sample)
@@ -241,12 +298,14 @@ function RunCheck.finish(state: State, stats: Stats, tuning: Tuning): Report
 		closeWindow(state, last, stats, tuning)
 		closeDrift(state, last, tuning)
 	end
+	closeRail(state, tuning)
 	return {
 		reason = state.reason,
 		fuel = state.fuel,
 		fuelLimit = fuelLimit(stats, tuning),
 		boost = state.boost,
 		drift = state.drift,
+		grind = state.grind,
 	}
 end
 

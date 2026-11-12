@@ -95,6 +95,7 @@ local CarSensor = require(ReplicatedStorage.CarSensor)
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
+local GrindRails = require(ReplicatedStorage.GrindRails)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
@@ -346,6 +347,7 @@ local function checkStep(watch: Watch)
 	local now = os.clock()
 	local velocity = hull.AssemblyLinearVelocity
 	local excused = now < watch.hitsFrom or now - watch.thrownAt < Tuning.RunCheck.ThrowGrace
+	local rail, railAt = GrindRails.ridden(cf.Position, velocity)
 	RunCheck.step(check, {
 		t = now,
 		x = cf.X,
@@ -355,6 +357,8 @@ local function checkStep(watch: Watch)
 		vy = velocity.Y,
 		vz = velocity.Z,
 		excused = excused,
+		rail = rail,
+		railAt = if rail then railAt else nil,
 	}, jets(watch), Tuning.RunCheck)
 end
 
@@ -369,7 +373,9 @@ local function finish(watch: Watch, result: RunTracker.Result)
 			`Run check {report.reason or "ok"}: fuel {string.format("%.1f", report.fuel)} of {string.format(
 				"%.1f",
 				report.fuelLimit
-			)} s, drift {math.floor(report.drift * 100 + 0.5)}% of limit, boost {math.floor(report.boost + 0.5)}, {watch.player.Name}`
+			)} s, drift {math.floor(report.drift * 100 + 0.5)}% of limit, grind {math.floor(report.grind * 100 + 0.5)}% of limit, boost {math.floor(
+				report.boost + 0.5
+			)}, {watch.player.Name}`
 		)
 	end
 	if result.ending == "landed" and onHelipad(watch) then

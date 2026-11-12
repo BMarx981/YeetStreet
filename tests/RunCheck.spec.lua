@@ -14,6 +14,9 @@ local T: RunCheck.Tuning = {
 	DriftWindow = 1,
 	DriftBase = 40,
 	DriftGapScale = 2,
+	GrindSpeed = 40,
+	GrindMargin = 1.25,
+	GrindSlack = 0.5,
 }
 
 type Flight = {
@@ -218,6 +221,94 @@ Check.test("the first failure is the reason", function()
 		return 0, 300, 120 * t, 0, 0, 0
 	end)
 	Check.eq(report.reason, "Drift")
+end)
+
+-- Grinds `rail` for `seconds` at 60 updates a second, `at(t)` giving studs
+-- along it, after `before` (a state already fed, or a new one), excused as
+-- the server marks a grind. Returns the state.
+local function grind(seconds: number, rail: string, at: (number) -> number, before: RunCheck.State?): RunCheck.State
+	local state = before or RunCheck.new()
+	local start = if state.last then state.last.t + 1 / 60 else 0
+	local car = { JetPower = 200, JetFuel = 3.9 }
+	for i = 0, math.floor(seconds * 60) do
+		local t = i / 60
+		local along = at(t)
+		local sample = { t = start + t, x = 0, y = 5, z = along, vx = 0, vy = 0, vz = 0, excused = true }
+		sample.rail, sample.railAt = rail, along
+		RunCheck.step(state, sample, car, T)
+	end
+	return state
+end
+
+local GRIND_CAR = { JetPower = 200, JetFuel = 3.9 }
+
+Check.test("riding a rail at the slowest ride speed passes", function()
+	local state = grind(12, "a", function(t)
+		return 40 * t
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, nil)
+end)
+
+Check.test("riding a rail the other way passes", function()
+	local state = grind(5, "a", function(t)
+		return 400 - 100 * t
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, nil)
+end)
+
+Check.test("sitting still on a rail is not grinding", function()
+	local state = grind(10, "a", function()
+		return 50
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, "Grind")
+end)
+
+Check.test("crawling along a rail is not grinding", function()
+	local state = grind(10, "a", function(t)
+		return 10 * t
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, "Grind")
+end)
+
+Check.test("rocking back and forth on a rail is not grinding", function()
+	local state = grind(20, "a", function(t)
+		return 100 + 100 * math.sin(t)
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, "Grind")
+end)
+
+Check.test("a short sit on a rail is within the slack", function()
+	local state = grind(0.4, "a", function()
+		return 50
+	end)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, nil)
+end)
+
+Check.test("each rail is measured on its own", function()
+	local state = grind(5, "a", function(t)
+		return 40 * t
+	end)
+	state = grind(5, "b", function(t)
+		return 300 - 40 * t
+	end, state)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, nil)
+end)
+
+Check.test("leaving a rail ends its grind", function()
+	local state = grind(5, "a", function(t)
+		return 40 * t
+	end)
+	local last = state.last :: RunCheck.Sample
+	RunCheck.step(
+		state,
+		{ t = last.t + 1 / 60, x = 0, y = 6, z = 200, vx = 0, vy = 0, vz = 0, excused = true },
+		GRIND_CAR,
+		T
+	)
+	state = grind(5, "a", function(t)
+		return 200 + 40 * t
+	end, state)
+	Check.eq(RunCheck.finish(state, GRIND_CAR, T).reason, nil)
 end)
 
 Check.test("a run with one update passes", function()

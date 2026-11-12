@@ -1058,6 +1058,12 @@ Tuning.RunCheck = {
 	-- Studs of drift allowed per stud a second of top speed, per second of the
 	-- longest gap between updates.
 	DriftGapScale = 2,
+	-- A rail carries a car at least GrindSpeed (Tuning.Grind.RideMinSpeed;
+	-- keep them equal), so a stay on one rail may last its studs along at
+	-- that speed, times GrindMargin, plus GrindSlack seconds.
+	GrindSpeed = 40,
+	GrindMargin = 1.25,
+	GrindSlack = 0.5,
 	-- Seconds after a launch pad, swing seat or rail last moved the car that
 	-- its motion is the game's, not the driver's (ScoreService).
 	ThrowGrace = 0.5,

@@ -43,6 +43,19 @@ function GrindRails.all(): { [BasePart]: Grind.Rail }
 	return rails
 end
 
+-- The rail a hull here moving like this is on, if any, and how many studs
+-- along it the hull is (Grind.held).
+function GrindRails.ridden(position: Vector3, velocity: Vector3): (BasePart?, number)
+	local G = Tuning.Grind
+	for part, rail in rails do
+		local at = Grind.held(rail, position.X, position.Y, position.Z, velocity.X, velocity.Y, velocity.Z, G)
+		if at then
+			return part, at
+		end
+	end
+	return nil, 0
+end
+
 -- Whether a hull here moving like this is on any rail.
 function GrindRails.onAny(position: Vector3, velocity: Vector3): boolean
 	local G = Tuning.Grind
