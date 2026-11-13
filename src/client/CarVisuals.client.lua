@@ -14,8 +14,8 @@
 --   PlaneCar look, a plane while its WingsOut attribute is true and a car
 --   otherwise, transforming between them. It doesn't break apart yet either.
 --   Hover cars hide their wheels. The physics wheels are still there.
---   Each thruster gets a flame, a smoke trail, and a glow that grow with the
---   car's Jets level (Tuning.JetFlames), lit while the car's JetsBurning
+--   Each thruster gets a flame, a smoke trail, and a glow (JetFlames) that
+--   grow with the car's Jets level, lit while the car's JetsBurning
 --   attribute is true. CarController sets it on the local player's car.
 --   Wheel brakes (CarDesign parts with a wheel) are welded to that wheel's
 --   hub, so they steer and ride the suspension without spinning. Brake lights
@@ -42,9 +42,9 @@ local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
+local JetFlames = require(script.Parent.JetFlames)
 
 local T = Tuning.Toughness
-local F = Tuning.JetFlames
 
 local PROPS_GROUP = "Props" -- CollisionGroups.Props, a server module
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
@@ -81,12 +81,6 @@ local function lightWhileBraking(car: Model, brakes: { Brake })
 	end)
 end
 
--- What a thruster lights up while the jets burn.
-type Jet = {
-	emitters: { ParticleEmitter },
-	glow: PointLight?,
-}
-
 -- A PlaneCar tyre on its physics wheel, and where it tucks to as a plane.
 type Tyre = {
 	wheel: BasePart,
@@ -94,67 +88,6 @@ type Tyre = {
 	parts: { BasePart },
 	tuck: Vector3, -- in the hull's space
 }
-
--- A flame, smoke, and glow out of the back of a thruster, sized for Jets look
--- step `step`. The thruster's axis is its X, which points toward the nose, so
--- its back end is at -X. The attachment is turned back to the car's own axes,
--- so the emitters' Back is out of the tail.
-local function addJet(thruster: BasePart, color: Color3, step: number): Jet
-	local k = step + 1
-	local attachment = Instance.new("Attachment")
-	attachment.Name = "Flame"
-	attachment.CFrame = CFrame.new(-thruster.Size.X / 2, 0, 0) * CFrame.Angles(0, math.rad(-90), 0)
-	attachment.Parent = thruster
-
-	-- Locked to the thruster, so it stays a flame at any speed instead of
-	-- being left behind as a streak of dots.
-	local flame = Instance.new("ParticleEmitter")
-	flame.Name = "JetFlame"
-	flame.Enabled = false
-	flame.LockedToPart = true
-	flame.EmissionDirection = Enum.NormalId.Back
-	flame.Rate = F.FlameRate[k]
-	flame.Lifetime = NumberRange.new(F.FlameLife * 0.8, F.FlameLife)
-	local speed = F.FlameLength[k] / F.FlameLife
-	flame.Speed = NumberRange.new(speed * 0.85, speed)
-	flame.SpreadAngle = Vector2.new(4, 4)
-	flame.LightEmission = 1
-	flame.Color = ColorSequence.new(color:Lerp(Color3.new(1, 1, 1), 0.6), color)
-	local width = F.FlameWidth[k] * thruster.Size.Y
-	flame.Size =
-		NumberSequence.new({ NumberSequenceKeypoint.new(0, width), NumberSequenceKeypoint.new(1, width * 0.2) })
-	flame.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) })
-	flame.Parent = attachment
-
-	local smoke = Instance.new("ParticleEmitter")
-	smoke.Name = "JetSmoke"
-	smoke.Enabled = false
-	smoke.EmissionDirection = Enum.NormalId.Back
-	smoke.Rate = F.SmokeRate[k]
-	smoke.Lifetime = NumberRange.new(F.SmokeLife * 0.7, F.SmokeLife)
-	smoke.Speed = NumberRange.new(2, 5)
-	smoke.SpreadAngle = Vector2.new(15, 15)
-	smoke.Drag = 1
-	smoke.Color = ColorSequence.new(F.SmokeColor)
-	local puff = F.SmokeSize[k]
-	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, puff * 0.4), NumberSequenceKeypoint.new(1, puff) })
-	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
-	smoke.Rotation = NumberRange.new(0, 360)
-	smoke.RotSpeed = NumberRange.new(-60, 60)
-	smoke.Parent = attachment
-
-	local glow: PointLight? = nil
-	if F.GlowRange[k] > 0 then
-		local light = Instance.new("PointLight")
-		light.Enabled = false
-		light.Color = color
-		light.Range = F.GlowRange[k]
-		light.Brightness = F.GlowBrightness
-		light.Parent = attachment
-		glow = light
-	end
-	return { emitters = { flame, smoke }, glow = glow }
-end
 
 local function knockOff(part: BasePart, hull: BasePart)
 	for _, child in part:GetChildren() do
@@ -179,7 +112,13 @@ end
 -- The fan swivels on a Weld from the hull, turned each frame to follow the
 -- front wheels. Their angle to the hull comes from physics, which replicates,
 -- so every client sees the fan turn, not just the driver's.
-local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
+local function buildHeliCar(
+	car: Model,
+	hull: BasePart,
+	folder: Folder,
+	flameColor: Color3,
+	jetStep: number
+): { JetFlames.Jet }
 	local function weldTo(base: BasePart, part: BasePart)
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = base
@@ -204,12 +143,12 @@ local function buildHeliCar(car: Model, hull: BasePart, folder: Folder, flameCol
 	swivel.C0 = HeliCar.fanPivot
 	swivel.Parent = pivot
 
-	local jets: { Jet } = {}
+	local jets: { JetFlames.Jet } = {}
 	local parts = HeliCar.build(HeliCar.body, hull.CFrame, folder)
 	for i, part in parts do
 		weldTo(if HeliCar.body[i].swivel then pivot else hull, part)
 		if part.Name == "FanHub" then
-			table.insert(jets, addJet(part, flameColor, jetStep))
+			table.insert(jets, JetFlames.add(part, flameColor, jetStep))
 		end
 	end
 	local fronts: { BasePart } = {}
@@ -312,7 +251,7 @@ local function buildAxolotl(
 	folder: Folder,
 	flameColor: Color3,
 	jetStep: number
-): { Jet }
+): { JetFlames.Jet }
 	local M = AxolotlMoves
 	local function weldFrom(part: BasePart, root: CFrame): Weld
 		local weld = Instance.new("Weld")
@@ -428,7 +367,7 @@ local function buildAxolotl(
 	weld.Part0 = hull
 	weld.Part1 = nozzle
 	weld.Parent = nozzle
-	return { addJet(nozzle, flameColor, jetStep) }
+	return { JetFlames.add(nozzle, flameColor, jetStep) }
 end
 
 -- A dino car's fixed look in place of the generated one, welded to the hull.
@@ -444,7 +383,7 @@ local function buildDino(
 	folder: Folder,
 	flameColor: Color3,
 	jetStep: number
-): { Jet }
+): { JetFlames.Jet }
 	local function weldTo(base: BasePart, part: BasePart)
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = base
@@ -533,7 +472,7 @@ local function buildDino(
 	nozzle.Massless = true
 	nozzle.Parent = folder
 	weldOn(nozzle)
-	return { addJet(nozzle, flameColor, jetStep) }
+	return { JetFlames.add(nozzle, flameColor, jetStep) }
 end
 
 -- The PlaneCar's fixed look in place of the generated one. Each group of
@@ -546,7 +485,13 @@ end
 -- The physics wheels are hidden. A tyre is welded to each through a pivot,
 -- so it spins and steers with the wheel, and tucks up into the wing out of
 -- sight as the car becomes a plane.
-local function buildPlaneCar(car: Model, hull: BasePart, folder: Folder, flameColor: Color3, jetStep: number): { Jet }
+local function buildPlaneCar(
+	car: Model,
+	hull: BasePart,
+	folder: Folder,
+	flameColor: Color3,
+	jetStep: number
+): { JetFlames.Jet }
 	local function pivotOn(base: BasePart, name: string): (BasePart, Weld)
 		local pivot = Instance.new("Part")
 		pivot.Name = name
@@ -575,7 +520,7 @@ local function buildPlaneCar(car: Model, hull: BasePart, folder: Folder, flameCo
 		part.Anchored = false
 	end
 
-	local jets: { Jet } = {}
+	local jets: { JetFlames.Jet } = {}
 	local poses: { [PlaneCar.Group]: Weld } = {}
 	for group, specs in PlaneCar.groups do
 		local pivot, weld = pivotOn(hull, "PlanePivot")
@@ -583,7 +528,7 @@ local function buildPlaneCar(car: Model, hull: BasePart, folder: Folder, flameCo
 		for i, part in HeliCar.build(specs, hull.CFrame, folder) do
 			weldTo(pivot, part, specs[i].cframe)
 			if part.Name == "Exhaust" then
-				table.insert(jets, addJet(part, flameColor, jetStep))
+				table.insert(jets, JetFlames.add(part, flameColor, jetStep))
 			end
 		end
 	end
@@ -733,7 +678,7 @@ local function setUp(car: Model)
 	local folder = Instance.new("Folder")
 	folder.Name = "Looks"
 	local parts = if fixedLook then {} else CarParts.build(design, hull.CFrame, folder)
-	local jets: { Jet } = {}
+	local jets: { JetFlames.Jet } = {}
 	local jetStep = CarDesign.step(car:GetAttribute("LevelJets") :: number, Tuning.CarLooks.StatSteps)
 	if plane then
 		jets = buildPlaneCar(car, hull, folder, rgb(design.flameColor), jetStep)
@@ -764,7 +709,7 @@ local function setUp(car: Model)
 		weld.Parent = part
 		part.Anchored = false
 		if spec.role == "thruster" then
-			table.insert(jets, addJet(part, rgb(design.flameColor), jetStep))
+			table.insert(jets, JetFlames.add(part, rgb(design.flameColor), jetStep))
 		elseif spec.role == "brakeLight" then
 			addBrakeLight(brakes, part)
 		end
@@ -788,15 +733,7 @@ local function setUp(car: Model)
 	end
 
 	local function lightFlames()
-		local burning = car:GetAttribute("JetsBurning") == true
-		for _, jet in jets do
-			for _, emitter in jet.emitters do
-				emitter.Enabled = burning
-			end
-			if jet.glow then
-				jet.glow.Enabled = burning
-			end
-		end
+		JetFlames.light(jets, car:GetAttribute("JetsBurning") == true)
 	end
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
 
