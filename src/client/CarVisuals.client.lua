@@ -42,6 +42,7 @@ local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
+local BrakeLights = require(script.Parent.BrakeLights)
 local JetFlames = require(script.Parent.JetFlames)
 
 local T = Tuning.Toughness
@@ -57,27 +58,10 @@ local function rgb(color: CarDesign.Color): Color3
 	return Color3.fromRGB(color[1], color[2], color[3])
 end
 
-local BRAKE_LIGHT_GLOW = Color3.fromRGB(255, 25, 25)
-
--- A brake light and how it looks unlit.
-type Brake = {
-	part: BasePart,
-	color: Color3,
-	material: Enum.Material,
-}
-
-local function addBrakeLight(brakes: { Brake }, part: BasePart)
-	table.insert(brakes, { part = part, color = part.Color, material = part.Material })
-end
-
 -- Lights a car's brake lights while its Braking attribute is true.
-local function lightWhileBraking(car: Model, brakes: { Brake })
+local function lightWhileBraking(car: Model, brakes: { BrakeLights.Brake })
 	car:GetAttributeChangedSignal("Braking"):Connect(function()
-		local braking = car:GetAttribute("Braking") == true
-		for _, brake in brakes do
-			brake.part.Color = if braking then BRAKE_LIGHT_GLOW else brake.color
-			brake.part.Material = if braking then Enum.Material.Neon else brake.material
-		end
+		BrakeLights.light(brakes, car:GetAttribute("Braking") == true)
 	end)
 end
 
@@ -638,7 +622,7 @@ local function setUp(car: Model)
 		end
 		addEye(-1.8)
 		addEye(1.8)
-		local frogBrakes: { Brake } = {}
+		local frogBrakes: { BrakeLights.Brake } = {}
 		for _, side in { -1, 1 } do
 			local light = Instance.new("Part")
 			light.Name = "BrakeLight"
@@ -655,7 +639,7 @@ local function setUp(car: Model)
 			lightWeld.Part1 = light
 			lightWeld.Parent = light
 			light.Parent = car
-			addBrakeLight(frogBrakes, light)
+			BrakeLights.add(frogBrakes, light)
 		end
 		lightWhileBraking(car, frogBrakes)
 		return
@@ -689,7 +673,7 @@ local function setUp(car: Model)
 	elseif dinoMesh then
 		jets = buildDino(car, dinoLook :: string, dinoMesh, hull, folder, rgb(design.flameColor), jetStep)
 	end
-	local brakes: { Brake } = {}
+	local brakes: { BrakeLights.Brake } = {}
 	for i, part in parts do
 		local spec = design.parts[i]
 		part.CanQuery = false
@@ -711,13 +695,13 @@ local function setUp(car: Model)
 		if spec.role == "thruster" then
 			table.insert(jets, JetFlames.add(part, rgb(design.flameColor), jetStep))
 		elseif spec.role == "brakeLight" then
-			addBrakeLight(brakes, part)
+			BrakeLights.add(brakes, part)
 		end
 	end
 	if heli or plane then
 		for _, part in folder:GetChildren() do
 			if part:IsA("BasePart") and (part.Name == "TailLight" or part.Name == "BrakeLight") then
-				addBrakeLight(brakes, part)
+				BrakeLights.add(brakes, part)
 			end
 		end
 	end

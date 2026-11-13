@@ -20,7 +20,7 @@ Every change must respect these:
 
 - Same toolchain as MazeCity: code in VS Code, with Rojo syncing the file tree into Roblox Studio. All code lives in this repo.
 - Luau with `--!strict` at the top of every script and module.
-- StyLua for formatting and Selene for linting (proposed, confirm before relying on them).
+- StyLua for formatting and Selene for linting, both pinned in `rokit.toml` and set up in `stylua.toml` and `selene.toml`.
 - Unit tests for pure logic modules, run outside Roblox with the luau CLI (pinned in `rokit.toml`). `tests/Check.lua` is the assert helper, each case lives in a `tests/*.spec.lua` file, and `tests/run.sh` runs them all.
 
 ## Layout

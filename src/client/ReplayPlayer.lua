@@ -17,6 +17,11 @@
 -- wheels flying in formation, so its wheels come off with its last part, as
 -- in a wreck, and roll away. Brake discs and calipers go with their wheel.
 --
+-- The ghost lights up as the car did, from the clip's flips: jet flames
+-- (JetFlames), brake lights (BrakeLights), and lava fire. Flames, smoke, and
+-- fire run on the replay's clock, so they freeze on pause and slow down with
+-- it.
+--
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
 -- HUD alone. The camera starts on the ghost from the side, a little behind
@@ -60,7 +65,9 @@ local ReplayClock = require(ReplicatedStorage.ReplayClock)
 local ReplayOrbit = require(ReplicatedStorage.ReplayOrbit)
 local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
+local BrakeLights = require(script.Parent.BrakeLights)
 local CarPreview = require(script.Parent.CarPreview)
+local JetFlames = require(script.Parent.JetFlames)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
@@ -70,6 +77,10 @@ local R = Tuning.Replay
 local T = Tuning.Toughness
 
 local RENDER_NAME = "YeetStreetReplay"
+
+-- Seconds the clock may differ from where the last frame and its speed put
+-- it before it counts as a seek.
+local SEEK_SLACK = 1e-3
 
 local ReplayPlayer = {}
 
@@ -108,9 +119,25 @@ type LegsGhost = {
 	ground: RaycastParams,
 }
 
+-- A jet flame on the part it blows out of.
+type Flame = {
+	part: BasePart,
+	jets: { JetFlames.Jet }, -- just the one, for JetFlames.light
+}
+
+-- The ghost's jet flames, brake lights, and lava fire.
+type Lights = {
+	flames: { Flame },
+	brakes: { BrakeLights.Brake },
+	fire: Fire,
+	emitters: { ParticleEmitter }, -- the flames' and smoke's, which follow the clock
+	time: number, -- the clip time last shown, to tell a seek
+}
+
 type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
+	lights: Lights,
 	axolotl: AxolotlGhost?,
 	legs: LegsGhost?,
 	pieces: { Piece },
@@ -236,9 +263,68 @@ local function buildAxolotl(
 	return pieces, axolotl
 end
 
--- The ghost car for `replay` and its pieces, built at the origin, or nil if
--- the look is incomplete.
-local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, AxolotlGhost?)
+-- An unseen part of the ghost at `offset` from the car's pose, for a flame or
+-- fire to come from, added to its pieces.
+local function addHolder(ghost: Model, pieces: { Piece }, name: string, size: Vector3, offset: CFrame): BasePart
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.CFrame = offset
+	part.Transparency = 1
+	noPhysics(part)
+	part.Anchored = true
+	part.Parent = ghost
+	table.insert(pieces, { part = part, offset = offset })
+	return part
+end
+
+-- Puts the ghost's lights on it, all off: flames on its thrusters, or on a
+-- nozzle at `nozzle` for a mesh look, which has none; its brake lights; and
+-- a fire in the middle, as CarVisuals does on a real car.
+local function lightUp(
+	ghost: Model,
+	design: CarDesign.Design,
+	pieces: { Piece },
+	nozzle: { size: Vector3, cframe: CFrame }?
+): Lights
+	local c = design.flameColor
+	local color = Color3.fromRGB(c[1], c[2], c[3])
+	local step = CarDesign.step(ghost:GetAttribute("LevelJets") :: number, Tuning.CarLooks.StatSteps)
+	local flames: { Flame } = {}
+	local brakes: { BrakeLights.Brake } = {}
+	for _, part in ghost:GetDescendants() do
+		local index = part:GetAttribute("PartIndex")
+		if part:IsA("BasePart") and typeof(index) == "number" then
+			local role = design.parts[index].role
+			if role == "thruster" then
+				table.insert(flames, { part = part, jets = { JetFlames.add(part, color, step) } })
+			elseif role == "brakeLight" then
+				BrakeLights.add(brakes, part)
+			end
+		end
+	end
+	if nozzle then
+		local part = addHolder(ghost, pieces, "Nozzle", nozzle.size, nozzle.cframe)
+		table.insert(flames, { part = part, jets = { JetFlames.add(part, color, step) } })
+	end
+	local emitters: { ParticleEmitter } = {}
+	for _, flame in flames do
+		for _, emitter in flame.jets[1].emitters do
+			table.insert(emitters, emitter)
+		end
+	end
+
+	local fire = Instance.new("Fire")
+	fire.Size = T.LavaFireSize
+	fire.Heat = T.LavaFireSize * 1.5
+	fire.Enabled = false
+	fire.Parent = addHolder(ghost, pieces, "FireHolder", Vector3.one, CFrame.new())
+	return { flames = flames, brakes = brakes, fire = fire, emitters = emitters, time = 0 }
+end
+
+-- The ghost car for `replay`, its pieces, and its lights, built at the
+-- origin, or nil if the look is incomplete.
+local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, AxolotlGhost?, Lights?)
 	local look = replay.look
 	local ghost = Instance.new("Model")
 	ghost.Name = "ReplayGhost"
@@ -248,12 +334,15 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 	local design = CarParts.designFor(ghost)
 	if not design then
 		ghost:Destroy()
-		return nil, {}, nil
+		return nil, {}, nil, nil
 	end
 
 	local dinoMesh = if look.HeliCar ~= true and look.PlaneCar ~= true then DinoCars.mesh(look.DinoMesh) else nil
 	if dinoMesh then
-		return ghost, buildDino(replay, look.DinoMesh, dinoMesh, design, ghost), nil
+		local dino = DinoCars.Looks[look.DinoMesh]
+		local dinoPieces = buildDino(replay, look.DinoMesh, dinoMesh, design, ghost)
+		local lights = lightUp(ghost, design, dinoPieces, { size = dino.jetSize, cframe = dino.jetCFrame })
+		return ghost, dinoPieces, nil, lights
 	end
 
 	local mesh = if look.AxolotlThrottle == true
@@ -263,7 +352,8 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 		else nil
 	if mesh then
 		local axolotlPieces, axolotl = buildAxolotl(replay, mesh, design, ghost)
-		return ghost, axolotlPieces, axolotl
+		local nozzle = { size = AxolotlThrottle.jetSize, cframe = AxolotlThrottle.jetCFrame }
+		return ghost, axolotlPieces, axolotl, lightUp(ghost, design, axolotlPieces, nozzle)
 	end
 
 	local parts = CarParts.build(design, CFrame.new(), ghost)
@@ -318,7 +408,7 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 		local offset = if wheel then wheel.offset:Inverse() * part.CFrame else part.CFrame
 		table.insert(pieces, { part = part, offset = offset, on = on })
 	end
-	return ghost, pieces, nil
+	return ghost, pieces, nil, lightUp(ghost, design, pieces, nil)
 end
 
 local function poseAt(clip: ReplayTape.Clip<CFrame>, t: number): CFrame
@@ -432,6 +522,34 @@ local function moveLegs(legs: LegsGhost, clip: ReplayTape.Clip<CFrame>, time: nu
 	legs.time = time
 end
 
+-- Lights the ghost as the car was lit at the clock's time. The flames, smoke,
+-- and fire run at the clock's speed, so they freeze while it is paused, and a
+-- seek clears the smoke left along the way. A flame on a broken part goes out
+-- once the part is gone.
+local function showLights(now: Playing, dt: number)
+	local lights = now.lights
+	local clip = now.replay.clip
+	local clock = now.clock
+	local time = clock.time
+	local jets = ReplayTape.lit(clip, "JetsBurning", time)
+	for _, flame in lights.flames do
+		JetFlames.light(flame.jets, jets and flame.part.LocalTransparencyModifier < 1)
+	end
+	BrakeLights.light(lights.brakes, ReplayTape.lit(clip, "Braking", time))
+	lights.fire.Enabled = ReplayTape.lit(clip, "Burning", time)
+
+	local scale = if clock.paused then 0 else math.clamp(clock.speed, 0, 1)
+	lights.fire.TimeScale = scale
+	local seek = math.abs(time - lights.time - dt * scale) > SEEK_SLACK
+	lights.time = time
+	for _, emitter in lights.emitters do
+		emitter.TimeScale = scale
+		if seek then
+			emitter:Clear()
+		end
+	end
+end
+
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
 	local pose = poseAt(now.replay.clip, time)
@@ -477,6 +595,7 @@ local function show(now: Playing, dt: number)
 		end
 	end
 	workspace:BulkMoveTo(now.parts, now.cframes, Enum.BulkMoveMode.FireCFrameChanged)
+	showLights(now, dt)
 	ReplayCamera.update(pose.Position, dt)
 	if workspace.StreamingEnabled and os.clock() - now.streamed >= R.StreamRefresh then
 		now.streamed = os.clock()
@@ -521,8 +640,8 @@ end
 -- Plays `replay`, hiding `car` and `character` while it does.
 function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character: Model?)
 	ReplayPlayer.stop()
-	local ghost, pieces, axolotl = buildGhost(replay)
-	if not ghost then
+	local ghost, pieces, axolotl, lights = buildGhost(replay)
+	if not ghost or not lights then
 		warn("ReplayPlayer: the replay's car has no look attributes; nothing to play")
 		return
 	end
@@ -557,6 +676,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 	local now: Playing = {
 		replay = replay,
 		ghost = ghost,
+		lights = lights,
 		axolotl = axolotl,
 		legs = legs,
 		pieces = pieces,
