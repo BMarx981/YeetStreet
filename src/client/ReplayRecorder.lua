@@ -14,6 +14,7 @@
 -- A replay carries the car's attributes (CarParts) as they were at the start
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
 -- those from before the clip; the clip's marks say when the rest broke off.
+-- The clip's flips say when the jets (JetsBurning) were on.
 -- The attributes are copied as they change rather than read at the cut, since
 -- by then a wrecked car is gone. It also carries the server's time at the
 -- start of the clip and what ReplayWorld recorded over it, so the world can
@@ -77,10 +78,16 @@ function ReplayRecorder.start(model: Model)
 	tape = ReplayTape.new()
 	look = model:GetAttributes()
 	carName = model.Name
+	if look.JetsBurning == true then
+		ReplayTape.flip(tape, os.clock(), "JetsBurning", true)
+	end
 	table.insert(
 		connections,
 		model.AttributeChanged:Connect(function(attribute: string)
 			local value = model:GetAttribute(attribute)
+			if attribute == "JetsBurning" then
+				ReplayTape.flip(tape, os.clock(), attribute, value == true)
+			end
 			for _, slot in CarParts.Slots do
 				if attribute == CarParts.brokenAttribute(slot) then
 					local was = look[attribute]

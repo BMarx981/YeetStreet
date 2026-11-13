@@ -4,7 +4,8 @@
 -- see InputAxes.
 --
 -- The tape keeps one pose per step (record) and a mark for every part that
--- breaks off (mark), forgetting anything older than MaxLength. When a run is
+-- breaks off (mark), and when a switch such as the jets turns on or off
+-- (flip), forgetting anything older than MaxLength. When a run is
 -- over, window says which stretch of the tape shows it, and cut copies that
 -- stretch into a clip whose time starts at zero, so the tape can record on.
 --
@@ -38,6 +39,13 @@ export type Mark = {
 	slot: string, -- the CarDesign slot a part broke off
 }
 
+-- A named switch on the car, such as its jets, turning on or off.
+export type Flip = {
+	t: number,
+	name: string,
+	on: boolean,
+}
+
 -- A finished flight waiting for its tail to be recorded.
 export type Window = {
 	start: number, -- liftoff
@@ -49,6 +57,7 @@ export type Window = {
 export type Tape<P> = {
 	frames: { Frame<P> },
 	marks: { Mark },
+	flips: { Flip },
 	liftoff: number?, -- when the flight under way lifted off, nil on the ground
 	waiting: Window?,
 }
@@ -56,6 +65,7 @@ export type Tape<P> = {
 export type Clip<P> = {
 	frames: { Frame<P> }, -- at least two, the first at t = 0
 	marks: { Mark },
+	flips: { Flip }, -- a switch on at the start has a flip at t = 0
 	duration: number,
 	start: number, -- the tape time of its first frame
 }
@@ -65,7 +75,7 @@ export type Clip<P> = {
 local TRIM_SLACK = 1
 
 function ReplayTape.new<P>(): Tape<P>
-	return { frames = {}, marks = {} }
+	return { frames = {}, marks = {}, flips = {} }
 end
 
 -- Adds the pose at time `t`, which is after every time recorded before.
@@ -88,11 +98,34 @@ function ReplayTape.record<P>(tape: Tape<P>, t: number, pose: P, tuning: Tuning)
 		end
 	end
 	tape.marks = marks
+	-- A switch flipped on before then and still on keeps its flip, so a
+	-- later clip knows it was on.
+	local last: { [string]: Flip } = {}
+	local flips = {}
+	for _, flip in tape.flips do
+		if flip.t < oldest then
+			last[flip.name] = flip
+		else
+			table.insert(flips, flip)
+		end
+	end
+	for _, flip in last do
+		if flip.on then
+			table.insert(flips, 1, flip)
+		end
+	end
+	tape.flips = flips
 end
 
 -- Notes that a part broke off `slot` at time `t`.
 function ReplayTape.mark<P>(tape: Tape<P>, t: number, slot: string)
 	table.insert(tape.marks, { t = t, slot = slot })
+end
+
+-- Notes that the switch `name`, such as the jets, turned on or off at time
+-- `t`, which is at or after every flip noted before.
+function ReplayTape.flip<P>(tape: Tape<P>, t: number, name: string, on: boolean)
+	table.insert(tape.flips, { t = t, name = name, on = on })
 end
 
 -- The stretch of tape that shows a run which lifted off at `startT` and
@@ -126,7 +159,21 @@ function ReplayTape.cut<P>(tape: Tape<P>, from: number, to: number): Clip<P>?
 			table.insert(marks, { t = mark.t - zero, slot = mark.slot })
 		end
 	end
-	return { frames = shifted, marks = marks, duration = shifted[#shifted].t, start = zero }
+	local before: { [string]: boolean } = {}
+	local flips: { Flip } = {}
+	for _, flip in tape.flips do
+		if flip.t < zero then
+			before[flip.name] = flip.on
+		elseif flip.t <= to then
+			table.insert(flips, { t = flip.t - zero, name = flip.name, on = flip.on })
+		end
+	end
+	for name, on in before do
+		if on then
+			table.insert(flips, 1, { t = 0, name = name, on = true })
+		end
+	end
+	return { frames = shifted, marks = marks, flips = flips, duration = shifted[#shifted].t, start = zero }
 end
 
 -- The poses just before and after `t` in the clip, and how far between them
@@ -161,6 +208,20 @@ function ReplayTape.broken<P>(clip: Clip<P>, t: number): { [string]: number }
 		end
 	end
 	return counts
+end
+
+-- Whether the switch `name` is on at time `t` in the clip.
+function ReplayTape.lit<P>(clip: Clip<P>, name: string, t: number): boolean
+	local on = false
+	for _, flip in clip.flips do
+		if flip.t > t then
+			break
+		end
+		if flip.name == name then
+			on = flip.on
+		end
+	end
+	return on
 end
 
 -- When parts broke off each slot in the clip, in order.
