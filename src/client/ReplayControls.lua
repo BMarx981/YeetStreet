@@ -78,7 +78,7 @@ local function build(toggle: () -> (), play: (ReplayRecorder.Replay) -> ())
 	-- of the TELEPORT button, so no hole shows while it is hidden.
 	local open = UiStyle.sticker("Open", gui, "REPLAY")
 	open.AnchorPoint = Vector2.new(1, 1)
-	open.Position = UDim2.new(1, -268, 0, -4)
+	open.Position = UDim2.new(1, -396, 0, -4)
 	open.Size = UDim2.fromOffset(120, 32)
 	open.Visible = false
 	UiStyle.springy(open)

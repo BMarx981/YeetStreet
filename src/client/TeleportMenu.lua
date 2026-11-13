@@ -42,7 +42,7 @@ local function build()
 	-- of the INVITE button.
 	local openButton = UiStyle.sticker("Open", gui, "TELEPORT")
 	openButton.AnchorPoint = Vector2.new(1, 1)
-	openButton.Position = UDim2.new(1, -140, 0, -4)
+	openButton.Position = UDim2.new(1, -268, 0, -4)
 	openButton.Size = UDim2.fromOffset(120, 32)
 	UiStyle.springy(openButton)
 

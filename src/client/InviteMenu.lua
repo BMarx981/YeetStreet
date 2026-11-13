@@ -67,10 +67,11 @@ local function build()
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
-	-- Top right corner, in the Roblox top bar so the player list can't cover it.
+	-- Top right, in the Roblox top bar so the player list can't cover it. Left
+	-- of the CONTROLS button.
 	local openButton = UiStyle.sticker("Open", gui, "INVITE")
 	openButton.AnchorPoint = Vector2.new(1, 1)
-	openButton.Position = UDim2.new(1, -12, 0, -4)
+	openButton.Position = UDim2.new(1, -140, 0, -4)
 	openButton.Size = UDim2.fromOffset(120, 32)
 	UiStyle.springy(openButton)
 

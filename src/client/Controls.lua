@@ -4,7 +4,7 @@
 -- -1..1 with positive meaning right, gas, or nose down.
 --
 --   Keyboard  W/S or Up/Down gas and brake, A/D or Left/Right steer,
---             Space or Left Shift jets, Q/E roll (or down and up with a
+--             Left Shift jets, Space exit, Q/E roll (or down and up with a
 --             HeliCar's rotor out), R reset, F wings or rotor, X or left
 --             click fire
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and

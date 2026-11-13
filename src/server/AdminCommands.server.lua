@@ -738,7 +738,10 @@ local function processCommand(player, message)
 				broadcastData.senderName = senderName
 				broadcastData.messageText = actualMessage
 			end
-			MessagingService:PublishAsync(TELEMETRY_TOPIC, broadcastData)
+			local ok, err = pcall(MessagingService.PublishAsync, MessagingService, TELEMETRY_TOPIC, broadcastData)
+			if not ok then
+				warn("AdminCommands: could not send :" .. commandName .. " to other servers: " .. tostring(err))
+			end
 		end
 
 		-- For global messages, fire to ALL players on this server (not just the admin)
@@ -754,7 +757,7 @@ local function processCommand(player, message)
 end
 
 -- Handle messages from other servers (received via MessagingService)
-MessagingService:SubscribeAsync(TELEMETRY_TOPIC, function(message)
+local subscribed, subscribeError = pcall(MessagingService.SubscribeAsync, MessagingService, TELEMETRY_TOPIC, function(message)
 	local cmd = message.data
 	if not cmd or not cmd.commandName then
 		return
@@ -779,6 +782,9 @@ MessagingService:SubscribeAsync(TELEMETRY_TOPIC, function(message)
 		end
 	end
 end)
+if not subscribed then
+	warn("AdminCommands: cross-server commands are off on this server: " .. tostring(subscribeError))
+end
 
 -- Handle commands from the command bar GUI
 adminCommandEvent.OnServerEvent:Connect(function(player, message)
