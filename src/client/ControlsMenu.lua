@@ -87,7 +87,7 @@ local TOUCH: { Group } = {
 	},
 }
 
-local ROW = 30
+local ROW = 34
 local KEY_WIDTH = 110
 
 local player = Players.LocalPlayer :: Player
@@ -146,7 +146,7 @@ local function build()
 				frame.Size = UDim2.new(1, -12, 0, ROW)
 				frame.Parent = list
 				UiStyle.corner(frame, 6)
-				local key = UiStyle.text("Key", frame, 16, true)
+				local key = UiStyle.text("Key", frame, 17, false)
 				key.Text = row.key
 				key.TextColor3 = UiStyle.Ink
 				key.TextXAlignment = Enum.TextXAlignment.Center
@@ -155,7 +155,7 @@ local function build()
 				key.Position = UDim2.fromOffset(4, 3)
 				key.Size = UDim2.fromOffset(KEY_WIDTH, ROW - 6)
 				UiStyle.corner(key, 5)
-				local what = UiStyle.text("What", frame, 14, false)
+				local what = UiStyle.text("What", frame, 16, false)
 				what.Text = row.what
 				what.TextWrapped = true
 				what.Position = UDim2.fromOffset(KEY_WIDTH + 14, 0)
