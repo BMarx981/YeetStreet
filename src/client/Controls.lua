@@ -4,7 +4,7 @@
 -- -1..1 with positive meaning right, gas, or nose down.
 --
 --   Keyboard  W/S or Up/Down gas and brake, A/D or Left/Right steer,
---             Left Shift jets, Space exit, Q/E roll (or down and up with a
+--             either Shift jets, Space exit, Q/E roll (or down and up with a
 --             HeliCar's rotor out), R reset, F wings or rotor, X or left
 --             click fire
 --   Gamepad   Right trigger gas, left trigger brake, left stick steer (and
@@ -122,7 +122,7 @@ function Controls.read(): Frame
 			InputAxes.fromKeys(padRollLeft, padRollRight),
 			touch.roll,
 		}),
-		jet = key({ K.LeftShift }) or padJet or touch.jet,
+		jet = key({ K.LeftShift, K.RightShift }) or padJet or touch.jet,
 		exit = key({ K.Space }),
 		reset = key({ K.R }) or padReset or touch.reset,
 		wings = key({ K.F }) or padWings or touch.wings,

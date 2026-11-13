@@ -32,7 +32,21 @@ local R = Tuning.Replay
 local K = Enum.KeyCode
 
 -- Keys that drive the car. Pressing one closes the replay to drive on.
-local DRIVE_KEYS = { K.W, K.A, K.S, K.D, K.Up, K.Down, K.Left, K.Right, K.Space, K.LeftShift, K.ButtonR2, K.ButtonL2 }
+local DRIVE_KEYS = {
+	K.W,
+	K.A,
+	K.S,
+	K.D,
+	K.Up,
+	K.Down,
+	K.Left,
+	K.Right,
+	K.Space,
+	K.LeftShift,
+	K.RightShift,
+	K.ButtonR2,
+	K.ButtonL2,
+}
 
 local BAR_WIDTH = 560
 local BAR_HEIGHT = 60
