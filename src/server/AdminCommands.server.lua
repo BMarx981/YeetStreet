@@ -118,6 +118,8 @@ local WEATHER_PRESETS = {
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Garage = require(game:GetService("ServerScriptService").Garage)
+local Economy = require(ReplicatedStorage.Economy)
+local Tuning = require(ReplicatedStorage.Tuning)
 local adminCommandEvent = ReplicatedStorage:WaitForChild("AdminCommandEvent")
 local adminFeedbackEvent = ReplicatedStorage:WaitForChild("AdminFeedbackEvent")
 local weatherUpdateEvent = ReplicatedStorage:WaitForChild("WeatherUpdateEvent")
@@ -304,6 +306,7 @@ local COMMAND_INFO = {
 	{ name = "planecar",   desc = "Turn the PlaneCar on or off for you or a player",    usage = ":planecar [playerName]",        optionsType = "player" },
 	{ name = "axolotl",    desc = "Turn the Axolotl Throttle on or off for you or a player", usage = ":axolotl [playerName]",  optionsType = "player" },
 	{ name = "raptor",     desc = "Turn the mesh Velociraptor on or off for you or a player", usage = ":raptor [playerName]",  optionsType = "player" },
+	{ name = "givecar",    desc = "Add a ladder car (or all dino cars) to a garage, saved", usage = ":givecar <car|dinos> [playerName]", optionsType = "text" },
 	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
@@ -592,6 +595,49 @@ local COMMANDS = {
 		local turningOn = target:GetAttribute("VelociraptorEquipped") ~= true
 		toggleVelociraptor:Fire(target)
 		return if turningOn then target.Name .. " is driving the Velociraptor!" else target.Name .. " is back in their own car."
+	end,
+
+	-- Adds ladder cars to a player's saved garage for free (Garage.giveCar),
+	-- by Id or Name (Economy.matchCars), or every dino car for "dinos".
+	givecar = function(adminPlayer, args)
+		local word, targetName = string.match(args, "^%s*(%S+)%s*(%S*)")
+		if not word then
+			return "Usage: :givecar <car|dinos> [playerName]"
+		end
+		local target = if targetName ~= "" then findPlayer(targetName) else adminPlayer
+		if not target then
+			return if targetName ~= ""
+				then "Player not found: " .. targetName
+				else "Usage: :givecar <car|dinos> [playerName]"
+		end
+		local cars = Economy.matchCars(Tuning.Ladder, word)
+		if #cars == 0 then
+			return "No car called " .. word
+		end
+		local function owns(id)
+			return table.find(string.split(target:GetAttribute("CarsOwned") or "", ","), id) ~= nil
+		end
+		local given, had = {}, {}
+		for _, car in cars do
+			if owns(car.Id) then
+				table.insert(had, car.Name)
+			else
+				Garage.giveCar(target, car.Id)
+				if owns(car.Id) then
+					table.insert(given, car.Name)
+				end
+			end
+		end
+		if #given == 0 and #had == 0 then
+			return target.Name .. "'s data isn't loaded yet, try again"
+		end
+		local reply = if #given > 0
+			then "Gave " .. target.Name .. ": " .. table.concat(given, ", ")
+			else "Nothing new for " .. target.Name
+		if #had > 0 then
+			reply ..= ". Already owned: " .. table.concat(had, ", ")
+		end
+		return reply
 	end,
 
 	-- Puts a car on an obby pad from anywhere, as if every pad up to it had

@@ -226,6 +226,26 @@ function Economy.findCar(ladder: { Car }, id: string): Car?
 	return nil
 end
 
+-- The cars a typed word names, for admin commands: a car's Id or Name in any
+-- case, with spaces and dashes ignored ("t-rex", "muscle car"), or every Tier
+-- "Dino" car for "dinos". Empty if nothing matches.
+function Economy.matchCars(ladder: { Car }, word: string): { Car }
+	local function squash(text: string): string
+		return (string.gsub(string.lower(text), "[%s%-]", ""))
+	end
+	local wanted = squash(word)
+	local found: { Car } = {}
+	if wanted == "" then
+		return found
+	end
+	for _, car in ladder do
+		if (wanted == "dinos" and car.Tier == "Dino") or squash(car.Id) == wanted or squash(car.Name) == wanted then
+			table.insert(found, car)
+		end
+	end
+	return found
+end
+
 -- Cash paid for a run that scored `score`.
 function Economy.payout(score: number, cashPerPoint: number): number
 	return math.max(math.floor(score * cashPerPoint), 0)

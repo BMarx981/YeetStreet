@@ -58,6 +58,22 @@ Tuning.Invites = {
 	CheckInterval = 300,
 }
 
+-- The daily reward calendar (see DailyReward). One claim per UTC day; a missed
+-- day starts over at day 1. The last day also gives the next of WeekPrizes.
+Tuning.Daily = {
+	Days = {
+		{ Cash = 1000 },
+		{ Cash = 2000 },
+		{ DoubleLaunches = 10 },
+		{ Cash = 4000 },
+		{ Cash = 6000 },
+		{ DoubleLaunches = 20 },
+		{ Cash = 15000 },
+	},
+	WeekPrizes = { "DailyBody", "DailyFlame", "DailyTrail" },
+	DoubleMultiplier = 2,
+}
+
 -- Analytics (see AnalyticsEvents and the server's Analytics). Logged only in
 -- the live game: never in Studio, and never in a game listed in DevGameIds.
 Tuning.Analytics = {

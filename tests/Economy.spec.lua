@@ -266,6 +266,52 @@ Check.test("findCar looks a car up by id", function()
 	Check.eq(Economy.findCar(LADDER, "Spaceship"), nil)
 end)
 
+local function dino(id: string, name: string): Economy.Car
+	return {
+		Id = id,
+		Name = name,
+		Price = 0,
+		Bonus = 8,
+		Caps = { Speed = 30, Jets = 30, Toughness = 30, Grip = 30, Brakes = 30 },
+		Seed = 11,
+		Archetype = "buggy",
+		Tier = "Dino",
+		ForSale = false,
+	}
+end
+
+local WITH_DINOS: { Economy.Car } = table.clone(LADDER)
+table.insert(WITH_DINOS, dino("Velociraptor", "Velociraptor"))
+table.insert(WITH_DINOS, dino("TRex", "T-Rex"))
+
+local function ids(cars: { Economy.Car }): string
+	local out = {}
+	for _, car in cars do
+		table.insert(out, car.Id)
+	end
+	return table.concat(out, ",")
+end
+
+Check.test("matchCars finds a car by id or name, any case, spaces and dashes ignored", function()
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "trex")), "TRex")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "T-Rex")), "TRex")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "VELOCIRAPTOR")), "Velociraptor")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "muscle car")), "Muscle")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "musclecar")), "Muscle")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "Muscle")), "Muscle")
+end)
+
+Check.test("matchCars gives every dino car for dinos", function()
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "dinos")), "Velociraptor,TRex")
+	Check.eq(ids(Economy.matchCars(WITH_DINOS, "Dinos")), "Velociraptor,TRex")
+end)
+
+Check.test("matchCars gives nothing for an unknown or empty word", function()
+	Check.eq(#Economy.matchCars(WITH_DINOS, "spaceship"), 0)
+	Check.eq(#Economy.matchCars(WITH_DINOS, ""), 0)
+	Check.eq(#Economy.matchCars(WITH_DINOS, "-"), 0)
+end)
+
 Check.test("level reads one stat by name", function()
 	local lv = levels(1, 2, 3, 4, 5)
 	Check.eq(Economy.level(lv, "Speed"), 1)
