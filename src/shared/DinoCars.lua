@@ -7,15 +7,17 @@
 -- VelociraptorCar for how those Models are laid out.
 --
 -- Fit and Lift put a dino's feet on the ground and its back near the driver's
--- seat. Parts come out anchored, with no collisions, touches, or mass, like
--- CarParts. Leg parts, and the claws that ride on them, carry the attributes
+-- seat. A look with Tail swaps the mesh's own tail for one DinoDress builds,
+-- tapering to a point and swaying. Parts come out anchored, with no
+-- collisions, touches, or mass, like CarParts. Leg parts, and the claws that ride on them, carry the attributes
 -- DinoLeg, the leg's name, and LegHip, the point in hull space it swings about.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local VelociraptorCar = require(ReplicatedStorage.VelociraptorCar)
 local TriceratopsCar = require(ReplicatedStorage.TriceratopsCar)
-local TriceratopsStyle = require(ReplicatedStorage.TriceratopsStyle)
+local DinoStyle = require(ReplicatedStorage.DinoStyle)
+local DinoDress = require(ReplicatedStorage.DinoDress)
 local DinoLegs = require(ReplicatedStorage.DinoLegs)
 
 local DinoCars = {}
@@ -26,6 +28,8 @@ export type Look = {
 	jetCFrame: CFrame, -- where the jet flame comes from
 	jetSize: Vector3,
 	BreakOrder: { string }, -- the pieces that fly off in a crash, first to last (AxolotlMoves.Breaks)
+	Tail: DinoStyle.Tail?, -- a built tail in place of the mesh's own
+	Skin: Color3?, -- color of built parts; a mesh part's Color is grey, its paint is in the texture
 }
 
 local JET_SIZE = VelociraptorCar.jetSize
@@ -45,6 +49,7 @@ DinoCars.Looks = {
 		jetCFrame = CFrame.new(0, 0.2, 3.75) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "tail", "backrightleg", "head" },
+		Tail = { Length = 2, Width = 0.28 },
 	},
 	Brachiosaurus = {
 		Fit = Vector3.new(1.5, 0.9, 1.1),
@@ -52,6 +57,8 @@ DinoCars.Looks = {
 		jetCFrame = CFrame.new(0, 1, 4.05) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "tail", "head", "neck" },
+		Tail = { Length = 2, Width = 0.4 },
+		Skin = Color3.fromRGB(28, 96, 232),
 	},
 	Spinosaurus = {
 		Fit = Vector3.new(1.9, 0.9, 1.55),
@@ -82,7 +89,7 @@ end
 -- How far a part with a TailRoot attribute has turned about that root at
 -- `time` seconds.
 function DinoCars.tailTurn(time: number): CFrame
-	return CFrame.Angles(0, TriceratopsStyle.tailSway(time), 0)
+	return CFrame.Angles(0, DinoStyle.tailSway(time), 0)
 end
 
 local function buildLook(look: string, mesh: Model, hullCFrame: CFrame, parent: Instance): { BasePart }
@@ -91,22 +98,40 @@ local function buildLook(look: string, mesh: Model, hullCFrame: CFrame, parent: 
 	end
 	local info = DinoCars.Looks[look]
 	if look == "Triceratops" then
-		return TriceratopsCar.build(mesh, info.Fit, info.Lift, hullCFrame, parent)
+		return TriceratopsCar.build(mesh, info.Fit, info.Lift, info.Tail :: DinoStyle.Tail, hullCFrame, parent)
 	end
 	local parts: { BasePart } = {}
+	local function place(part: BasePart, at: CFrame, group: string?)
+		part.CFrame = hullCFrame * at
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Massless = true
+		if group then
+			part:SetAttribute("DinoPiece", group)
+		end
+		part.Parent = parent
+		table.insert(parts, part)
+	end
+	local function fitted(piece: BasePart): DinoStyle.Bounds
+		local at = piece.Position * info.Fit + Vector3.new(0, info.Lift, 0)
+		local size = piece.Size * info.Fit
+		return { x = at.X, y = at.Y, z = at.Z, sx = size.X, sy = size.Y, sz = size.Z }
+	end
+	local tail = mesh:FindFirstChild("tail")
+	local replaced: BasePart? = if info.Tail and tail and tail:IsA("BasePart") then tail else nil
 	for _, piece in mesh:GetChildren() do
-		if piece:IsA("BasePart") then
+		if piece:IsA("BasePart") and piece ~= replaced then
 			local part = piece:Clone()
 			part.Size = piece.Size * info.Fit
-			part.CFrame = hullCFrame * CFrame.new(piece.Position * info.Fit + Vector3.new(0, info.Lift, 0))
-			part.Anchored = true
-			part.CanCollide = false
-			part.CanTouch = false
-			part.CanQuery = false
-			part.Massless = true
-			part.Parent = parent
-			table.insert(parts, part)
+			place(part, CFrame.new(piece.Position * info.Fit + Vector3.new(0, info.Lift, 0)))
 		end
+	end
+	if replaced and info.Tail then
+		local body = mesh:FindFirstChild("body")
+		local width = if body and body:IsA("BasePart") then fitted(body).sx else fitted(replaced).sx
+		DinoDress.tail(fitted(replaced), width, info.Tail, info.Skin or replaced.Color, place)
 	end
 	return parts
 end

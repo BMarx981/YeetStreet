@@ -3,11 +3,12 @@
 -- The head mesh has holes where its first horns and eyes were split off, and
 -- these cover them. The Model's "horn" piece is one horn, base down and tip
 -- curving toward -z, placed three times. All added parts carry the original
--- piece's damage group. Tail parts carry a TailRoot attribute, the point in
--- hull space they sway about (DinoCars.tailTurn).
+-- piece's damage group. The tail is built by DinoDress in `tailShape`.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Style = require(ReplicatedStorage.TriceratopsStyle)
+local DinoStyle = require(ReplicatedStorage.DinoStyle)
+local DinoDress = require(ReplicatedStorage.DinoDress)
 
 local TriceratopsCar = {}
 
@@ -16,9 +17,15 @@ local BROW = Color3.fromRGB(150, 84, 48)
 local IRIS = Color3.fromRGB(226, 158, 42)
 local PUPIL = Color3.fromRGB(22, 19, 15)
 local GLINT = Color3.fromRGB(255, 245, 216)
-local SURFACE = 0.012
 
-function TriceratopsCar.build(mesh: Model, fit: Vector3, lift: number, hull: CFrame, parent: Instance): { BasePart }
+function TriceratopsCar.build(
+	mesh: Model,
+	fit: Vector3,
+	lift: number,
+	tailShape: DinoStyle.Tail,
+	hull: CFrame,
+	parent: Instance
+): { BasePart }
 	local parts: { BasePart } = {}
 	local function pose(piece: BasePart): (CFrame, Vector3)
 		local frame = piece.CFrame
@@ -81,55 +88,8 @@ function TriceratopsCar.build(mesh: Model, fit: Vector3, lift: number, hull: CFr
 			settle(part, at, if piece == head then "head" else nil)
 		end
 	end
-	local function facet(a: Vector3, b: Vector3, c: Vector3, name: string, group: string, color: Color3)
-		local ab, ac, bc = b - a, c - a, c - b
-		local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
-		if abd >= acd and abd >= bcd then
-			c, a = a, c
-		elseif acd >= bcd then
-			a, b = b, a
-		end
-		ab, ac, bc = b - a, c - a, c - b
-		local normal = ac:Cross(ab)
-		if normal.Magnitude < 1e-6 then
-			return
-		end
-		local right, back = normal.Unit, bc.Unit
-		local up = back:Cross(right).Unit
-		local height = math.abs(ab:Dot(up))
-		local function wedge(length: number, at: CFrame)
-			if length < 1e-6 then
-				return
-			end
-			local part = Instance.new("WedgePart")
-			part.Name = name
-			part.Size = Vector3.new(SURFACE, height, length)
-			part.Color = color
-			part.Material = Enum.Material.SmoothPlastic
-			part.TopSurface = Enum.SurfaceType.Smooth
-			part.BottomSurface = Enum.SurfaceType.Smooth
-			settle(part, at, group)
-		end
-		wedge(math.abs(ab:Dot(back)), CFrame.fromMatrix((a + b) / 2, right, up, back))
-		wedge(math.abs(ac:Dot(back)), CFrame.fromMatrix((a + c) / 2, -right, up, -back))
-	end
-	local function surface(shape: Style.Mesh, name: string, group: string, color: Color3)
-		local vertices: { Vector3 } = {}
-		for _, v in shape.vertices do
-			table.insert(vertices, Vector3.new(v.x, v.y, v.z))
-		end
-		for _, face in shape.faces do
-			facet(vertices[face[1]], vertices[face[2]], vertices[face[3]], name, group, color)
-		end
-	end
 	if tail then
-		local shape = Style.tail(bounds(tail), if body then bounds(body).sx else bounds(tail).sx)
-		local first = #parts + 1
-		surface(shape, "tail", "tail", SKIN)
-		local root = Style.tailRoot(bounds(tail))
-		for i = first, #parts do
-			parts[i]:SetAttribute("TailRoot", Vector3.new(root.x, root.y, root.z))
-		end
+		DinoDress.tail(bounds(tail), if body then bounds(body).sx else bounds(tail).sx, tailShape, SKIN, settle)
 	end
 	if head then
 		local headBounds = bounds(head)

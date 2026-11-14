@@ -3,41 +3,6 @@ local Check = require("./Check")
 local Style = require("../src/shared/TriceratopsStyle")
 
 local HEAD = { x = 0, y = 1.5, z = -4, sx = 3.5, sy = 2.4, sz = 3.2 }
-local TAIL = { x = 0, y = 0.8, z = 5, sx = 4, sy = 1.2, sz = 4 }
-
-Check.test("the tail has a narrow root and a single tapered tip", function()
-	local mesh = Style.tail(TAIL, 6)
-	local minX, maxX = math.huge, -math.huge
-	for _, v in mesh.vertices do
-		minX, maxX = math.min(minX, v.x), math.max(maxX, v.x)
-	end
-	Check.eq(maxX - minX < TAIL.sx * 0.65, true, "slimmer than the original tail")
-	Check.near(mesh.vertices[#mesh.vertices].z, TAIL.z - TAIL.sz / 2 + TAIL.sz * Style.TailLength, "reaches back")
-	Check.eq(Style.TailLength > 1, true, "longer than the mesh's tail")
-	Check.near(mesh.vertices[1].z, TAIL.z - TAIL.sz / 2, "keeps its attachment")
-end)
-
-Check.test("the tail sways to both sides and repeats, within its angle", function()
-	local period = Style.TailSway.Period
-	local most = math.rad(Style.TailSway.Degrees)
-	Check.near(Style.tailSway(0), 0, "starts centered")
-	Check.near(Style.tailSway(period / 4), most, "full swing one way")
-	Check.near(Style.tailSway(period * 3 / 4), -most, "full swing the other way")
-	Check.near(Style.tailSway(1.3), Style.tailSway(1.3 + period), "repeats")
-	for t = 0, 10, 0.1 do
-		Check.eq(math.abs(Style.tailSway(t)) <= most + 1e-6, true, "stays within its angle")
-	end
-end)
-
-Check.test("the tail's root is thick enough to meet a narrow body", function()
-	local bodyWidth = 2
-	local mesh = Style.tail(TAIL, bodyWidth)
-	local minX, maxX = math.huge, -math.huge
-	for _, v in mesh.vertices do
-		minX, maxX = math.min(minX, v.x), math.max(maxX, v.x)
-	end
-	Check.eq(maxX - minX > bodyWidth * 0.5, true)
-end)
 
 Check.test("three forward-leaning horns, with long mirrored brow horns and a short nose horn", function()
 	local horns = Style.horns(HEAD)
@@ -97,27 +62,6 @@ Check.test("eyes are mirrored, on the upper face, each ball in front of its sock
 		Check.eq(eye.ball.sy < eye.socket.sy, true, "socket frames the ball")
 		Check.eq(eye.brow.y > eye.ball.y, true, "brow above the ball")
 		Check.eq(eye.socket.z < HEAD.z, true, "on the face")
-	end
-end)
-
-Check.test("the tail has a closed surface without zero-area faces", function()
-	for _, mesh in { Style.tail(TAIL, 6) } do
-		local edges: { [string]: number } = {}
-		for _, face in mesh.faces do
-			local a, b, c = mesh.vertices[face[1]], mesh.vertices[face[2]], mesh.vertices[face[3]]
-			local ux, uy, uz = b.x - a.x, b.y - a.y, b.z - a.z
-			local vx, vy, vz = c.x - a.x, c.y - a.y, c.z - a.z
-			local area = (uy * vz - uz * vy) ^ 2 + (uz * vx - ux * vz) ^ 2 + (ux * vy - uy * vx) ^ 2
-			Check.eq(area > 1e-10, true, "nonzero area")
-			for i = 1, 3 do
-				local p, q = face[i], face[i % 3 + 1]
-				local key = `{math.min(p, q)},{math.max(p, q)}`
-				edges[key] = (edges[key] or 0) + 1
-			end
-		end
-		for _, count in edges do
-			Check.eq(count, 2, "each edge belongs to two faces")
-		end
 	end
 end)
 

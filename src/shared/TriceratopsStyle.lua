@@ -1,83 +1,13 @@
 --!strict
 -- Pure proportions for the mesh triceratops, in hull space (-z forward).
--- Details follow the fitted head and tail, so they also fit garage previews.
+-- Details follow the fitted head, so they also fit garage previews. The tail
+-- is DinoStyle's.
 
 local Style = {}
 
-export type Vec = { x: number, y: number, z: number }
 export type Bounds = { x: number, y: number, z: number, sx: number, sy: number, sz: number }
-export type Mesh = { vertices: { Vec }, faces: { { number } } }
 export type Horn = { x: number, y: number, z: number, length: number, girth: number, tilt: number, splay: number }
 export type Eye = { socket: Bounds, ball: Bounds, pupil: Bounds, glint: Bounds, brow: Bounds, browRoll: number }
-
--- Diamond cross sections and one shared point make a faceted, curved spike.
--- The section planes follow the spike's slope.
-local function spike(root: Vec, middle: Vec, tip: Vec, width: number, depth: number): Mesh
-	local vertices: { Vec } = {}
-	local faces: { { number } } = {}
-	local dy, dz = tip.y - root.y, tip.z - root.z
-	local length = math.sqrt(dy * dy + dz * dz)
-	local upY, upZ = math.abs(dz) / length, -dy * math.sign(dz) / length
-	local sections = { root, middle }
-	for i, center in sections do
-		local scale = if i == #sections then 0.6 else 1
-		for _, offset in { { width, 0 }, { 0, depth }, { -width, 0 }, { 0, -depth } } do
-			table.insert(vertices, {
-				x = center.x + offset[1] * scale,
-				y = center.y + upY * offset[2] * scale,
-				z = center.z + upZ * offset[2] * scale,
-			})
-		end
-	end
-	table.insert(vertices, tip)
-	for section = 0, #sections - 2 do
-		local offset = section * 4
-		for i = 1, 4 do
-			local a, b = offset + i, offset + i % 4 + 1
-			table.insert(faces, { a, b, b + 4 })
-			table.insert(faces, { a, b + 4, a + 4 })
-		end
-	end
-	local offset = (#sections - 1) * 4
-	for i = 1, 4 do
-		table.insert(faces, { offset + i, offset + i % 4 + 1, #vertices })
-	end
-	table.insert(faces, { 1, 3, 2 })
-	table.insert(faces, { 1, 4, 3 })
-	return { vertices = vertices, faces = faces }
-end
-
--- How far the tail reaches back, in lengths of the mesh's own tail.
-Style.TailLength = 2
-
--- The tail's side to side swing.
-Style.TailSway = {
-	Degrees = 14, -- to each side
-	Period = 1.8, -- seconds for one full swing there and back
-}
-
--- The tail's angle about its root at `time` seconds, in radians.
-function Style.tailSway(time: number): number
-	local sway = Style.TailSway
-	return math.rad(sway.Degrees) * math.sin(2 * math.pi * time / sway.Period)
-end
-
-function Style.tailRoot(tail: Bounds): Vec
-	return { x = tail.x, y = tail.y + tail.sy * 0.15, z = tail.z - tail.sz / 2 }
-end
-
-function Style.tail(tail: Bounds, bodyWidth: number): Mesh
-	local root = Style.tailRoot(tail)
-	local width = math.min(tail.sx * 0.28, bodyWidth * 0.3)
-	local reach = tail.sz * Style.TailLength
-	return spike(
-		root,
-		{ x = root.x, y = root.y - reach * 0.06, z = root.z + reach * 0.55 },
-		{ x = root.x, y = root.y - reach * 0.18, z = root.z + reach },
-		width,
-		math.min(tail.sy * 0.4, width * 0.9)
-	)
-end
 
 -- Where the horn mesh goes. The root is its foot, buried in the head so only
 -- the taper shows; girth widens it, tilt leans its tip toward the nose and splay
