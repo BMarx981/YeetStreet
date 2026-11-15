@@ -43,6 +43,7 @@ export type Car = {
 	Archetype: string,
 	Tier: string,
 	ForSale: boolean?,
+	Rebirths: number?,
 	Look: string?,
 	Bodies: { { Seed: number, Archetype: string } }?,
 	BodyPrice: number?,

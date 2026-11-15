@@ -8,7 +8,8 @@
 -- BuyBoneShop of the Dino Mystery Box returns the id of the car won in place
 -- of the reason, for the client to spin to:
 --   BuyUpgrade(stat)  one level of Speed, Jets, Toughness, Grip, or Brakes
---   BuyCar(id)        a ladder car, without equipping it
+--   BuyCar(id)        a ladder car, without equipping it; "Locked" if the
+--                     player has fewer rebirths than it needs
 --   EquipCar(id)      an owned car
 --   BuyBody(id, seed)   a body for an owned car, without putting it on
 --   WearBody(id, seed)  an owned body, and gets in that car
@@ -183,7 +184,8 @@ remote("BuyCar", function(player: Player, id: any): (boolean, string?)
 		return false, "UnknownCar"
 	end
 	return request(player, function(state)
-		local after, reason = Economy.buyCar(state, id, Tuning.Ladder)
+		local data = PlayerData.get(player)
+		local after, reason = Economy.buyCar(state, id, Tuning.Ladder, if data then data.Rebirths else 0)
 		if after then
 			Analytics.gotCar(player, #state.Cars == 1)
 		end

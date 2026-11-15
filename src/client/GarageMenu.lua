@@ -96,6 +96,7 @@ local REASONS: { [string]: string } = {
 	UnknownBoneShop = "That trade doesn't exist.",
 	UnknownBody = "That body doesn't exist.",
 	NeedsCar = "You don't own the car this rebirth needs yet.",
+	Locked = "Rebirth more to unlock that car.",
 }
 
 local player = Players.LocalPlayer :: Player
@@ -499,6 +500,9 @@ local function build()
 			elseif ladderCar.ForSale == false then
 				local friends = prizeFriends(ladderCar.Id)
 				setButton(r.button, if friends then `{friends} FRIENDS` else "LOCKED", false)
+			elseif rebirths < (ladderCar.Rebirths or 0) then
+				r.detail.Text = `Unlocks at rebirth {ladderCar.Rebirths}. {r.detail.Text}`
+				setButton(r.button, `REBIRTH {ladderCar.Rebirths}`, false)
 			else
 				setButton(r.button, `$ {withCommas(ladderCar.Price)}`, loaded and not busy and money >= ladderCar.Price, true)
 			end

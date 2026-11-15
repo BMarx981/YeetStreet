@@ -702,6 +702,43 @@ Tuning.Ladder = {
 		Tier = "Supercar",
 		Look = "Axolotl",
 	},
+	-- The rebirth cars: each can be bought once the player has Rebirths, and
+	-- the next rebirth needs it (Tuning.Rebirth.Needs). Upgrade costs climb
+	-- steeply past level 40, so most of their power is free levels. Numbers
+	-- are starting guesses, to tune by playtesting.
+	{
+		Id = "Phoenix",
+		Name = "Phoenix",
+		Price = 250000,
+		Bonus = 24,
+		Caps = { Speed = 44, Jets = 44, Toughness = 44, Grip = 44, Brakes = 44 },
+		Seed = 1,
+		Archetype = "wedge",
+		Tier = "Rebirth",
+		Rebirths = 1,
+	},
+	{
+		Id = "Comet",
+		Name = "Comet",
+		Price = 500000,
+		Bonus = 28,
+		Caps = { Speed = 48, Jets = 48, Toughness = 48, Grip = 48, Brakes = 48 },
+		Seed = 1,
+		Archetype = "hover",
+		Tier = "Rebirth",
+		Rebirths = 2,
+	},
+	{
+		Id = "Eclipse",
+		Name = "Eclipse",
+		Price = 1000000,
+		Bonus = 32,
+		Caps = { Speed = 52, Jets = 52, Toughness = 52, Grip = 52, Brakes = 52 },
+		Seed = 1,
+		Archetype = "muscle",
+		Tier = "Rebirth",
+		Rebirths = 3,
+	},
 	-- Won by bringing in Tuning.Invites' last milestone of friends.
 	{
 		Id = "Squad",

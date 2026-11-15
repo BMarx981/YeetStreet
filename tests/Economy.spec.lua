@@ -248,6 +248,26 @@ Check.test("a car that isn't for sale can't be bought, even for free", function(
 	assert(bought, "a car without ForSale is for sale")
 end)
 
+Check.test("a car that needs rebirths can't be bought before them", function()
+	local reborn = table.clone(LADDER[2])
+	reborn.Id = "Phoenix"
+	reborn.Price = 100
+	reborn.Rebirths = 2
+	local ladder = table.clone(LADDER)
+	table.insert(ladder, reborn)
+	local s = state(100000, levels(0, 0, 0, 0), { "Junker" }, "Junker")
+	local none, noneReason = Economy.buyCar(s, "Phoenix", ladder)
+	Check.eq(none, nil, "no rebirths given")
+	Check.eq(noneReason, "Locked", "no rebirths given")
+	local early, earlyReason = Economy.buyCar(s, "Phoenix", ladder, 1)
+	Check.eq(early, nil, "one rebirth")
+	Check.eq(earlyReason, "Locked", "one rebirth")
+	local bought = Economy.buyCar(s, "Phoenix", ladder, 2)
+	assert(bought, "two rebirths")
+	Check.eq(bought.Cash, 100000 - 100, "Cash")
+	assert(Economy.buyCar(s, "Hatchback", ladder, 0), "a car without Rebirths needs none")
+end)
+
 Check.test("only an owned car can be equipped", function()
 	local s = state(0, levels(0, 0, 0, 0), { "Junker", "Hatchback" }, "Junker")
 	local after = Economy.equip(s, "Hatchback")

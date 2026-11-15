@@ -33,6 +33,7 @@ export type Car = {
 	Archetype: string,
 	Tier: string,
 	ForSale: boolean?, -- false for cars only won, never bought (dino cars, invite prize)
+	Rebirths: number?, -- rebirths a player needs before they can buy it (the rebirth cars)
 	Look: string?, -- a fixed look in place of the generated one ("Axolotl", or one of DinoCars.Looks)
 	-- Other bodies it can wear for a new shape, on top of its own Seed, which
 	-- comes free with the car. Any car type of the same Tier, with the same
@@ -310,9 +311,10 @@ function Economy.upgrade(state: State, stat: StatName, ladder: { Car }, tuning: 
 	return after, nil
 end
 
--- Buys a car without equipping it. Fails with "UnknownCar", "Owned", "NotForSale",
--- or "NotEnoughCash".
-function Economy.buyCar(state: State, id: string, ladder: { Car }): (State?, string?)
+-- Buys a car without equipping it, for a player with `rebirths` (none if not
+-- given). Fails with "UnknownCar", "Owned", "NotForSale", "Locked" (it needs
+-- more rebirths), or "NotEnoughCash".
+function Economy.buyCar(state: State, id: string, ladder: { Car }, rebirths: number?): (State?, string?)
 	local car = Economy.findCar(ladder, id)
 	if not car then
 		return nil, "UnknownCar"
@@ -322,6 +324,9 @@ function Economy.buyCar(state: State, id: string, ladder: { Car }): (State?, str
 	end
 	if car.ForSale == false then
 		return nil, "NotForSale"
+	end
+	if (rebirths or 0) < (car.Rebirths or 0) then
+		return nil, "Locked"
 	end
 	if state.Cash < car.Price then
 		return nil, "NotEnoughCash"
