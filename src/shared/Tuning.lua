@@ -777,6 +777,14 @@ Tuning.Ladder = {
 	},
 }
 
+-- Rebirth (see Rebirth). Each rebirth needs the next car in Needs, and every
+-- rebirth after the last needs the last one. Each rebirth adds PayPerRebirth
+-- to the run pay multiplier, with no cap.
+Tuning.Rebirth = {
+	Needs = { "Axolotl", "Phoenix", "Comet", "Eclipse" },
+	PayPerRebirth = 1,
+}
+
 -- Limited edition items, purchasable in the store's Limiteds tab. Each has a
 -- stock that decreases as players buy it; when stock hits zero it's sold out.
 Tuning.Limiteds = {
