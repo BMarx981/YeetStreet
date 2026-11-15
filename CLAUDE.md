@@ -31,6 +31,7 @@ src/
   server/              Server scripts: data, scoring validation, payouts, leaderboards
   client/              Client scripts: driving, air control, input, camera, UI, replays
   shared/              Modules used by both: config, types, pure logic
+  dev/                 Studio-only tools (ServerStorage.Dev), never required by the game
 tests/                 Unit tests for shared logic
 ```
 
@@ -73,4 +74,6 @@ Keep game logic that can be pure (scoring, combo decay, upgrade costs, rebirth m
 
 ## Current milestone
 
-M4 Obby: obby world 1 with checkpoints. Done when all 20 stages can be cleared with mid tier Jets.
+M4 Obby: obby world 1 with checkpoints. Done when all 20 stages can be cleared with mid tier Jets (Jets 20).
+
+All 20 stages are built. Still open: Brian can't clear the ring stages (18 to 20) yet; their holes were made bigger on Nov 15, and the world prize hasn't been tested with a real account. The plan's milestone table shows the status of every milestone and the work done outside them. M5 replays are done; M5 leaderboards and M6 rebirth are next.

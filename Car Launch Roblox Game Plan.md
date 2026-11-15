@@ -1,6 +1,6 @@
 # Yeet Street: Plan
 
-Sep 26, 2026 · @Brian
+Sep 26, 2026 · @Brian · Updated Nov 15, 2026
 
 ## Pitch and name
 
@@ -56,7 +56,7 @@ All controls need touch buttons from day one, placed for thumbs, plus gamepad an
 
 ## Cars, upgrades, and durability
 
-Cars get slicker, faster, and tougher as you earn points and rebirth. Every car has four stats, each upgradeable with cash:
+Cars get slicker, faster, and tougher as you earn points and rebirth. Every car has five stats, each upgradeable with cash:
 
 | Stat | What it does |
 | --- | --- |
@@ -64,8 +64,23 @@ Cars get slicker, faster, and tougher as you earn points and rebirth. Every car 
 | Jets | Jet power, fuel, and turn rate in the air |
 | Toughness | How much impact the car takes before it wrecks |
 | Grip | Handling on the ground and on landings |
+| Brakes | Stopping power, shown as calipers, discs, and brake lights (added Oct 2026) |
 
 Each car has a stat cap, so moving to a better car raises the ceiling. Rough car ladder: junker, hatchback, muscle car, sports car, supercar, then rebirth only cars (rocket car, hover car, and so on).
+
+The ladder as built (Nov 2026):
+
+| Car | How you get it | Top caps |
+| --- | --- | --- |
+| Junker | Free | 10 |
+| Hatchback | 15,000 | 20 |
+| Muscle Car | 75,000, plus 16 bodies at 10,000 each | 30 |
+| Speed Car | 100,000 | 40 |
+| Axolotl Throttle | 125,000, or free for clearing obby world 1 | 36 |
+| Squad hover car | Invite reward (10 friends) | 34 |
+| Five dino cars | Dino Mystery Box in the Bone Shop | 34 to 50 |
+| Frog Car | Limited (son's admin car) | |
+| PlaneCar, HeliCar | Admin only for now; PlaneCar planned at 1,000,000 or a game pass | |
 
 No oof rules:
 
@@ -154,6 +169,23 @@ Repeating the same trick in a combo pays less each time, so variety wins. Exact 
 
 The map is a small city built from themed stunt parks around a central hub, each with its own launchers, obstacles, and record signs. The car obby is its own separate zone.
 
+Built so far (Nov 2026), all reached from the Teleport menu:
+
+| Park | What's in it |
+| --- | --- |
+| Hub | Garages, spawn |
+| Long Jump | Open field launch with distance boards |
+| Skate Park | Bowls, quarter pipes, grind rails |
+| Corkscrew | Tubes, the Gravitron, the Globe |
+| Downtown | Tubes, trains, billboard smash, wrecking ball cranes, kaiju, pedestrians, rooftops |
+| Dino Valley | Bronto, Volcano with eruption launch, T-Rex, raptors, pterodactyl |
+| Missile Silo | Sticky walls, spiral ramp with traps, buttons, rideable missile |
+| Nuclear Plant | Two sticky cooling towers with timed eruptions |
+
+Planned: a plane sky park with rings, tornados, and warp boosters.
+
+The original list of theme ideas:
+
 | Park | Signature launchers and obstacles |
 | --- | --- |
 | Space | Low gravity zone, moon craters, rocket pad launch, satellite rings |
@@ -191,6 +223,15 @@ A sky course of stages you clear by launching and flying, which gives jets a pur
 - Each stage cleared pays a one time cash reward. Stage count shows on the player's nameplate.
 - The obby is its own zone of the map, separate from the stunt parks. Each rebirth tier can unlock a new obby world with a new theme.
 
+World 1 as built (Oct 2026), changed from the list above where Brian chose differently:
+
+- A sky course high over the city, reached from the Teleport menu.
+- Checkpoints last for one visit only. Leaving the obby or the game starts you over at the start pad. A stage select grid opens from the HUD strip and goes to any checkpoint reached this visit.
+- Stage cash pays on every visit, in small amounts (100, rising 25 per stage). Clearing all 20 pays a 50,000 prize once ever, plus the Axolotl Throttle.
+- Stages: 1 to 7 driving and small hops, 8 to 10 boosters, 11 to 14 moving platforms, 15 to 17 jets gaps, 18 to 20 rings.
+- Obby boosters push without starting a run, so there's no score HUD in the obby. The world is built to clear at Jets 20 (a maxed Hatchback).
+- Not built: stage count on the nameplate, wind tunnels, spinning bars, bounce pads.
+
 ## Progression and rebirth
 
 Cash buys upgrades and cars; rebirth trades all of that for permanent power.
@@ -210,6 +251,8 @@ Big jumps should be seen by the whole server, then remembered.
 - Leaderboards: best single run (server and global), daily longest flight per launcher, highest obby stage, most rebirths.
 - Named launchers and jumps become landmarks with their own record holder shown on a sign.
 
+Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Not built: leaderboards, record signs, callout banners, and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.
@@ -227,16 +270,27 @@ The client drives and flies the car for smooth feel; the server owns stats, cash
 
 Nothing past M0 starts until flight feels fun with one car and one ramp.
 
-| Milestone | Scope | Done when |
-| --- | --- | --- |
-| M0 Feel | One car, one ramp, air control, jets, touch controls | Launching and flying is fun for 10 minutes with no goals |
-| M1 Score | Scoring, combos, toughness, wreck and respawn | A run ends with a score and nobody ever oofs |
-| M2 Economy | Cash, four upgrade stats, car generator v1, first three ladder cars, saves | Progress survives rejoining |
-| M3 World | Hub, 5 to 8 launchers, parked cars to grab | A new player finds a launcher within 30 seconds |
-| M4 Obby | Obby world 1 with checkpoints | 20 stages clearable with mid tier jets |
-| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run |
-| M6 Rebirth | Rebirth flow, rebirth cars, obby world 2 | A full rebirth cycle works end to end |
-| M7 Launch | Polish, icon, thumbnails, mobile testing | Public release |
+| Milestone | Scope | Done when | Status (Nov 15, 2026) |
+| --- | --- | --- | --- |
+| M0 Feel | One car, one ramp, air control, jets, touch controls | Launching and flying is fun for 10 minutes with no goals | Done Oct 16 |
+| M1 Score | Scoring, combos, toughness, wreck and respawn | A run ends with a score and nobody ever oofs | Done Oct 16 |
+| M2 Economy | Cash, four upgrade stats, car generator v1, first three ladder cars, saves | Progress survives rejoining | Done Oct 18 |
+| M3 World | Hub, 5 to 8 launchers, parked cars to grab | A new player finds a launcher within 30 seconds | Done Oct 28. Parked cars dropped; a Teleport menu instead |
+| M4 Obby | Obby world 1 with checkpoints | 20 stages clearable with mid tier jets | All 20 stages built. Not signed off: Brian can't clear the ring stages (18 to 20) yet, and the world prize hasn't been tested live |
+| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run | Replays of your own runs done. Leaderboards, record signs, and watching others not started |
+| M6 Rebirth | Rebirth flow, rebirth cars, obby world 2 | A full rebirth cycle works end to end | Not started |
+| M7 Launch | Polish, icon, thumbnails, mobile testing | Public release | Not started. Blockers listed in the Nov 1 release audit |
+
+### Built outside the milestones
+
+- More parks than M3 asked for (see the map section), with creatures, traps, and rides.
+- Cars: body collection, Brakes, the dino cars, the Axolotl Throttle, PlaneCar and HeliCar.
+- Bones and the Bone Shop with the Dino Mystery Box (son's work).
+- Invite rewards, with the Squad hover car at 10 friends.
+- Server analytics (AnalyticsService) for onboarding, the economy, and the obby.
+- RunCheck: the server flags faked flights and rail grinds, and keeps them off Best.
+- A CONTROLS panel, a restyled menu, park signs, and admin commands.
+- In progress: a 7-day daily reward (only the pure logic is built).
 
 ## Decisions
 
@@ -247,8 +301,14 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 - The car obby is its own separate zone.
 - Cars follow a fixed ladder with stat driven visuals and earned cosmetics.
 - Generated seeds are collectible body styles for ladder cars of the same tier, earned, bought with cash, or bought with Robux. Bodies never change stats.
+- No parked cars to grab. Players spawn a car anywhere and use the Teleport menu to reach parks and the obby (Oct 18).
+- Obby checkpoints last one visit, stage cash pays every visit, and the world prize pays once (Oct 29).
+- Planes earn no score with their wings out and no obby pay (Oct 29).
 
 ## Open questions
 
 - [ ] Which stunt parks ship at launch, and in what order the rest arrive
 - [ ] Monetization: game passes (2x cash, extra jet fuel), or none at launch. Some body styles will sell for Robux (decided 2026-10-17).
+- [ ] Launch scope: what has to be in for the first public release, and what waits (raised in the Nov 1 audit).
+- [ ] The Dino Mystery Box gives random cars, which goes against "no random car rolls." Keep it as is (it costs bones, not Robux) or change it?
+- [ ] Rebirth design details (see Progression and rebirth).
