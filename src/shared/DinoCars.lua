@@ -66,6 +66,8 @@ DinoCars.Looks = {
 		jetCFrame = CFrame.new(0, 0.2, 4.45) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "tail", "sail", "head" },
+		Tail = { Length = 3, Width = 0.4 },
+		Skin = Color3.fromRGB(110, 205, 205),
 	},
 	TRex = {
 		Fit = Vector3.new(1.6, 0.9, 1.7),
@@ -73,6 +75,8 @@ DinoCars.Looks = {
 		jetCFrame = CFrame.new(0, 0.7, 3.4) * JET_TURN,
 		jetSize = JET_SIZE,
 		BreakOrder = { "leftarm", "rightarm", "tail" },
+		Tail = { Length = 2, Width = 0.3 },
+		Skin = Color3.fromRGB(78, 176, 56),
 	},
 } :: { [string]: Look }
 
