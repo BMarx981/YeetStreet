@@ -242,6 +242,42 @@ Cash buys upgrades and cars; rebirth trades all of that for permanent power.
 - Each rebirth tier unlocks rebirth only cars with higher stat caps, plus a trail or effect to show it off.
 - Rebirth count shows on the nameplate and the leaderboard.
 
+### Rebirth picks (Nov 15, 2026)
+
+Brian's picks:
+
+- **Unlock:** the first rebirth needs the Axolotl Throttle. Each later rebirth needs the newest rebirth car (see below).
+- **Resets:** cash, every upgrade level, and every car bought with cash (Hatchback, Muscle Car, Speed Car, Axolotl Throttle, and the rebirth cars). You start over in the Junker.
+- **Keeps:** everything off the cash ladder: the dino cars, the Squad hover car, the Frog Car, PlaneCar and HeliCar, and anything bought with Robux. Also bones, owned bodies (worn again once you rebuy their car), best scores, the obby prize flag, invite progress, and the daily streak.
+- **Multiplier:** run pay times (1 + rebirths): 2x after the first, 3x after the second, with no cap. Flat rewards don't multiply: obby stage cash, the obby prize, daily rewards, invite rewards, and admin cash.
+- **Show off:** a trail, the rebirth count on a nameplate, and a rebirth leaderboard (built with the M5 leaderboards).
+- **Obby world 2:** later, not part of the first rebirth build.
+
+Claude's starting numbers for the rebirth cars, to tune by playtesting:
+
+| Car | Buyable after | Price | Caps | Free levels |
+| --- | --- | --- | --- | --- |
+| Phoenix | Rebirth 1 | 250,000 | 44 | 24 |
+| Comet | Rebirth 2 | 500,000 | 48 | 28 |
+| Eclipse | Rebirth 3 | 1,000,000 | 52 | 32 |
+
+- Rebirth 2 needs the Phoenix, rebirth 3 the Comet, and rebirth 4 and up the Eclipse.
+- Upgrade costs grow 1.16x per level, so maxing all five stats costs about 3.5 million at cap 40 and 33 million at cap 55. That's why rebirth cars get their power mostly from free levels, with caps only a little past the Speed Car's 40.
+- Stats past level 60 have never been driven. Jets, speed, and turn rate may need flatter curves up there.
+- Rebirth cars wear the Rebirth palette (dark metal with glowing parts), already in CarKit.
+- The Axolotl Throttle is on the cash ladder, so it resets even when it was won in the obby. Players can rebuy it.
+
+Steps, one diff each:
+
+1. Pure Rebirth module and tests, plus Tuning.Rebirth: can this player rebirth, what resets and what stays, the multiplier, and which car the next rebirth needs.
+2. Server: save Rebirths in PlayerData, add a rebirth remote the server checks, reset the save in one update, respawn the Junker, and log an analytics event.
+3. Multiply run pay in ScoreService, and show the multiplier on the run card.
+4. A REBIRTH button and confirm screen in the garage that lists what you lose and what you keep.
+5. The rebirth cars in the ladder. The server refuses to sell a car the player hasn't unlocked (BuyCar doesn't check this today).
+6. The rebirth effect and trail, built as the same trail system the daily reward needs.
+7. A nameplate over the car with the player's name and rebirth count.
+8. The rebirth leaderboard, as part of the M5 leaderboards.
+
 ## Leaderboards and replays
 
 Big jumps should be seen by the whole server, then remembered.
@@ -311,4 +347,4 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 - [ ] Monetization: game passes (2x cash, extra jet fuel), or none at launch. Some body styles will sell for Robux (decided 2026-10-17).
 - [ ] Launch scope: what has to be in for the first public release, and what waits (raised in the Nov 1 audit).
 - [ ] The Dino Mystery Box gives random cars, which goes against "no random car rolls." Keep it as is (it costs bones, not Robux) or change it?
-- [ ] Rebirth design details (see Progression and rebirth).
+- [ ] Rebirth car numbers: the Phoenix, Comet, and Eclipse prices, caps, and free levels are placeholders.
