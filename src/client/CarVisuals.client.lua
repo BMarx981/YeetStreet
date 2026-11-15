@@ -26,6 +26,7 @@
 --   which never touches cars, and are removed after PartLifetime.
 --   Fire burns on the hull while the car's Burning attribute is true, set
 --   by the server while lava burns it (ScoreService).
+--   A car with a Trail attribute leaves that trail in the air (CarTrail).
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,6 +44,7 @@ local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
+local CarTrail = require(script.Parent.CarTrail)
 local JetFlames = require(script.Parent.JetFlames)
 
 local T = Tuning.Toughness
@@ -783,6 +785,7 @@ local function setUp(car: Model)
 	end
 	car:GetAttributeChangedSignal("Burning"):Connect(showBurning)
 	showBurning()
+	CarTrail.add(car, hull)
 end
 
 local carsFolder = workspace:WaitForChild("Cars")

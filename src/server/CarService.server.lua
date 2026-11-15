@@ -4,7 +4,8 @@
 -- player network ownership so their client drives it. The car is their
 -- equipped one, with stats from their upgrade levels (Garage), so the first
 -- car waits for their data to load. The car's looks go on it as attributes
--- (CarParts), and each client builds them (CarVisuals).
+-- (CarParts), and each client builds them (CarVisuals). So does its trail
+-- (Trail, from the player's rebirths, see Trails).
 --
 -- Respawns go through ServerStorage.RespawnCar (a BindableEvent fired with a
 -- player and a CFrame, by ScoreService on a reset or wreck): the old car is
@@ -21,9 +22,11 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local CarParts = require(ReplicatedStorage.CarParts)
+local Trails = require(ReplicatedStorage.Trails)
 local CarBuilder = require(ServerScriptService.CarBuilder)
 local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local Garage = require(ServerScriptService.Garage)
+local PlayerData = require(ServerScriptService.PlayerData)
 local TestPark = require(ServerScriptService.TestPark)
 local Tuning = require(ReplicatedStorage.Tuning)
 
@@ -129,6 +132,8 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	car:SetAttribute("OwnerUserId", player.UserId)
 	car:SetAttribute("CarId", ladderCar.Id)
 	CarParts.setLook(car, ladderCar.Seed, ladderCar.Archetype, ladderCar.Tier, looks)
+	local data = PlayerData.get(player)
+	car:SetAttribute("Trail", Trails.forRebirths(if data then data.Rebirths else 0, Tuning.Trails.Rebirth))
 	if player:GetAttribute("HeliCarEquipped") == true then
 		car:SetAttribute("HeliCar", true)
 	end

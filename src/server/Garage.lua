@@ -240,14 +240,39 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 	end, true, "Body", id)
 end)
 
+local reborn = Instance.new("RemoteEvent")
+reborn.Name = "Reborn"
+reborn.Parent = ReplicatedStorage
+
+-- The player's car in workspace.Cars (CarService names it), if there is one.
+local function carOf(player: Player): Instance?
+	local cars = workspace:FindFirstChild("Cars")
+	return cars and cars:FindFirstChild(`Car_{player.Name}`)
+end
+
+-- Tells every client that `player` was reborn for the `count`th time, for the
+-- banner and burst (RebirthFx), with their new car once the respawn has
+-- replaced `old` (nil if that takes longer than CarWait).
+local function announce(player: Player, count: number, old: Instance?)
+	local deadline = os.clock() + Tuning.RebirthFx.CarWait
+	local car = carOf(player)
+	while (car == nil or car == old) and os.clock() < deadline do
+		task.wait(0.1)
+		car = carOf(player)
+	end
+	reborn:FireAllClients(player, count, if car ~= old then car else nil)
+end
+
 -- The new economy state and the added rebirth are set together, with nothing
 -- between them that yields, so a save never holds one without the other.
+-- Every client hears of it on ReplicatedStorage.Reborn (announce).
 remote("Rebirth", function(player: Player): (boolean, string?)
 	local data = PlayerData.get(player)
 	if not data then
 		return false, "NotLoaded"
 	end
 	local count = data.Rebirths + 1
+	local old = carOf(player)
 	local ok, reason = request(player, function(state)
 		local after, problem = Rebirth.rebirth(state, data.Rebirths, Tuning.Ladder, Tuning.Rebirth)
 		if after then
@@ -259,6 +284,7 @@ remote("Rebirth", function(player: Player): (boolean, string?)
 	if ok then
 		player:SetAttribute("Rebirths", count)
 		Analytics.reborn(player, count)
+		task.spawn(announce, player, count, old)
 	end
 	return ok, reason
 end)

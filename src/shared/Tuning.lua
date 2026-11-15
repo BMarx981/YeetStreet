@@ -824,6 +824,39 @@ Tuning.Rebirth = {
 	PayPerRebirth = 1,
 }
 
+-- What every screen sees when a player is reborn (RebirthFx): a banner, and
+-- a burst with a sound on their new car.
+Tuning.RebirthFx = {
+	BannerTime = 4, -- seconds the banner stays
+	CarWait = 3, -- seconds the server waits for the reborn player's new car
+	BurstCount = 120, -- sparks
+	BurstSpeed = { 20, 45 }, -- studs per second, slowest and fastest
+	BurstLifetime = 1.5,
+	BurstSize = 1.2,
+	-- The menu swoosh, low and loud, until the game has a sound of its own.
+	Sound = { Id = "rbxassetid://12222200", Pitch = 0.6, Volume = 1 },
+	SoundReach = 150, -- studs it can be heard from
+}
+
+-- Car trails (Trails, CarTrail). The server sets each car's Trail attribute
+-- to a look id; for now the rebirth trail, one look per rebirth in Rebirth's
+-- order, cycling. A trail shows once the car has been in the air LiftDelay
+-- seconds, and fades over Lifetime after landing.
+Tuning.Trails = {
+	Rebirth = { "Rebirth1", "Rebirth2", "Rebirth3" },
+	Looks = {
+		-- The Rebirth palette's glows (CarKit).
+		Rebirth1 = { Color = { 0, 230, 255 } },
+		Rebirth2 = { Color = { 255, 40, 200 } },
+		Rebirth3 = { Color = { 255, 200, 40 } },
+	},
+	Width = 3, -- studs across, at the back of the hull
+	Lifetime = 1.5, -- seconds each bit of trail lasts
+	LiftDelay = 0.3,
+	AirCheck = 8, -- studs of nothing under the hull that count as in the air
+	CheckEvery = 0.1, -- seconds between air checks
+}
+
 -- Limited edition items, purchasable in the store's Limiteds tab. Each has a
 -- stock that decreases as players buy it; when stock hits zero it's sold out.
 Tuning.Limiteds = {
