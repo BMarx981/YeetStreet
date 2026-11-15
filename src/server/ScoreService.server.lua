@@ -7,8 +7,9 @@
 --
 -- When a run ends, the driver's client gets the server's result on
 -- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
--- the PayScale of the launch pad the run started from and by the squad boost
--- for friends in the server (InviteRewards), and a
+-- the PayScale of the launch pad the run started from, by the squad boost
+-- for friends in the server (InviteRewards), and by the player's rebirth
+-- multiplier (Rebirth), and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 -- InviteRewards hears of every run that ends, so a first run can credit the
 -- player's inviter.
@@ -101,6 +102,7 @@ local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
 local Impact = require(ReplicatedStorage.Impact)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local Rebirth = require(ReplicatedStorage.Rebirth)
 local RunCheck = require(ReplicatedStorage.RunCheck)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
@@ -397,7 +399,9 @@ local function finish(watch: Watch, result: RunTracker.Result)
 			data.Best = math.max(data.Best, score.total)
 		end)
 	end
-	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player)
+	local data = PlayerData.get(watch.player)
+	local reborn = Rebirth.payMultiplier(if data then data.Rebirths else 0, Tuning.Rebirth)
+	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player) * reborn
 	local paid = Economy.payout(score.total, rate)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1

@@ -6,11 +6,14 @@
 -- recent hit the server measured (for picking toughness thresholds), and the run
 -- score: live while flying, a popup per trick, and a breakdown card when the
 -- run ends. The card first shows the client's own score, then the server's
--- when it arrives, since that is the one that counts.
+-- when it arrives, since that is the one that counts. After a rebirth, the
+-- card also shows the multiplier on the run's cash (the Rebirths attribute
+-- Garage sets on the player).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
 
@@ -472,6 +475,10 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 		add("Clean landing", multiplier(score.clean), 18)
 	end
 	add("Total", withCommas(score.total), 26)
+	local rebirths = Rebirth.count((Players.LocalPlayer :: Player):GetAttribute("Rebirths"))
+	if rebirths > 0 then
+		add("Rebirth pay", multiplier(Rebirth.payMultiplier(rebirths, Tuning.Rebirth)), 18)
+	end
 	cardUntil = now + H.ResultTime
 end
 
