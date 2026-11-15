@@ -623,6 +623,21 @@ Tuning.Save = {
 	LoadRetryGap = 6,
 }
 
+-- The global leaderboards (Leaderboard). Each board has an all-time list and
+-- a weekly one, each an ordered store named Store_<Id>_All or _W<week>.
+-- Bump the prefixes to start every board over.
+Tuning.Leaderboards = {
+	Boards = {
+		{ Id = "Best", Title = "BEST RUN", Kind = "Points" },
+		{ Id = "Airtime", Title = "LONGEST AIRTIME", Kind = "Seconds" },
+		{ Id = "Rebirths", Title = "MOST REBIRTHS", Kind = "Count" },
+	},
+	Top = 10,
+	SecondsScale = 10, -- airtime is stored in tenths of a second
+	Store = "Boards1",
+	StudioStore = "StudioBoards1",
+}
+
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
 -- highest level of each upgrade the car can use, and Bonus is free levels on
 -- every stat on top of those. Each car costs less than the last levels of the

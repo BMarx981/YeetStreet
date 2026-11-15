@@ -276,7 +276,7 @@ Steps, one diff each:
 5. The rebirth cars in the ladder. The server refuses to sell a car the player hasn't unlocked (BuyCar doesn't check this today).
 6. The rebirth effect and trail, built as the same trail system the daily reward needs.
 7. A nameplate over the car with the player's name and rebirth count.
-8. The rebirth leaderboard, as part of the M5 leaderboards.
+8. The rebirth leaderboard, as part of the M5 leaderboards (see Leaderboard picks).
 
 ## Leaderboards and replays
 
@@ -288,6 +288,29 @@ Big jumps should be seen by the whole server, then remembered.
 - Named launchers and jumps become landmarks with their own record holder shown on a sign.
 
 Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Not built: leaderboards, record signs, callout banners, and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
+
+### Leaderboard picks (Nov 15, 2026)
+
+Brian's picks:
+
+- **Boards:** best single run, most rebirths, and longest airtime (one flight, in seconds). Highest obby stage is dropped for now. Daily longest flight per launcher becomes the launcher record signs, a feature of its own after this.
+- **Reset:** each board has an all-time list and a this-week list that starts fresh every Monday, UTC.
+- **Display:** big lit boards near the spawn lanes, street garage style, top 10 of each list. No menu panel for now.
+- **Time-played board:** the toolbox one stays as it is for now.
+
+Claude's calls:
+
+- Only the server's own run score counts, and flagged runs (RunCheck) never reach a board, the same as Best today.
+- Global boards use OrderedDataStore through PlayerData, since no other code calls DataStoreService. Studio writes to its own boards, so testing never lands on the live ones.
+- A score is sent only when it beats the player's own saved best for that list, so the store limits hold with full servers.
+
+Steps, one diff each:
+
+1. Pure Leaderboard module and tests, plus Tuning.Leaderboards: the boards, the week number, the store names, airtime as a whole number for the store, and how each value shows on a board.
+2. Save the best airtime and this week's bests in PlayerData, set by ScoreService from the server's run.
+3. Send new bests to the ordered stores through PlayerData, including the rebirth count after a rebirth.
+4. The server reads the top 10 of every list each minute, looks up the names, and publishes them to clients.
+5. The three boards at spawn: the server places them, each client draws them, with THIS WEEK and ALL TIME side by side.
 
 ## Technical approach
 
