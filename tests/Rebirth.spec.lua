@@ -75,6 +75,18 @@ Check.test("only cars that are for sale are on the cash ladder", function()
 	Check.eq(Rebirth.onCashLadder(LADDER[7]), false, "TRex")
 end)
 
+Check.test("split lists the cars a rebirth takes and the ones it leaves, without the first car", function()
+	local lost, kept = Rebirth.split({ "Junker", "TRex", "Hatchback", "OldCar", "Axolotl", "Squad" }, LADDER)
+	Check.eq(table.concat(lost, ","), "Hatchback,Axolotl", "lost")
+	Check.eq(table.concat(kept, ","), "TRex,OldCar,Squad", "kept")
+end)
+
+Check.test("split of only the first car is empty both ways", function()
+	local lost, kept = Rebirth.split({ "Junker" }, LADDER)
+	Check.eq(#lost, 0, "lost")
+	Check.eq(#kept, 0, "kept")
+end)
+
 Check.test("reset clears cash and every upgrade level", function()
 	local after = Rebirth.reset(state({ "Junker", "Axolotl" }, "Axolotl"), LADDER)
 	Check.eq(after.Cash, 0, "Cash")

@@ -95,16 +95,31 @@ local function findCar(ladder: { Car }, id: string): Car?
 	return nil
 end
 
+-- Of the owned `cars`, the ones a rebirth takes and the ones it leaves, in
+-- the order owned. Neither lists the first ladder car, which is always owned.
+function Rebirth.split(cars: { string }, ladder: { Car }): ({ string }, { string })
+	local first = ladder[1].Id
+	local lost: { string } = {}
+	local kept: { string } = {}
+	for _, id in cars do
+		local car = findCar(ladder, id)
+		if id == first then
+			continue
+		elseif car and Rebirth.onCashLadder(car) then
+			table.insert(lost, id)
+		else
+			table.insert(kept, id)
+		end
+	end
+	return lost, kept
+end
+
 -- The state after a rebirth, without checking whether the player may.
 function Rebirth.reset(state: State, ladder: { Car }): State
 	local first = ladder[1].Id
+	local _, kept = Rebirth.split(state.Cars, ladder)
 	local cars = { first }
-	for _, id in state.Cars do
-		local car = findCar(ladder, id)
-		if id ~= first and not (car and Rebirth.onCashLadder(car)) then
-			table.insert(cars, id)
-		end
-	end
+	table.move(kept, 1, #kept, 2, cars)
 	local after = table.clone(state)
 	after.Cash = 0
 	after.Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }

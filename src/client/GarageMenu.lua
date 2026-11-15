@@ -1,7 +1,8 @@
 --!strict
 -- GarageMenu (ModuleScript) -> StarterPlayerScripts.GarageMenu
 -- The garage panel: buy upgrade levels and ladder cars, equip owned cars, and
--- buy and wear other bodies for a car whose ladder entry lists some.
+-- buy and wear other bodies for a car whose ladder entry lists some. The
+-- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
 -- keyboard or X on a gamepad. The same keys, the panel's X button, and gamepad
@@ -25,10 +26,12 @@ local CarKit = require(ReplicatedStorage.CarKit)
 local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
 local Pips = require(ReplicatedStorage.Pips)
+local Rebirth = require(ReplicatedStorage.Rebirth)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
 local DinoSpin = require(script.Parent.DinoSpin)
+local RebirthConfirm = require(script.Parent.RebirthConfirm)
 local UiStyle = require(script.Parent.UiStyle)
 
 local GarageMenu = {}
@@ -92,6 +95,7 @@ local REASONS: { [string]: string } = {
 	AllOwned = "You already have every dino car!",
 	UnknownBoneShop = "That trade doesn't exist.",
 	UnknownBody = "That body doesn't exist.",
+	NeedsCar = "You don't own the car this rebirth needs yet.",
 }
 
 local player = Players.LocalPlayer :: Player
@@ -396,6 +400,7 @@ local function build()
 			end
 		end
 	end
+	local rebirthRow = row(carsList, 0, "Rebirth")
 	local limitedRows: { [string]: Row } = {}
 	for i, item in Tuning.Limiteds do
 		limitedRows[item.Id] = row(limitedsList, i, item.Name)
@@ -464,6 +469,20 @@ local function build()
 		end
 
 		local cars = owned()
+		local rebirths = Rebirth.count(player:GetAttribute("Rebirths"))
+		local needs = Rebirth.neededCar(rebirths, Tuning.Rebirth)
+		local needsCar = Economy.findCar(Tuning.Ladder, needs)
+		local nextPay = `x{Rebirth.payMultiplier(rebirths + 1, Tuning.Rebirth)} run pay`
+		local done = if rebirths > 0 then `Rebirths: {rebirths}. ` else ""
+		if table.find(cars, needs) then
+			rebirthRow.detail.Text = `{done}Start over for {nextPay} forever.`
+			setButton(rebirthRow.button, "REBIRTH", loaded and not busy, true)
+		else
+			rebirthRow.detail.Text =
+				`{done}Own the {if needsCar then needsCar.Name else needs} to rebirth for {nextPay}.`
+			setButton(rebirthRow.button, "LOCKED", false)
+		end
+
 		for _, ladderCar in Tuning.Ladder do
 			local r = carRows[ladderCar.Id]
 			if not r then continue end
@@ -696,6 +715,24 @@ local function build()
 			end
 		end)
 	end
+	local confirm = RebirthConfirm.new(player:WaitForChild("PlayerGui"))
+	rebirthRow.button.Activated:Connect(function()
+		if not rebirthRow.button.Active then
+			return
+		end
+		local rebirths = Rebirth.count(player:GetAttribute("Rebirths"))
+		local summary: RebirthConfirm.Summary = {
+			cash = number("Cash"),
+			cars = owned(),
+			rebirths = rebirths,
+			limiteds = #limitedsOwned(),
+		}
+		confirm.ask(summary, function()
+			local pay = Rebirth.payMultiplier(rebirths + 1, Tuning.Rebirth)
+			ask("Rebirth", "", `Reborn! Run pay is now x{pay}.`, rebirthRow)
+		end)
+	end)
+
 	local spin = DinoSpin.new(player:WaitForChild("PlayerGui"))
 	local function spinTo(winner: string)
 		busy = true
@@ -757,6 +794,7 @@ local function build()
 		UiStyle.show(panel, value)
 		if not value then
 			spin.close()
+			confirm.close()
 		end
 		if value then
 			status.Text = ""
@@ -876,7 +914,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "BoneCoins" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "BoneCoins", "Rebirths" }
 	for _, item in Tuning.Limiteds do
 		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
 	end
