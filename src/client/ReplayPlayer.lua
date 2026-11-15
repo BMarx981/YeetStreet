@@ -22,6 +22,11 @@
 -- fire run on the replay's clock, so they freeze on pause and slow down with
 -- it.
 --
+-- The driver rides in the ghost: a look-only copy of the player's character,
+-- sitting in it the way they sit in the real car as the replay starts, since
+-- nobody leaves their seat in a flight. When the car is wrecked (its wheels
+-- come off), the driver goes, as the real one goes to the new car.
+--
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
 -- HUD alone. The camera starts on the ghost from the side, a little behind
@@ -95,6 +100,7 @@ type Piece = {
 	tailRoot: Vector3?, -- the point a dino's tail part sways about, in the car's space
 	leg: string?, -- the dino leg this part swings with
 	legHip: Vector3?, -- the point that leg swings about, in the car's space
+	goneAt: number?, -- clip time it disappears without flying off, for the driver
 }
 
 -- The moving pieces of an Axolotl Throttle ghost, each moved by changing its
@@ -411,6 +417,70 @@ local function buildGhost(replay: ReplayRecorder.Replay): (Model?, { Piece }, Ax
 	return ghost, pieces, nil, lightUp(ghost, design, pieces, nil)
 end
 
+-- Adds the driver to the ghost, if `character` sits in `car`: a copy of the
+-- character with every part anchored at its offset from the car now, and no
+-- joints, scripts, sounds, or nameplate. The voice chat emitter goes too, or
+-- the player's voice would come out of the ghost. Its Humanoid stays, for the
+-- clothes.
+local function addDriver(ghost: Model, pieces: { Piece }, car: Model?, character: Model?)
+	if not (car and character) then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local seat = humanoid and humanoid.SeatPart
+	if not (seat and seat:IsDescendantOf(car)) then
+		return
+	end
+	local archivable = character.Archivable
+	character.Archivable = true
+	local copy = character:Clone()
+	character.Archivable = archivable
+	if not copy then
+		return
+	end
+	copy.Name = "Driver"
+	for _, item in copy:GetDescendants() do
+		if
+			item:IsA("BaseScript")
+			or item:IsA("ModuleScript")
+			or item:IsA("Sound")
+			or item:IsA("AudioEmitter")
+			or item:IsA("AudioListener")
+			or item:IsA("Wire")
+			or item:IsA("JointInstance")
+			or item:IsA("WeldConstraint")
+			or item:IsA("Constraint")
+			or item:IsA("Animator")
+		then
+			item:Destroy()
+		end
+	end
+	local copyHumanoid = copy:FindFirstChildOfClass("Humanoid")
+	if copyHumanoid then
+		copyHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		copyHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		copyHumanoid.RequiresNeck = false
+		copyHumanoid.BreakJointsOnDeath = false
+		copyHumanoid.EvaluateStateMachine = false
+	end
+	local wrecked: number? = nil
+	for _, piece in pieces do
+		if piece.wheel then
+			wrecked = piece.breakAt
+			break
+		end
+	end
+	local carPose = car:GetPivot()
+	for _, part in copy:GetDescendants() do
+		if part:IsA("BasePart") then
+			noPhysics(part)
+			part.Anchored = true
+			table.insert(pieces, { part = part, offset = carPose:ToObjectSpace(part.CFrame), goneAt = wrecked })
+		end
+	end
+	copy.Parent = ghost
+end
+
 local function poseAt(clip: ReplayTape.Clip<CFrame>, t: number): CFrame
 	local a, b, alpha = ReplayTape.sample(clip, t)
 	return a:Lerp(b, alpha)
@@ -591,7 +661,8 @@ local function show(now: Playing, dt: number)
 			else
 				now.cframes[i] = pose * piece.offset
 			end
-			piece.part.LocalTransparencyModifier = 0
+			local goneAt = piece.goneAt
+			piece.part.LocalTransparencyModifier = if goneAt and time >= goneAt then 1 else 0
 		end
 	end
 	workspace:BulkMoveTo(now.parts, now.cframes, Enum.BulkMoveMode.FireCFrameChanged)
@@ -645,6 +716,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		warn("ReplayPlayer: the replay's car has no look attributes; nothing to play")
 		return
 	end
+	addDriver(ghost, pieces, car, character)
 	local ground = RaycastParams.new()
 	ground.FilterType = Enum.RaycastFilterType.Exclude
 	ground.FilterDescendantsInstances = { ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
