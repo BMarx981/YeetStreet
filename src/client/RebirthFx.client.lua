@@ -2,7 +2,8 @@
 -- RebirthFx (LocalScript) -> StarterPlayerScripts.RebirthFx
 -- When anyone is reborn (Garage fires ReplicatedStorage.Reborn to every
 -- client), shows a banner on this screen and sets off a burst of sparks with
--- a sound on their new car, in the color of the trail they now wear (Trails).
+-- a sound on their new car, in the color of the trail they now wear
+-- (CarTrail.rebirthColor).
 -- The car comes nil when it isn't on this client (far away with streaming,
 -- or the respawn was slow); then only the banner shows.
 
@@ -12,8 +13,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Rebirth = require(ReplicatedStorage.Rebirth)
-local Trails = require(ReplicatedStorage.Trails)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CarTrail = require(script.Parent.CarTrail)
 local UiStyle = require(script.Parent.UiStyle)
 
 local FX = Tuning.RebirthFx
@@ -38,9 +39,7 @@ local outline = banner:FindFirstChildWhichIsA("UIStroke")
 local shown = 0
 
 local function colorFor(count: number): Color3
-	local id = Trails.forRebirths(count, Tuning.Trails.Rebirth)
-	local look = if id then (Tuning.Trails.Looks :: { [string]: { Color: { number } } })[id] else nil
-	return if look then Color3.fromRGB(look.Color[1], look.Color[2], look.Color[3]) else UiStyle.Yellow
+	return CarTrail.rebirthColor(count) or UiStyle.Yellow
 end
 
 local function showBanner(text: string, color: Color3)

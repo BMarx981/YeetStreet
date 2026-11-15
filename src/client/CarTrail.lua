@@ -23,6 +23,14 @@ local function lookOf(car: Model): Look?
 	return if typeof(id) == "string" then (T.Looks :: { [string]: Look })[id] else nil
 end
 
+-- The rebirth trail's color for `rebirths`, for things that match it (the
+-- rebirth banner and burst, nameplates); nil before the first rebirth.
+function CarTrail.rebirthColor(rebirths: number): Color3?
+	local id = Trails.forRebirths(rebirths, T.Rebirth)
+	local look = if id then (T.Looks :: { [string]: Look })[id] else nil
+	return if look then Color3.fromRGB(look.Color[1], look.Color[2], look.Color[3]) else nil
+end
+
 -- Gives `car` its trail at the back of `hull`, following its Trail
 -- attribute, until the car is gone.
 function CarTrail.add(car: Model, hull: BasePart)

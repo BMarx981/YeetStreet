@@ -177,6 +177,16 @@ local function onCharacterAdded(player: Player, character: Model)
 	character:WaitForChild("HumanoidRootPart")
 	lockDriver(character, humanoid)
 
+	-- Roblox's name tag over the head gives way to the car's nameplate
+	-- (CarNameplate) while seated, and comes back on foot.
+	local function showNameTag()
+		humanoid.DisplayDistanceType = if humanoid.SeatPart
+			then Enum.HumanoidDisplayDistanceType.None
+			else Enum.HumanoidDisplayDistanceType.Viewer
+	end
+	humanoid:GetPropertyChangedSignal("SeatPart"):Connect(showNameTag)
+	showNameTag()
+
 	-- Looks up the player's current car each time, since a respawn swaps it.
 	humanoid:GetPropertyChangedSignal("SeatPart"):Connect(function()
 		local car = cars[player]

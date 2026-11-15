@@ -838,6 +838,15 @@ Tuning.RebirthFx = {
 	SoundReach = 150, -- studs it can be heard from
 }
 
+-- The nameplate over other players' cars (CarNameplate).
+Tuning.Nameplate = {
+	Lift = 6, -- studs above the hull's middle
+	MaxDistance = 200, -- studs; farther cars show none
+	Width = 220, -- pixels
+	NameSize = 22,
+	RebirthSize = 16,
+}
+
 -- Car trails (Trails, CarTrail). The server sets each car's Trail attribute
 -- to a look id; for now the rebirth trail, one look per rebirth in Rebirth's
 -- order, cycling. A trail shows once the car has been in the air LiftDelay

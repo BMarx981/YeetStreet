@@ -27,6 +27,8 @@
 --   Fire burns on the hull while the car's Burning attribute is true, set
 --   by the server while lava burns it (ScoreService).
 --   A car with a Trail attribute leaves that trail in the air (CarTrail).
+--   Every other player's car, the Frog Car too, gets a nameplate with
+--   their name and rebirths (CarNameplate).
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -44,6 +46,7 @@ local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
 local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
+local CarNameplate = require(script.Parent.CarNameplate)
 local CarTrail = require(script.Parent.CarTrail)
 local JetFlames = require(script.Parent.JetFlames)
 
@@ -583,6 +586,7 @@ local function setUp(car: Model)
 	if built[car] or car.Parent == nil then
 		return
 	end
+	CarNameplate.add(car, hull)
 	if car:GetAttribute("FrogCar") == true then
 		built[car] = true
 		hull.Transparency = 0
