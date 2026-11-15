@@ -109,6 +109,7 @@ Tuning.Analytics = {
 		Body = "Shop",
 		Limited = "Shop",
 		BoneShop = "Shop",
+		Rebirth = "Gameplay", -- the cash a rebirth wipes; the SKU is Rebirth_ and the rebirth's number
 	},
 	-- Reasons left out of the economy events on purpose.
 	Unlogged = { "Admin" },
@@ -139,6 +140,7 @@ Tuning.Analytics = {
 		FirstUpgrade = "FirstUpgrade", -- a player's first ever upgrade: minutes into the session, first session or not
 		FirstNewCar = "FirstNewCar",
 		FlaggedRun = "FlaggedRun", -- a run that failed RunCheck: reason, park, car
+		Rebirth = "Rebirth", -- each rebirth: its number, minutes into the session, first session or not
 	},
 	ObbyFunnel = "Obby", -- one funnel session per obby visit, one step per pad
 	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },

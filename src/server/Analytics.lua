@@ -16,6 +16,7 @@
 --   custom            a custom event, with up to three string fields
 --   ranRun, upgraded, gotCar   onboarding steps plus their custom events
 --   flaggedRun        a run that failed RunCheck
+--   reborn            a rebirth
 -- Onboarding steps, run counts, and the session clock live in memory for
 -- this session only. Nothing here is saved. AnalyticsWatch reaches the
 -- steps no other script sees: joining, the car spawning, the first drive,
@@ -217,6 +218,13 @@ function Analytics.gotCar(player: Player, firstEver: boolean)
 	if firstEver then
 		Analytics.custom(player, T.Events.FirstNewCar, when(player))
 	end
+end
+
+-- The player was reborn; `rebirths` is their count after it.
+function Analytics.reborn(player: Player, rebirths: number)
+	local values = when(player)
+	table.insert(values, 1, tostring(rebirths))
+	Analytics.custom(player, T.Events.Rebirth, values)
 end
 
 local function onPlayerAdded(player: Player)

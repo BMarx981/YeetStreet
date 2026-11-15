@@ -27,6 +27,7 @@ local RunService = game:GetService("RunService")
 
 local Economy = require(ReplicatedStorage.Economy)
 local Invites = require(ReplicatedStorage.Invites)
+local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
 local Tuning = require(ReplicatedStorage.Tuning)
 
@@ -43,6 +44,7 @@ export type Data = {
 	Best: number, -- best run score
 	Invites: Invites.State,
 	ObbyCleared: boolean, -- whether the obby's world prize has been paid
+	Rebirths: number, -- times reborn (Rebirth)
 }
 
 type Session = {
@@ -91,6 +93,7 @@ local function reconcile(saved: any): Data
 		Best = if typeof(best) == "number" and best >= 0 then best else 0,
 		Invites = Invites.reconcile(raw.Invites),
 		ObbyCleared = raw.ObbyCleared == true,
+		Rebirths = Rebirth.count(raw.Rebirths),
 	}
 end
 

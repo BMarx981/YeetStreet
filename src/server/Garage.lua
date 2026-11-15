@@ -12,14 +12,18 @@
 --   EquipCar(id)      an owned car
 --   BuyBody(id, seed)   a body for an owned car, without putting it on
 --   WearBody(id, seed)  an owned body, and gets in that car
+--   Rebirth()         resets the cash ladder (Rebirth) if the player owns the
+--                     car it needs; reason "NeedsCar" if not
 -- An upgrade or equip changes the car's stats, so the car respawns through
 -- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset. Wearing a
--- body respawns it too, to rebuild its looks.
+-- body respawns it too, to rebuild its looks, and a rebirth respawns the
+-- player in the first ladder car.
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
 -- joined by commas). Each car with bodies also gets BodiesOwned_<id> (seeds
--- joined by commas) and BodyWorn_<id>. Cash is also in leaderstats.
+-- joined by commas) and BodyWorn_<id>. Rebirths is the player's rebirth
+-- count. Cash is also in leaderstats.
 --
 -- The panel opens near any model tagged Garage. The hand-placed
 -- workspace.Shopkeeper gets that tag here, so it stays a garage.
@@ -33,6 +37,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
+local Rebirth = require(ReplicatedStorage.Rebirth)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Analytics = require(ServerScriptService.Analytics)
 local Leaderstats = require(ServerScriptService.Leaderstats)
@@ -233,6 +238,29 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 	end, true, "Body", id)
 end)
 
+-- The new economy state and the added rebirth are set together, with nothing
+-- between them that yields, so a save never holds one without the other.
+remote("Rebirth", function(player: Player): (boolean, string?)
+	local data = PlayerData.get(player)
+	if not data then
+		return false, "NotLoaded"
+	end
+	local count = data.Rebirths + 1
+	local ok, reason = request(player, function(state)
+		local after, problem = Rebirth.rebirth(state, data.Rebirths, Tuning.Ladder, Tuning.Rebirth)
+		if after then
+			data.Rebirths = count
+			leaveAdminCar(player)
+		end
+		return after, problem
+	end, true, "Rebirth", tostring(count))
+	if ok then
+		player:SetAttribute("Rebirths", count)
+		Analytics.reborn(player, count)
+	end
+	return ok, reason
+end)
+
 remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
 	if typeof(id) ~= "string" then
 		return false, "UnknownLimited"
@@ -354,6 +382,7 @@ local function onPlayerAdded(player: Player)
 			data.Economy.Cash = math.max(data.Economy.Cash, Tuning.Cash.StudioCash)
 		end
 		publish(player, data.Economy)
+		player:SetAttribute("Rebirths", data.Rebirths)
 	end
 end
 

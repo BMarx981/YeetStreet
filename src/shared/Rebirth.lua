@@ -59,6 +59,14 @@ export type State = {
 	Worn: { [string]: number },
 }
 
+-- The rebirths in a save: a whole number, 0 or more, or 0 if it isn't one.
+function Rebirth.count(saved: any): number
+	if typeof(saved) == "number" and saved >= 0 and saved < math.huge and saved % 1 == 0 then
+		return saved
+	end
+	return 0
+end
+
 -- The car id a player with `rebirths` so far must own to rebirth again.
 function Rebirth.neededCar(rebirths: number, tuning: Tuning): string
 	local needs = tuning.Needs
