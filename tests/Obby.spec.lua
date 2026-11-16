@@ -102,6 +102,12 @@ Check.test("the world is finished once the last checkpoint is reached", function
 	Check.eq(Obby.finished(visit(4, 1), T), true)
 end)
 
+Check.test("only the last checkpoint is the finish pad", function()
+	Check.eq(Obby.isFinish(3, T), false, "pad 3")
+	Check.eq(Obby.isFinish(0, T), false, "start pad")
+	Check.eq(Obby.isFinish(4, T), true, "pad 4")
+end)
+
 Check.test("a full clear pays every stage once", function()
 	local v = Obby.newVisit()
 	local total = 0

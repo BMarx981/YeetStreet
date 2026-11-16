@@ -77,6 +77,11 @@ function Obby.finished(visit: Visit, tuning: Tuning): boolean
 	return visit.Reached >= tuning.Stages
 end
 
+-- Whether `checkpoint` is the finish pad, the one that clears the world.
+function Obby.isFinish(checkpoint: number, tuning: Tuning): boolean
+	return checkpoint >= tuning.Stages
+end
+
 -- `seconds` into a visit as the HUD's clock shows it, like 1:05.3.
 function Obby.clock(seconds: number): string
 	local tenths = math.floor(seconds * 10)
