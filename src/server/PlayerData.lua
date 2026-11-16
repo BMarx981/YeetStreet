@@ -27,6 +27,7 @@ local RunService = game:GetService("RunService")
 
 local Economy = require(ReplicatedStorage.Economy)
 local Invites = require(ReplicatedStorage.Invites)
+local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -42,6 +43,8 @@ export type Data = {
 	Version: number,
 	Economy: Economy.State,
 	Best: number, -- best run score
+	BestAirtime: number, -- seconds, the longest airtime of one run
+	ThisWeek: Leaderboard.Week, -- this week's bests, as the boards store them
 	Invites: Invites.State,
 	ObbyCleared: boolean, -- whether the obby's world prize has been paid
 	Rebirths: number, -- times reborn (Rebirth)
@@ -87,10 +90,13 @@ end
 local function reconcile(saved: any): Data
 	local raw = if typeof(saved) == "table" then saved else {}
 	local best = raw.Best
+	local airtime = raw.BestAirtime
 	return {
 		Version = VERSION,
 		Economy = Economy.reconcile(raw.Economy, Tuning.Ladder),
 		Best = if typeof(best) == "number" and best >= 0 then best else 0,
+		BestAirtime = if typeof(airtime) == "number" and airtime >= 0 and airtime < math.huge then airtime else 0,
+		ThisWeek = Leaderboard.weekRecord(raw.ThisWeek, Leaderboard.week(os.time())),
 		Invites = Invites.reconcile(raw.Invites),
 		ObbyCleared = raw.ObbyCleared == true,
 		Rebirths = Rebirth.count(raw.Rebirths),

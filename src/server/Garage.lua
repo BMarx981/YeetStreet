@@ -38,6 +38,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
+local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Analytics = require(ServerScriptService.Analytics)
@@ -277,6 +278,8 @@ remote("Rebirth", function(player: Player): (boolean, string?)
 		local after, problem = Rebirth.rebirth(state, data.Rebirths, Tuning.Ladder, Tuning.Rebirth)
 		if after then
 			data.Rebirths = count
+			local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))
+			data.ThisWeek = Leaderboard.recordRebirth(week)
 			leaveAdminCar(player)
 		end
 		return after, problem

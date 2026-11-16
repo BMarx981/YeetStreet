@@ -77,6 +77,27 @@ Check.test("a missing or broken weekly record starts fresh", function()
 	Check.eq(broken.Rebirths, 0, "NaN Rebirths")
 end)
 
+Check.test("a run raises this week's best run and airtime, never lowers them", function()
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2 }
+	local better = Leaderboard.recordRun(week, 900.6, 12.37, T)
+	Check.eq(better.Best, 900, "Best raised")
+	Check.eq(better.Airtime, 123, "Airtime raised, in tenths")
+	Check.eq(better.Rebirths, 2, "Rebirths kept")
+	Check.eq(better.Week, 4, "Week kept")
+	local worse = Leaderboard.recordRun(week, 100, 1.5, T)
+	Check.eq(worse.Best, 500, "Best kept")
+	Check.eq(worse.Airtime, 80, "Airtime kept")
+	Check.eq(week.Best, 500, "the record passed in is unchanged")
+end)
+
+Check.test("a rebirth counts once on this week's record", function()
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2 }
+	local after = Leaderboard.recordRebirth(week)
+	Check.eq(after.Rebirths, 3, "Rebirths")
+	Check.eq(after.Best, 500, "Best kept")
+	Check.eq(week.Rebirths, 2, "the record passed in is unchanged")
+end)
+
 Check.test("a board is found by id", function()
 	local board = Leaderboard.find("Airtime", T)
 	assert(board, "Airtime board")

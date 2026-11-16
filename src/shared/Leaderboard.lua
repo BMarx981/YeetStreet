@@ -104,6 +104,22 @@ function Leaderboard.weekRecord(saved: any, week: number): Week
 	return { Week = week, Best = count(raw.Best), Airtime = count(raw.Airtime), Rebirths = count(raw.Rebirths) }
 end
 
+-- `week` after a run that scored `points` and flew `seconds`, each kept only
+-- if it beats the week's best so far.
+function Leaderboard.recordRun(week: Week, points: number, seconds: number, tuning: Tuning): Week
+	local after = table.clone(week)
+	after.Best = math.max(week.Best, Leaderboard.encode("Points", points, tuning))
+	after.Airtime = math.max(week.Airtime, Leaderboard.encode("Seconds", seconds, tuning))
+	return after
+end
+
+-- `week` after one more rebirth.
+function Leaderboard.recordRebirth(week: Week): Week
+	local after = table.clone(week)
+	after.Rebirths += 1
+	return after
+end
+
 function Leaderboard.find(boardId: string, tuning: Tuning): Board?
 	for _, board in tuning.Boards do
 		if board.Id == boardId then

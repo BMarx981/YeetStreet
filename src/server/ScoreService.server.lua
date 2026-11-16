@@ -11,6 +11,8 @@
 -- for friends in the server (InviteRewards), and by the player's rebirth
 -- multiplier (Rebirth), and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
+-- So do their longest airtime and this week's bests, for the leaderboards
+-- (Leaderboard).
 -- InviteRewards hears of every run that ends, so a first run can credit the
 -- player's inviter.
 --
@@ -101,6 +103,7 @@ local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
 local Impact = require(ReplicatedStorage.Impact)
+local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local RunCheck = require(ReplicatedStorage.RunCheck)
@@ -397,6 +400,9 @@ local function finish(watch: Watch, result: RunTracker.Result)
 		end
 		PlayerData.update(watch.player, function(data)
 			data.Best = math.max(data.Best, score.total)
+			data.BestAirtime = math.max(data.BestAirtime, result.airtime)
+			local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))
+			data.ThisWeek = Leaderboard.recordRun(week, score.total, result.airtime, Tuning.Leaderboards)
 		end)
 	end
 	local data = PlayerData.get(watch.player)
