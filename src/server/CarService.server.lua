@@ -424,6 +424,20 @@ if foldWings and foldWings:IsA("RemoteEvent") then
 	end)
 end
 
+-- The driver's client says when its car's jets start and stop burning, and the
+-- car's JetsBurning attribute is set here so every client lights the flames
+-- (CarVisuals) and plays the jet sound (CarSounds). Looks and sound only:
+-- nothing on the server reads it.
+local jetsBurningEvent = ReplicatedStorage:FindFirstChild("JetsBurningEvent")
+if jetsBurningEvent and jetsBurningEvent:IsA("RemoteEvent") then
+	jetsBurningEvent.OnServerEvent:Connect(function(player: Player, burning: any)
+		local car = cars[player]
+		if car and typeof(burning) == "boolean" then
+			car:SetAttribute("JetsBurning", burning)
+		end
+	end)
+end
+
 -- Spawn a car at the player's position when they press Z on foot.
 local spawnCar = ReplicatedStorage:FindFirstChild("SpawnCar")
 if spawnCar and spawnCar:IsA("RemoteEvent") then

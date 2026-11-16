@@ -45,6 +45,14 @@ function EngineSound.target(
 	return pitch, volume
 end
 
+-- The jet loop's pitch and volume: on while the jets burn, lower and quieter
+-- on other players' cars like their engines.
+function EngineSound.jet(burning: boolean, own: boolean, tuning: Tuning): (number, number)
+	local pitch = if own then 1 else tuning.OthersPitch
+	local volume = if not burning then 0 elseif own then 1 else tuning.OthersVolume
+	return pitch, volume
+end
+
 -- Moves `current` toward `target` by at most `rate` per second, so the engine
 -- glides between pitches instead of jumping.
 function EngineSound.approach(current: number, target: number, rate: number, dt: number): number

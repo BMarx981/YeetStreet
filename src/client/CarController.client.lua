@@ -163,6 +163,8 @@ local fuel = 0
 local burning = false
 -- What the server was last told about the jets burning in the T-Rex's jaws.
 local heldJetsSent = false
+-- What the server was last told about this car's jets burning (JetsBurningEvent).
+local jetsSent = false
 local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
@@ -293,6 +295,21 @@ end
 local function setVelocity(r: Rig, velocity: Vector3)
 	for _, part in r.roots do
 		part.AssemblyLinearVelocity = velocity
+	end
+end
+
+-- Lights or puts out the car's flames and jet sound on this client at once
+-- (JetsBurning), and tells the server so every other player's client does too.
+local function showJets(r: Rig, on: boolean)
+	if r.model:GetAttribute("JetsBurning") ~= on then
+		r.model:SetAttribute("JetsBurning", on)
+	end
+	if on ~= jetsSent then
+		jetsSent = on
+		local remote = ReplicatedStorage:FindFirstChild("JetsBurningEvent")
+		if remote and remote:IsA("RemoteEvent") then
+			remote:FireServer(on)
+		end
 	end
 end
 
@@ -677,9 +694,7 @@ local function step(r: Rig, dt: number)
 			r.brake.Force = Vector3.zero
 		end
 		r.spin.Enabled = false
-		if r.model:GetAttribute("JetsBurning") then
-			r.model:SetAttribute("JetsBurning", false)
-		end
+		showJets(r, false)
 		if r.model:GetAttribute("Braking") then
 			r.model:SetAttribute("Braking", false)
 		end
@@ -719,9 +734,7 @@ local function step(r: Rig, dt: number)
 		end
 		burning = false
 		r.jet.Force = Vector3.zero
-		if r.model:GetAttribute("JetsBurning") then
-			r.model:SetAttribute("JetsBurning", false)
-		end
+		showJets(r, false)
 	else
 		burning = if wingsOut then input.jet else Jets.canBurn(input.jet, fuel, burning, Tuning.Jets.RelightFuel)
 		fuel = Jets.stepFuel(fuel, r.jetFuel, burning and not wingsOut, not airborne or rotorFlying, r.fuelRecharge, dt)
@@ -729,10 +742,7 @@ local function step(r: Rig, dt: number)
 			then Glide.thrust(r.jetPower, forwardSpeed, Tuning.Glide.EngineTopSpeed)
 			else r.jetPower
 		r.jet.Force = Vector3.new(0, 0, if burning then -power * r.mass else 0)
-		-- Set only on this client; CarVisuals lights the thruster flames from it.
-		if r.model:GetAttribute("JetsBurning") ~= burning then
-			r.model:SetAttribute("JetsBurning", burning)
-		end
+		showJets(r, burning)
 		-- The T-Rex and the pterodactyl hold a car by anchoring it, and jets
 		-- help it break free, so the server hears when they start and stop
 		-- burning there.
@@ -943,6 +953,7 @@ local function enter(r: Rig)
 	SwingRide.stop()
 	fuel = r.jetFuel
 	burning = false
+	jetsSent = false
 	stuckTime = 0
 	resetHeld = false
 	if heldJetsSent then
@@ -991,6 +1002,7 @@ local function leave()
 			rig.brake.Force = Vector3.zero
 		end
 		rig.model:SetAttribute("Braking", false)
+		showJets(rig, false)
 	end
 	rig = nil
 	ReplayRecorder.stop()

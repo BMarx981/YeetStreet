@@ -16,7 +16,8 @@
 --   Hover cars hide their wheels. The physics wheels are still there.
 --   Each thruster gets a flame, a smoke trail, and a glow (JetFlames) that
 --   grow with the car's Jets level, lit while the car's JetsBurning
---   attribute is true. CarController sets it on the local player's car.
+--   attribute is true. CarController sets it on the local player's car,
+--   and the server sets it for everyone else (JetsBurningEvent).
 --   Wheel brakes (CarDesign parts with a wheel) are welded to that wheel's
 --   hub, so they steer and ride the suspension without spinning. Brake lights
 --   glow while the car's Braking attribute is true, also set by CarController

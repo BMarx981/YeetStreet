@@ -1429,6 +1429,7 @@ Tuning.EngineSound = {
 	OthersVolume = 0.3, -- and much quieter
 	PitchRate = 3, -- pitch change per second as the engine glides to its target
 	VolumeRate = 2, -- volume change per second
+	JetFadeRate = 6, -- the jet loop's volume change per second as the jets light or go out
 	-- Other players' cars are silent from Reach studs out and fade in to full
 	-- at OthersFullDistance (Linear roll off). Only the MaxOthers closest play.
 	Reach = 150,

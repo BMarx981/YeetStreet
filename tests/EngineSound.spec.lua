@@ -139,4 +139,26 @@ Check.test("nearest with no cars or a zero count picks none", function()
 	Check.eq(count(EngineSound.nearest({ 10 }, 0, 150)), 0, "zero count")
 end)
 
+Check.test("jets that aren't burning are silent", function()
+	local _, volume = EngineSound.jet(false, true, T)
+	Check.eq(volume, 0, "volume")
+end)
+
+Check.test("your own jets burn at full pitch and volume", function()
+	local pitch, volume = EngineSound.jet(true, true, T)
+	Check.near(pitch, 1, "pitch")
+	Check.near(volume, 1, "volume")
+end)
+
+Check.test("other players' jets are a little lower and much quieter", function()
+	local pitch, volume = EngineSound.jet(true, false, T)
+	Check.near(pitch, 0.9, "pitch")
+	Check.near(volume, 0.3, "volume")
+end)
+
+Check.test("jets keep their pitch while they fade out", function()
+	local pitch = EngineSound.jet(false, false, T)
+	Check.near(pitch, 0.9, "pitch")
+end)
+
 Check.finish("EngineSound")

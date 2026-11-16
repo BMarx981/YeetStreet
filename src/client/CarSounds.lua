@@ -7,6 +7,9 @@
 -- lower and quieter, fade in from Tuning.EngineSound.Reach, and only the
 -- closest few play. Their gas isn't known here, and a short ray along each
 -- one's down says whether it is in the air.
+-- Each of those cars also plays the jet loop (Tuning.CarSounds.Jet) while
+-- its JetsBurning attribute is true, the same way lower and quieter on
+-- other players' cars.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,8 +22,11 @@ local CarSounds = {}
 
 local E = Tuning.EngineSound
 local SPEC = Tuning.CarSounds.Engine
+local JET = Tuning.CarSounds.Jet
 
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
+
+type Spec = { Id: string, Pitch: number, Volume: number }
 
 type Engine = {
 	car: Model,
@@ -29,6 +35,8 @@ type Engine = {
 	sound: Sound,
 	pitch: number, -- where the engine has glided to, before SPEC.Pitch
 	volume: number, -- before SPEC.Volume
+	jet: Sound,
+	jetVolume: number, -- before JET.Volume
 }
 
 local player = Players.LocalPlayer
@@ -55,28 +63,49 @@ local function flying(e: Engine): boolean
 	return workspace:Raycast(e.hull.Position, -e.hull.CFrame.UpVector * E.GroundProbe, rayParams) == nil
 end
 
-local function add(car: Model)
-	local hull = car:WaitForChild("Hull", HULL_WAIT)
-	if not (hull and hull:IsA("BasePart")) or car.Parent == nil then
-		return
-	end
-	local own = car:GetAttribute("OwnerUserId") == player.UserId
+-- A silent looped sound on the hull that fades out by Reach (OwnReach for
+-- the local player's car).
+local function loop(name: string, spec: Spec, own: boolean, hull: BasePart): Sound
 	local sound = Instance.new("Sound")
-	sound.Name = "Engine"
-	sound.SoundId = SPEC.Id
+	sound.Name = name
+	sound.SoundId = spec.Id
 	sound.Looped = true
 	sound.Volume = 0
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = if own then E.OwnFullDistance else E.OthersFullDistance
 	sound.RollOffMaxDistance = if own then E.OwnReach else E.Reach
 	sound.Parent = hull
+	return sound
+end
+
+-- Sets a loop's pitch and volume, playing it only while it can be heard.
+local function play(sound: Sound, spec: Spec, pitch: number, volume: number)
+	if volume > 0 then
+		sound.PlaybackSpeed = spec.Pitch * pitch
+		sound.Volume = spec.Volume * volume
+		if not sound.Playing then
+			sound.Playing = true
+		end
+	elseif sound.Playing then
+		sound.Playing = false
+	end
+end
+
+local function add(car: Model)
+	local hull = car:WaitForChild("Hull", HULL_WAIT)
+	if not (hull and hull:IsA("BasePart")) or car.Parent == nil then
+		return
+	end
+	local own = car:GetAttribute("OwnerUserId") == player.UserId
 	table.insert(engines, {
 		car = car,
 		hull = hull,
 		own = own,
-		sound = sound,
+		sound = loop("Engine", SPEC, own, hull),
 		pitch = E.IdlePitch,
 		volume = 0,
+		jet = loop("Jet", JET, own, hull),
+		jetVolume = 0,
 	})
 end
 
@@ -123,15 +152,11 @@ local function update(dt: number)
 		end
 		e.pitch = EngineSound.approach(e.pitch, pitch, E.PitchRate, dt)
 		e.volume = EngineSound.approach(e.volume, volume, E.VolumeRate, dt)
-		if e.volume > 0 then
-			e.sound.PlaybackSpeed = SPEC.Pitch * e.pitch
-			e.sound.Volume = SPEC.Volume * e.volume
-			if not e.sound.Playing then
-				e.sound.Playing = true
-			end
-		elseif e.sound.Playing then
-			e.sound.Playing = false
-		end
+		play(e.sound, SPEC, e.pitch, e.volume)
+
+		local jetPitch, jetVolume = EngineSound.jet(on and e.car:GetAttribute("JetsBurning") == true, e.own, E)
+		e.jetVolume = EngineSound.approach(e.jetVolume, jetVolume, E.JetFadeRate, dt)
+		play(e.jet, JET, jetPitch, e.jetVolume)
 	end
 end
 
