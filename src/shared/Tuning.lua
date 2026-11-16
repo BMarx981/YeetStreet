@@ -1417,6 +1417,20 @@ Tuning.CarSounds = {
 	Hit = { Id = "rbxassetid://9116684884", Pitch = 1, Volume = 0.5 }, -- metal impacts and rattles
 }
 
+-- How the engine loop follows the car (EngineSound). Pitches multiply
+-- CarSounds.Engine.Pitch and volumes multiply CarSounds.Engine.Volume.
+Tuning.EngineSound = {
+	IdlePitch = 0.8,
+	TopPitch = 1.8, -- at the car's top speed
+	GasPitch = 0.15, -- extra rev at full gas
+	IdleVolume = 0.6,
+	TopVolume = 1,
+	OthersPitch = 0.9, -- other players' cars sound a little lower
+	OthersVolume = 0.3, -- and much quieter
+	PitchRate = 3, -- pitch change per second as the engine glides to its target
+	VolumeRate = 2, -- volume change per second
+}
+
 -- Sounds the obby plays, only for the player who reached the pad.
 Tuning.ObbySounds = {
 	Pad = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.6 }, -- level up chime

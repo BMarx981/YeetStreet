@@ -356,7 +356,7 @@ Claude's calls:
 Steps, one diff each:
 
 1. Find the sounds: two or three Creator Store choices per slot, each checked to play in Play, for Brian to pick by ear. The picks go in Tuning. Done Nov 16.
-2. Pure EngineSound module and tests: speed, gas, airborne, and own car or not in, pitch and volume out.
+2. Pure EngineSound module and tests: speed, gas, airborne, and own car or not in, pitch and volume out. Done Nov 16.
 3. The engine loop on every nearby car, using EngineSound.
 4. The jet whoosh while a car's jets burn.
 5. The wreck crunch for everyone nearby and the hit thud on your own car.
