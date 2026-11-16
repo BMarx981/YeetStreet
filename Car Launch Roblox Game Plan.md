@@ -287,7 +287,7 @@ Big jumps should be seen by the whole server, then remembered.
 - Leaderboards: best single run (server and global), daily longest flight per launcher, highest obby stage, most rebirths.
 - Named launchers and jumps become landmarks with their own record holder shown on a sign.
 
-Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Global leaderboards for best run, airtime, and rebirths stand at spawn (Nov 16). Not built: record signs, callout banners, and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
+Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Global leaderboards for best run, airtime, and rebirths stand beside the garage near spawn (Nov 16). Each park's biggest launcher has a record sign for its longest distance this week and all time (Nov 16). Not built: callout banners and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
 
 ### Leaderboard picks (Nov 15, 2026)
 
@@ -334,6 +334,36 @@ Steps, one diff each:
 3. A records script that writes a new record through PlayerData (only if it still beats the saved one), reads every record each minute, and publishes them to clients.
 4. The six signs at their launchers: the server places them beside each launcher, each client draws them with THIS WEEK and ALL TIME, holder and distance.
 
+## Sound
+
+The car, the jets, wrecks, and the obby have no sounds yet. Creatures, the volcano, the silo, rebirth, and the menus already do.
+
+### Sound picks (Nov 16, 2026)
+
+Brian's picks:
+
+- **Engine:** every nearby car has one. Your own car's pitch follows speed and jumps when you hit the gas. Other players' cars sound slightly lower and much quieter, are silent past 150 studs, and fade in as they come closer. Only the closest few cars play at once.
+- **In the air:** the engine drops toward idle, and the jets have their own whoosh while they burn.
+- **Wreck:** a loud crunch that everyone nearby hears, one of two picked at random each wreck. Your own hard hits that don't wreck the car get a softer thud. It should sound punchy and fun, never sad, since crashes are a reward.
+- **Obby:** a short chime at each new pad and a bigger fanfare when you clear the world. Only you hear them.
+- **Sources:** Roblox's own uploads or the licensed libraries in the Creator Store, not community uploads that could vanish.
+
+Claude's calls:
+
+- Sounds are made on each client with the classic Sound object, like the rest of the game. No new server code: the server already shares each car's speed and JetsBurning, tells everyone where a car wrecked (CarWrecked), tells the driver about hits (CarImpact), and tells a player about each new pad (ObbyReward).
+- Sound IDs, volumes, pitches, and distances live in Tuning.CarSounds and Tuning.ObbySounds.
+
+Steps, one diff each:
+
+1. Find the sounds: two or three Creator Store choices per slot, each checked to play in Play, for Brian to pick by ear. The picks go in Tuning. Done Nov 16.
+2. Pure EngineSound module and tests: speed, gas, airborne, and own car or not in, pitch and volume out.
+3. The engine loop on every nearby car, using EngineSound.
+4. The jet whoosh while a car's jets burn.
+5. The wreck crunch for everyone nearby and the hit thud on your own car.
+6. The obby chime at each new pad and the fanfare at the finish.
+7. Optional: replays play the engine, jet, and wreck sounds.
+8. Optional: a sound setting to turn the engine down or off.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.
@@ -358,7 +388,7 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 | M2 Economy | Cash, four upgrade stats, car generator v1, first three ladder cars, saves | Progress survives rejoining | Done Oct 18 |
 | M3 World | Hub, 5 to 8 launchers, parked cars to grab | A new player finds a launcher within 30 seconds | Done Oct 28. Parked cars dropped; a Teleport menu instead |
 | M4 Obby | Obby world 1 with checkpoints | 20 stages clearable with mid tier jets | All 20 stages built. Not signed off: Brian can't clear the ring stages (18 to 20) yet, and the world prize hasn't been tested live |
-| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run | Replays of your own runs done. Global leaderboards built on branch leaderboards (Nov 16), not tested with a second account. Launcher record signs built on branch record-signs (Nov 16): all six stand at their launchers and show this week and all time, not yet beaten by a real flight. Watching others not started |
+| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run | Replays of your own runs done. Global leaderboards done (Nov 16), not tested with a second account. Launcher record signs done (Nov 16): all six stand at their launchers and show this week and all time, and real flights have set records; not yet tested across two servers. Watching others not started |
 | M6 Rebirth | Rebirth flow, rebirth cars, obby world 2 | A full rebirth cycle works end to end | Not started |
 | M7 Launch | Polish, icon, thumbnails, mobile testing | Public release | Not started. Blockers listed in the Nov 1 release audit |
 

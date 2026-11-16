@@ -1404,6 +1404,25 @@ Tuning.MenuSounds = {
 	Denied = { Id = "rbxassetid://87519554692663", Pitch = 1, Volume = 0.5 }, -- can't press or afford
 }
 
+-- Sounds a car makes, played on each client. Engine and Jet loop; Pitch and
+-- Volume here are the starting point that speed, gas, and distance adjust.
+-- A wreck plays one of Wreck at random. Hit is the driver's own hard hits.
+Tuning.CarSounds = {
+	Engine = { Id = "rbxassetid://5830439961", Pitch = 1, Volume = 0.5 }, -- car engine loop, 11.6 s
+	Jet = { Id = "rbxassetid://558246436", Pitch = 1, Volume = 0.5 }, -- rocket thruster loop
+	Wreck = {
+		{ Id = "rbxassetid://125317016080932", Pitch = 1, Volume = 0.8 }, -- heavy vehicle impact
+		{ Id = "rbxassetid://73575488399847", Pitch = 1, Volume = 0.8 }, -- van smash
+	},
+	Hit = { Id = "rbxassetid://9116684884", Pitch = 1, Volume = 0.5 }, -- metal impacts and rattles
+}
+
+-- Sounds the obby plays, only for the player who reached the pad.
+Tuning.ObbySounds = {
+	Pad = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.6 }, -- level up chime
+	Finish = { Id = "rbxassetid://1839881844", Pitch = 1, Volume = 0.7 }, -- Spinning Around (b), APM
+}
+
 Tuning.Righting = {
 	StartUpY = 0.5, -- lying with no wheels down and tipped past this starts righting
 	EndUpY = 0.95, -- righting stops here, or when LandWheels wheels touch
