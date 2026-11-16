@@ -120,6 +120,43 @@ function Leaderboard.recordRebirth(week: Week): Week
 	return after
 end
 
+-- The value each of a player's lists should hold, by store name: every
+-- board's all-time list from `best` (points), `airtime` (seconds), and
+-- `rebirths`, and its list for `week.Week` from `week`. A board's Id is its
+-- key in `week`.
+function Leaderboard.lists(
+	best: number,
+	airtime: number,
+	rebirths: number,
+	week: Week,
+	studio: boolean,
+	tuning: Tuning
+): { [string]: number }
+	local allTime: { [string]: number } = {
+		Best = Leaderboard.encode("Points", best, tuning),
+		Airtime = Leaderboard.encode("Seconds", airtime, tuning),
+		Rebirths = Leaderboard.encode("Count", rebirths, tuning),
+	}
+	local thisWeek = week :: any
+	local lists: { [string]: number } = {}
+	for _, board in tuning.Boards do
+		lists[Leaderboard.storeName(board.Id, nil, studio, tuning)] = allTime[board.Id] or 0
+		lists[Leaderboard.storeName(board.Id, week.Week, studio, tuning)] = thisWeek[board.Id] or 0
+	end
+	return lists
+end
+
+-- Of `lists`, the ones whose value beats what was last `sent` to them.
+function Leaderboard.changed(lists: { [string]: number }, sent: { [string]: number }): { [string]: number }
+	local out: { [string]: number } = {}
+	for name, value in lists do
+		if Leaderboard.beats(sent[name], value) then
+			out[name] = value
+		end
+	end
+	return out
+end
+
 function Leaderboard.find(boardId: string, tuning: Tuning): Board?
 	for _, board in tuning.Boards do
 		if board.Id == boardId then

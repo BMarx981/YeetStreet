@@ -98,6 +98,37 @@ Check.test("a rebirth counts once on this week's record", function()
 	Check.eq(week.Rebirths, 2, "the record passed in is unchanged")
 end)
 
+Check.test("a player's six lists hold their all-time and this week's bests", function()
+	local week = { Week = 2918, Best = 400, Airtime = 55, Rebirths = 1 }
+	local lists = Leaderboard.lists(1234.9, 8.79, 3, week, false, T)
+	Check.eq(lists["Boards1_Best_All"], 1234, "all-time best")
+	Check.eq(lists["Boards1_Airtime_All"], 87, "all-time airtime")
+	Check.eq(lists["Boards1_Rebirths_All"], 3, "all-time rebirths")
+	Check.eq(lists["Boards1_Best_W2918"], 400, "weekly best")
+	Check.eq(lists["Boards1_Airtime_W2918"], 55, "weekly airtime")
+	Check.eq(lists["Boards1_Rebirths_W2918"], 1, "weekly rebirths")
+	local n = 0
+	for _ in lists do
+		n += 1
+	end
+	Check.eq(n, 6, "six lists")
+	local studio = Leaderboard.lists(1, 1, 1, week, true, T)
+	Check.eq(studio["StudioBoards1_Best_All"], 1, "Studio lists")
+end)
+
+Check.test("only lists that beat what was sent go out", function()
+	local lists = { A = 10, B = 5, C = 0, D = 7 }
+	local sent = { A = 10, B = 4, D = 9 }
+	local out = Leaderboard.changed(lists, sent)
+	Check.eq(out.A, nil, "tie")
+	Check.eq(out.B, 5, "better")
+	Check.eq(out.C, nil, "zero, never sent")
+	Check.eq(out.D, nil, "lower than sent")
+	local first = Leaderboard.changed({ A = 10, C = 0 }, {})
+	Check.eq(first.A, 10, "a new session sends everything above 0")
+	Check.eq(first.C, nil, "but not zeros")
+end)
+
 Check.test("a board is found by id", function()
 	local board = Leaderboard.find("Airtime", T)
 	assert(board, "Airtime board")

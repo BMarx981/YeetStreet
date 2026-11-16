@@ -18,6 +18,9 @@
 -- It also keeps invite credits (InviteRewards) in a store of their own, keyed
 -- by the inviter: the UserIds of friends they brought in. A friend's server
 -- adds to it, since the inviter's record is locked to their own server.
+--
+-- It also writes the global leaderboards' ordered stores (raiseBoard), for
+-- the Leaderboards script.
 
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -227,6 +230,35 @@ function PlayerData.addInviteCredit(inviterId: number, friendId: number): boolea
 	end)
 	if not ok then
 		warn(`PlayerData: couldn't save an invite credit for {inviterId} ({err})`)
+	end
+	return ok
+end
+
+local boardStores: { [string]: OrderedDataStore } = {}
+
+local function boardStore(name: string): OrderedDataStore
+	local board = boardStores[name]
+	if not board then
+		board = DataStoreService:GetOrderedDataStore(name)
+		boardStores[name] = board
+	end
+	return board
+end
+
+-- Raises `userId`'s entry on the leaderboard list `name` (an ordered store,
+-- see Leaderboard.storeName) to `value`, a whole number. Never lowers it.
+-- Returns whether the list holds at least `value` now.
+function PlayerData.raiseBoard(name: string, userId: number, value: number): boolean
+	if not storeOk then
+		return false
+	end
+	local ok, err = pcall(function()
+		boardStore(name):UpdateAsync(tostring(userId), function(old: any): number
+			return if typeof(old) == "number" then math.max(old, value) else value
+		end)
+	end)
+	if not ok then
+		warn(`PlayerData: couldn't send {value} to {name} for {userId} ({err})`)
 	end
 	return ok
 end

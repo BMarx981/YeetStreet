@@ -636,6 +636,10 @@ Tuning.Leaderboards = {
 	SecondsScale = 10, -- airtime is stored in tenths of a second
 	Store = "Boards1",
 	StudioStore = "StudioBoards1",
+	-- Seconds between sends of each player's new bests. Every list a player
+	-- beats is one store write, which shares the server's write budget with
+	-- saves (60 + 10 per player a minute).
+	SendEvery = 60,
 }
 
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
