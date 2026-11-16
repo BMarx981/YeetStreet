@@ -4,7 +4,8 @@
 -- following the ghost's speed (EngineSound, with no gas, which the tape
 -- doesn't keep), the jet loop while the clip's jets burn, and a wreck crunch
 -- as the replay plays over the moment the car wrecked (the clip's Wrecked
--- flip). They follow the replay's clock like the flames: lower and slower in
+-- flip). All of them play at Tuning.Replay.SoundPitch, a little lower than
+-- live. They follow the replay's clock like the flames: lower and slower in
 -- slow motion, silent while paused, and a seek over the wreck doesn't crunch.
 -- The engine and jets go quiet once the car has wrecked.
 
@@ -79,8 +80,9 @@ function ReplaySounds.show(
 )
 	s.part.CFrame = pose
 	local wreckAt = s.wreckAt
+	local slowed = Tuning.Replay.SoundPitch * clock.speed
 	if wreckAt and ReplayClock.passed(clock, s.time, wreckAt, dt) then
-		CarSounds.crunch(pose.Position)
+		CarSounds.crunch(pose.Position, slowed)
 	end
 	s.time = clock.time
 
@@ -98,8 +100,8 @@ function ReplaySounds.show(
 		s.volume = 0
 		s.jetVolume = 0
 	end
-	CarSounds.play(s.engine, SPEC, s.pitch * clock.speed, s.volume)
-	CarSounds.play(s.jet, JET, jetPitch * clock.speed, s.jetVolume)
+	CarSounds.play(s.engine, SPEC, s.pitch * slowed, s.volume)
+	CarSounds.play(s.jet, JET, jetPitch * slowed, s.jetVolume)
 end
 
 return ReplaySounds

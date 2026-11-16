@@ -115,7 +115,8 @@ end
 local random = Random.new()
 
 -- One of the Wreck crunches, heard by everyone near where the car wrecked.
-function CarSounds.crunch(position: Vector3)
+-- `pitch` multiplies the crunch's own, 1 if not given.
+function CarSounds.crunch(position: Vector3, pitch: number?)
 	local spec = WRECKS[CrashSound.pick(#WRECKS, random:NextNumber())]
 	local part = Instance.new("Part")
 	part.Name = "WreckSound"
@@ -128,7 +129,7 @@ function CarSounds.crunch(position: Vector3)
 	part.CFrame = CFrame.new(position)
 	local sound = Instance.new("Sound")
 	sound.SoundId = spec.Id
-	sound.PlaybackSpeed = spec.Pitch
+	sound.PlaybackSpeed = spec.Pitch * (pitch or 1)
 	sound.Volume = spec.Volume
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = C.WreckFullDistance

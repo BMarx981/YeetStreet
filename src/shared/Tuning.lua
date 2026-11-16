@@ -1581,6 +1581,9 @@ Tuning.Replay = {
 	Jump = 50,
 	EndHold = 1, -- seconds the last frame holds before the replay closes
 	Speeds = { 1, 0.5, 0.25 }, -- what the speed button steps through (ReplayControls)
+	-- The ghost's engine, jets, and wreck crunch play at this pitch (ReplaySounds),
+	-- times the replay's speed.
+	SoundPitch = 0.8,
 	-- Parts breaking off the ghost car (ReplayDebris). They are thrown like
 	-- real ones (Tuning.Toughness BreakPop) and gone after PartLifetime.
 	DebrisStep = 1 / 30, -- seconds between the points of a broken part's path
