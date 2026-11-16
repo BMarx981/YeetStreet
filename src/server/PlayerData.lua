@@ -20,7 +20,8 @@
 -- adds to it, since the inviter's record is locked to their own server.
 --
 -- It also writes and reads the global leaderboards' ordered stores
--- (raiseBoard, readBoard), for the Leaderboards script.
+-- (raiseBoard, readBoard), for the Leaderboards script, and the launcher
+-- records (raiseRecord, readRecords), for the LaunchRecords script.
 
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -30,6 +31,7 @@ local RunService = game:GetService("RunService")
 
 local Economy = require(ReplicatedStorage.Economy)
 local Invites = require(ReplicatedStorage.Invites)
+local LaunchRecords = require(ReplicatedStorage.LaunchRecords)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
@@ -277,6 +279,64 @@ function PlayerData.readBoard(name: string, count: number): { { key: string, val
 		return nil
 	end
 	return page :: any
+end
+
+local recordStores: { [string]: DataStore } = {}
+
+local function recordStore(name: string): DataStore
+	local records = recordStores[name]
+	if not records then
+		records = DataStoreService:GetDataStore(name)
+		recordStores[name] = records
+	end
+	return records
+end
+
+-- Saves `record` as the launcher record `recordKey` in the store `name`
+-- (LaunchRecords), only if it still beats the one saved there. Returns the
+-- record held there now, either way; nil if the store can't be reached.
+function PlayerData.raiseRecord(name: string, recordKey: string, record: LaunchRecords.Record): LaunchRecords.Record?
+	if not storeOk then
+		return nil
+	end
+	local held: LaunchRecords.Record? = nil
+	local ok, err = pcall(function()
+		recordStore(name):UpdateAsync(recordKey, function(saved: any): any
+			local current = LaunchRecords.reconcile(saved)
+			if LaunchRecords.beats(current, record.Value) then
+				held = record
+				return record
+			end
+			held = current
+			return nil
+		end)
+	end)
+	if not ok then
+		warn(`PlayerData: couldn't save the record {recordKey} ({err})`)
+		return nil
+	end
+	return held
+end
+
+-- The launcher records `keys` in the store `name`, by key; a key with no
+-- whole record saved is left out. Nil if the store can't be read.
+function PlayerData.readRecords(name: string, keys: { string }): { [string]: LaunchRecords.Record }?
+	if not storeOk then
+		return nil
+	end
+	local found: { [string]: LaunchRecords.Record } = {}
+	for _, recordKey in keys do
+		local ok, saved = pcall(recordStore(name).GetAsync, recordStore(name), recordKey)
+		if not ok then
+			warn(`PlayerData: couldn't read the record {recordKey} ({saved})`)
+			return nil
+		end
+		local record = LaunchRecords.reconcile(saved)
+		if record then
+			found[recordKey] = record
+		end
+	end
+	return found
 end
 
 -- `inviterId`'s invite credits, or nil if they can't be read.

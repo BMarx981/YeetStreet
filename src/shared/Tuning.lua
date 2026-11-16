@@ -659,6 +659,9 @@ Tuning.LaunchRecords = {
 	},
 	Store = "LaunchRecords1",
 	StudioStore = "StudioLaunchRecords1",
+	-- Seconds between reads of every record (2 per launcher), from a read
+	-- budget of 60 + 10 per player a minute.
+	RefreshEvery = 60,
 }
 
 -- The leaderboards at spawn (the Leaderboards script places them,
