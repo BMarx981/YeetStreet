@@ -330,7 +330,7 @@ Claude's calls:
 Steps, one diff each:
 
 1. Pure LaunchRecords module and tests, plus Tuning.LaunchRecords: the six launchers, the record keys, when a run beats a record, how a record shows, and reading a saved record safely.
-2. Server: mark each launcher's pads with its id at start, and have ScoreService note which launcher a run left from and report its distance.
+2. Server: ScoreService works out a pad's launcher the first time the pad is touched (so parks built or loaded at any time are covered), notes which launcher a run left from, and reports its distance.
 3. A records script that writes a new record through PlayerData (only if it still beats the saved one), reads every record each minute, and publishes them to clients.
 4. The six signs at their launchers: the server places them beside each launcher, each client draws them with THIS WEEK and ALL TIME, holder and distance.
 

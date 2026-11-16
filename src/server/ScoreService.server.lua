@@ -12,7 +12,9 @@
 -- multiplier (Rebirth), and a
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 -- So do their longest airtime and this week's bests, for the leaderboards
--- (Leaderboard).
+-- (Leaderboard). A run from one of the record launchers (LaunchRecords), the
+-- launcher of the last pad touched, is reported on ServerStorage.LauncherRun
+-- with its distance, unless RunCheck flagged it.
 -- InviteRewards hears of every run that ends, so a first run can credit the
 -- player's inviter.
 --
@@ -136,6 +138,9 @@ type Watch = {
 	-- The PayScale of the last launch pad touched (1 if it has none), which
 	-- scales the cash the next run pays.
 	payScale: number,
+	-- The record launcher (LaunchRecords) of the last launch pad touched;
+	-- nil if that pad is on none, or something else threw the car since.
+	launcher: string?,
 	wrecked: boolean,
 	respawning: boolean, -- a respawn was asked for; the car is about to go
 	burning: boolean, -- as the car's Burning attribute shows
@@ -303,6 +308,36 @@ local function hurt(watch: Watch, hit: Vector3)
 	carImpact:FireClient(watch.player, strength, slot, inRun, damage, watch.toughness)
 end
 
+-- Fired with (player, launcher id, distance) when a run from a record
+-- launcher (LaunchRecords) ends and RunCheck passed it.
+local launcherRun = Instance.new("BindableEvent")
+launcherRun.Name = "LauncherRun"
+launcherRun.Parent = ServerStorage
+
+-- By pad, its record launcher's id, worked out the first time the pad is
+-- touched, so parks built or loaded at any time are covered; "" for a pad on
+-- none.
+local padLaunchers: { [BasePart]: string } = setmetatable({}, { __mode = "k" }) :: any
+
+local function launcherOf(pad: BasePart): string?
+	local known = padLaunchers[pad]
+	if not known then
+		known = ""
+		for _, launcher in Tuning.LaunchRecords.Launchers do
+			local model: Instance? = workspace
+			for name in string.gmatch(launcher.Path, "[^%.]+") do
+				model = if model then model:FindFirstChild(name) else nil
+			end
+			if model and pad:IsDescendantOf(model) then
+				known = launcher.Id
+				break
+			end
+		end
+		padLaunchers[pad] = known
+	end
+	return if known ~= "" then known else nil
+end
+
 -- Whether a helipad lies just under the car.
 local function onHelipad(watch: Watch): boolean
 	local params = RaycastParams.new()
@@ -411,6 +446,10 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local paid = Economy.payout(score.total, rate)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
+	if watch.launcher and not flagged then
+		launcherRun:Fire(watch.player, watch.launcher, result.distance)
+	end
+	watch.launcher = nil
 	runResult:FireClient(watch.player, result, score)
 	InviteRewards.ranRun(watch.player)
 	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
@@ -608,6 +647,7 @@ local function gravitron(watch: Watch, reading: CarSensor.Reading)
 	if inside and not reading.airborne and GravitronRide.arms(position) then
 		reading.sample.onPad = true
 		watch.payScale = G.PayScale
+		watch.launcher = nil
 		watch.gravitronArmed = true
 		lastLaunch[watch.player] = GravitronRide.respawn(position)
 	elseif watch.gravitronArmed and watch.run.phase == "flying" and GravitronRide.overRim(position) then
@@ -656,6 +696,7 @@ local function towerBurst(watch: Watch, reading: CarSensor.Reading)
 			watch.hitsFrom = math.max(watch.hitsFrom, os.clock() + W.Server.HitGrace)
 			reading.sample.onPad = true
 			watch.payScale = 1
+			watch.launcher = nil
 			local at = Vector3.new(
 				plantArea.X + place.X,
 				Tuning.Map.FloorTop + Tuning.TestPark.SpawnHeight,
@@ -768,6 +809,7 @@ carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", gro
 		end
 		RunTracker.drop(watch.run, at.X, at.Y, at.Z, ground)
 		watch.payScale = Tuning.Dino.Ptero.PayScale
+		watch.launcher = nil
 		dropRun:FireClient(watch.player, ground)
 		return
 	end
@@ -1020,6 +1062,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if pad then
 					local payScale = pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
+					watch.launcher = launcherOf(pad)
 				end
 				if reading.pad or reading.padBelow or reading.sample.swing or reading.sample.grinding then
 					watch.thrownAt = os.clock()
