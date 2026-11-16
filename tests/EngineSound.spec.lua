@@ -98,4 +98,45 @@ Check.test("approach stays put when already there", function()
 	Check.eq(EngineSound.approach(1.2, 1.2, 2, 0.1), 1.2)
 end)
 
+local function count(set: { [number]: boolean }): number
+	local n = 0
+	for _ in set do
+		n += 1
+	end
+	return n
+end
+
+Check.test("nearest picks the closest cars up to the count", function()
+	local picked = EngineSound.nearest({ 80, 20, 140, 50, 10 }, 3, 150)
+	Check.eq(count(picked), 3, "count")
+	Check.eq(picked[5], true, "10 studs")
+	Check.eq(picked[2], true, "20 studs")
+	Check.eq(picked[4], true, "50 studs")
+	Check.eq(picked[1], nil, "80 studs")
+	Check.eq(picked[3], nil, "140 studs")
+end)
+
+Check.test("nearest leaves out cars at or past the reach", function()
+	local picked = EngineSound.nearest({ 150, 30, 400 }, 4, 150)
+	Check.eq(count(picked), 1, "count")
+	Check.eq(picked[2], true, "30 studs")
+end)
+
+Check.test("nearest takes every car in reach when there are fewer than the count", function()
+	local picked = EngineSound.nearest({ 60, 90 }, 4, 150)
+	Check.eq(count(picked), 2, "count")
+end)
+
+Check.test("nearest breaks ties by order so the pick doesn't flicker", function()
+	local picked = EngineSound.nearest({ 40, 40, 40 }, 2, 150)
+	Check.eq(picked[1], true, "first")
+	Check.eq(picked[2], true, "second")
+	Check.eq(picked[3], nil, "third")
+end)
+
+Check.test("nearest with no cars or a zero count picks none", function()
+	Check.eq(count(EngineSound.nearest({}, 4, 150)), 0, "no cars")
+	Check.eq(count(EngineSound.nearest({ 10 }, 0, 150)), 0, "zero count")
+end)
+
 Check.finish("EngineSound")

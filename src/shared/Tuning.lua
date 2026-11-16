@@ -1429,6 +1429,17 @@ Tuning.EngineSound = {
 	OthersVolume = 0.3, -- and much quieter
 	PitchRate = 3, -- pitch change per second as the engine glides to its target
 	VolumeRate = 2, -- volume change per second
+	-- Other players' cars are silent from Reach studs out and fade in to full
+	-- at OthersFullDistance (Linear roll off). Only the MaxOthers closest play.
+	Reach = 150,
+	OthersFullDistance = 10,
+	MaxOthers = 4,
+	-- Your own car stays full volume this far from the camera, fading out by OwnReach.
+	OwnFullDistance = 100,
+	OwnReach = 400,
+	-- Another car is on the ground when a ray this long from the hull's
+	-- center, along the car's down, hits something.
+	GroundProbe = 5,
 }
 
 -- Sounds the obby plays, only for the player who reached the pad.

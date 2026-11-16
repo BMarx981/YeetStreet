@@ -76,6 +76,7 @@ local SiloTraps = require(ReplicatedStorage.SiloTraps)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
+local CarSounds = require(script.Parent.CarSounds)
 local ChaseCamera = require(script.Parent.ChaseCamera)
 local EruptionCamera = require(script.Parent.EruptionCamera)
 local Controls = require(script.Parent.Controls)
@@ -653,6 +654,7 @@ local function step(r: Rig, dt: number)
 		zapped = false
 	end
 	local airborne = reading.airborne
+	CarSounds.drive(input.throttle, airborne)
 	-- The gravitron's surface carries the car round with it, and high up its
 	-- wall leaving the surface starts a run.
 	local onBowl = inBowl and not airborne
@@ -1299,6 +1301,7 @@ TeleportMenu.start()
 InviteMenu.start()
 ControlsMenu.start()
 ObbyHud.start()
+CarSounds.start()
 
 task.spawn(function()
 	-- SetCore fails until the core scripts have registered the callback.

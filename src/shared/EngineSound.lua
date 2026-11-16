@@ -4,7 +4,8 @@
 -- volume rise with speed, and the driver's gas revs it on top. In the air the
 -- engine falls back to idle, since the jets take over. Other players' cars
 -- play a little lower and much quieter than your own. Pitch is a multiplier
--- on the sound's PlaybackSpeed, volume a fraction of its Volume. Pure.
+-- on the sound's PlaybackSpeed, volume a fraction of its Volume. Only the
+-- closest few other cars play at once (nearest). Pure.
 
 local EngineSound = {}
 
@@ -52,6 +53,28 @@ function EngineSound.approach(current: number, target: number, rate: number, dt:
 		return target
 	end
 	return current + math.sign(target - current) * step
+end
+
+-- Which other cars play their engine: the `count` closest that are nearer
+-- than `reach`, by their index in `distances`. Ties go to the earlier index.
+function EngineSound.nearest(distances: { number }, count: number, reach: number): { [number]: boolean }
+	local order: { number } = {}
+	for i, distance in distances do
+		if distance < reach then
+			table.insert(order, i)
+		end
+	end
+	table.sort(order, function(a: number, b: number): boolean
+		if distances[a] ~= distances[b] then
+			return distances[a] < distances[b]
+		end
+		return a < b
+	end)
+	local picked: { [number]: boolean } = {}
+	for n = 1, math.min(count, #order) do
+		picked[order[n]] = true
+	end
+	return picked
 end
 
 return EngineSound
