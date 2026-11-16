@@ -666,13 +666,14 @@ Tuning.LaunchRecords = {
 
 -- The leaderboards at spawn (the Leaderboards script places them,
 -- LeaderboardSigns draws them): one board per Tuning.Leaderboards board, in
--- order from the viewer's left, in a row ahead and to the right of the spawn
--- lanes, turned to face them.
+-- order from the viewer's left, in a row beside the garage (the Car
+-- Dealership), between its north wall and the spawn and clear of the
+-- runways, turned a little toward the spawn.
 Tuning.LeaderboardSigns = {
-	CenterX = 115, -- the middle of the row, on the ground
-	CenterZ = 590,
-	FaceX = 0, -- the point on the ground the row faces (the spawn lanes)
-	FaceZ = 720,
+	CenterX = -110, -- the middle of the row, on the ground
+	CenterZ = 650,
+	FaceX = -60, -- the point on the ground the row faces
+	FaceZ = 900,
 	Width = 40,
 	Height = 28,
 	Thickness = 2,
