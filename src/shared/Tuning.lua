@@ -645,6 +645,22 @@ Tuning.Leaderboards = {
 	RefreshEvery = 60,
 }
 
+-- Launcher record signs (LaunchRecords): each park's biggest jump keeps its
+-- longest distance this week and all time. Path is the launcher's model
+-- under workspace; every launch pad inside it counts as that launcher.
+Tuning.LaunchRecords = {
+	Launchers = {
+		{ Id = "MainRamp", Name = "MAIN RAMP", Path = "TestPark.Ramp" },
+		{ Id = "SkyRamp", Name = "SKY RAMP", Path = "Parks.LongJump.SkyRamp" },
+		{ Id = "MegaRamp", Name = "MEGA RAMP", Path = "Parks.Skate.MegaRamp" },
+		{ Id = "VolcanoVent", Name = "VOLCANO VENT", Path = "Parks.Dino.Volcano" },
+		{ Id = "MiddleRamp", Name = "MIDDLE RAMP", Path = "Parks.Corkscrew.MiddleRamp" },
+		{ Id = "Overpass", Name = "HIGHWAY OVERPASS", Path = "Parks.City.HighwayOverpass" },
+	},
+	Store = "LaunchRecords1",
+	StudioStore = "StudioLaunchRecords1",
+}
+
 -- The leaderboards at spawn (the Leaderboards script places them,
 -- LeaderboardSigns draws them): one board per Tuning.Leaderboards board, in
 -- order from the viewer's left, in a row ahead and to the right of the spawn

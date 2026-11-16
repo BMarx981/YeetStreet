@@ -312,6 +312,28 @@ Steps, one diff each:
 4. The server reads the top 10 of every list each minute, looks up the names, and publishes them to clients.
 5. The three boards at spawn: the server places them, each client draws them, with THIS WEEK and ALL TIME side by side.
 
+### Launcher record sign picks (Nov 16, 2026)
+
+Brian's picks:
+
+- **Launchers:** one per park, its biggest jump.
+- **Record:** the longest distance, flat studs from launch to where the run ended (the run card's Distance).
+- **Reset:** a weekly record (Monday UTC, as the spawn boards) and an all-time record.
+- **Scope:** one record across every server.
+
+Claude's calls:
+
+- The biggest jump per park, by launch speed: Hub's Main Ramp, Long Jump's Sky Ramp, Skate's Mega Ramp, Dino's Volcano Vent, Corkscrew's Middle Ramp, and City's Highway Overpass. Missile Silo and the Nuclear Plant have no launch pads, so no sign.
+- A run counts for the launcher of the last pad it touched, the same pad that sets its pay scale. Flagged runs never count.
+- Each record is one key in a plain DataStore through PlayerData, holding the holder's id, name, and distance. Ordered stores can't be read this often, and a sign only needs the top entry. Studio uses its own store.
+
+Steps, one diff each:
+
+1. Pure LaunchRecords module and tests, plus Tuning.LaunchRecords: the six launchers, the record keys, when a run beats a record, how a record shows, and reading a saved record safely.
+2. Server: mark each launcher's pads with its id at start, and have ScoreService note which launcher a run left from and report its distance.
+3. A records script that writes a new record through PlayerData (only if it still beats the saved one), reads every record each minute, and publishes them to clients.
+4. The six signs at their launchers: the server places them beside each launcher, each client draws them with THIS WEEK and ALL TIME, holder and distance.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.
