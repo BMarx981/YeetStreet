@@ -359,7 +359,7 @@ Steps, one diff each:
 2. Pure EngineSound module and tests: speed, gas, airborne, and own car or not in, pitch and volume out. Done Nov 16.
 3. The engine loop on every nearby car, using EngineSound. Written Nov 16 (CarSounds): plays on your car in Play; other players' cars not yet tried with two players.
 4. The jet whoosh while a car's jets burn. Written Nov 16: the driver's client tells the server when its jets start and stop (JetsBurningEvent), and the server sets JetsBurning on the car, so other players now see the flames too and hear the jet loop (CarSounds). The server side checked in Play; the sound not yet heard, and not yet tried with two players.
-5. The wreck crunch for everyone nearby and the hit thud on your own car.
+5. The wreck crunch for everyone nearby and the hit thud on your own car. Written Nov 16 (CrashSound, CarSounds): both played in Play from server signals fired by hand; not yet heard on a real wreck.
 6. The obby chime at each new pad and the fanfare at the finish.
 7. Optional: replays play the engine, jet, and wreck sounds.
 8. Optional: a sound setting to turn the engine down or off.

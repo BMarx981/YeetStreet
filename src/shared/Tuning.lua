@@ -1443,6 +1443,17 @@ Tuning.EngineSound = {
 	GroundProbe = 5,
 }
 
+-- The driver's thud on hard hits and the wreck crunch (CrashSound).
+Tuning.CrashSound = {
+	HitFrom = 30, -- hits this hard thud, the same as Toughness.HitThreshold
+	HitFull = 130, -- and this hard at full volume
+	HitMinVolume = 0.4, -- the softest thud, a fraction of CarSounds.Hit.Volume
+	HitGap = 0.2, -- seconds after a thud before the next
+	-- Everyone hears a wreck at full volume this close, fading out by WreckReach.
+	WreckFullDistance = 30,
+	WreckReach = 300,
+}
+
 -- Sounds the obby plays, only for the player who reached the pad.
 Tuning.ObbySounds = {
 	Pad = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.6 }, -- level up chime

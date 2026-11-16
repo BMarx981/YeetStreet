@@ -10,21 +10,31 @@
 -- Each of those cars also plays the jet loop (Tuning.CarSounds.Jet) while
 -- its JetsBurning attribute is true, the same way lower and quieter on
 -- other players' cars.
+-- A wreck anywhere plays one of the Wreck crunches at random where it
+-- happened (ReplicatedStorage.CarWrecked), and the local player's hard hits
+-- thud, louder the harder they are (CarImpact, CrashSound).
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 
+local CrashSound = require(ReplicatedStorage.CrashSound)
 local EngineSound = require(ReplicatedStorage.EngineSound)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local CarSounds = {}
 
 local E = Tuning.EngineSound
+local C = Tuning.CrashSound
 local SPEC = Tuning.CarSounds.Engine
 local JET = Tuning.CarSounds.Jet
+local WRECKS = Tuning.CarSounds.Wreck
+local HIT = Tuning.CarSounds.Hit
 
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
+local WRECK_LIFE = 6 -- seconds before a wreck's sound is removed, past the longest crunch
 
 type Spec = { Id: string, Pitch: number, Volume: number }
 
@@ -89,6 +99,54 @@ local function play(sound: Sound, spec: Spec, pitch: number, volume: number)
 	elseif sound.Playing then
 		sound.Playing = false
 	end
+end
+
+local random = Random.new()
+
+-- One of the Wreck crunches, heard by everyone near where the car wrecked.
+local function crunch(position: Vector3)
+	local spec = WRECKS[CrashSound.pick(#WRECKS, random:NextNumber())]
+	local part = Instance.new("Part")
+	part.Name = "WreckSound"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.Transparency = 1
+	part.Size = Vector3.one
+	part.CFrame = CFrame.new(position)
+	local sound = Instance.new("Sound")
+	sound.SoundId = spec.Id
+	sound.PlaybackSpeed = spec.Pitch
+	sound.Volume = spec.Volume
+	sound.RollOffMode = Enum.RollOffMode.Linear
+	sound.RollOffMinDistance = C.WreckFullDistance
+	sound.RollOffMaxDistance = C.WreckReach
+	sound.Parent = part
+	part.Parent = workspace
+	sound:Play()
+	Debris:AddItem(part, WRECK_LIFE)
+end
+
+-- The local player's thud, made up front so it has loaded by the first hit,
+-- and played again for each hard hit.
+local thud = Instance.new("Sound")
+thud.Name = "CarHit"
+thud.SoundId = HIT.Id
+thud.PlaybackSpeed = HIT.Pitch
+thud.Parent = SoundService
+local thudAt = -math.huge
+
+local function hit(strength: number)
+	local now = os.clock()
+	local volume = CrashSound.hitVolume(strength, now - thudAt, C)
+	if volume <= 0 then
+		return
+	end
+	thudAt = now
+	thud.Volume = HIT.Volume * volume
+	thud.TimePosition = 0
+	thud:Play()
 end
 
 local function add(car: Model)
@@ -175,6 +233,30 @@ function CarSounds.start()
 			end
 		end
 		RunService.RenderStepped:Connect(update)
+	end)
+	task.spawn(function()
+		local wrecked = ReplicatedStorage:WaitForChild("CarWrecked")
+		if not wrecked:IsA("RemoteEvent") then
+			warn("CarSounds: ReplicatedStorage.CarWrecked is not a RemoteEvent; wrecks stay silent")
+			return
+		end
+		wrecked.OnClientEvent:Connect(function(position: any)
+			if typeof(position) == "Vector3" then
+				crunch(position)
+			end
+		end)
+	end)
+	task.spawn(function()
+		local impact = ReplicatedStorage:WaitForChild("CarImpact")
+		if not impact:IsA("RemoteEvent") then
+			warn("CarSounds: ReplicatedStorage.CarImpact is not a RemoteEvent; hits stay silent")
+			return
+		end
+		impact.OnClientEvent:Connect(function(strength: any)
+			if typeof(strength) == "number" then
+				hit(strength)
+			end
+		end)
 	end)
 end
 
