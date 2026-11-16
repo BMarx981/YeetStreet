@@ -287,7 +287,7 @@ Big jumps should be seen by the whole server, then remembered.
 - Leaderboards: best single run (server and global), daily longest flight per launcher, highest obby stage, most rebirths.
 - Named launchers and jumps become landmarks with their own record holder shown on a sign.
 
-Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Not built: leaderboards, record signs, callout banners, and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
+Built so far (Nov 2026): a replay button that plays your last 5 flights with a free orbit camera, showing breaking parts, jet flames, brake lights, lava fire, and the creatures that grabbed you. Global leaderboards for best run, airtime, and rebirths stand at spawn (Nov 16). Not built: record signs, callout banners, and watching other players' runs. The time-played board in the place is a toolbox model, not part of this plan, and it calls DataStoreService outside the data module.
 
 ### Leaderboard picks (Nov 15, 2026)
 
@@ -336,7 +336,7 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 | M2 Economy | Cash, four upgrade stats, car generator v1, first three ladder cars, saves | Progress survives rejoining | Done Oct 18 |
 | M3 World | Hub, 5 to 8 launchers, parked cars to grab | A new player finds a launcher within 30 seconds | Done Oct 28. Parked cars dropped; a Teleport menu instead |
 | M4 Obby | Obby world 1 with checkpoints | 20 stages clearable with mid tier jets | All 20 stages built. Not signed off: Brian can't clear the ring stages (18 to 20) yet, and the world prize hasn't been tested live |
-| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run | Replays of your own runs done. Leaderboards, record signs, and watching others not started |
+| M5 Social | Leaderboards, replays, launcher record signs | Other players can watch your best run | Replays of your own runs done. Global leaderboards built on branch leaderboards (Nov 16), not tested with a second account. Record signs and watching others not started |
 | M6 Rebirth | Rebirth flow, rebirth cars, obby world 2 | A full rebirth cycle works end to end | Not started |
 | M7 Launch | Polish, icon, thumbnails, mobile testing | Public release | Not started. Blockers listed in the Nov 1 release audit |
 

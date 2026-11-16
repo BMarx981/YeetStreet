@@ -645,6 +645,24 @@ Tuning.Leaderboards = {
 	RefreshEvery = 60,
 }
 
+-- The leaderboards at spawn (the Leaderboards script places them,
+-- LeaderboardSigns draws them): one board per Tuning.Leaderboards board, in
+-- order from the viewer's left, in a row ahead and to the right of the spawn
+-- lanes, turned to face them.
+Tuning.LeaderboardSigns = {
+	CenterX = 115, -- the middle of the row, on the ground
+	CenterZ = 590,
+	FaceX = 0, -- the point on the ground the row faces (the spawn lanes)
+	FaceZ = 720,
+	Width = 40,
+	Height = 28,
+	Thickness = 2,
+	Gap = 4, -- studs between boards
+	BottomHeight = 6, -- ground to the board's bottom edge
+	PostWidth = 2,
+	PixelsPerStud = 16,
+}
+
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
 -- highest level of each upgrade the car can use, and Bonus is free levels on
 -- every stat on top of those. Each car costs less than the last levels of the

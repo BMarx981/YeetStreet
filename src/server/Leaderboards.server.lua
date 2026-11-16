@@ -17,6 +17,9 @@
 -- can't be read keeps what it showed before.
 --
 -- Studio sends to and reads its own lists.
+--
+-- It also places the boards at spawn (Tuning.LeaderboardSigns), which every
+-- client draws from that JSON (LeaderboardSigns).
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -141,6 +144,44 @@ local function refresh()
 		})
 	end
 end
+
+-- The boards at spawn: plain tagged parts on posts, which each client draws
+-- (LeaderboardSigns). Built at start, so nothing is saved in the place.
+local function placeSigns()
+	local S = Tuning.LeaderboardSigns
+	local row = CFrame.lookAt(Vector3.new(S.CenterX, 0, S.CenterZ), Vector3.new(S.FaceX, 0, S.FaceZ))
+	local signs = Instance.new("Folder")
+	signs.Name = "LeaderboardSigns"
+	for i, board in B.Boards do
+		-- A CFrame's right points to the viewer's left when it faces them.
+		local spot = row * CFrame.new(((#B.Boards + 1) / 2 - i) * (S.Width + S.Gap), 0, 0)
+		local model = Instance.new("Model")
+		model.Name = board.Id
+		for _, side in { -1, 1 } do
+			local post = Instance.new("Part")
+			post.Name = "Post"
+			post.Anchored = true
+			post.Size = Vector3.new(S.PostWidth, S.BottomHeight, S.PostWidth)
+			post.CFrame = spot * CFrame.new(side * (S.Width / 2 - S.PostWidth * 2), S.BottomHeight / 2, 0)
+			post.Color = Color3.fromRGB(22, 22, 26)
+			post.Material = Enum.Material.Metal
+			post.Parent = model
+		end
+		local part = Instance.new("Part")
+		part.Name = "Board"
+		part.Anchored = true
+		part.Size = Vector3.new(S.Width, S.Height, S.Thickness)
+		part.CFrame = spot * CFrame.new(0, S.BottomHeight + S.Height / 2, 0)
+		part.Color = Color3.fromRGB(22, 22, 26)
+		part.Material = Enum.Material.SmoothPlastic
+		part:SetAttribute("BoardId", board.Id)
+		part:AddTag("LeaderboardSign")
+		part.Parent = model
+		model.Parent = signs
+	end
+	signs.Parent = workspace
+end
+placeSigns()
 
 task.spawn(function()
 	while true do
