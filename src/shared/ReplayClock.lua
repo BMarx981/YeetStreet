@@ -11,6 +11,10 @@
 
 local ReplayClock = {}
 
+-- Seconds the clock may differ from where playing for dt would put it before
+-- the move counts as a seek.
+local SEEK_SLACK = 1e-3
+
 export type Clock = {
 	time: number, -- seconds into the clip
 	speed: number, -- 1 is real time
@@ -27,6 +31,16 @@ function ReplayClock.advance(clock: Clock, dt: number)
 	if not clock.paused then
 		clock.time += dt * clock.speed
 	end
+end
+
+-- Whether the clock just played over clip time `at`: it was before `at` at
+-- `before`, is at or past it now, and got there by playing for `dt` seconds
+-- of real time, not by a seek.
+function ReplayClock.passed(clock: Clock, before: number, at: number, dt: number): boolean
+	if clock.paused or not (before < at and at <= clock.time) then
+		return false
+	end
+	return math.abs(clock.time - before - dt * clock.speed) <= SEEK_SLACK
 end
 
 -- Whether the replay is over, having held its last frame for `hold` seconds.

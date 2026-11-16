@@ -32,6 +32,8 @@
 --
 -- While it plays, the world is drawn at the replay's moment (ReplayWorld):
 -- things on the server's clock, like the trains, and recorded creatures.
+-- The ghost has its engine, jets, and wreck crunch (ReplaySounds), and the
+-- real car's sounds fade out with it hidden (CarSounds.hideOwn).
 --
 -- With streaming on, this client only has the map near the real car, so as
 -- a replay starts it asks for the map along the ghost's path, every
@@ -67,10 +69,12 @@ local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
 local CarPreview = require(script.Parent.CarPreview)
+local CarSounds = require(script.Parent.CarSounds)
 local JetFlames = require(script.Parent.JetFlames)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
+local ReplaySounds = require(script.Parent.ReplaySounds)
 local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local R = Tuning.Replay
@@ -81,6 +85,9 @@ local RENDER_NAME = "YeetStreetReplay"
 -- Seconds the clock may differ from where the last frame and its speed put
 -- it before it counts as a seek.
 local SEEK_SLACK = 1e-3
+-- Seconds either side of the clock's time the ghost's speed is measured over,
+-- for its engine sound.
+local SPEED_SPAN = 0.05
 
 local ReplayPlayer = {}
 
@@ -138,6 +145,7 @@ type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
 	lights: Lights,
+	sounds: ReplaySounds.Sounds,
 	axolotl: AxolotlGhost?,
 	legs: LegsGhost?,
 	pieces: { Piece },
@@ -596,6 +604,10 @@ local function show(now: Playing, dt: number)
 	end
 	workspace:BulkMoveTo(now.parts, now.cframes, Enum.BulkMoveMode.FireCFrameChanged)
 	showLights(now, dt)
+	local ahead = poseAt(now.replay.clip, time + SPEED_SPAN).Position
+	local behind = poseAt(now.replay.clip, time - SPEED_SPAN).Position
+	local speed = (ahead - behind):Dot(pose.LookVector) / (2 * SPEED_SPAN)
+	ReplaySounds.show(now.sounds, now.replay.clip, now.clock, pose, speed, dt)
 	ReplayCamera.update(pose.Position, dt)
 	if workspace.StreamingEnabled and os.clock() - now.streamed >= R.StreamRefresh then
 		now.streamed = os.clock()
@@ -631,6 +643,7 @@ function ReplayPlayer.stop()
 	RunService:UnbindFromRenderStep(RENDER_NAME)
 	ReplayWorld.watch(nil)
 	ReplayCamera.stop()
+	CarSounds.hideOwn(false)
 	now.ghost:Destroy()
 	for _, part in now.hidden do
 		part.LocalTransparencyModifier = 0
@@ -677,6 +690,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		replay = replay,
 		ghost = ghost,
 		lights = lights,
+		sounds = ReplaySounds.start(ghost, replay.clip, replay.look, ground),
 		axolotl = axolotl,
 		legs = legs,
 		pieces = pieces,
@@ -688,6 +702,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		clock = ReplayClock.new(replay.clip.duration),
 	}
 	playing = now
+	CarSounds.hideOwn(true)
 	streamAlong(replay.clip)
 	ReplayCamera.start(startOrbit(replay.clip))
 	ghost.Parent = workspace

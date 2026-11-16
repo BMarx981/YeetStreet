@@ -13,6 +13,8 @@
 -- A wreck anywhere plays one of the Wreck crunches at random where it
 -- happened (ReplicatedStorage.CarWrecked), and the local player's hard hits
 -- thud, louder the harder they are (CarImpact, CrashSound).
+-- During a replay the local player's car goes quiet (hideOwn), and the
+-- ghost's sounds (ReplaySounds) use loop, play, and crunch from here.
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
@@ -36,7 +38,7 @@ local HIT = Tuning.CarSounds.Hit
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
 local WRECK_LIFE = 6 -- seconds before a wreck's sound is removed, past the longest crunch
 
-type Spec = { Id: string, Pitch: number, Volume: number }
+export type Spec = { Id: string, Pitch: number, Volume: number }
 
 type Engine = {
 	car: Model,
@@ -58,10 +60,19 @@ rayParams.FilterType = Enum.RaycastFilterType.Exclude
 local gas = 0
 local airborne = false
 
+-- Whether the local player's car is hidden for a replay, which has its own sounds.
+local ownHidden = false
+
 -- Called by CarController every step while the local player drives.
 function CarSounds.drive(throttle: number, inAir: boolean)
 	gas = throttle
 	airborne = inAir
+end
+
+-- Fades the local player's car out while a replay hides it (ReplayPlayer),
+-- and back in after.
+function CarSounds.hideOwn(hidden: boolean)
+	ownHidden = hidden
 end
 
 local function driven(e: Engine): boolean
@@ -75,7 +86,7 @@ end
 
 -- A silent looped sound on the hull that fades out by Reach (OwnReach for
 -- the local player's car).
-local function loop(name: string, spec: Spec, own: boolean, hull: BasePart): Sound
+function CarSounds.loop(name: string, spec: Spec, own: boolean, hull: BasePart): Sound
 	local sound = Instance.new("Sound")
 	sound.Name = name
 	sound.SoundId = spec.Id
@@ -89,7 +100,7 @@ local function loop(name: string, spec: Spec, own: boolean, hull: BasePart): Sou
 end
 
 -- Sets a loop's pitch and volume, playing it only while it can be heard.
-local function play(sound: Sound, spec: Spec, pitch: number, volume: number)
+function CarSounds.play(sound: Sound, spec: Spec, pitch: number, volume: number)
 	if volume > 0 then
 		sound.PlaybackSpeed = spec.Pitch * pitch
 		sound.Volume = spec.Volume * volume
@@ -104,7 +115,7 @@ end
 local random = Random.new()
 
 -- One of the Wreck crunches, heard by everyone near where the car wrecked.
-local function crunch(position: Vector3)
+function CarSounds.crunch(position: Vector3)
 	local spec = WRECKS[CrashSound.pick(#WRECKS, random:NextNumber())]
 	local part = Instance.new("Part")
 	part.Name = "WreckSound"
@@ -159,10 +170,10 @@ local function add(car: Model)
 		car = car,
 		hull = hull,
 		own = own,
-		sound = loop("Engine", SPEC, own, hull),
+		sound = CarSounds.loop("Engine", SPEC, own, hull),
 		pitch = E.IdlePitch,
 		volume = 0,
-		jet = loop("Jet", JET, own, hull),
+		jet = CarSounds.loop("Jet", JET, own, hull),
 		jetVolume = 0,
 	})
 end
@@ -194,7 +205,7 @@ local function update(dt: number)
 	end
 
 	for _, e in engines do
-		local on = if e.own then driven(e) else playing[e] == true
+		local on = if e.own then driven(e) and not ownHidden else playing[e] == true
 		local pitch, volume = e.pitch, 0
 		if on then
 			local topSpeed = e.car:GetAttribute("TopSpeed")
@@ -210,11 +221,11 @@ local function update(dt: number)
 		end
 		e.pitch = EngineSound.approach(e.pitch, pitch, E.PitchRate, dt)
 		e.volume = EngineSound.approach(e.volume, volume, E.VolumeRate, dt)
-		play(e.sound, SPEC, e.pitch, e.volume)
+		CarSounds.play(e.sound, SPEC, e.pitch, e.volume)
 
 		local jetPitch, jetVolume = EngineSound.jet(on and e.car:GetAttribute("JetsBurning") == true, e.own, E)
 		e.jetVolume = EngineSound.approach(e.jetVolume, jetVolume, E.JetFadeRate, dt)
-		play(e.jet, JET, jetPitch, e.jetVolume)
+		CarSounds.play(e.jet, JET, jetPitch, e.jetVolume)
 	end
 end
 
@@ -242,7 +253,7 @@ function CarSounds.start()
 		end
 		wrecked.OnClientEvent:Connect(function(position: any)
 			if typeof(position) == "Vector3" then
-				crunch(position)
+				CarSounds.crunch(position)
 			end
 		end)
 	end)

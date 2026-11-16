@@ -15,7 +15,8 @@
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
 -- those from before the clip; the clip's marks say when the rest broke off.
 -- The clip's flips say when the jets burned (JetsBurning), the brake lights
--- glowed (Braking), and lava set the car on fire (Burning).
+-- glowed (Braking), lava set the car on fire (Burning), and the car wrecked
+-- (Wrecked, from ReplicatedStorage.CarWrecked naming this car).
 -- The attributes are copied as they change rather than read at the cut, since
 -- by then a wrecked car is gone. It also carries the server's time at the
 -- start of the clip and what ReplayWorld recorded over it, so the world can
@@ -107,6 +108,17 @@ function ReplayRecorder.start(model: Model)
 			look[attribute] = value
 		end)
 	)
+	local wrecked = ReplicatedStorage:FindFirstChild("CarWrecked")
+	if wrecked and wrecked:IsA("RemoteEvent") then
+		table.insert(
+			connections,
+			wrecked.OnClientEvent:Connect(function(_position: any, car: any)
+				if car == model then
+					ReplayTape.flip(tape, os.clock(), "Wrecked", true)
+				end
+			end)
+		)
+	end
 end
 
 -- Stops recording the car, cutting the last flight's clip if it was waiting.

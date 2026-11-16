@@ -86,4 +86,33 @@ Check.test("the speed button steps through the speeds and wraps round", function
 	Check.eq(ReplayClock.nextSpeed(3, SPEEDS), 1, "unknown speed to the first")
 end)
 
+local function clockAt(time: number, speed: number, paused: boolean): ReplayClock.Clock
+	return { time = time, speed = speed, paused = paused, duration = 8 }
+end
+
+Check.test("passed when playing runs over the time", function()
+	Check.eq(ReplayClock.passed(clockAt(3.01, 1, false), 2.99, 3, 0.02), true)
+end)
+
+Check.test("passed when playing lands right on the time", function()
+	Check.eq(ReplayClock.passed(clockAt(3, 1, false), 2.98, 3, 0.02), true)
+end)
+
+Check.test("not passed before getting there or once already past", function()
+	Check.eq(ReplayClock.passed(clockAt(2.9, 1, false), 2.88, 3, 0.02), false, "before")
+	Check.eq(ReplayClock.passed(clockAt(3.5, 1, false), 3.48, 3, 0.02), false, "already past")
+end)
+
+Check.test("passed in slow motion too", function()
+	Check.eq(ReplayClock.passed(clockAt(3.004, 0.25, false), 2.999, 3, 0.02), true)
+end)
+
+Check.test("a seek over the time doesn't count as passing it", function()
+	Check.eq(ReplayClock.passed(clockAt(5, 1, false), 1, 3, 0.02), false)
+end)
+
+Check.test("a paused clock passes nothing", function()
+	Check.eq(ReplayClock.passed(clockAt(3, 1, true), 2.99, 3, 0.02), false)
+end)
+
 Check.finish("ReplayClock")

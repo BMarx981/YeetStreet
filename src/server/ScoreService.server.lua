@@ -78,8 +78,10 @@
 -- how fast it spins, once the car goes over the rim.
 --
 -- At zero toughness the car wrecks: every part left flies off, every client
--- bursts sparks there (ReplicatedStorage.CarWrecked), and the run ends as
--- "wrecked". WreckBeat seconds later, so the driver sees it, the car respawns.
+-- bursts sparks and crunches there (ReplicatedStorage.CarWrecked, fired with
+-- the position and the car, which the driver's replay records), and the run
+-- ends as "wrecked". WreckBeat seconds later, so the driver sees it, the car
+-- respawns.
 -- A reset (the client asks on ReplicatedStorage.ResetCar, or Garage fires
 -- ServerStorage.ResetPlayerCar after a purchase) respawns at once.
 -- Both build a fresh car at the last launcher the player used, through
@@ -521,7 +523,7 @@ local function wreck(watch: Watch, beat: number?)
 	if watch.run.phase == "flying" then
 		watch.smashes += broken
 	end
-	carWrecked:FireAllClients(watch.sensor.hull.Position)
+	carWrecked:FireAllClients(watch.sensor.hull.Position, watch.car)
 	local result = RunTracker.abort(watch.run, "wrecked")
 	if result then
 		finish(watch, result)

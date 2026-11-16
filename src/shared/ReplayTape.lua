@@ -224,6 +224,16 @@ function ReplayTape.lit<P>(clip: Clip<P>, name: string, t: number): boolean
 	return on
 end
 
+-- When the switch `name` first turned on in the clip, nil if it never did.
+function ReplayTape.switchedOn<P>(clip: Clip<P>, name: string): number?
+	for _, flip in clip.flips do
+		if flip.name == name and flip.on then
+			return flip.t
+		end
+	end
+	return nil
+end
+
 -- When parts broke off each slot in the clip, in order.
 function ReplayTape.breaks<P>(clip: Clip<P>): { [string]: { number } }
 	local times: { [string]: { number } } = {}
