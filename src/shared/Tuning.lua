@@ -640,6 +640,9 @@ Tuning.Leaderboards = {
 	-- beats is one store write, which shares the server's write budget with
 	-- saves (60 + 10 per player a minute).
 	SendEvery = 60,
+	-- Seconds between reads of every list's top entries. Each refresh reads
+	-- 2 lists per board, from a read budget of 5 + 2 per player a minute.
+	RefreshEvery = 60,
 }
 
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the

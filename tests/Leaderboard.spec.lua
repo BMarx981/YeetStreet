@@ -129,6 +129,33 @@ Check.test("only lists that beat what was sent go out", function()
 	Check.eq(first.C, nil, "but not zeros")
 end)
 
+Check.test("a sorted page becomes ranked rows with names", function()
+	local page = {
+		{ key = "111", value = 900 },
+		{ key = "222", value = 800 },
+		{ key = "nope", value = 700 },
+		{ key = "333", value = 600 },
+	}
+	local names = { [111] = "Ann", [333] = "Cy" }
+	local rows = Leaderboard.rows(page, names, T)
+	Check.eq(#rows, 3, "rows, the bad key skipped")
+	Check.eq(rows[1].Rank, 1, "first rank")
+	Check.eq(rows[1].Name, "Ann", "first name")
+	Check.eq(rows[1].Value, 900, "first value")
+	Check.eq(rows[1].UserId, 111, "first user")
+	Check.eq(rows[2].Name, "Player 222", "a name not found yet")
+	Check.eq(rows[3].Rank, 3, "ranks count only real rows")
+	Check.eq(rows[3].Name, "Cy", "third name")
+end)
+
+Check.test("rows stop at the board's top", function()
+	local page = {}
+	for i = 1, 15 do
+		table.insert(page, { key = tostring(i), value = 100 - i })
+	end
+	Check.eq(#Leaderboard.rows(page, {}, T), 10)
+end)
+
 Check.test("a board is found by id", function()
 	local board = Leaderboard.find("Airtime", T)
 	assert(board, "Airtime board")

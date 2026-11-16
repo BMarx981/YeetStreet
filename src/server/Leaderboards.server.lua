@@ -1,17 +1,29 @@
 --!strict
 -- Leaderboards (Script) -> ServerScriptService.Leaderboards
--- Sends each player's bests to the global leaderboards (Leaderboard). Every
--- SendEvery seconds, each of their lists that beats what this session last
--- sent goes to its ordered store through PlayerData.raiseBoard. A session
--- starts with nothing sent, so the first send after joining puts all of a
--- player's bests up, including ones from before the boards existed. A best
--- set less than SendEvery before leaving goes up on the next join. Studio
--- sends to its own lists.
+-- The global leaderboards (Leaderboard) on the server.
+--
+-- Sending: every SendEvery seconds, each of a player's lists that beats what
+-- this session last sent goes to its ordered store through
+-- PlayerData.raiseBoard. A session starts with nothing sent, so the first
+-- send after joining puts all of a player's bests up, including ones from
+-- before the boards existed. A best set less than SendEvery before leaving
+-- goes up on the next join.
+--
+-- Reading: every RefreshEvery seconds, the top of each board's all-time and
+-- this week's lists is read (PlayerData.readBoard), names are looked up
+-- (cached, and once per refresh for any new ones), and each board is
+-- published for clients as JSON in ReplicatedStorage.LeaderboardData.<Id>:
+-- { Week, AllTime = rows, ThisWeek = rows } (Leaderboard.Row). A list that
+-- can't be read keeps what it showed before.
+--
+-- Studio sends to and reads its own lists.
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local UserService = game:GetService("UserService")
 
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -48,9 +60,98 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	sent[player] = nil
 end)
 
-while true do
-	task.wait(B.SendEvery)
-	for player in sent do
-		task.spawn(send, player)
+-- Display names by UserId, kept for the server's life.
+local names: { [number]: string } = {}
+local namesWarned = false
+
+local function lookUpNames(ids: { number })
+	local missing: { number } = {}
+	for _, id in ids do
+		local here = Players:GetPlayerByUserId(id)
+		if here then
+			names[id] = here.DisplayName
+		elseif not names[id] and not table.find(missing, id) then
+			table.insert(missing, id)
+		end
 	end
+	if #missing == 0 then
+		return
+	end
+	local ok, infos = pcall(UserService.GetUserInfosByUserIdsAsync, UserService, missing)
+	if ok and typeof(infos) == "table" then
+		for _, info in infos do
+			names[info.Id] = info.DisplayName
+		end
+	elseif not namesWarned then
+		namesWarned = true
+		warn(`Leaderboards: couldn't look up names ({infos})`)
+	end
+end
+
+local folder = Instance.new("Folder")
+folder.Name = "LeaderboardData"
+folder.Parent = ReplicatedStorage
+local published: { [string]: StringValue } = {}
+for _, board in B.Boards do
+	local value = Instance.new("StringValue")
+	value.Name = board.Id
+	value.Parent = folder
+	published[board.Id] = value
+end
+
+-- The last rows shown for each list, by store name, kept when a read fails.
+local shown: { [string]: { Leaderboard.Row } } = {}
+
+local function refresh()
+	local week = Leaderboard.week(os.time())
+	local pages: { [string]: { { key: string, value: number } } } = {}
+	local ids: { number } = {}
+	for _, board in B.Boards do
+		local lists = {
+			Leaderboard.storeName(board.Id, nil, studio, B),
+			Leaderboard.storeName(board.Id, week, studio, B),
+		}
+		for _, name in lists do
+			local page = PlayerData.readBoard(name, B.Top)
+			if page then
+				pages[name] = page
+				for _, entry in page do
+					local id = tonumber(entry.key)
+					if id then
+						table.insert(ids, id)
+					end
+				end
+			end
+		end
+	end
+	lookUpNames(ids)
+	for _, board in B.Boards do
+		local allName = Leaderboard.storeName(board.Id, nil, studio, B)
+		local weekName = Leaderboard.storeName(board.Id, week, studio, B)
+		for _, name in { allName, weekName } do
+			local page = pages[name]
+			if page then
+				shown[name] = Leaderboard.rows(page, names, B)
+			end
+		end
+		published[board.Id].Value = HttpService:JSONEncode({
+			Week = week,
+			AllTime = shown[allName] or {},
+			ThisWeek = shown[weekName] or {},
+		})
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(B.SendEvery)
+		for player in sent do
+			task.spawn(send, player)
+		end
+	end
+end)
+
+while true do
+	refresh()
+	task.wait(B.RefreshEvery)
 end

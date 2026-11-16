@@ -19,8 +19,8 @@
 -- by the inviter: the UserIds of friends they brought in. A friend's server
 -- adds to it, since the inviter's record is locked to their own server.
 --
--- It also writes the global leaderboards' ordered stores (raiseBoard), for
--- the Leaderboards script.
+-- It also writes and reads the global leaderboards' ordered stores
+-- (raiseBoard, readBoard), for the Leaderboards script.
 
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
@@ -261,6 +261,22 @@ function PlayerData.raiseBoard(name: string, userId: number, value: number): boo
 		warn(`PlayerData: couldn't send {value} to {name} for {userId} ({err})`)
 	end
 	return ok
+end
+
+-- The top `count` entries of the leaderboard list `name`, best first, as
+-- { key, value }; nil if it can't be read.
+function PlayerData.readBoard(name: string, count: number): { { key: string, value: number } }?
+	if not storeOk then
+		return nil
+	end
+	local ok, page = pcall(function()
+		return boardStore(name):GetSortedAsync(false, count):GetCurrentPage()
+	end)
+	if not ok then
+		warn(`PlayerData: couldn't read {name} ({page})`)
+		return nil
+	end
+	return page :: any
 end
 
 -- `inviterId`'s invite credits, or nil if they can't be read.

@@ -157,6 +157,37 @@ function Leaderboard.changed(lists: { [string]: number }, sent: { [string]: numb
 	return out
 end
 
+-- One line of a list as a board shows it.
+export type Row = {
+	Rank: number,
+	UserId: number,
+	Name: string,
+	Value: number, -- as stored; show() turns it into text
+}
+
+-- A sorted page from an ordered store (best first) as up to `tuning.Top`
+-- rows, with display names from `names` by UserId. Keys that aren't a
+-- UserId are skipped.
+function Leaderboard.rows(
+	page: { { key: string, value: number } },
+	names: { [number]: string },
+	tuning: Tuning
+): { Row }
+	local rows: { Row } = {}
+	for _, entry in page do
+		local userId = tonumber(entry.key)
+		if userId and #rows < tuning.Top then
+			table.insert(rows, {
+				Rank = #rows + 1,
+				UserId = userId,
+				Name = names[userId] or `Player {userId}`,
+				Value = entry.value,
+			})
+		end
+	end
+	return rows
+end
+
 function Leaderboard.find(boardId: string, tuning: Tuning): Board?
 	for _, board in tuning.Boards do
 		if board.Id == boardId then
