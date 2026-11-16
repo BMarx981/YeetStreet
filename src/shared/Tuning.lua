@@ -682,6 +682,37 @@ Tuning.LeaderboardSigns = {
 	PixelsPerStud = 16,
 }
 
+-- The launcher record signs (RecordService places them, LaunchRecordSigns
+-- draws them): one per Tuning.LaunchRecords launcher, standing on the ground
+-- beside its first pad (the one runs reach first), turned to face cars
+-- coming in. A launcher's Offsets entry moves its sign when that spot is
+-- awkward.
+Tuning.LaunchRecordSigns = {
+	Width = 36,
+	Height = 17,
+	Thickness = 2,
+	BottomHeight = 6, -- ground to the board's bottom edge
+	PostWidth = 2,
+	PixelsPerStud = 16,
+	Side = 1, -- 1 on the driver's right, -1 on their left
+	Gap = 12, -- studs from the pads' outer edge to the board's near edge
+	TurnIn = 20, -- degrees the face turns from straight back toward the lane
+	RayAbove = 40, -- the ground is found by a ray from this far over the first pad's top
+	RayDown = 600,
+	FindWait = 60, -- seconds to wait for a launcher's park to be built
+	-- By launcher Id, all optional: Back (true when cars drive in against the
+	-- launch way, so the sign faces them and Side, Ahead, and the first pad
+	-- follow their way in), Side, Ahead (studs along the way in), Out (studs
+	-- farther from the pads), Turn (degrees, added to TurnIn).
+	Offsets = {
+		-- In the City's street, beside the lane and past the street lights.
+		Overpass = { Out = 50 },
+		-- Cars drive the causeway into the tube; the sign stands on the grass
+		-- at the causeway's end, outside the boulders.
+		VolcanoVent = { Back = true, Ahead = -466, Out = -195 },
+	} :: { [string]: { Back: boolean?, Side: number?, Ahead: number?, Out: number?, Turn: number? } },
+}
+
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
 -- highest level of each upgrade the car can use, and Bonus is free levels on
 -- every stat on top of those. Each car costs less than the last levels of the
