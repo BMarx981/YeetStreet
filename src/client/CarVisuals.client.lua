@@ -21,7 +21,8 @@
 --   Wheel brakes (CarDesign parts with a wheel) are welded to that wheel's
 --   hub, so they steer and ride the suspension without spinning. Brake lights
 --   glow while the car's Braking attribute is true, also set by CarController
---   on the local player's car. Every car has them, the fixed looks included.
+--   on the local player's car, and by the server for everyone else
+--   (BrakingEvent). Every car has them, the fixed looks included.
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.

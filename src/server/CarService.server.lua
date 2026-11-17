@@ -438,6 +438,18 @@ if jetsBurningEvent and jetsBurningEvent:IsA("RemoteEvent") then
 	end)
 end
 
+-- The same for braking: the car's Braking attribute lights its brake lights
+-- on every client (CarVisuals). Looks only: nothing on the server reads it.
+local brakingEvent = ReplicatedStorage:FindFirstChild("BrakingEvent")
+if brakingEvent and brakingEvent:IsA("RemoteEvent") then
+	brakingEvent.OnServerEvent:Connect(function(player: Player, braking: any)
+		local car = cars[player]
+		if car and typeof(braking) == "boolean" then
+			car:SetAttribute("Braking", braking)
+		end
+	end)
+end
+
 -- Spawn a car at the player's position when they press Z on foot.
 local spawnCar = ReplicatedStorage:FindFirstChild("SpawnCar")
 if spawnCar and spawnCar:IsA("RemoteEvent") then

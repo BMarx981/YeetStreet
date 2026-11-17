@@ -350,7 +350,7 @@ Brian's picks:
 
 Claude's calls:
 
-- Sounds are made on each client with the classic Sound object, like the rest of the game. The engine, wreck, hit, and obby sounds need no new server code: every client already sees each car's speed and TopSpeed, and the server tells everyone where a car wrecked (CarWrecked), tells the driver about hits (CarImpact), and tells a player about each new pad (ObbyReward). JetsBurning (and Braking) are set only on the driver's own client and never reach other players, so other players' jet whoosh needs that shared first.
+- Sounds are made on each client with the classic Sound object, like the rest of the game. The engine, wreck, hit, and obby sounds need no new server code: every client already sees each car's speed and TopSpeed, and the server tells everyone where a car wrecked (CarWrecked), tells the driver about hits (CarImpact), and tells a player about each new pad (ObbyReward). JetsBurning (and Braking) are set only on the driver's own client and never reach other players, so other players' jet whoosh needs that shared first. Both are shared now (step 4 for the jets; Braking on Nov 16 through BrakingEvent, so other players see brake lights).
 - Sound IDs, volumes, pitches, and distances live in Tuning.CarSounds and Tuning.ObbySounds.
 
 Steps, one diff each:

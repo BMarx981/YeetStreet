@@ -165,6 +165,8 @@ local burning = false
 local heldJetsSent = false
 -- What the server was last told about this car's jets burning (JetsBurningEvent).
 local jetsSent = false
+-- What the server was last told about this car braking (BrakingEvent).
+local brakesSent = false
 -- When this client last set the car's speed itself, or held it on a ride or
 -- in a creature's grip, so the jolt isn't heard as a hit (CarSounds.hit).
 local pushedAt = -math.huge
@@ -311,6 +313,21 @@ local function showJets(r: Rig, on: boolean)
 	if on ~= jetsSent then
 		jetsSent = on
 		local remote = ReplicatedStorage:FindFirstChild("JetsBurningEvent")
+		if remote and remote:IsA("RemoteEvent") then
+			remote:FireServer(on)
+		end
+	end
+end
+
+-- Lights or puts out the car's brake lights on this client at once (Braking),
+-- and tells the server so every other player's client does too.
+local function showBrakes(r: Rig, on: boolean)
+	if r.model:GetAttribute("Braking") ~= on then
+		r.model:SetAttribute("Braking", on)
+	end
+	if on ~= brakesSent then
+		brakesSent = on
+		local remote = ReplicatedStorage:FindFirstChild("BrakingEvent")
 		if remote and remote:IsA("RemoteEvent") then
 			remote:FireServer(on)
 		end
@@ -700,9 +717,7 @@ local function step(r: Rig, dt: number)
 		end
 		r.spin.Enabled = false
 		showJets(r, false)
-		if r.model:GetAttribute("Braking") then
-			r.model:SetAttribute("Braking", false)
-		end
+		showBrakes(r, false)
 		trackRun(reading.sample)
 		local resetPressed = input.reset and not resetHeld
 		resetHeld = input.reset
@@ -786,10 +801,7 @@ local function step(r: Rig, dt: number)
 	if r.brake then
 		r.brake.Force = Vector3.new(0, 0, -brakePush * r.mass)
 	end
-	-- Set only on this client; CarVisuals lights the brakes from it.
-	if r.model:GetAttribute("Braking") ~= braking then
-		r.model:SetAttribute("Braking", braking)
-	end
+	showBrakes(r, braking)
 	-- The faster the gravitron spins, the less the tyres grip, in steps so the
 	-- wheels' friction is not rewritten every frame.
 	local spinGrip = if inBowl then math.floor(GravitronRide.grip(now) * 20 + 0.5) / 20 else 1
@@ -964,6 +976,7 @@ local function enter(r: Rig)
 	fuel = r.jetFuel
 	burning = false
 	jetsSent = false
+	brakesSent = false
 	stuckTime = 0
 	resetHeld = false
 	if heldJetsSent then
@@ -1011,7 +1024,7 @@ local function leave()
 		if rig.brake then
 			rig.brake.Force = Vector3.zero
 		end
-		rig.model:SetAttribute("Braking", false)
+		showBrakes(rig, false)
 		showJets(rig, false)
 	end
 	rig = nil
