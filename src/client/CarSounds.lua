@@ -12,7 +12,9 @@
 -- other players' cars.
 -- A wreck anywhere plays one of the Wreck crunches at random where it
 -- happened (ReplicatedStorage.CarWrecked), and the local player's hard hits
--- thud, louder the harder they are (CarImpact, CrashSound).
+-- thud, louder the harder they are (CrashSound). CarController passes each
+-- hit to CarSounds.hit the step its own CarSensor feels it, rather than
+-- waiting for the server's CarImpact, which comes a network round trip late.
 -- During a replay the local player's car goes quiet (hideOwn), and the
 -- ghost's sounds (ReplaySounds) use loop, play, and crunch from here.
 
@@ -149,9 +151,11 @@ thud.PlaybackSpeed = HIT.Pitch
 thud.Parent = SoundService
 local thudAt = -math.huge
 
-local function hit(strength: number)
+-- Thuds for a hit of `strength` on the local player's car, `sincePush`
+-- seconds after CarController last set its speed itself.
+function CarSounds.hit(strength: number, sincePush: number)
 	local now = os.clock()
-	local volume = CrashSound.hitVolume(strength, now - thudAt, C)
+	local volume = CrashSound.hitVolume(strength, now - thudAt, sincePush, C)
 	if volume <= 0 then
 		return
 	end
@@ -255,18 +259,6 @@ function CarSounds.start()
 		wrecked.OnClientEvent:Connect(function(position: any)
 			if typeof(position) == "Vector3" then
 				CarSounds.crunch(position)
-			end
-		end)
-	end)
-	task.spawn(function()
-		local impact = ReplicatedStorage:WaitForChild("CarImpact")
-		if not impact:IsA("RemoteEvent") then
-			warn("CarSounds: ReplicatedStorage.CarImpact is not a RemoteEvent; hits stay silent")
-			return
-		end
-		impact.OnClientEvent:Connect(function(strength: any)
-			if typeof(strength) == "number" then
-				hit(strength)
 			end
 		end)
 	end)

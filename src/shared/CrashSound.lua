@@ -3,7 +3,8 @@
 -- How loud the driver's thud is for a hit, and which wreck sound to play.
 -- Hits softer than HitFrom make none, harder ones are louder up to HitFull,
 -- and a hit within HitGap of the last thud makes none, so scraping along a
--- wall doesn't rattle. Pure.
+-- wall doesn't rattle. Nor does a jolt within PushGrace of the driver's
+-- client setting the car's speed itself, as a launch pad does. Pure.
 
 local CrashSound = {}
 
@@ -12,12 +13,14 @@ export type Tuning = {
 	HitFull: number,
 	HitMinVolume: number, -- a fraction of the Hit sound's Volume
 	HitGap: number, -- seconds
+	PushGrace: number, -- seconds
 }
 
 -- The thud's volume for a hit of `strength`, `sinceLast` seconds after the
--- last thud. 0 means no thud.
-function CrashSound.hitVolume(strength: number, sinceLast: number, tuning: Tuning): number
-	if strength < tuning.HitFrom or sinceLast < tuning.HitGap then
+-- last thud and `sincePush` seconds after the car was last pushed. 0 means
+-- no thud.
+function CrashSound.hitVolume(strength: number, sinceLast: number, sincePush: number, tuning: Tuning): number
+	if strength < tuning.HitFrom or sinceLast < tuning.HitGap or sincePush < tuning.PushGrace then
 		return 0
 	end
 	local fraction = math.clamp((strength - tuning.HitFrom) / (tuning.HitFull - tuning.HitFrom), 0, 1)

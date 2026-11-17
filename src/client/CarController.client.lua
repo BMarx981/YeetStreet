@@ -165,6 +165,9 @@ local burning = false
 local heldJetsSent = false
 -- What the server was last told about this car's jets burning (JetsBurningEvent).
 local jetsSent = false
+-- When this client last set the car's speed itself, or held it on a ride or
+-- in a creature's grip, so the jolt isn't heard as a hit (CarSounds.hit).
+local pushedAt = -math.huge
 local stuckTime = 0
 local resetHeld = false
 local exitHeld = false
@@ -293,6 +296,7 @@ local function rigFor(model: Model, character: Model): Rig?
 end
 
 local function setVelocity(r: Rig, velocity: Vector3)
+	pushedAt = os.clock()
 	for _, part in r.roots do
 		part.AssemblyLinearVelocity = velocity
 	end
@@ -689,6 +693,7 @@ local function step(r: Rig, dt: number)
 		or SwingRide.step(r.model, r.hull, r.roots, input.throttle, input.steer, input.jet, dt)
 	then
 		burning = false
+		pushedAt = os.clock()
 		r.jet.Force = Vector3.zero
 		if r.brake then
 			r.brake.Force = Vector3.zero
@@ -708,6 +713,11 @@ local function step(r: Rig, dt: number)
 		end
 		return
 	end
+
+	if r.hull.Anchored then
+		pushedAt = os.clock()
+	end
+	CarSounds.hit(reading.impact.Magnitude, os.clock() - pushedAt)
 
 	local RT = Tuning.Righting
 	local upright = cf.UpVector:Dot(up)

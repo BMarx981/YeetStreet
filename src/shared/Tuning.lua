@@ -1449,6 +1449,10 @@ Tuning.CrashSound = {
 	HitFull = 130, -- and this hard at full volume
 	HitMinVolume = 0.4, -- the softest thud, a fraction of CarSounds.Hit.Volume
 	HitGap = 0.2, -- seconds after a thud before the next
+	-- Seconds after the driver's client sets the car's speed itself (a launch
+	-- pad, a push, a frog jump) or lets go of it on a rail or swing, when a
+	-- jolt is that and not a hit.
+	PushGrace = 0.3,
 	-- Everyone hears a wreck at full volume this close, fading out by WreckReach.
 	WreckFullDistance = 30,
 	WreckReach = 300,
