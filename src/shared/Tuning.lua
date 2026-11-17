@@ -1409,12 +1409,17 @@ Tuning.MenuSounds = {
 -- A wreck plays one of Wreck at random. Hit is the driver's own hard hits.
 Tuning.CarSounds = {
 	Engine = { Id = "rbxassetid://5830439961", Pitch = 1, Volume = 0.5 }, -- car engine loop, 11.6 s
-	Jet = { Id = "rbxassetid://558246436", Pitch = 1, Volume = 0.5 }, -- rocket thruster loop
+	-- Rocket thruster loop. The file has about 25 ms of silence at its start
+	-- and 30 ms at its end, a gap each time round, so it loops from LoopStart
+	-- to LoopEnd seconds.
+	Jet = { Id = "rbxassetid://558246436", Pitch = 1.5, Volume = 0.5, LoopStart = 0.05, LoopEnd = 2.02 },
 	Wreck = {
 		{ Id = "rbxassetid://125317016080932", Pitch = 1, Volume = 0.8 }, -- heavy vehicle impact
 		{ Id = "rbxassetid://73575488399847", Pitch = 1, Volume = 0.8 }, -- van smash
 	},
-	Hit = { Id = "rbxassetid://9116684884", Pitch = 1, Volume = 0.5 }, -- metal impacts and rattles
+	-- Metal impacts and rattles. The file is silent for its first 0.23 s, so
+	-- it plays from Start.
+	Hit = { Id = "rbxassetid://9116684884", Pitch = 1, Volume = 0.5, Start = 0.2 },
 }
 
 -- How the engine loop follows the car (EngineSound). Pitches multiply
@@ -1452,10 +1457,10 @@ Tuning.EngineSound = {
 
 -- The driver's thud on hard hits and the wreck crunch (CrashSound).
 Tuning.CrashSound = {
-	HitFrom = 30, -- hits this hard thud, the same as Toughness.HitThreshold
+	HitFrom = 45, -- body hits this hard thud (landings on the wheels never do)
 	HitFull = 130, -- and this hard at full volume
 	HitMinVolume = 0.4, -- the softest thud, a fraction of CarSounds.Hit.Volume
-	HitGap = 0.2, -- seconds after a thud before the next
+	HitGap = 0.6, -- seconds after a thud before the next, so one crash thuds once
 	-- Seconds after the driver's client sets the car's speed itself (a launch
 	-- pad, a push, a frog jump) or lets go of it on a rail or swing, when a
 	-- jolt is that and not a hit.
@@ -2937,6 +2942,17 @@ Tuning.City = {
 -- start. Ramps are CurvedWall pieces: Radius and Angle shape the curve.
 Tuning.Skate = {
 	WallThickness = 2,
+	-- Along the foot of every ramp's sides and back, rising to straight up the
+	-- side, as round a downtown building (Tuning.City.Buildings). Where a side
+	-- is lower than the curve, the curve is cut off at the side's top, in
+	-- pieces each rising at most MaxRise past the last.
+	Foot = {
+		Radius = 20,
+		Steps = 8,
+		CornerSlices = 4,
+		MaxRise = 1,
+		MinHeight = 0.5, -- lower sides get no curve
+	},
 	-- Straight ahead of the arrival: a kicker over a gap onto a long landing
 	-- ramp. At 220 a straight launch comes down on the landing ramp.
 	Mega = {

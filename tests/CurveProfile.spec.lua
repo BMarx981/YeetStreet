@@ -137,6 +137,28 @@ Check.test("an arc of the curve runs between two angles, its corners on the curv
 	end
 end)
 
+Check.test("planks through a curve's own corners are its planks", function()
+	local planks = CurveProfile.toPlanks(CurveProfile.arc(60, 0, 120, 13))
+	local whole = CurveProfile.planks(60, 120, 13)
+	Check.eq(#planks, 13)
+	for i, plank in planks do
+		Check.near(plank.out, whole[i].out, `plank {i} out`)
+		Check.near(plank.up, whole[i].up, `plank {i} up`)
+		Check.near(plank.length, whole[i].length, `plank {i} length`)
+		Check.near(plank.tilt, whole[i].tilt, `plank {i} tilt`)
+	end
+end)
+
+Check.test("planks through a clipped curve end with a flat one, and skip corners that meet", function()
+	local planks = CurveProfile.toPlanks(CurveProfile.clip(15, 90, 10, 5, 15))
+	Check.eq(#planks, 11, "ten on the curve and the flat")
+	local flat = planks[11]
+	Check.near(flat.tilt, 0, "the flat lies level")
+	Check.near(flat.up, 5, "at the height")
+	Check.near(flat.out + flat.length / 2, 15, "out to the reach")
+	Check.eq(#CurveProfile.toPlanks(CurveProfile.clip(15, 90, 10, 40, 15)), 10, "a whole curve has no flat")
+end)
+
 Check.test("a slice of a swept corner is long enough to meet its neighbors", function()
 	Check.near(CurveProfile.sliceLength(100, 90), 200)
 	Check.near(CurveProfile.sliceLength(100, 10), 2 * 100 * math.tan(math.rad(5)))

@@ -732,7 +732,7 @@ local function step(r: Rig, dt: number)
 	if r.hull.Anchored then
 		pushedAt = os.clock()
 	end
-	CarSounds.hit(reading.impact.Magnitude, os.clock() - pushedAt)
+	CarSounds.hit(reading.impact, os.clock() - pushedAt)
 
 	local RT = Tuning.Righting
 	local upright = cf.UpVector:Dot(up)

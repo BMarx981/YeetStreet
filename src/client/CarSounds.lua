@@ -28,6 +28,7 @@ local SoundService = game:GetService("SoundService")
 
 local CrashSound = require(ReplicatedStorage.CrashSound)
 local EngineSound = require(ReplicatedStorage.EngineSound)
+local Impact = require(ReplicatedStorage.Impact)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local CarSounds = {}
@@ -96,6 +97,11 @@ local function flying(e: Engine): boolean
 	return workspace:Raycast(e.hull.Position, -e.hull.CFrame.UpVector * E.GroundProbe, rayParams) == nil
 end
 
+-- Loops that skip silence at the ends of their file, by sound id.
+local LOOP_REGIONS: { [string]: NumberRange } = {
+	[JET.Id] = NumberRange.new(JET.LoopStart, JET.LoopEnd),
+}
+
 -- A silent looped sound on the hull that fades out by Reach (OwnReach for
 -- the local player's car).
 function CarSounds.loop(name: string, spec: Spec, own: boolean, hull: BasePart): Sound
@@ -103,6 +109,11 @@ function CarSounds.loop(name: string, spec: Spec, own: boolean, hull: BasePart):
 	sound.Name = name
 	sound.SoundId = spec.Id
 	sound.Looped = true
+	local region = LOOP_REGIONS[spec.Id]
+	if region then
+		sound.PlaybackRegionsEnabled = true
+		sound.LoopRegion = region
+	end
 	sound.Volume = 0
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = if own then E.OwnFullDistance else E.OthersFullDistance
@@ -163,17 +174,19 @@ thud.PlaybackSpeed = HIT.Pitch
 thud.Parent = SoundService
 local thudAt = -math.huge
 
--- Thuds for a hit of `strength` on the local player's car, `sincePush`
--- seconds after CarController last set its speed itself.
-function CarSounds.hit(strength: number, sincePush: number)
+-- Thuds for a hit on the local player's car, `hit` being CarSensor's
+-- impact in the car's own space, `sincePush` seconds after CarController
+-- last set its speed itself.
+function CarSounds.hit(hit: Vector3, sincePush: number)
 	local now = os.clock()
-	local volume = CrashSound.hitVolume(strength, now - thudAt, sincePush, C)
+	local slot = Impact.slot(hit.X, hit.Y, hit.Z)
+	local volume = CrashSound.hitVolume(hit.Magnitude, slot, now - thudAt, sincePush, C)
 	if volume <= 0 then
 		return
 	end
 	thudAt = now
 	thud.Volume = HIT.Volume * volume
-	thud.TimePosition = 0
+	thud.TimePosition = HIT.Start
 	thud:Play()
 end
 
@@ -183,14 +196,15 @@ local function add(car: Model)
 		return
 	end
 	local own = car:GetAttribute("OwnerUserId") == player.UserId
+	-- Named apart from the hull's Jet force, which CarController finds by name.
 	table.insert(engines, {
 		car = car,
 		hull = hull,
 		own = own,
-		sound = CarSounds.loop("Engine", SPEC, own, hull),
+		sound = CarSounds.loop("EngineLoop", SPEC, own, hull),
 		pitch = E.IdlePitch,
 		volume = 0,
-		jet = CarSounds.loop("Jet", JET, own, hull),
+		jet = CarSounds.loop("JetLoop", JET, own, hull),
 		jetVolume = 0,
 	})
 end

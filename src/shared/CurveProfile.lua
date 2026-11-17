@@ -94,6 +94,25 @@ function CurveProfile.clip(radius: number, endAngle: number, steps: number, heig
 	return points
 end
 
+-- Planks laid from each of `points` to the next, as CurveProfile.planks lays
+-- them along the curve. Points that meet make no plank.
+function CurveProfile.toPlanks(points: { Point }): { Plank }
+	local planks: { Plank } = {}
+	for i = 1, #points - 1 do
+		local a, b = points[i], points[i + 1]
+		local length = math.sqrt((b.out - a.out) ^ 2 + (b.up - a.up) ^ 2)
+		if length > 1e-6 then
+			table.insert(planks, {
+				out = (a.out + b.out) / 2,
+				up = (a.up + b.up) / 2,
+				length = length,
+				tilt = math.atan2(b.up - a.up, b.out - a.out),
+			})
+		end
+	end
+	return planks
+end
+
 -- How far the curve reaches from the base line, and how tall it is.
 function CurveProfile.extent(radius: number, endAngle: number): (number, number)
 	local finish = math.rad(endAngle)

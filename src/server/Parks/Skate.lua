@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local CurveProfile = require(ReplicatedStorage.CurveProfile)
+local FootCurve = require(ReplicatedStorage.FootCurve)
 local GapZones = require(ReplicatedStorage.GapZones)
 local GrindRails = require(ReplicatedStorage.GrindRails)
 local MapLayout = require(ReplicatedStorage.MapLayout)
@@ -77,6 +78,86 @@ local function respawnAt(area: MapLayout.Area, x: number, z: number): CFrame
 	return at(area, x, HULL_HEIGHT, z - 20)
 end
 
+local FOOT = S.Foot
+
+local function footOptions(height: number): CurvedWall.Options
+	return {
+		radius = FOOT.Radius,
+		endAngle = 90,
+		steps = FOOT.Steps,
+		thickness = S.WallThickness,
+		color = RAMP_COLOR,
+		height = if height < FOOT.Radius then height else nil,
+	}
+end
+
+-- A straight run of foot curve rising toward `out`'s back, along a side from
+-- `from` to `to` on the floor.
+local function footRun(parent: Instance, from: Vector3, to: Vector3, out: Vector3, height: number)
+	local base = (from + to) / 2 + out * FOOT.Radius
+	CurvedWall.straight(parent, CFrame.lookAt(base, base - out), (to - from).Magnitude, footOptions(height))
+end
+
+-- A foot curve round the outside of `corner` (on the floor), between the
+-- sides facing `a` and `b`, a quarter turn apart.
+local function footCorner(parent: Instance, corner: Vector3, a: Vector3, b: Vector3, height: number)
+	-- The curve turns left from where it starts.
+	local left = Vector3.new(a.Z, 0, -a.X)
+	local start = if left:Dot(b) > 0.5 then a else b
+	local pivot = CFrame.lookAt(corner, corner + start)
+	CurvedWall.outside(parent, pivot, FOOT.Radius, 90, FOOT.CornerSlices, footOptions(height))
+end
+
+local function level(from: number, to: number, height: number): FootCurve.Segment
+	return { from = from, to = to, fromHeight = height, toHeight = height }
+end
+
+local function joined(...: { FootCurve.Segment }): { FootCurve.Segment }
+	local all: { FootCurve.Segment } = {}
+	for _, segments in { ... } do
+		table.move(segments, 1, #segments, #all + 1, all)
+	end
+	return all
+end
+
+-- Rounds the foot of a ramp, so a car driving into its side rides up a curve
+-- instead of hitting a sharp wall. The ramp stands on the floor at `frame`,
+-- `width` wide across its RightVector, and its top follows `top` along its
+-- LookVector. Both sides get a curve (FootCurve), and so do the start and
+-- end faces where `ends` says so, with one round each of their corners.
+local function roundFoot(parent: Instance, frame: CFrame, width: number, top: { FootCurve.Segment }, ends: { boolean })
+	local model = Instance.new("Model")
+	model.Name = "Foot"
+	model.Parent = parent
+	local half = width / 2
+	local function floorAt(x: number, distance: number): Vector3
+		return (frame * CFrame.new(x, 0, -distance)).Position
+	end
+
+	for _, side in { -1, 1 } do
+		local out = frame.RightVector * side
+		for _, piece in FootCurve.pieces(top, FOOT.Radius, FOOT.MaxRise, FOOT.MinHeight) do
+			footRun(model, floorAt(side * half, piece.from), floorAt(side * half, piece.to), out, piece.height)
+		end
+	end
+
+	local first, last = top[1], top[#top]
+	local faces = {
+		{ distance = first.from, height = first.fromHeight, out = -frame.LookVector },
+		{ distance = last.to, height = last.toHeight, out = frame.LookVector },
+	}
+	for i, face in faces do
+		if not ends[i] or face.height < FOOT.MinHeight then
+			continue
+		end
+		local height = math.min(face.height, FOOT.Radius)
+		local a, b = floorAt(-half, face.distance), floorAt(half, face.distance)
+		footRun(model, a, b, face.out, height)
+		footCorner(model, a, face.out, -frame.RightVector, height)
+		footCorner(model, b, face.out, frame.RightVector, height)
+	end
+end
+
 local function buildMega(parent: Instance, area: MapLayout.Area)
 	local M = S.Mega
 	local model = Instance.new("Model")
@@ -91,13 +172,15 @@ local function buildMega(parent: Instance, area: MapLayout.Area)
 	local kicker = CurvedWall.straight(model, at(area, M.X, 0, kickBaseZ), M.Width, kickOptions)
 	CurvedWall.fill(kicker, FLOOR, kickOptions)
 	LaunchPad.top(kicker, M.PadPlanks, M.LaunchSpeed, respawnAt(area, M.X, M.RunwayZ))
+	local kickTop = FootCurve.curve(0, 1, M.KickRadius, M.KickAngle, M.KickSteps)
+	roundFoot(model, at(area, M.X, 0, kickBaseZ), M.Width, kickTop, { false, true })
 
 	-- The landing ramp rises toward the kicker, steepest at its top.
 	local landOptions = wall(M.LandRadius, M.LandAngle, M.LandSteps)
 	local landDepth, landHeight = CurveProfile.extent(M.LandRadius, M.LandAngle)
 	local landTopZ = M.LipZ - M.Gap
-	local landing =
-		CurvedWall.straight(model, at(area, M.X, 0, landTopZ - landDepth) * FACE_BACK, M.LandWidth, landOptions)
+	local landBase = at(area, M.X, 0, landTopZ - landDepth) * FACE_BACK
+	local landing = CurvedWall.straight(model, landBase, M.LandWidth, landOptions)
 	CurvedWall.fill(landing, FLOOR, landOptions)
 	block(
 		model,
@@ -106,6 +189,11 @@ local function buildMega(parent: Instance, area: MapLayout.Area)
 		at(area, M.X, landHeight / 2, landTopZ + M.DeckDepth / 2),
 		RAMP_COLOR
 	)
+	local landTop = joined(
+		FootCurve.curve(0, 1, M.LandRadius, M.LandAngle, M.LandSteps),
+		{ level(landDepth, landDepth + M.DeckDepth, landHeight) }
+	)
+	roundFoot(model, landBase, M.LandWidth, landTop, { false, true })
 end
 
 local function buildVert(parent: Instance, area: MapLayout.Area)
@@ -136,6 +224,9 @@ local function buildVert(parent: Instance, area: MapLayout.Area)
 		at(area, V.X, V.Radius / 2, topZ - V.DeckDepth / 2),
 		RAMP_COLOR
 	)
+	local top =
+		joined(FootCurve.curve(0, 1, V.Radius, 90, V.Steps), { level(V.Radius, V.Radius + V.DeckDepth, V.Radius) })
+	roundFoot(model, at(area, V.X, 0, V.BaseZ), V.Width, top, { false, true })
 end
 
 local function buildBowl(parent: Instance, area: MapLayout.Area)
@@ -197,6 +288,18 @@ local function buildHalfPipe(parent: Instance, area: MapLayout.Area)
 		local x = H.X + side * (H.FlatWidth / 2 + depth + H.DeckDepth / 2)
 		block(model, "Deck", Vector3.new(H.DeckDepth, height, H.Length), at(area, x, height / 2, H.Z), RAMP_COLOR)
 	end
+
+	-- Across the pipe from the -X deck's back to the +X deck's: the ends of
+	-- the pipe are the sides here, and the decks' backs its ends.
+	local across = H.FlatWidth + 2 * (depth + H.DeckDepth)
+	local frame = at(area, H.X - across / 2, 0, H.Z) * CFrame.Angles(0, -math.pi / 2, 0)
+	local top = joined(
+		{ level(0, H.DeckDepth, height) },
+		FootCurve.curve(H.DeckDepth + depth, -1, H.Radius, H.Angle, H.Steps),
+		FootCurve.curve(across - H.DeckDepth - depth, 1, H.Radius, H.Angle, H.Steps),
+		{ level(across - H.DeckDepth, across, height) }
+	)
+	roundFoot(model, frame, H.Length, top, { true, true })
 end
 
 -- A prop that cars knock flying (PropService): anchored, and standing on the
@@ -324,6 +427,15 @@ local function buildStairs(parent: Instance, area: MapLayout.Area)
 	ramp.Material = Enum.Material.Concrete
 	ramp.Parent = model
 
+	-- From the foot of the ramp, over the deck and down the stairs.
+	local outline: { FootCurve.Segment } = { { from = 0, to = T.RampLength, fromHeight = 0, toHeight = T.Height } }
+	local deckEnd = T.RampLength + T.DeckDepth
+	table.insert(outline, level(T.RampLength, deckEnd, T.Height))
+	for i = 1, T.Steps - 1 do
+		table.insert(outline, level(deckEnd + (i - 1) * T.StepDepth, deckEnd + i * T.StepDepth, T.Height - i * rise))
+	end
+	roundFoot(model, at(area, T.X, 0, T.TopZ + T.DeckDepth + T.RampLength), T.Width, outline, { false, false })
+
 	-- Each handrail follows the line of the step noses, RailHeight above it.
 	for _, side in { -1, 1 } do
 		local x = T.X + side * (T.Width / 2 - T.RailInset)
@@ -351,6 +463,12 @@ local function buildFunbox(parent: Instance, area: MapLayout.Area)
 	CurvedWall.fill(front, FLOOR, options)
 	CurvedWall.fill(back, FLOOR, options)
 	block(model, "Deck", Vector3.new(F.Width, height, F.DeckLength), at(area, F.X, height / 2, F.Z), RAMP_COLOR)
+	local top = joined(
+		FootCurve.curve(0, 1, F.Radius, F.Angle, F.Steps),
+		{ level(depth, depth + F.DeckLength, height) },
+		FootCurve.curve(2 * edge, -1, F.Radius, F.Angle, F.Steps)
+	)
+	roundFoot(model, at(area, F.X, 0, F.Z + edge), F.Width, top, { false, false })
 end
 
 -- A row of giant swings (Swings) hanging from a beam on two A-frames, with a
@@ -430,6 +548,15 @@ local function buildSwings(parent: Instance, area: MapLayout.Area)
 		ramp.Color = RAMP_COLOR
 		ramp.Material = Enum.Material.Concrete
 		ramp.Parent = model
+
+		-- Up the ramp toward the seats. The deck's end by the seats keeps its
+		-- sharp edge, so nothing stands under a seat's swing.
+		local rampFoot = point(side * (inner + W.DeckLength + W.RampLength), 0, 0)
+		local top: { FootCurve.Segment } = {
+			{ from = 0, to = W.RampLength, fromHeight = 0, toHeight = W.SeatHeight },
+			level(W.RampLength, W.RampLength + W.DeckLength, W.SeatHeight),
+		}
+		roundFoot(model, rampFoot * CFrame.Angles(0, side * math.pi / 2, 0), W.DeckWidth, top, { false, false })
 	end
 end
 

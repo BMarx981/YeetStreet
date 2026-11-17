@@ -29,6 +29,9 @@ export type Options = {
 	thickness: number,
 	color: Color3?,
 	material: Enum.Material?,
+	-- Where set, the curve stops at this height and runs flat in to the top
+	-- of the whole curve, for a wall lower than the curve.
+	height: number?,
 }
 
 local function newModel(parent: Instance, name: string, pivot: CFrame): Model
@@ -37,6 +40,15 @@ local function newModel(parent: Instance, name: string, pivot: CFrame): Model
 	model.WorldPivot = pivot
 	model.Parent = parent
 	return model
+end
+
+local function profile(options: Options): { CurveProfile.Plank }
+	if options.height then
+		local depth = CurveProfile.extent(options.radius, options.endAngle)
+		local points = CurveProfile.clip(options.radius, options.endAngle, options.steps, options.height, depth)
+		return CurveProfile.toPlanks(points)
+	end
+	return CurveProfile.planks(options.radius, options.endAngle, options.steps)
 end
 
 local function buildPlank(parent: Instance, base: CFrame, plank: CurveProfile.Plank, width: number, options: Options)
@@ -61,7 +73,7 @@ end
 -- one part can be, it is split into equal pieces.
 function CurvedWall.straight(parent: Instance, base: CFrame, length: number, options: Options): Model
 	local model = newModel(parent, "CurvedWall", base)
-	local planks = CurveProfile.planks(options.radius, options.endAngle, options.steps)
+	local planks = profile(options)
 	local pieces = math.ceil(length / MAX_PART)
 	local pieceLength = length / pieces
 	for i = 1, pieces do
@@ -86,7 +98,7 @@ function CurvedWall.corner(
 	options: Options
 ): Model
 	local model = newModel(parent, "CurvedCorner", pivot)
-	local planks = CurveProfile.planks(options.radius, options.endAngle, options.steps)
+	local planks = profile(options)
 	local sliceAngle = turnAngle / slices
 	for i = 1, slices do
 		local base = pivot * CFrame.Angles(0, math.rad(sliceAngle * (i - 0.5)), 0) * CFrame.new(0, 0, -turnRadius)
@@ -112,7 +124,7 @@ function CurvedWall.outside(
 	options: Options
 ): Model
 	local model = newModel(parent, "OutsideCorner", pivot)
-	local planks = CurveProfile.planks(options.radius, options.endAngle, options.steps)
+	local planks = profile(options)
 	local sliceAngle = turnAngle / slices
 	for i = 1, slices do
 		local base = pivot
