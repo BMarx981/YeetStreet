@@ -108,6 +108,20 @@ function Garage.pay(player: Player, amount: number, reason: string)
 	end
 end
 
+-- Takes up to `amount` cash from the player, never below 0, and returns how
+-- much it took. Only admins take cash, and admin cash is left out of the
+-- economy events (Tuning.Analytics.Unlogged), so nothing is logged.
+function Garage.take(player: Player, amount: number): number
+	local data = PlayerData.get(player)
+	if not data or amount <= 0 then
+		return 0
+	end
+	local taken = math.min(amount, data.Economy.Cash)
+	data.Economy.Cash -= taken
+	publish(player, data.Economy)
+	return taken
+end
+
 local function respawn(player: Player)
 	(ServerStorage:FindFirstChild("ResetPlayerCar") :: BindableEvent):Fire(player)
 end

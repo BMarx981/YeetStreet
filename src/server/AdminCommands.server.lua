@@ -296,7 +296,7 @@ end
 -- Fields: name (string), description (string), usage (string)
 local COMMAND_INFO = {
 	{ name = "kick",      desc = "Kick a player from all servers",                    usage = ":kick <player> [reason]", optionsType = "player" },
-	{ name = "money",      desc = "Give cash to a player or everyone",                 usage = ":money <username|all> <amount>", optionsType = "player_amount" },
+	{ name = "money",      desc = "Give cash (or take it with a negative amount)",       usage = ":money <username|all> <amount>", optionsType = "player_amount" },
 	{ name = "bones",      desc = "Give BoneCoins to yourself, a player, or everyone",     usage = ":bones [amount] or :bones <username|all> <amount>", optionsType = "player_amount" },
 	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
@@ -348,15 +348,22 @@ local COMMANDS = {
 		end
 
 		local amount = tonumber(amountStr)
-		if not amount or amount <= 0 then
-			return "Invalid amount. Use a positive number."
+		if not amount or amount == 0 then
+			return "Invalid amount. Use a number, negative to take cash away."
 		end
 
 		if string.lower(targetName) == "all" then
 			for _, p in Players:GetPlayers() do
-				Garage.pay(p, amount, "Admin")
+				if amount > 0 then
+					Garage.pay(p, amount, "Admin")
+				else
+					Garage.take(p, -amount)
+				end
 			end
-			return "Gave " .. amount .. " cash to all players."
+			if amount > 0 then
+				return "Gave " .. amount .. " cash to all players."
+			end
+			return "Took up to " .. -amount .. " cash from all players."
 		end
 
 		local target = findPlayer(targetName)
@@ -364,8 +371,12 @@ local COMMANDS = {
 			return "Player not found: " .. targetName
 		end
 
-		Garage.pay(target, amount, "Admin")
-		return "Gave " .. amount .. " cash to " .. target.Name .. "."
+		if amount > 0 then
+			Garage.pay(target, amount, "Admin")
+			return "Gave " .. amount .. " cash to " .. target.Name .. "."
+		end
+		local taken = Garage.take(target, -amount)
+		return "Took " .. taken .. " cash from " .. target.Name .. "."
 	end,
 
 	bones = function(adminPlayer, args)
@@ -736,7 +747,7 @@ local COMMANDS = {
   coinrain - Coins fall from the sky! Walk over them to collect $100 each (admin-only)
   bonerain - Dino bones fall from the sky! Collect them for BoneCoins (admin-only)
 :time <0-24> - Set the time of day everywhere
-:money <username|all> <amount> - Give cash to a specific player or everyone
+:money <username|all> <amount> - Give cash to a specific player or everyone; a negative amount takes it away
 :bones [amount] - Give yourself BoneCoins (default 100)
 :bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)

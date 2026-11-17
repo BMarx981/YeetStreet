@@ -761,7 +761,7 @@ local function showOptions(info)
 			amountInput:CaptureFocus()
 			local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
 				local amt = tonumber(amountInput.Text)
-				if amt and amt > 0 then
+				if amt and (amt > 0 or (amt < 0 and info.name == "money")) then
 					sendCommand(info.name .. " all " .. amt)
 					commandListGui.Enabled = false
 				end
@@ -769,7 +769,7 @@ local function showOptions(info)
 			amountInput.FocusLost:Connect(function(enter)
 				if enter then
 					local amt = tonumber(amountInput.Text)
-					if amt and amt > 0 then
+					if amt and (amt > 0 or (amt < 0 and info.name == "money")) then
 						sendCommand(info.name .. " all " .. amt)
 						commandListGui.Enabled = false
 					end
@@ -805,7 +805,7 @@ local function showOptions(info)
 				amountInput:CaptureFocus()
 				local confirmBtn = createOptionButton("Confirm", optionsScroll, function()
 					local amt = tonumber(amountInput.Text)
-					if amt and amt > 0 then
+					if amt and (amt > 0 or (amt < 0 and info.name == "money")) then
 						sendCommand(info.name .. " " .. p.Name .. " " .. amt)
 						commandListGui.Enabled = false
 					end
@@ -813,7 +813,7 @@ local function showOptions(info)
 				amountInput.FocusLost:Connect(function(enter)
 					if enter then
 						local amt = tonumber(amountInput.Text)
-						if amt and amt > 0 then
+						if amt and (amt > 0 or (amt < 0 and info.name == "money")) then
 							sendCommand(info.name .. " " .. p.Name .. " " .. amt)
 							commandListGui.Enabled = false
 						end
