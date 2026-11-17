@@ -161,4 +161,31 @@ Check.test("jets keep their pitch while they fade out", function()
 	Check.near(pitch, 0.9, "pitch")
 end)
 
+local SETTINGS: { EngineSound.Setting } = {
+	{ Name = "On", Volume = 1 },
+	{ Name = "Low", Volume = 0.35 },
+	{ Name = "Off", Volume = 0 },
+}
+
+Check.test("a saved setting that is one of the choices is kept", function()
+	Check.eq(EngineSound.setting("Low", SETTINGS), "Low")
+	Check.eq(EngineSound.setting("Off", SETTINGS), "Off")
+end)
+
+Check.test("no setting or an unknown one falls back to the first choice", function()
+	Check.eq(EngineSound.setting(nil, SETTINGS), "On", "nil")
+	Check.eq(EngineSound.setting("Loud", SETTINGS), "On", "unknown name")
+	Check.eq(EngineSound.setting(2, SETTINGS), "On", "a number")
+end)
+
+Check.test("each setting scales the volume by its own amount", function()
+	Check.near(EngineSound.settingVolume("On", SETTINGS), 1, "on")
+	Check.near(EngineSound.settingVolume("Low", SETTINGS), 0.35, "low")
+	Check.near(EngineSound.settingVolume("Off", SETTINGS), 0, "off")
+end)
+
+Check.test("an unknown setting plays at the first choice's volume", function()
+	Check.near(EngineSound.settingVolume(nil, SETTINGS), 1)
+end)
+
 Check.finish("EngineSound")

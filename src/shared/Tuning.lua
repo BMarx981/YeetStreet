@@ -1441,6 +1441,13 @@ Tuning.EngineSound = {
 	-- Another car is on the ground when a ray this long from the hull's
 	-- center, along the car's down, hits something.
 	GroundProbe = 5,
+	-- The engine sound setting in the CONTROLS panel; the first is the default.
+	-- It scales every car's engine and jet loops, replays too.
+	Settings = {
+		{ Name = "On", Volume = 1 },
+		{ Name = "Low", Volume = 0.35 },
+		{ Name = "Off", Volume = 0 },
+	},
 }
 
 -- The driver's thud on hard hits and the wreck crunch (CrashSound).

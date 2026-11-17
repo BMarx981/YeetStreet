@@ -8,10 +8,17 @@
 -- The car keeps taking input while the panel is open, so players can try a
 -- key while they read about it. The keys here must match Controls,
 -- CarController, and GarageMenu.
+--
+-- Above the controls, a SOUND row picks the engine sound setting
+-- (Tuning.EngineSound.Settings). The server saves it (SoundSettings) and puts
+-- it on the player as the EngineSound attribute, which lights the choice.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
+local EngineSound = require(ReplicatedStorage.EngineSound)
+local Tuning = require(ReplicatedStorage.Tuning)
 local UiStyle = require(script.Parent.UiStyle)
 
 local ControlsMenu = {}
@@ -87,6 +94,7 @@ local TOUCH: { Group } = {
 	},
 }
 
+local SETTINGS = Tuning.EngineSound.Settings
 local ROW = 34
 local KEY_WIDTH = 110
 
@@ -166,6 +174,59 @@ local function build()
 		return made
 	end
 
+	-- The SOUND heading and the ENGINE row, with one sticker per setting.
+	local function soundRow()
+		order += 1
+		local heading = UiStyle.text("Heading", list, 20, true)
+		heading.Text = "SOUND"
+		heading.TextColor3 = UiStyle.Yellow
+		heading.LayoutOrder = order
+		heading.Size = UDim2.new(1, -12, 0, 28)
+
+		order += 1
+		local frame = Instance.new("Frame")
+		frame.Name = "EngineSound"
+		frame.BackgroundColor3 = UiStyle.Ink
+		frame.LayoutOrder = order
+		frame.Size = UDim2.new(1, -12, 0, ROW + 8)
+		frame.Parent = list
+		UiStyle.corner(frame, 6)
+		local key = UiStyle.text("Key", frame, 17, false)
+		key.Text = "ENGINE"
+		key.TextColor3 = UiStyle.Ink
+		key.TextXAlignment = Enum.TextXAlignment.Center
+		key.BackgroundTransparency = 0
+		key.BackgroundColor3 = UiStyle.Yellow
+		key.Position = UDim2.fromOffset(4, 7)
+		key.Size = UDim2.fromOffset(KEY_WIDTH, ROW - 6)
+		UiStyle.corner(key, 5)
+
+		local event = ReplicatedStorage:WaitForChild("EngineSoundEvent") :: RemoteEvent
+		local choices: { [string]: TextButton } = {}
+		local count = #SETTINGS
+		for i, s in SETTINGS do
+			local b = UiStyle.sticker(s.Name, frame, string.upper(s.Name))
+			b.TextSize = 18
+			b.Position = UDim2.new((i - 1) / count, KEY_WIDTH + 14 - (i - 1) * (KEY_WIDTH + 20) / count, 0, 6)
+			b.Size = UDim2.new(1 / count, -(KEY_WIDTH + 20) / count - 6, 1, -12)
+			UiStyle.springy(b)
+			b.Activated:Connect(function()
+				event:FireServer(s.Name)
+			end)
+			choices[s.Name] = b
+		end
+
+		local function light()
+			local current = EngineSound.setting(player:GetAttribute("EngineSound"), SETTINGS)
+			for name, b in choices do
+				UiStyle.setSticker(b, name == current)
+			end
+		end
+		light()
+		player:GetAttributeChangedSignal("EngineSound"):Connect(light)
+	end
+
+	soundRow()
 	local keyboard = section(KEYBOARD)
 	local gamepad = section(GAMEPAD)
 	local touch = section(TOUCH)

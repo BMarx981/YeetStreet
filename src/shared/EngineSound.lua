@@ -5,7 +5,8 @@
 -- engine falls back to idle, since the jets take over. Other players' cars
 -- play a little lower and much quieter than your own. Pitch is a multiplier
 -- on the sound's PlaybackSpeed, volume a fraction of its Volume. Only the
--- closest few other cars play at once (nearest). Pure.
+-- closest few other cars play at once (nearest). The player's engine sound
+-- setting turns them all down or off (setting, settingVolume). Pure.
 
 local EngineSound = {}
 
@@ -83,6 +84,31 @@ function EngineSound.nearest(distances: { number }, count: number, reach: number
 		picked[order[n]] = true
 	end
 	return picked
+end
+
+-- One choice of the engine sound setting: Volume scales every engine and jet
+-- loop, 0 for silent.
+export type Setting = { Name: string, Volume: number }
+
+-- The saved setting's name, or the first choice's when `raw` isn't one of them.
+function EngineSound.setting(raw: any, settings: { Setting }): string
+	for _, s in settings do
+		if s.Name == raw then
+			return s.Name
+		end
+	end
+	return settings[1].Name
+end
+
+-- How much the setting named `name` scales the loops' volume.
+function EngineSound.settingVolume(name: any, settings: { Setting }): number
+	local wanted = EngineSound.setting(name, settings)
+	for _, s in settings do
+		if s.Name == wanted then
+			return s.Volume
+		end
+	end
+	return 1
 end
 
 return EngineSound

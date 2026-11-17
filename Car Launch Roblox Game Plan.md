@@ -362,7 +362,7 @@ Steps, one diff each:
 5. The wreck crunch for everyone nearby and the hit thud on your own car. Written Nov 16 (CrashSound, CarSounds): both played in Play from server signals fired by hand; not yet heard on a real wreck.
 6. The obby chime at each new pad and the fanfare at the finish. Written Nov 16 (ObbySounds, Obby.isFinish): both played in Play from reward messages sent by hand; not yet heard on a real run. A visit that has seen a HeliCar is unpaid, so its pads stay silent too.
 7. Optional: replays play the engine, jet, and wreck sounds. Written Nov 16 (ReplaySounds): the ghost's engine follows its speed, jets follow the clip, and the crunch plays as the replay passes the wreck, which the tape now records (CarWrecked names the car). Slow motion lowers them, pause silences them, and the real car goes quiet. Loads without errors in Play; not yet heard in a replay.
-8. Optional: a sound setting to turn the engine down or off.
+8. Optional: a sound setting to turn the engine down or off. Written Nov 16: a SOUND row at the top of the CONTROLS panel picks On, Low, or Off (Tuning.EngineSound.Settings). It scales every car's engine and jet loops, replays too, but not wrecks, hits, or the obby. It is saved with the player's data (SoundSettings). Checked in Play: each choice saves, lights, and turns the engine down; not yet clicked by hand or tried across a rejoin.
 
 ## Technical approach
 

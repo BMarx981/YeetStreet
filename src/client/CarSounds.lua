@@ -17,6 +17,8 @@
 -- waiting for the server's CarImpact, which comes a network round trip late.
 -- During a replay the local player's car goes quiet (hideOwn), and the
 -- ghost's sounds (ReplaySounds) use loop, play, and crunch from here.
+-- The player's engine sound setting (the EngineSound attribute the server
+-- puts on them) turns every engine and jet loop down or off, the ghost's too.
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
@@ -65,6 +67,14 @@ local airborne = false
 -- Whether the local player's car is hidden for a replay, which has its own sounds.
 local ownHidden = false
 
+-- How much the engine sound setting scales every loop.
+local setting = 1
+local function readSetting()
+	setting = EngineSound.settingVolume(player:GetAttribute("EngineSound"), E.Settings)
+end
+readSetting()
+player:GetAttributeChangedSignal("EngineSound"):Connect(readSetting)
+
 -- Called by CarController every step while the local player drives.
 function CarSounds.drive(throttle: number, inAir: boolean)
 	gas = throttle
@@ -102,10 +112,12 @@ function CarSounds.loop(name: string, spec: Spec, own: boolean, hull: BasePart):
 end
 
 -- Sets a loop's pitch and volume, playing it only while it can be heard.
+-- The engine sound setting scales the volume.
 function CarSounds.play(sound: Sound, spec: Spec, pitch: number, volume: number)
-	if volume > 0 then
+	local heard = volume * setting
+	if heard > 0 then
 		sound.PlaybackSpeed = spec.Pitch * pitch
-		sound.Volume = spec.Volume * volume
+		sound.Volume = spec.Volume * heard
 		if not sound.Playing then
 			sound.Playing = true
 		end
