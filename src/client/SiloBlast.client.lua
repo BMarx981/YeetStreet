@@ -84,6 +84,8 @@ local function boom(parent: Instance, at: Vector3)
 	local sound = Instance.new("Sound")
 	sound.SoundId = B.BoomId
 	sound.Volume = B.BoomVolume
+	sound.RollOffMode = Enum.RollOffMode.Linear
+	sound.RollOffMinDistance = B.BoomFullDistance
 	sound.RollOffMaxDistance = B.BoomReach
 	sound.Parent = speaker
 	sound:Play()

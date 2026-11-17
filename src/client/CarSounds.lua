@@ -97,10 +97,18 @@ local function flying(e: Engine): boolean
 	return workspace:Raycast(e.hull.Position, -e.hull.CFrame.UpVector * E.GroundProbe, rayParams) == nil
 end
 
--- Loops that skip silence at the ends of their file, by sound id.
-local LOOP_REGIONS: { [string]: NumberRange } = {
-	[JET.Id] = NumberRange.new(JET.LoopStart, JET.LoopEnd),
+-- Loops that skip silence at the ends of their file, by sound id. Their seam
+-- still clicks, so each plays with a twin half a loop apart, the two
+-- crossfading (EngineSound.seamGain), each silent `quiet` seconds of the
+-- file either side of its seam.
+type LoopRegion = { range: NumberRange, quiet: number }
+local LOOP_REGIONS: { [string]: LoopRegion } = {
+	[JET.Id] = { range = NumberRange.new(JET.LoopStart, JET.LoopEnd), quiet = JET.SeamQuiet },
 }
+
+-- Each crossfaded loop's twin and quiet time, by the loop CarSounds.loop returned.
+type Twin = { sound: Sound, quiet: number }
+local twins: { [Sound]: Twin } = {}
 
 -- A silent looped sound on the hull that fades out by Reach (OwnReach for
 -- the local player's car).
@@ -112,13 +120,22 @@ function CarSounds.loop(name: string, spec: Spec, own: boolean, hull: BasePart):
 	local region = LOOP_REGIONS[spec.Id]
 	if region then
 		sound.PlaybackRegionsEnabled = true
-		sound.LoopRegion = region
+		sound.LoopRegion = region.range
 	end
 	sound.Volume = 0
 	sound.RollOffMode = Enum.RollOffMode.Linear
 	sound.RollOffMinDistance = if own then E.OwnFullDistance else E.OthersFullDistance
 	sound.RollOffMaxDistance = if own then E.OwnReach else E.Reach
 	sound.Parent = hull
+	if region then
+		local twin = sound:Clone()
+		twin.Name = name .. "Twin"
+		twin.Parent = hull
+		twins[sound] = { sound = twin, quiet = region.quiet }
+		sound.Destroying:Connect(function()
+			twins[sound] = nil
+		end)
+	end
 	return sound
 end
 
@@ -126,14 +143,32 @@ end
 -- The engine sound setting scales the volume.
 function CarSounds.play(sound: Sound, spec: Spec, pitch: number, volume: number)
 	local heard = volume * setting
+	local pair = twins[sound]
+	local twin = if pair then pair.sound else nil
 	if heard > 0 then
 		sound.PlaybackSpeed = spec.Pitch * pitch
-		sound.Volume = spec.Volume * heard
+		if pair and twin then
+			local region, quiet = sound.LoopRegion, pair.quiet
+			if not sound.Playing then
+				twin.TimePosition = EngineSound.twinStart(sound.TimePosition, region.Min, region.Max)
+			end
+			twin.PlaybackSpeed = sound.PlaybackSpeed
+			sound.Volume = spec.Volume * heard * EngineSound.seamGain(sound.TimePosition, region.Min, region.Max, quiet)
+			twin.Volume = spec.Volume * heard * EngineSound.seamGain(twin.TimePosition, region.Min, region.Max, quiet)
+			if not twin.Playing then
+				twin.Playing = true
+			end
+		else
+			sound.Volume = spec.Volume * heard
+		end
 		if not sound.Playing then
 			sound.Playing = true
 		end
 	elseif sound.Playing then
 		sound.Playing = false
+		if twin then
+			twin.Playing = false
+		end
 	end
 end
 

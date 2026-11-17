@@ -1411,8 +1411,16 @@ Tuning.CarSounds = {
 	Engine = { Id = "rbxassetid://5830439961", Pitch = 1, Volume = 0.5 }, -- car engine loop, 11.6 s
 	-- Rocket thruster loop. The file has about 25 ms of silence at its start
 	-- and 30 ms at its end, a gap each time round, so it loops from LoopStart
-	-- to LoopEnd seconds.
-	Jet = { Id = "rbxassetid://558246436", Pitch = 1.5, Volume = 0.5, LoopStart = 0.05, LoopEnd = 2.02 },
+	-- to LoopEnd seconds. Its seam still clicks, so two copies crossfade and
+	-- each is silent for SeamQuiet seconds of the file either side of it.
+	Jet = {
+		Id = "rbxassetid://558246436",
+		Pitch = 1.5,
+		Volume = 0.5,
+		LoopStart = 0.05,
+		LoopEnd = 2.02,
+		SeamQuiet = 0.15,
+	},
 	Wreck = {
 		{ Id = "rbxassetid://125317016080932", Pitch = 1, Volume = 0.8 }, -- heavy vehicle impact
 		{ Id = "rbxassetid://73575488399847", Pitch = 1, Volume = 0.8 }, -- van smash
@@ -2041,8 +2049,9 @@ Tuning.Silo = {
 		ShakeReach = 900, -- studs away that the camera stops shaking
 		ShakeMax = 3, -- studs, at the blast itself
 		ShakeTime = 1.5,
-		BoomId = "rbxassetid://9125484367", -- deep reverberant boom
-		BoomVolume = 2,
+		BoomId = "rbxassetid://341301373", -- doomsday missile blast, 8 s, holds about 6 s then fades
+		BoomVolume = 1,
+		BoomFullDistance = 300, -- studs it plays at full volume, past the rider's watch view
 		BoomReach = 3000,
 	},
 	-- While anyone is armed: red lines up the walls flash, the lamps go red,

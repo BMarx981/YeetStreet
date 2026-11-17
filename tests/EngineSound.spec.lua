@@ -188,4 +188,40 @@ Check.test("an unknown setting plays at the first choice's volume", function()
 	Check.near(EngineSound.settingVolume(nil, SETTINGS), 1)
 end)
 
+Check.test("a crossfaded loop is silent at its seam and full halfway", function()
+	Check.near(EngineSound.seamGain(0.05, 0.05, 2.05, 0.1), 0, "at the start")
+	Check.near(EngineSound.seamGain(2.05, 0.05, 2.05, 0.1), 0, "at the end")
+	Check.near(EngineSound.seamGain(1.05, 0.05, 2.05, 0.1), 1, "halfway")
+end)
+
+Check.test("a crossfaded loop stays silent for its quiet time either side of the seam", function()
+	Check.near(EngineSound.seamGain(0.14, 0.05, 2.05, 0.1), 0, "just after the start")
+	Check.near(EngineSound.seamGain(1.96, 0.05, 2.05, 0.1), 0, "just before the end")
+	Check.eq(EngineSound.seamGain(0.2, 0.05, 2.05, 0.1) > 0, true, "past the quiet time")
+end)
+
+Check.test("a crossfaded loop is at full volume while its twin is quiet", function()
+	Check.near(EngineSound.seamGain(0.98, 0.05, 2.05, 0.1), 1, "just before halfway")
+	Check.near(EngineSound.seamGain(1.12, 0.05, 2.05, 0.1), 1, "just after halfway")
+end)
+
+Check.test("a crossfaded loop outside its region is silent", function()
+	Check.near(EngineSound.seamGain(0, 0.05, 2.05, 0.1), 0, "before")
+	Check.near(EngineSound.seamGain(3, 0.05, 2.05, 0.1), 0, "after")
+end)
+
+Check.test("the twin starts half a loop on, wrapping round the region", function()
+	Check.near(EngineSound.twinStart(0.05, 0.05, 2.05), 1.05, "from the start")
+	Check.near(EngineSound.twinStart(1.55, 0.05, 2.05), 0.55, "wrapped")
+	Check.near(EngineSound.twinStart(0, 0.05, 2.05), 1.05, "from before the region")
+end)
+
+Check.test("two twins half a loop apart keep the same total power", function()
+	for _, t in { 0.05, 0.1, 0.3, 0.8, 1.05, 1.6, 2.0 } do
+		local a = EngineSound.seamGain(t, 0.05, 2.05, 0.1)
+		local b = EngineSound.seamGain(EngineSound.twinStart(t, 0.05, 2.05), 0.05, 2.05, 0.1)
+		Check.near(a * a + b * b, 1, `at {t}`)
+	end
+end)
+
 Check.finish("EngineSound")

@@ -111,4 +111,34 @@ function EngineSound.settingVolume(name: any, settings: { Setting }): number
 	return 1
 end
 
+-- A loop whose seam clicks plays as two twins half a loop apart, each faded
+-- to silence at its own seam while the other is at full volume. This is a
+-- twin's volume at `position` seconds into its file, looping from
+-- `loopStart` to `loopEnd`: 0 for `quiet` seconds either side of the seam,
+-- 1 for as long either side of halfway round, and the two twins' powers
+-- always add up to 1. `quiet` must be under a quarter of the loop.
+function EngineSound.seamGain(position: number, loopStart: number, loopEnd: number, quiet: number): number
+	local length = loopEnd - loopStart
+	local phase = (position - loopStart) / length
+	if phase < 0 or phase > 1 then
+		return 0
+	end
+	local margin = quiet / length
+	local function rise(x: number): number
+		return math.clamp((x - margin) / (0.5 - 2 * margin), 0, 1)
+	end
+	if phase < 0.5 then
+		return math.sin(math.pi / 2 * rise(phase))
+	end
+	return math.cos(math.pi / 2 * rise(phase - 0.5))
+end
+
+-- Where the second twin starts when the first is at `position`: half a loop
+-- on, wrapped round the region.
+function EngineSound.twinStart(position: number, loopStart: number, loopEnd: number): number
+	local length = loopEnd - loopStart
+	local phase = math.clamp((position - loopStart) / length, 0, 1)
+	return loopStart + ((phase + 0.5) % 1) * length
+end
+
 return EngineSound
