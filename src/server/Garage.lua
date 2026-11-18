@@ -44,6 +44,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local Analytics = require(ServerScriptService.Analytics)
 local Leaderstats = require(ServerScriptService.Leaderstats)
 local PlayerData = require(ServerScriptService.PlayerData)
+local TrailService = require(ServerScriptService.TrailService)
 
 local Garage = {}
 
@@ -297,6 +298,7 @@ remote("Rebirth", function(player: Player): (boolean, string?)
 		local after, problem = Rebirth.rebirth(state, data.Rebirths, Tuning.Ladder, Tuning.Rebirth)
 		if after then
 			data.Rebirths = count
+			TrailService.reborn(player)
 			local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))
 			data.ThisWeek = Leaderboard.recordRebirth(week)
 			leaveAdminCar(player)

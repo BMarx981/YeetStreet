@@ -5,7 +5,8 @@
 -- bodies any car can wear (Tuning.AnyBodies) show under every car with a
 -- generated look once the player has one, and can't be bought. Once the
 -- player has won a prize jet flame (FlameService), a JET FLAME row under
--- REBIRTH turns it on and off. The
+-- REBIRTH turns it on and off, and once they have more than one trail to
+-- pick from, a TRAIL row switches between them and off (TrailService). The
 -- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
@@ -33,6 +34,7 @@ local Flames = require(ReplicatedStorage.Flames)
 local Pips = require(ReplicatedStorage.Pips)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Rng = require(ReplicatedStorage.Rng)
+local Trails = require(ReplicatedStorage.Trails)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
 local DinoSpin = require(script.Parent.DinoSpin)
@@ -443,6 +445,7 @@ local function build()
 	end
 	local rebirthRow = row(carsList, 0, "Rebirth")
 	local flameRow = row(carsList, 1, "Jet flame")
+	local trailRow = row(carsList, 2, "Trail")
 	local limitedRows: { [string]: Row } = {}
 	for i, item in Tuning.Limiteds do
 		limitedRows[item.Id] = row(limitedsList, i, item.Name)
@@ -537,6 +540,26 @@ local function build()
 				else `{flameLook.Name} jet flames are off.`
 			setButton(flameRow.button, if lit then "TURN OFF" else "TURN ON", loaded and not busy)
 		end
+
+		local trailsOwned = player:GetAttribute("TrailsOwned")
+		local trailChoice = player:GetAttribute("TrailChoice")
+		local trailState: Trails.State = {
+			Owned = if typeof(trailsOwned) == "string" and trailsOwned ~= ""
+				then string.split(trailsOwned, ",")
+				else {},
+			Choice = if typeof(trailChoice) == "string" then trailChoice else nil,
+		}
+		local trailNow = Trails.current(trailState, rebirths)
+		trailRow.frame.Visible = #Trails.options(trailState, rebirths) > 1
+		if trailNow == "Off" then
+			trailRow.detail.Text = "No trail. SWITCH to pick one."
+		elseif trailNow == "Rebirth" then
+			trailRow.detail.Text = "Your rebirth trail is on."
+		else
+			local look = (Tuning.Trails.Looks :: { [string]: { Name: string? } })[trailNow]
+			trailRow.detail.Text = `{if look and look.Name then look.Name else trailNow} trail is on.`
+		end
+		setButton(trailRow.button, "SWITCH", loaded and not busy)
 
 		for _, ladderCar in Tuning.Ladder do
 			local r = carRows[ladderCar.Id]
@@ -811,6 +834,12 @@ local function build()
 		end
 	end)
 
+	trailRow.button.Activated:Connect(function()
+		if trailRow.button.Active then
+			ask("NextTrail", "", "Trail switched.", trailRow)
+		end
+	end)
+
 	local confirm = RebirthConfirm.new(player:WaitForChild("PlayerGui"))
 	rebirthRow.button.Activated:Connect(function()
 		if not rebirthRow.button.Active then
@@ -1021,6 +1050,8 @@ local function build()
 	table.insert(refreshAttrs, "BodiesOwned_Any")
 	table.insert(refreshAttrs, "FlamesOwned")
 	table.insert(refreshAttrs, "FlameWorn")
+	table.insert(refreshAttrs, "TrailsOwned")
+	table.insert(refreshAttrs, "TrailChoice")
 	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()
 			if open then

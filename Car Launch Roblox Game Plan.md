@@ -401,7 +401,7 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 - Server analytics (AnalyticsService) for onboarding, the economy, and the obby.
 - RunCheck: the server flags faked flights and rail grinds, and keeps them off Best.
 - A CONTROLS panel, a restyled menu, park signs, and admin commands.
-- In progress: a 7-day daily reward (only the pure logic is built).
+- A 7-day daily reward: cash and double cash launches, a DAILY panel with a badge, and week prizes: a gold muscle body any car can wear, a rainbow jet flame, and a rainbow trail, switched in the garage. Built Nov 17, not yet tested with a real account across days.
 
 ## Decisions
 

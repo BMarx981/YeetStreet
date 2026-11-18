@@ -38,6 +38,7 @@ local LaunchRecords = require(ReplicatedStorage.LaunchRecords)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
+local Trails = require(ReplicatedStorage.Trails)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local S = Tuning.Save
@@ -59,6 +60,7 @@ export type Data = {
 	EngineSound: string, -- the engine sound setting's name (EngineSound.setting)
 	Daily: DailyReward.State, -- the daily reward calendar (DailyRewards)
 	Flames: Flames.State, -- prize jet flames (FlameService)
+	Trails: Trails.State, -- prize trails and the trail picked (TrailService)
 }
 
 type Session = {
@@ -114,6 +116,7 @@ local function reconcile(saved: any): Data
 		EngineSound = EngineSound.setting(raw.EngineSound, Tuning.EngineSound.Settings),
 		Daily = DailyReward.reconcile(raw.Daily),
 		Flames = Flames.reconcile(raw.Flames, Tuning.Flames.Looks),
+		Trails = Trails.reconcile(raw.Trails, Tuning.Trails.Prizes),
 	}
 end
 

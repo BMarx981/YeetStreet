@@ -5,7 +5,7 @@
 -- equipped one, with stats from their upgrade levels (Garage), so the first
 -- car waits for their data to load. The car's looks go on it as attributes
 -- (CarParts), and each client builds them (CarVisuals). So does its trail
--- (Trail, from the player's rebirths, see Trails).
+-- (Trail, the one the player picked, see Trails).
 --
 -- Respawns go through ServerStorage.RespawnCar (a BindableEvent fired with a
 -- player and a CFrame, by ScoreService on a reset or wreck): the old car is
@@ -133,7 +133,7 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	car:SetAttribute("CarId", ladderCar.Id)
 	CarParts.setLook(car, ladderCar.Seed, ladderCar.Archetype, ladderCar.Tier, looks, ladderCar.Paint)
 	local data = PlayerData.get(player)
-	car:SetAttribute("Trail", Trails.forRebirths(if data then data.Rebirths else 0, Tuning.Trails.Rebirth))
+	car:SetAttribute("Trail", if data then Trails.worn(data.Trails, data.Rebirths, Tuning.Trails.Rebirth) else nil)
 	car:SetAttribute("Flame", if data then data.Flames.Worn else nil)
 	if player:GetAttribute("HeliCarEquipped") == true then
 		car:SetAttribute("HeliCar", true)

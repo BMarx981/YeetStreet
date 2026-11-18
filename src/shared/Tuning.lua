@@ -74,6 +74,7 @@ Tuning.Daily = {
 	DoubleMultiplier = 2,
 	BodySeed = 1001, -- the any-car body (Tuning.AnyBodies) the DailyBody prize gives
 	FlameLook = "Rainbow", -- the prize flame (Tuning.Flames.Looks) the DailyFlame prize gives
+	TrailLook = "Rainbow", -- the prize trail (Tuning.Trails.Prizes) the DailyTrail prize gives
 }
 
 -- Prize jet flames (Flames, JetFlames.paint), given and never sold, switched
@@ -968,9 +969,11 @@ Tuning.Nameplate = {
 }
 
 -- Car trails (Trails, CarTrail). The server sets each car's Trail attribute
--- to a look id; for now the rebirth trail, one look per rebirth in Rebirth's
--- order, cycling. A trail shows once the car has been in the air LiftDelay
--- seconds, and fades over Lifetime after landing.
+-- to a look id: the rebirth trail, one look per rebirth in Rebirth's order,
+-- cycling, or a prize trail, whichever the player picked in the garage. A
+-- trail shows once the car has been in the air LiftDelay seconds, and fades
+-- over Lifetime after landing. A look has one Color, or Colors that run
+-- along the trail from the car back.
 Tuning.Trails = {
 	Rebirth = { "Rebirth1", "Rebirth2", "Rebirth3" },
 	Looks = {
@@ -978,7 +981,11 @@ Tuning.Trails = {
 		Rebirth1 = { Color = { 0, 230, 255 } },
 		Rebirth2 = { Color = { 255, 40, 200 } },
 		Rebirth3 = { Color = { 255, 200, 40 } },
+		-- The rainbow jet flame's colors.
+		Rainbow = { Name = "Rainbow", Colors = Tuning.Flames.Looks.Rainbow.Colors },
 	},
+	-- Looks that are given as prizes, never earned by rebirthing (TrailService).
+	Prizes = { Rainbow = true },
 	Width = 3, -- studs across, at the back of the hull
 	Lifetime = 1.5, -- seconds each bit of trail lasts
 	LiftDelay = 0.3,

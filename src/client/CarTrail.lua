@@ -9,12 +9,31 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Flames = require(ReplicatedStorage.Flames)
 local Trails = require(ReplicatedStorage.Trails)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Trails
 
-type Look = { Color: { number } }
+-- One Color, or Colors that run along the trail from the car back.
+type Look = { Color: { number }?, Colors: { { number } }? }
+
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- The trail's colors, spaced along it the way a prize flame's are.
+local function sequence(look: Look): ColorSequence
+	local colors = look.Colors or { look.Color :: { number } }
+	if #colors == 1 then
+		return ColorSequence.new(rgb(colors[1]))
+	end
+	local keypoints = {}
+	for i, stop in Flames.stops(#colors) do
+		table.insert(keypoints, ColorSequenceKeypoint.new(stop, rgb(colors[i])))
+	end
+	return ColorSequence.new(keypoints)
+end
 
 local CarTrail = {}
 
@@ -28,7 +47,7 @@ end
 function CarTrail.rebirthColor(rebirths: number): Color3?
 	local id = Trails.forRebirths(rebirths, T.Rebirth)
 	local look = if id then (T.Looks :: { [string]: Look })[id] else nil
-	return if look then Color3.fromRGB(look.Color[1], look.Color[2], look.Color[3]) else nil
+	return if look and look.Color then rgb(look.Color) else nil
 end
 
 -- Gives `car` its trail at the back of `hull`, following its Trail
@@ -60,7 +79,7 @@ function CarTrail.add(car: Model, hull: BasePart)
 	local function showLook()
 		look = lookOf(car)
 		if look then
-			trail.Color = ColorSequence.new(Color3.fromRGB(look.Color[1], look.Color[2], look.Color[3]))
+			trail.Color = sequence(look)
 		else
 			trail.Enabled = false
 		end
