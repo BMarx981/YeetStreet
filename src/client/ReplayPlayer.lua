@@ -20,7 +20,8 @@
 -- The ghost lights up as the car did, from the clip's flips: jet flames
 -- (JetFlames), brake lights (BrakeLights), and lava fire. Flames, smoke, and
 -- fire run on the replay's clock, so they freeze on pause and slow down with
--- it.
+-- it. It also flies the car's trail (CarTrail.ghost), lit in the air as on
+-- a real car, checked on the replay's clock.
 --
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
@@ -69,6 +70,7 @@ local ReplayTape = require(ReplicatedStorage.ReplayTape)
 local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
 local CarPreview = require(script.Parent.CarPreview)
+local CarTrail = require(script.Parent.CarTrail)
 local CarSounds = require(script.Parent.CarSounds)
 local JetFlames = require(script.Parent.JetFlames)
 local ReplayCamera = require(script.Parent.ReplayCamera)
@@ -138,6 +140,7 @@ type Lights = {
 	brakes: { BrakeLights.Brake },
 	fire: Fire,
 	emitters: { ParticleEmitter }, -- the flames' and smoke's, which follow the clock
+	trail: CarTrail.Ghost?,
 	time: number, -- the clip time last shown, to tell a seek
 }
 
@@ -334,7 +337,9 @@ local function lightUp(
 	fire.Heat = T.LavaFireSize * 1.5
 	fire.Enabled = false
 	fire.Parent = addHolder(ghost, pieces, "FireHolder", Vector3.one, CFrame.new())
-	return { flames = flames, brakes = brakes, fire = fire, emitters = emitters, time = 0 }
+	local hull = addHolder(ghost, pieces, "TrailHolder", Tuning.Chassis.HullSize, CFrame.new())
+	local trail = CarTrail.ghost(ghost, hull)
+	return { flames = flames, brakes = brakes, fire = fire, emitters = emitters, trail = trail, time = 0 }
 end
 
 -- The ghost car for `replay`, its pieces, and its lights, built at the
@@ -562,6 +567,9 @@ local function showLights(now: Playing, dt: number)
 		if seek then
 			emitter:Clear()
 		end
+	end
+	if lights.trail then
+		CarTrail.showGhost(lights.trail, dt * scale, seek)
 	end
 end
 
