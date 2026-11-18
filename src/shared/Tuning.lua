@@ -721,7 +721,7 @@ Tuning.LaunchRecordSigns = {
 -- start at 1001 so they never match a car's own seed or a body on its list.
 -- Paint colors the whole body (CarDesign).
 Tuning.AnyBodies = {
-	{ Seed = 1001, Archetype = "wedge", Paint = { 212, 160, 30 } }, -- the daily reward's gold body
+	{ Seed = 1001, Archetype = "muscle", Paint = { 212, 160, 30 } }, -- the daily reward's gold body
 }
 
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
