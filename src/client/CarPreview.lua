@@ -82,8 +82,9 @@ function CarPreview.new(parent: Instance, fit: number?): Preview
 	end
 
 	local function set(car: Economy.Car, levels: Economy.Levels)
+		local paint = car.Paint
 		local key =
-			`{car.Look}|{car.Seed}|{car.Archetype}|{car.Tier}|{levels.Speed}|{levels.Jets}|{levels.Toughness}|{levels.Grip}|{levels.Brakes}`
+			`{car.Look}|{car.Seed}|{car.Archetype}|{car.Tier}|{levels.Speed}|{levels.Jets}|{levels.Toughness}|{levels.Grip}|{levels.Brakes}|{if paint then table.concat(paint, ",") else ""}`
 		if key == shown then
 			return
 		end
@@ -91,7 +92,7 @@ function CarPreview.new(parent: Instance, fit: number?): Preview
 		if model then
 			model:Destroy()
 		end
-		local input = { archetype = car.Archetype, tier = car.Tier, levels = levels }
+		local input = { archetype = car.Archetype, tier = car.Tier, levels = levels, paint = paint }
 		local design = CarDesign.design(Rng.new(car.Seed), input, CarKit, Tuning.CarLooks)
 		local built = Instance.new("Model")
 		built.Name = "Car"

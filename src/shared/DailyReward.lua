@@ -122,6 +122,15 @@ function DailyReward.claim(state: State, today: number, tuning: Tuning): (State,
 		reward
 end
 
+-- The week prizes `state` has been given so far, in order.
+function DailyReward.prizesEarned(state: State, tuning: Tuning): { string }
+	local earned = {}
+	for i = 1, math.min(state.Weeks, #tuning.WeekPrizes) do
+		table.insert(earned, tuning.WeekPrizes[i])
+	end
+	return earned
+end
+
 -- Days claimed in a row as of UTC day `today`: 0 once a day has been missed.
 function DailyReward.streak(state: State, today: number): number
 	if state.Streak > 0 and today <= state.LastDay + 1 then

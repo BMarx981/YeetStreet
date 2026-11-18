@@ -72,6 +72,9 @@ export type Input = {
 	archetype: string,
 	tier: string,
 	levels: Levels,
+	-- Paints the whole body this color (a prize body's gold) in the kit's
+	-- PaintFinish, with the same shape the seed gives without it.
+	paint: Color?,
 }
 
 export type Looks = {
@@ -135,6 +138,7 @@ export type Kit = {
 	FlameColors: { Color },
 	Names: { [string]: { string } },
 	NameSuffixes: { string },
+	PaintFinish: { Material: string, Gloss: number }, -- a painted body's finish (Input.paint)
 }
 
 -- How a part is painted.
@@ -266,6 +270,14 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 		heights[i] = zoneHeight + jitter
 		sliceColors[i] = if tier.Mismatched and not shape.Paint then pick(rng, tier.Paints) else mainPaint
 	end
+	-- Picked above all the same, so the rest of the car comes out unchanged.
+	local override = input.paint
+	if override then
+		mainPaint = override
+		for i = 1, count do
+			sliceColors[i] = override
+		end
+	end
 
 	local name = pick(rng, kit.Names[input.tier])
 	if rng.next() < 0.5 then
@@ -273,12 +285,16 @@ function CarDesign.design(rng: Rng, input: Input, kit: Kit, looks: Looks): Desig
 	end
 
 	local function bodyPaint(color: Color): Paint
+		if override then
+			local finish = kit.PaintFinish
+			return { color = color, material = finish.Material, reflectance = finish.Gloss, role = "body" }
+		end
 		return { color = color, material = tier.Material, reflectance = tier.Gloss, role = "body" }
 	end
 	local trimPaint: Paint = { color = tier.Trim, material = "Metal", reflectance = 0, role = "trim" }
 	local paintedTrim: Paint = { color = mainPaint, material = tier.Material, reflectance = tier.Gloss, role = "trim" }
 	local glassPaint: Paint = { color = tier.Glass, material = "Glass", reflectance = 0.2, role = "glass" }
-	local roofPaint = bodyPaint(if tier.Accents and not shape.Paint then accent else mainPaint)
+	local roofPaint = bodyPaint(if tier.Accents and not shape.Paint and not override then accent else mainPaint)
 
 	local function sliceZ(i: number): number
 		return -length / 2 + (i - 0.5) * sliceLength

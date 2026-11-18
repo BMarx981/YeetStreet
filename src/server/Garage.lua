@@ -78,9 +78,12 @@ local function publish(player: Player, state: Economy.State)
 	for _, car in Tuning.Ladder do
 		if car.Bodies then
 			player:SetAttribute(`BodiesOwned_{car.Id}`, table.concat(state.Bodies[car.Id] or {}, ","))
-			player:SetAttribute(`BodyWorn_{car.Id}`, Economy.wornSeed(state, car))
+		end
+		if car.Bodies or car.Look == nil then
+			player:SetAttribute(`BodyWorn_{car.Id}`, Economy.wornSeed(state, car, Tuning.AnyBodies))
 		end
 	end
+	player:SetAttribute("BodiesOwned_Any", table.concat(Economy.anyBodiesOwned(state), ","))
 	Leaderstats.value(player, "Cash").Value = state.Cash
 end
 
@@ -94,7 +97,8 @@ function Garage.car(player: Player): (Economy.Car?, Economy.CarStats?, Economy.L
 	local state = data.Economy
 	local car = Economy.findCar(Tuning.Ladder, state.Equipped) or Tuning.Ladder[1]
 	local stats = Economy.stats(Tuning.StarterCar, state.Levels, car, Tuning.Upgrades.Steps)
-	return Economy.withSeed(car, Economy.wornSeed(state, car)), stats, Economy.lookLevels(state.Levels, car)
+	local seed = Economy.wornSeed(state, car, Tuning.AnyBodies)
+	return Economy.withSeed(car, seed, Tuning.AnyBodies), stats, Economy.lookLevels(state.Levels, car)
 end
 
 -- Adds `amount` cash for `reason` (a source in Tuning.Analytics), if the
@@ -243,11 +247,12 @@ remote("WearBody", function(player: Player, id: any, seed: any): (boolean, strin
 	end
 	local car = Economy.findCar(Tuning.Ladder, id)
 	local data = PlayerData.get(player)
-	if car and data and data.Economy.Equipped == id and Economy.wornSeed(data.Economy, car) == seed then
+	local worn = if car and data then Economy.wornSeed(data.Economy, car, Tuning.AnyBodies) else nil
+	if data and data.Economy.Equipped == id and worn == seed then
 		return true, nil
 	end
 	return request(player, function(state)
-		local after, reason = Economy.wearBody(state, id, seed, Tuning.Ladder)
+		local after, reason = Economy.wearBody(state, id, seed, Tuning.Ladder, Tuning.AnyBodies)
 		if after then
 			leaveAdminCar(player)
 		end
@@ -416,6 +421,20 @@ function Garage.giveCar(player: Player, id: string)
 		table.insert(data.Economy.Cars, id)
 		publish(player, data.Economy)
 		Analytics.gotCar(player, #data.Economy.Cars == 2)
+	end
+end
+
+-- Gives the player the any-car body `seed` (Tuning.AnyBodies), saved. Does
+-- nothing if they already have it.
+function Garage.giveAnyBody(player: Player, seed: number)
+	local data = PlayerData.get(player)
+	if not data then
+		return
+	end
+	local after = Economy.giveAnyBody(data.Economy, seed, Tuning.AnyBodies)
+	if after then
+		data.Economy = after
+		publish(player, after)
 	end
 end
 

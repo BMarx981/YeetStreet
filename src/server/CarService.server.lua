@@ -131,7 +131,7 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	car.Name = `Car_{player.Name}`
 	car:SetAttribute("OwnerUserId", player.UserId)
 	car:SetAttribute("CarId", ladderCar.Id)
-	CarParts.setLook(car, ladderCar.Seed, ladderCar.Archetype, ladderCar.Tier, looks)
+	CarParts.setLook(car, ladderCar.Seed, ladderCar.Archetype, ladderCar.Tier, looks, ladderCar.Paint)
 	local data = PlayerData.get(player)
 	car:SetAttribute("Trail", Trails.forRebirths(if data then data.Rebirths else 0, Tuning.Trails.Rebirth))
 	if player:GetAttribute("HeliCarEquipped") == true then

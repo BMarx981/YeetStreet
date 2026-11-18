@@ -483,6 +483,35 @@ Check.test("breakable lists a slot's parts in a fixed order", function()
 	end
 end)
 
+Check.test("a paint override colors the whole body and keeps the shape", function()
+	local gold = { 230, 180, 40 }
+	for _, archetype in ARCHETYPES do
+		for _, tier in TIERS do
+			local plain = design(7, archetype, tier)
+			local painted = CarDesign.design(
+				Rng.new(7),
+				{ archetype = archetype, tier = tier, levels = ZERO, paint = gold },
+				CarKit,
+				LOOKS
+			)
+			local label = `{archetype} {tier}`
+			Check.eq(#painted.parts, #plain.parts, `{label} part count`)
+			Check.eq(painted.name, plain.name, `{label} name`)
+			for i, part in painted.parts do
+				local other = plain.parts[i]
+				Check.eq(part.name, other.name, `{label} part {i}`)
+				Check.eq(part.position.x, other.position.x, `{label} {part.name} x`)
+				Check.eq(part.size.y, other.size.y, `{label} {part.name} height`)
+				if part.role == "body" then
+					Check.eq(table.concat(part.color, ","), "230,180,40", `{label} {part.name} color`)
+					Check.eq(part.material, CarKit.PaintFinish.Material, `{label} {part.name} material`)
+					Check.eq(part.reflectance, CarKit.PaintFinish.Gloss, `{label} {part.name} shine`)
+				end
+			end
+		end
+	end
+end)
+
 Check.test("junkers have mismatched panels; street cars are one color", function()
 	local function tubColors(d: CarDesign.Design): { [string]: boolean }
 		local colors = {}

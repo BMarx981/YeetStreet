@@ -10,8 +10,9 @@
 -- The client asks to claim on ReplicatedStorage.DailyClaimEvent. The server
 -- checks the day by its own clock, pays the cash (Garage.pay, source Daily),
 -- adds the double cash launches, and answers on the same event with the
--- reward (DailyReward.Reward). Week prizes are counted in Weeks but not
--- given yet.
+-- reward (DailyReward.Reward). Week prizes are given as they're won, and
+-- again on join for any earned before a prize existed (DailyBody, the gold
+-- any-car body, Garage.giveAnyBody). Prizes not built yet are only counted.
 --
 -- ScoreService asks launchMultiplier for each run's payout. A double launch
 -- is used only by a run that pays something.
@@ -82,6 +83,13 @@ function DailyRewards.reset(player: Player): boolean
 	return true
 end
 
+-- Gives a week prize, if it's one that exists yet. Giving one twice does nothing.
+local function givePrize(player: Player, prize: string)
+	if prize == "DailyBody" then
+		Garage.giveAnyBody(player, T.BodySeed)
+	end
+end
+
 local event = ReplicatedStorage:WaitForChild("DailyClaimEvent") :: RemoteEvent
 
 local function claim(player: Player)
@@ -95,6 +103,9 @@ local function claim(player: Player)
 	end
 	set(player, after)
 	Garage.pay(player, reward.Cash, "Daily")
+	if reward.Prize then
+		givePrize(player, reward.Prize)
+	end
 	event:FireClient(player, reward)
 end
 
@@ -104,6 +115,9 @@ local function onPlayerAdded(player: Player)
 	local data = PlayerData.waitFor(player)
 	if data then
 		show(player, data.Daily)
+		for _, prize in DailyReward.prizesEarned(data.Daily, T) do
+			givePrize(player, prize)
+		end
 	end
 end
 

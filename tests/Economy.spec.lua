@@ -459,6 +459,74 @@ Check.test("wearBody refuses bodies that aren't owned", function()
 	Check.eq(noCar, "NotOwned", "needs the car first")
 end)
 
+-- Bodies any car with a generated look can wear, once given.
+local ANY: { Economy.Body } = { { Seed = 1001, Archetype = "wedge", Paint = { 230, 180, 40 } } }
+
+-- The test ladder plus a car with its own fixed look.
+local WITH_LOOK = table.clone(LADDER)
+table.insert(WITH_LOOK, {
+	Id = "Axolotl",
+	Name = "Axolotl",
+	Price = 0,
+	Bonus = 0,
+	Caps = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5, Brakes = 5 },
+	Seed = 1,
+	Archetype = "hatch",
+	Tier = "Supercar",
+	Look = "Axolotl",
+})
+
+Check.test("giveAnyBody gives an any-car body once", function()
+	local s = Economy.newState(LADDER)
+	local after = Economy.giveAnyBody(s, 1001, ANY) :: Economy.State
+	Check.eq(after.Bodies.Any[1], 1001)
+	Check.eq(s.Bodies.Any, nil, "old state unchanged")
+	local _, again = Economy.giveAnyBody(after, 1001, ANY)
+	Check.eq(again, "Owned")
+	local _, unknown = Economy.giveAnyBody(s, 4, ANY)
+	Check.eq(unknown, "UnknownBody")
+end)
+
+Check.test("an any-car body can be worn on every car with a generated look", function()
+	local s = Economy.giveAnyBody(muscleOwner(0), 1001, ANY) :: Economy.State
+	for _, id in { "Junker", "Muscle" } do
+		local car = Economy.findCar(LADDER, id) :: Economy.Car
+		local worn = Economy.wearBody(s, id, 1001, LADDER, ANY) :: Economy.State
+		Check.eq(Economy.wornSeed(worn, car, ANY), 1001, id)
+		Check.eq(worn.Equipped, id, `{id} equipped`)
+	end
+end)
+
+Check.test("an any-car body isn't worn before it's given", function()
+	local _, reason = Economy.wearBody(muscleOwner(0), "Muscle", 1001, LADDER, ANY)
+	Check.eq(reason, "NotOwned")
+end)
+
+Check.test("a car with its own look can't wear an any-car body", function()
+	local s = Economy.giveAnyBody(Economy.newState(WITH_LOOK), 1001, ANY) :: Economy.State
+	s.Cars = { "Junker", "Axolotl" }
+	local _, reason = Economy.wearBody(s, "Axolotl", 1001, WITH_LOOK, ANY)
+	Check.eq(reason, "NotOwned")
+	s.Worn = { Axolotl = 1001 }
+	Check.eq(Economy.wornSeed(s, Economy.findCar(WITH_LOOK, "Axolotl") :: Economy.Car, ANY), 1, "falls back")
+end)
+
+Check.test("withSeed dresses a car in an any-car body's type and paint", function()
+	local car = Economy.findCar(LADDER, "Junker") :: Economy.Car
+	local dressed = Economy.withSeed(car, 1001, ANY)
+	Check.eq(dressed.Seed, 1001)
+	Check.eq(dressed.Archetype, "wedge")
+	Check.eq(table.concat(dressed.Paint :: { number }, ","), "230,180,40")
+	Check.eq(dressed.Tier, "Junker", "keeps its tier")
+	Check.eq(Economy.withSeed(car, 1).Paint, nil, "its own seed has no paint")
+end)
+
+Check.test("an any-car body's seed isn't found without the any-car list", function()
+	local s = Economy.giveAnyBody(muscleOwner(0), 1001, ANY) :: Economy.State
+	s.Worn = { Muscle = 1001 }
+	Check.eq(Economy.wornSeed(s, Economy.findCar(LADDER, "Muscle") :: Economy.Car), 3)
+end)
+
 Check.test("withSeed changes only the looks", function()
 	local car = Economy.findCar(LADDER, "Muscle") :: Economy.Car
 	local dressed = Economy.withSeed(car, 5)

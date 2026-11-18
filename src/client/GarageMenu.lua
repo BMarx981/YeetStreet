@@ -1,7 +1,9 @@
 --!strict
 -- GarageMenu (ModuleScript) -> StarterPlayerScripts.GarageMenu
 -- The garage panel: buy upgrade levels and ladder cars, equip owned cars, and
--- buy and wear other bodies for a car whose ladder entry lists some. The
+-- buy and wear other bodies for a car whose ladder entry lists some. Prize
+-- bodies any car can wear (Tuning.AnyBodies) show under every car with a
+-- generated look once the player has one, and can't be bought. The
 -- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
@@ -59,6 +61,7 @@ type BodyRow = CarRow & {
 	seed: number,
 	name: string,
 	kind: string, -- says the car type, such as "Hover body."
+	prize: boolean, -- an any-car body, given and never sold
 }
 
 -- A car's bodies: a row that shows or hides the list, and the list itself.
@@ -158,6 +161,30 @@ local function bodiesOwned(car: Economy.Car): { number }
 		end
 	end
 	return seeds
+end
+
+-- The any-car bodies the player has, from Garage's BodiesOwned_Any.
+local function anyBodiesOwned(): { number }
+	local value = player:GetAttribute("BodiesOwned_Any")
+	local seeds = {}
+	if typeof(value) == "string" and value ~= "" then
+		for _, text in string.split(value, ",") do
+			table.insert(seeds, tonumber(text) :: number)
+		end
+	end
+	return seeds
+end
+
+-- The bodies a car can wear besides its own seed: its list, then the
+-- any-car bodies if it has a generated look.
+local function wearable(car: Economy.Car): { Economy.Body }
+	local bodies = table.clone(car.Bodies or {})
+	if car.Look == nil then
+		for _, body in Tuning.AnyBodies do
+			table.insert(bodies, body)
+		end
+	end
+	return bodies
 end
 
 local function bodyWorn(car: Economy.Car): number
@@ -365,11 +392,13 @@ local function build()
 			table.insert(seeds, body.Seed)
 		end
 		for k, seed in seeds do
-			local archetype = Economy.withSeed(car, seed).Archetype
+			local archetype = Economy.withSeed(car, seed, Tuning.AnyBodies).Archetype
 			local input = { archetype = archetype, tier = car.Tier, levels = BARE }
 			local name = CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks).name
 			local r = carRow(order + k, name)
 			r.frame.Visible = false
+			local prize = k - 1 > #(car.Bodies or {}) -- wearable puts the any-car bodies last
+			local what = if prize then "prize body" else "body"
 			table.insert(rows, {
 				frame = r.frame,
 				detail = r.detail,
@@ -377,7 +406,8 @@ local function build()
 				preview = r.preview,
 				seed = seed,
 				name = name,
-				kind = `{string.upper(string.sub(archetype, 1, 1))}{string.sub(archetype, 2)} body.`,
+				kind = `{string.upper(string.sub(archetype, 1, 1))}{string.sub(archetype, 2)} {what}.`,
+				prize = prize,
 			})
 		end
 		return rows
@@ -392,10 +422,11 @@ local function build()
 		else
 			local order = i * 100 -- room for the car's body rows right under it
 			carRows[car.Id] = carRow(order, car.Name)
-			if car.Bodies then
+			local bodies = wearable(car)
+			if #bodies > 0 then
 				bodyLists[car.Id] = {
 					toggle = row(carsList, order + 1, `{car.Name} bodies`),
-					rows = bodyRows(car, car.Bodies, order + 1),
+					rows = bodyRows(car, bodies, order + 1),
 					showing = false,
 				}
 			end
@@ -491,7 +522,10 @@ local function build()
 			-- Built the first time the Cars tab shows, with the player's levels
 			-- as that car would count them.
 			if open and tab == "Cars" then
-				r.preview.set(Economy.withSeed(ladderCar, bodyWorn(ladderCar)), Economy.lookLevels(lv, ladderCar))
+				r.preview.set(
+					Economy.withSeed(ladderCar, bodyWorn(ladderCar), Tuning.AnyBodies),
+					Economy.lookLevels(lv, ladderCar)
+				)
 			end
 			if ladderCar.Id == equipped and not inAdminCar() then
 				setButton(r.button, "DRIVING", false)
@@ -510,16 +544,31 @@ local function build()
 			if list then
 				local ownsCar = table.find(cars, ladderCar.Id) ~= nil
 				local bought = bodiesOwned(ladderCar)
+				local given = anyBodiesOwned()
 				local worn = bodyWorn(ladderCar)
 				local price = ladderCar.BodyPrice or 0
+				local function hasBody(body: BodyRow): boolean
+					return body.seed == ladderCar.Seed
+						or table.find(if body.prize then given else bought, body.seed) ~= nil
+				end
+				local ownedCount = 0
+				for _, body in list.rows do
+					if hasBody(body) then
+						ownedCount += 1
+					end
+				end
+				-- A car with no list of its own shows its bodies once the
+				-- player has a prize body to put on it.
+				local listed = ladderCar.Bodies ~= nil or #given > 0
+				list.toggle.frame.Visible = listed
 				list.toggle.detail.Text = if ownsCar
-					then `{#bought + 1} of {#list.rows} owned. Same stats, new shape.`
+					then `{ownedCount} of {#list.rows} owned. Same stats, new shape.`
 					else `{#list.rows} shapes to collect once you own the {ladderCar.Name}.`
 				setButton(list.toggle.button, if list.showing then "HIDE" else "SHOW", true)
 				for _, body in list.rows do
-					body.frame.Visible = list.showing
-					if open and tab == "Cars" and list.showing then
-						body.preview.set(Economy.withSeed(ladderCar, body.seed), BARE)
+					body.frame.Visible = listed and list.showing
+					if open and tab == "Cars" and listed and list.showing then
+						body.preview.set(Economy.withSeed(ladderCar, body.seed, Tuning.AnyBodies), BARE)
 					end
 					if not ownsCar then
 						body.detail.Text = `{body.kind} Buy the {ladderCar.Name} to use it.`
@@ -527,9 +576,14 @@ local function build()
 					elseif body.seed == worn then
 						body.detail.Text = `{body.kind} On your {ladderCar.Name} now.`
 						setButton(body.button, "WEARING", false)
-					elseif body.seed == ladderCar.Seed or table.find(bought, body.seed) then
+					elseif hasBody(body) then
 						body.detail.Text = `{body.kind} Yours. Same stats, different shape.`
 						setButton(body.button, "WEAR", loaded and not busy)
+					elseif body.prize then
+						body.detail.Text = if body.seed == Tuning.Daily.BodySeed
+							then `{body.kind} Win it on day 7 of the daily reward.`
+							else `{body.kind} Won as a prize, never sold.`
+						setButton(body.button, "PRIZE", false)
 					else
 						body.detail.Text = `{body.kind} Same stats as your {ladderCar.Name}.`
 						setButton(body.button, `$ {withCommas(price)}`, loaded and not busy and money >= price, true)
@@ -694,7 +748,8 @@ local function build()
 					if not body.button.Active then
 						return
 					end
-					if body.seed == ladderCar.Seed or table.find(bodiesOwned(ladderCar), body.seed) then
+					local given = if body.prize then anyBodiesOwned() else bodiesOwned(ladderCar)
+					if body.seed == ladderCar.Seed or table.find(given, body.seed) then
 						ask("WearBody", ladderCar.Id, `Your {ladderCar.Name} is now the {body.name}.`, body, body.seed)
 					else
 						ask("BuyBody", ladderCar.Id, `Bought the {body.name}. Press WEAR to put it on.`, body, body.seed)
@@ -926,6 +981,7 @@ local function build()
 		table.insert(refreshAttrs, `BodiesOwned_{id}`)
 		table.insert(refreshAttrs, `BodyWorn_{id}`)
 	end
+	table.insert(refreshAttrs, "BodiesOwned_Any")
 	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()
 			if open then

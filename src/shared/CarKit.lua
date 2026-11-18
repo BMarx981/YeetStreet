@@ -373,4 +373,7 @@ CarKit.Names = {
 }
 CarKit.NameSuffixes = { "Mk II", "Mk III", "GT", "X", "Turbo", "Deluxe" }
 
+-- The finish of a body painted one color (a prize body's gold), on any tier.
+CarKit.PaintFinish = { Material = "Metal", Gloss = 0.3 }
+
 return CarKit

@@ -262,4 +262,16 @@ Check.test("the streak counts while it can still go on", function()
 	Check.eq(DailyReward.streak(DailyReward.newState(), 1000), 0, "never claimed")
 end)
 
+Check.test("prizesEarned lists the week prizes given so far", function()
+	Check.eq(#DailyReward.prizesEarned(DailyReward.newState(), T), 0, "none yet")
+	local state = claimDays(1000, 7)
+	local one = DailyReward.prizesEarned(state, T)
+	Check.eq(#one, 1)
+	Check.eq(one[1], "A")
+	state.Weeks = 5
+	local all = DailyReward.prizesEarned(state, T)
+	Check.eq(#all, 3, "no more than there are")
+	Check.eq(all[3], "C")
+end)
+
 Check.finish("DailyReward")

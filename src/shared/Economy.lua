@@ -40,11 +40,13 @@ export type Car = {
 	-- stats. Seeds are what get saved, so each is used once per car.
 	Bodies: { Body }?,
 	BodyPrice: number?,
+	Paint: { number }?, -- the worn body's paint, set by withSeed
 }
 
 export type Body = {
 	Seed: number,
 	Archetype: string,
+	Paint: { number }?, -- paints the whole body this color (CarDesign)
 }
 
 -- A limited edition item from Tuning.Limiteds.
@@ -348,9 +350,14 @@ function Economy.equip(state: State, id: string): (State?, string?)
 	return after, nil
 end
 
-local function findBody(car: Car, seed: number): Body?
-	if car.Bodies then
-		for _, body in car.Bodies do
+-- Where a player's any-car bodies are kept in State.Bodies. Any-car bodies
+-- are given, never bought, and every car with a generated look (no Look) can
+-- wear them. Functions that take `anyBodies` (Tuning.AnyBodies) know them.
+local ANY = "Any"
+
+local function inList(bodies: { Body }?, seed: number): Body?
+	if bodies then
+		for _, body in bodies do
 			if body.Seed == seed then
 				return body
 			end
@@ -359,34 +366,69 @@ local function findBody(car: Car, seed: number): Body?
 	return nil
 end
 
-local function onBodyList(car: Car, seed: number): boolean
-	return findBody(car, seed) ~= nil
+local function findBody(car: Car, seed: number, anyBodies: { Body }?): Body?
+	return inList(car.Bodies, seed) or if car.Look == nil then inList(anyBodies, seed) else nil
 end
 
-local function ownsBody(state: State, car: Car, seed: number): boolean
+local function onBodyList(car: Car, seed: number, anyBodies: { Body }?): boolean
+	return findBody(car, seed, anyBodies) ~= nil
+end
+
+local function ownsBody(state: State, car: Car, seed: number, anyBodies: { Body }?): boolean
+	if seed == car.Seed then
+		return true
+	end
 	local bought = state.Bodies[car.Id]
-	return seed == car.Seed or (bought ~= nil and table.find(bought, seed) ~= nil)
+	if bought ~= nil and table.find(bought, seed) ~= nil then
+		return true
+	end
+	local given = state.Bodies[ANY]
+	return car.Look == nil and inList(anyBodies, seed) ~= nil and given ~= nil and table.find(given, seed) ~= nil
 end
 
--- The seed this car wears: its own, unless the player owns another on its list.
-function Economy.wornSeed(state: State, car: Car): number
+-- The seed this car wears: its own, unless the player owns another on its
+-- list or an any-car body.
+function Economy.wornSeed(state: State, car: Car, anyBodies: { Body }?): number
 	local worn = state.Worn[car.Id]
-	if worn and onBodyList(car, worn) and ownsBody(state, car, worn) then
+	if worn and onBodyList(car, worn, anyBodies) and ownsBody(state, car, worn, anyBodies) then
 		return worn
 	end
 	return car.Seed
 end
 
--- The same car with another seed's looks, in that body's car type if it's on
--- the list. Nothing else about it changes.
-function Economy.withSeed(car: Car, seed: number): Car
+-- The same car with another seed's looks, in that body's car type and paint
+-- if it's on the list or an any-car body. Nothing else about it changes.
+function Economy.withSeed(car: Car, seed: number, anyBodies: { Body }?): Car
 	local dressed = table.clone(car)
 	dressed.Seed = seed
-	local body = findBody(car, seed)
+	local body = findBody(car, seed, anyBodies)
 	if body then
 		dressed.Archetype = body.Archetype
+		dressed.Paint = body.Paint
 	end
 	return dressed
+end
+
+-- Gives the any-car body `seed`. Fails with "UnknownBody" or "Owned".
+function Economy.giveAnyBody(state: State, seed: number, anyBodies: { Body }): (State?, string?)
+	if not inList(anyBodies, seed) then
+		return nil, "UnknownBody"
+	end
+	local given = state.Bodies[ANY] or {}
+	if table.find(given, seed) then
+		return nil, "Owned"
+	end
+	local after = table.clone(state)
+	after.Bodies = table.clone(state.Bodies)
+	local kept = table.clone(given)
+	table.insert(kept, seed)
+	after.Bodies[ANY] = kept
+	return after, nil
+end
+
+-- The any-car bodies the player has been given, as seeds.
+function Economy.anyBodiesOwned(state: State): { number }
+	return state.Bodies[ANY] or {}
 end
 
 -- Buys a body for an owned car without putting it on. Fails with "UnknownCar",
@@ -420,12 +462,18 @@ end
 
 -- Puts an owned body on an owned car and gets in it, so the body shows right
 -- away. Fails with "UnknownCar" or "NotOwned".
-function Economy.wearBody(state: State, id: string, seed: number, ladder: { Car }): (State?, string?)
+function Economy.wearBody(
+	state: State,
+	id: string,
+	seed: number,
+	ladder: { Car },
+	anyBodies: { Body }?
+): (State?, string?)
 	local car = Economy.findCar(ladder, id)
 	if not car then
 		return nil, "UnknownCar"
 	end
-	if not table.find(state.Cars, id) or not ownsBody(state, car, seed) then
+	if not table.find(state.Cars, id) or not ownsBody(state, car, seed, anyBodies) then
 		return nil, "NotOwned"
 	end
 	local after = table.clone(state)

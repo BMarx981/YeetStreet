@@ -75,11 +75,20 @@ function CarParts.brokenAttribute(slot: CarDesign.Slot): string
 	return `Broken{string.upper(string.sub(slot, 1, 1))}{string.sub(slot, 2)}`
 end
 
--- Writes a car's looks onto its model.
-function CarParts.setLook(car: Model, seed: number, archetype: string, tier: string, levels: CarDesign.Levels)
+-- Writes a car's looks onto its model. `paint` colors the whole body
+-- (CarDesign), as the Paint attribute.
+function CarParts.setLook(
+	car: Model,
+	seed: number,
+	archetype: string,
+	tier: string,
+	levels: CarDesign.Levels,
+	paint: { number }?
+)
 	car:SetAttribute("Seed", seed)
 	car:SetAttribute("Archetype", archetype)
 	car:SetAttribute("Tier", tier)
+	car:SetAttribute("Paint", if paint then Color3.fromRGB(paint[1], paint[2], paint[3]) else nil)
 	car:SetAttribute("LevelSpeed", levels.Speed)
 	car:SetAttribute("LevelJets", levels.Jets)
 	car:SetAttribute("LevelToughness", levels.Toughness)
@@ -110,7 +119,11 @@ function CarParts.designFor(car: Model): CarDesign.Design?
 		return nil
 	end
 	local levels = { Speed = speed, Jets = jets, Toughness = toughness, Grip = grip, Brakes = brakes }
-	local input = { archetype = archetype, tier = tier, levels = levels }
+	local color = car:GetAttribute("Paint")
+	local paint = if typeof(color) == "Color3"
+		then { math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5) }
+		else nil
+	local input = { archetype = archetype, tier = tier, levels = levels, paint = paint }
 	return CarDesign.design(Rng.new(seed), input, CarKit, Tuning.CarLooks)
 end
 

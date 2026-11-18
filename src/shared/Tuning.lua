@@ -72,6 +72,7 @@ Tuning.Daily = {
 	},
 	WeekPrizes = { "DailyBody", "DailyFlame", "DailyTrail" },
 	DoubleMultiplier = 2,
+	BodySeed = 1001, -- the any-car body (Tuning.AnyBodies) the DailyBody prize gives
 }
 
 -- Analytics (see AnalyticsEvents and the server's Analytics). Logged only in
@@ -713,6 +714,14 @@ Tuning.LaunchRecordSigns = {
 		-- at the causeway's end, outside the boulders.
 		VolcanoVent = { Back = true, Ahead = -466, Out = -195 },
 	} :: { [string]: { Back: boolean?, Side: number?, Ahead: number?, Out: number?, Turn: number? } },
+}
+
+-- Bodies every car with a generated look can wear (not the Axolotl or the
+-- dino cars), given as prizes and never sold (Economy.giveAnyBody). Seeds
+-- start at 1001 so they never match a car's own seed or a body on its list.
+-- Paint colors the whole body (CarDesign).
+Tuning.AnyBodies = {
+	{ Seed = 1001, Archetype = "wedge", Paint = { 212, 160, 30 } }, -- the daily reward's gold body
 }
 
 -- The car ladder, cheapest first. A new player owns the first car. Caps are the
