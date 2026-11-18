@@ -11,8 +11,9 @@
 -- checks the day by its own clock, pays the cash (Garage.pay, source Daily),
 -- adds the double cash launches, and answers on the same event with the
 -- reward (DailyReward.Reward). Week prizes are given as they're won, and
--- again on join for any earned before a prize existed (DailyBody, the gold
--- any-car body, Garage.giveAnyBody). Prizes not built yet are only counted.
+-- again on join for any earned before a prize existed: DailyBody, the gold
+-- any-car body (Garage.giveAnyBody), and DailyFlame, the rainbow jet flame
+-- (FlameService.give). Prizes not built yet are only counted.
 --
 -- ScoreService asks launchMultiplier for each run's payout. A double launch
 -- is used only by a run that pays something.
@@ -22,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local DailyReward = require(ReplicatedStorage.DailyReward)
+local FlameService = require(ServerScriptService.FlameService)
 local Garage = require(ServerScriptService.Garage)
 local PlayerData = require(ServerScriptService.PlayerData)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -87,6 +89,8 @@ end
 local function givePrize(player: Player, prize: string)
 	if prize == "DailyBody" then
 		Garage.giveAnyBody(player, T.BodySeed)
+	elseif prize == "DailyFlame" then
+		FlameService.give(player, T.FlameLook)
 	end
 end
 

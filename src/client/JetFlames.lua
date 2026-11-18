@@ -3,10 +3,12 @@
 -- The flame, smoke trail, and glow out of the back of a car's thrusters,
 -- sized and colored for the car's Jets look (Tuning.JetFlames). CarVisuals
 -- puts them on every car's thrusters and lights them while its JetsBurning
--- attribute is true.
+-- attribute is true. A car with a prize flame on (its Flame attribute, see
+-- Flames) burns in that flame's colors instead (paint, colorsFor).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Flames = require(ReplicatedStorage.Flames)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local F = Tuning.JetFlames
@@ -78,6 +80,47 @@ function JetFlames.add(thruster: BasePart, color: Color3, step: number): Jet
 		glow = light
 	end
 	return { emitters = { flame, smoke }, glow = glow }
+end
+
+-- The colors a car's flames burn in: its prize flame's, from its Flame
+-- attribute, or else just `jetColor`, its Jets level color.
+function JetFlames.colorsFor(car: Model, jetColor: Color3): { Color3 }
+	local id = car:GetAttribute("Flame")
+	local look = if typeof(id) == "string" then (Tuning.Flames.Looks :: { [string]: Flames.Look })[id] else nil
+	if not look then
+		return { jetColor }
+	end
+	local colors = {}
+	for _, c in look.Colors do
+		table.insert(colors, Color3.fromRGB(c[1], c[2], c[3]))
+	end
+	return colors
+end
+
+-- Recolors the flames and glows of `jets`: one color burns white-hot at the
+-- nozzle, as add does, and several run from the nozzle out (Flames.stops).
+-- The glow takes the first color.
+function JetFlames.paint(jets: { Jet }, colors: { Color3 })
+	local sequence
+	if #colors == 1 then
+		sequence = ColorSequence.new(colors[1]:Lerp(Color3.new(1, 1, 1), 0.6), colors[1])
+	else
+		local keypoints = {}
+		for i, stop in Flames.stops(#colors) do
+			table.insert(keypoints, ColorSequenceKeypoint.new(stop, colors[i]))
+		end
+		sequence = ColorSequence.new(keypoints)
+	end
+	for _, jet in jets do
+		for _, emitter in jet.emitters do
+			if emitter.Name == "JetFlame" then
+				emitter.Color = sequence
+			end
+		end
+		if jet.glow then
+			jet.glow.Color = colors[1]
+		end
+	end
 end
 
 -- Turns `jets` on or off.

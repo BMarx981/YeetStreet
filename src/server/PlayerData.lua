@@ -32,6 +32,7 @@ local RunService = game:GetService("RunService")
 local DailyReward = require(ReplicatedStorage.DailyReward)
 local Economy = require(ReplicatedStorage.Economy)
 local EngineSound = require(ReplicatedStorage.EngineSound)
+local Flames = require(ReplicatedStorage.Flames)
 local Invites = require(ReplicatedStorage.Invites)
 local LaunchRecords = require(ReplicatedStorage.LaunchRecords)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
@@ -57,6 +58,7 @@ export type Data = {
 	Rebirths: number, -- times reborn (Rebirth)
 	EngineSound: string, -- the engine sound setting's name (EngineSound.setting)
 	Daily: DailyReward.State, -- the daily reward calendar (DailyRewards)
+	Flames: Flames.State, -- prize jet flames (FlameService)
 }
 
 type Session = {
@@ -111,6 +113,7 @@ local function reconcile(saved: any): Data
 		Rebirths = Rebirth.count(raw.Rebirths),
 		EngineSound = EngineSound.setting(raw.EngineSound, Tuning.EngineSound.Settings),
 		Daily = DailyReward.reconcile(raw.Daily),
+		Flames = Flames.reconcile(raw.Flames, Tuning.Flames.Looks),
 	}
 end
 

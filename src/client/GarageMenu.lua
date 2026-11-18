@@ -3,7 +3,9 @@
 -- The garage panel: buy upgrade levels and ladder cars, equip owned cars, and
 -- buy and wear other bodies for a car whose ladder entry lists some. Prize
 -- bodies any car can wear (Tuning.AnyBodies) show under every car with a
--- generated look once the player has one, and can't be bought. The
+-- generated look once the player has one, and can't be bought. Once the
+-- player has won a prize jet flame (FlameService), a JET FLAME row under
+-- REBIRTH turns it on and off. The
 -- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
@@ -27,6 +29,7 @@ local CarDesign = require(ReplicatedStorage.CarDesign)
 local CarKit = require(ReplicatedStorage.CarKit)
 local DinoBox = require(ReplicatedStorage.DinoBox)
 local Economy = require(ReplicatedStorage.Economy)
+local Flames = require(ReplicatedStorage.Flames)
 local Pips = require(ReplicatedStorage.Pips)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Rng = require(ReplicatedStorage.Rng)
@@ -149,6 +152,12 @@ end
 
 local function limitedsOwned(): { string }
 	local value = player:GetAttribute("LimitedsOwned")
+	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
+end
+
+-- The prize flames the player has (FlameService's FlamesOwned), oldest first.
+local function flamesOwned(): { string }
+	local value = player:GetAttribute("FlamesOwned")
 	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
 end
 
@@ -433,6 +442,7 @@ local function build()
 		end
 	end
 	local rebirthRow = row(carsList, 0, "Rebirth")
+	local flameRow = row(carsList, 1, "Jet flame")
 	local limitedRows: { [string]: Row } = {}
 	for i, item in Tuning.Limiteds do
 		limitedRows[item.Id] = row(limitedsList, i, item.Name)
@@ -513,6 +523,19 @@ local function build()
 			rebirthRow.detail.Text =
 				`{done}Own the {if needsCar then needsCar.Name else needs} to rebirth for {nextPay}.`
 			setButton(rebirthRow.button, "LOCKED", false)
+		end
+
+		local flames = flamesOwned()
+		local newest = flames[#flames]
+		local flameLook = if newest then (Tuning.Flames.Looks :: { [string]: Flames.Look })[newest] else nil
+		local flameOn = player:GetAttribute("FlameWorn")
+		local lit = typeof(flameOn) == "string" and flameOn ~= ""
+		flameRow.frame.Visible = flameLook ~= nil
+		if flameLook then
+			flameRow.detail.Text = if lit
+				then `{flameLook.Name} jet flames are on. Off shows your Jets level colors.`
+				else `{flameLook.Name} jet flames are off.`
+			setButton(flameRow.button, if lit then "TURN OFF" else "TURN ON", loaded and not busy)
 		end
 
 		for _, ladderCar in Tuning.Ladder do
@@ -774,6 +797,20 @@ local function build()
 			end
 		end)
 	end
+	flameRow.button.Activated:Connect(function()
+		if not flameRow.button.Active then
+			return
+		end
+		local flames = flamesOwned()
+		local newest = flames[#flames]
+		local flameOn = player:GetAttribute("FlameWorn")
+		if typeof(flameOn) == "string" and flameOn ~= "" then
+			ask("WearFlame", "", "Jet flames back to your Jets level colors.", flameRow)
+		elseif newest then
+			ask("WearFlame", newest, "Prize jet flames on.", flameRow)
+		end
+	end)
+
 	local confirm = RebirthConfirm.new(player:WaitForChild("PlayerGui"))
 	rebirthRow.button.Activated:Connect(function()
 		if not rebirthRow.button.Active then
@@ -982,6 +1019,8 @@ local function build()
 		table.insert(refreshAttrs, `BodyWorn_{id}`)
 	end
 	table.insert(refreshAttrs, "BodiesOwned_Any")
+	table.insert(refreshAttrs, "FlamesOwned")
+	table.insert(refreshAttrs, "FlameWorn")
 	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()
 			if open then

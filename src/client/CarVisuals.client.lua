@@ -729,6 +729,15 @@ local function setUp(car: Model)
 	end
 	car:GetAttributeChangedSignal("JetsBurning"):Connect(lightFlames)
 
+	-- A prize flame (the Flame attribute) can be switched on or off while
+	-- the car is out.
+	local jetColor = rgb(design.flameColor)
+	local function paintFlames()
+		JetFlames.paint(jets, JetFlames.colorsFor(car, jetColor))
+	end
+	paintFlames()
+	car:GetAttributeChangedSignal("Flame"):Connect(paintFlames)
+
 	lightWhileBraking(car, brakes)
 
 	for _, slot in CarParts.Slots do

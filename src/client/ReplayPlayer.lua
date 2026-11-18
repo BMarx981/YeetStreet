@@ -315,6 +315,13 @@ local function lightUp(
 		local part = addHolder(ghost, pieces, "Nozzle", nozzle.size, nozzle.cframe)
 		table.insert(flames, { part = part, jets = { JetFlames.add(part, color, step) } })
 	end
+	local all: { JetFlames.Jet } = {}
+	for _, flame in flames do
+		for _, jet in flame.jets do
+			table.insert(all, jet)
+		end
+	end
+	JetFlames.paint(all, JetFlames.colorsFor(ghost, color))
 	local emitters: { ParticleEmitter } = {}
 	for _, flame in flames do
 		for _, emitter in flame.jets[1].emitters do

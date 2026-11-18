@@ -73,6 +73,25 @@ Tuning.Daily = {
 	WeekPrizes = { "DailyBody", "DailyFlame", "DailyTrail" },
 	DoubleMultiplier = 2,
 	BodySeed = 1001, -- the any-car body (Tuning.AnyBodies) the DailyBody prize gives
+	FlameLook = "Rainbow", -- the prize flame (Tuning.Flames.Looks) the DailyFlame prize gives
+}
+
+-- Prize jet flames (Flames, JetFlames.paint), given and never sold, switched
+-- on and off in the garage. Colors run from the nozzle out.
+Tuning.Flames = {
+	Looks = {
+		Rainbow = {
+			Name = "Rainbow",
+			Colors = {
+				{ 255, 60, 60 },
+				{ 255, 160, 40 },
+				{ 255, 235, 60 },
+				{ 80, 220, 90 },
+				{ 70, 160, 255 },
+				{ 190, 100, 255 },
+			},
+		},
+	},
 }
 
 -- Analytics (see AnalyticsEvents and the server's Analytics). Logged only in
