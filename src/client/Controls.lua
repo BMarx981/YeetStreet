@@ -12,14 +12,16 @@
 --             D-pad up wings or rotor, B fire
 --   Touch     see TouchControls
 -- No input reaches the car while the garage panel, teleport menu, invite
--- panel, or obby stage select is open (GarageMenu, TeleportMenu, InviteMenu,
--- ObbyHud), or while a replay plays (ReplayPlayer).
+-- panel, daily reward panel, or obby stage select is open (GarageMenu,
+-- TeleportMenu, InviteMenu, DailyMenu, ObbyHud), or while a replay plays
+-- (ReplayPlayer).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Tuning = require(ReplicatedStorage.Tuning)
+local DailyMenu = require(script.Parent.DailyMenu)
 local GarageMenu = require(script.Parent.GarageMenu)
 local InviteMenu = require(script.Parent.InviteMenu)
 local ObbyHud = require(script.Parent.ObbyHud)
@@ -59,6 +61,7 @@ function Controls.read(): Frame
 		GarageMenu.isOpen()
 		or TeleportMenu.isOpen()
 		or InviteMenu.isOpen()
+		or DailyMenu.isOpen()
 		or ObbyHud.isOpen()
 		or ReplayPlayer.isPlaying()
 	then

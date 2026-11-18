@@ -122,6 +122,39 @@ function DailyReward.claim(state: State, today: number, tuning: Tuning): (State,
 		reward
 end
 
+-- Days claimed in a row as of UTC day `today`: 0 once a day has been missed.
+function DailyReward.streak(state: State, today: number): number
+	if state.Streak > 0 and today <= state.LastDay + 1 then
+		return state.Streak
+	end
+	return 0
+end
+
+-- How each day of the calendar shows on UTC day `today`: "got" if claimed
+-- in this run through the calendar, "ready" if it can be claimed now, and
+-- "later" otherwise.
+export type Tile = "got" | "ready" | "later"
+function DailyReward.tiles(state: State, today: number, length: number): { Tile }
+	local status = DailyReward.status(state, today, length)
+	local tiles: { Tile } = {}
+	for day = 1, length do
+		if day < status.Day or (day == status.Day and not status.CanClaim) then
+			tiles[day] = "got"
+		elseif day == status.Day then
+			tiles[day] = "ready"
+		else
+			tiles[day] = "later"
+		end
+	end
+	return tiles
+end
+
+-- `seconds` as hours, minutes, and seconds, such as 5:03:09.
+function DailyReward.countdown(seconds: number): string
+	local whole = math.max(math.floor(seconds), 0)
+	return string.format("%d:%02d:%02d", whole // 3600, whole // 60 % 60, whole % 60)
+end
+
 -- `state` after a run that pays `payout` before doubling, and the multiplier
 -- for that payout. A run that pays nothing, such as an early wreck, keeps
 -- its double launch.

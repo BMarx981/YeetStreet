@@ -89,10 +89,10 @@ local function build(toggle: () -> (), play: (ReplayRecorder.Replay) -> ())
 	gui.DisplayOrder = 5 -- above the HUD and touch buttons
 
 	-- Top right, in the Roblox top bar so the player list can't cover it. Left
-	-- of the TELEPORT button, so no hole shows while it is hidden.
+	-- of the DAILY button, so no hole shows while it is hidden.
 	local open = UiStyle.sticker("Open", gui, "REPLAY")
 	open.AnchorPoint = Vector2.new(1, 1)
-	open.Position = UDim2.new(1, -396, 0, -4)
+	open.Position = UDim2.new(1, -524, 0, -4)
 	open.Size = UDim2.fromOffset(120, 32)
 	open.Visible = false
 	UiStyle.springy(open)
