@@ -519,7 +519,7 @@ Tuning.Obby = {
 					{ Kind = "Road", Length = 100 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
 					{ Kind = "Gap", Length = 60 },
-					{ Kind = "Ring", Length = 4, Width = 36, Height = 24, Lift = 15 },
+					{ Kind = "Ring", Length = 4, Width = 36, Height = 24, Lift = 2 },
 					{ Kind = "Gap", Length = 60, Rise = 15 },
 					{ Kind = "Road", Length = 100 },
 					{ Kind = "Ramp", Length = 24, Rise = 8, Boost = 130 },
