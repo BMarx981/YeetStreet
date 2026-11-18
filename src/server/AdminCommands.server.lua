@@ -307,6 +307,7 @@ local COMMAND_INFO = {
 	{ name = "axolotl",    desc = "Turn the Axolotl Throttle on or off for you or a player", usage = ":axolotl [playerName]",  optionsType = "player" },
 	{ name = "raptor",     desc = "Turn the mesh Velociraptor on or off for you or a player", usage = ":raptor [playerName]",  optionsType = "player" },
 	{ name = "givecar",    desc = "Add a ladder car (or all dino cars) to a garage, saved", usage = ":givecar <car|dinos> [playerName]", optionsType = "text" },
+	{ name = "daily",      desc = "Open the next daily reward now, or start a player's calendar over", usage = ":daily <next|reset> [playerName]", optionsType = "text" },
 	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
@@ -681,6 +682,30 @@ local COMMANDS = {
 		end
 		local where = if checkpoint == 0 then "the obby start" else "obby pad " .. checkpoint
 		return target.Name .. " is on " .. where .. "."
+	end,
+
+	-- Moves a player's daily reward calendar along for testing: next opens the
+	-- next day's claim now, reset starts them over as if they never claimed.
+	daily = function(adminPlayer, args)
+		local action, targetName = string.match(args, "(%S+)%s*(%S*)")
+		action = string.lower(action or "")
+		if action ~= "next" and action ~= "reset" then
+			return "Usage: :daily <next|reset> [playerName]"
+		end
+		local target = if targetName and targetName ~= "" then findPlayer(targetName) else adminPlayer
+		if not target then
+			return "Player not found: " .. targetName
+		end
+
+		local DailyRewards = require(game:GetService("ServerScriptService").DailyRewards)
+		local done = if action == "next" then DailyRewards.skipDay(target) else DailyRewards.reset(target)
+		if not done then
+			return target.Name .. "'s data hasn't loaded yet."
+		end
+		if action == "next" then
+			return target.Name .. " can claim the next daily reward now."
+		end
+		return target.Name .. "'s daily reward starts over at day 1."
 	end,
 
 	promote = function(adminPlayer, args)

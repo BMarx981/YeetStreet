@@ -100,6 +100,7 @@ Tuning.Analytics = {
 		InviteFriends = "Invite",
 		BoneRain = "Gameplay",
 		BoneTrade = "Shop", -- cash bought with bones at the Bone Trader
+		Daily = "TimedReward", -- a daily reward claim's cash (DailyRewards)
 	},
 	-- What cash or bones were spent on, with its transaction type. The item
 	-- SKU is the kind and its id, such as Upgrade_Jets or Car_Hatchback.

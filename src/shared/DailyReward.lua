@@ -122,14 +122,27 @@ function DailyReward.claim(state: State, today: number, tuning: Tuning): (State,
 		reward
 end
 
--- `state` after one run payout, and the multiplier for that payout.
-function DailyReward.useLaunch(state: State, tuning: Tuning): (State, number)
-	if state.DoubleLaunches <= 0 then
+-- `state` after a run that pays `payout` before doubling, and the multiplier
+-- for that payout. A run that pays nothing, such as an early wreck, keeps
+-- its double launch.
+function DailyReward.useLaunch(state: State, tuning: Tuning, payout: number): (State, number)
+	if state.DoubleLaunches <= 0 or payout <= 0 then
 		return state, 1
 	end
 	local after = table.clone(state)
 	after.DoubleLaunches -= 1
 	return after, tuning.DoubleMultiplier
+end
+
+-- `state` with its last claim a day earlier, so the next day's claim is
+-- open now. For testing (the :daily admin command).
+function DailyReward.skipDay(state: State): State
+	if state.Streak <= 0 then
+		return state
+	end
+	local after = table.clone(state)
+	after.LastDay -= 1
+	return after
 end
 
 return DailyReward

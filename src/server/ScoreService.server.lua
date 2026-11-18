@@ -119,6 +119,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local Analytics = require(ServerScriptService.Analytics)
 local CarDamage = require(ServerScriptService.CarDamage)
+local DailyRewards = require(ServerScriptService.DailyRewards)
 local Garage = require(ServerScriptService.Garage)
 local InviteRewards = require(ServerScriptService.InviteRewards)
 local Leaderstats = require(ServerScriptService.Leaderstats)
@@ -445,7 +446,9 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local data = PlayerData.get(watch.player)
 	local reborn = Rebirth.payMultiplier(if data then data.Rebirths else 0, Tuning.Rebirth)
 	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player) * reborn
-	local paid = Economy.payout(score.total, rate)
+	-- A flagged run is never doubled, and doesn't use up a double launch.
+	local daily = if flagged then 1 else DailyRewards.launchMultiplier(watch.player, Economy.payout(score.total, rate))
+	local paid = Economy.payout(score.total, rate * daily)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
 	if watch.launcher and not flagged then

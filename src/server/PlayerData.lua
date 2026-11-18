@@ -29,6 +29,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local DailyReward = require(ReplicatedStorage.DailyReward)
 local Economy = require(ReplicatedStorage.Economy)
 local EngineSound = require(ReplicatedStorage.EngineSound)
 local Invites = require(ReplicatedStorage.Invites)
@@ -55,6 +56,7 @@ export type Data = {
 	ObbyCleared: boolean, -- whether the obby's world prize has been paid
 	Rebirths: number, -- times reborn (Rebirth)
 	EngineSound: string, -- the engine sound setting's name (EngineSound.setting)
+	Daily: DailyReward.State, -- the daily reward calendar (DailyRewards)
 }
 
 type Session = {
@@ -108,6 +110,7 @@ local function reconcile(saved: any): Data
 		ObbyCleared = raw.ObbyCleared == true,
 		Rebirths = Rebirth.count(raw.Rebirths),
 		EngineSound = EngineSound.setting(raw.EngineSound, Tuning.EngineSound.Settings),
+		Daily = DailyReward.reconcile(raw.Daily),
 	}
 end
 
