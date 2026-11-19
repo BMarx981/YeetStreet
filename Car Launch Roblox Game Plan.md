@@ -391,6 +391,35 @@ Steps, one diff each:
 7. Optional: replays play the engine, jet, and wreck sounds. Written Nov 16 (ReplaySounds): the ghost's engine follows its speed, jets follow the clip, and the crunch plays as the replay passes the wreck, which the tape now records (CarWrecked names the car). Slow motion lowers them, pause silences them, and the real car goes quiet. Loads without errors in Play; not yet heard in a replay.
 8. Optional: a sound setting to turn the engine down or off. Written Nov 16: a SOUND row at the top of the CONTROLS panel picks On, Low, or Off (Tuning.EngineSound.Settings). It scales every car's engine and jet loops, replays too, but not wrecks, hits, or the obby. It is saved with the player's data (SoundSettings). Checked in Play: each choice saves, lights, and turns the engine down; not yet clicked by hand or tried across a rejoin. On a two-player Local Server (Nov 17), Off silences cars only for the player who picked it.
 
+## Tutorial
+
+New players spawn seated in a car at the hub with the hub ramp straight ahead, and nothing tells them what to do. Most players decide in the first minute whether to stay.
+
+### Tutorial picks (Nov 19, 2026)
+
+Brian's picks:
+
+- **Style:** one short prompt at a time on screen, moving on as soon as the player does the thing. They play the real game at the real hub ramp the whole time.
+- **Steps:** drive to the ramp, jets and air control, then score and crash. The garage and upgrades are not part of it.
+- **Who:** new players, once ever, saved in their data. A Skip button ends it, and the CONTROLS panel can replay it.
+- **Reward:** none. The first runs already pay cash.
+
+Claude's calls:
+
+- The steps, in order: Drive (hold gas), Ramp (an arrow over the hub ramp until a run starts), Jets (hold jets in the air), Tilt (spin or tip the nose in the air), Land (land it or crash it, both pay), then a short Finish message after the run ends. If a run ends before Jets or Tilt is done, the prompt asks for another launch and the arrow comes back.
+- Prompts name the player's own controls: keyboard keys, gamepad buttons, or the touch buttons, from the last input they used.
+- Saved players from before the tutorial count as done if they have ever scored a run (Best above 0), so testers don't get it.
+- Only finishing or skipping saves. A player who leaves partway sees it again next time.
+- Replaying from CONTROLS teleports the car to the hub first, so the ramp is ahead.
+- Text, holds, and speeds live in Tuning.Tutorial.
+
+Steps, one diff each:
+
+1. Pure Tutorial module and tests: the step machine, the prompt for each step, the text for each device, and the saved flag for old records. Done Nov 19 (25 tests).
+2. The saved flag: TutorialDone in PlayerData, put on the player as an attribute, and set by a TutorialEvent from the client on finish or skip. Written Nov 19 (TutorialService): Brian's record loads as done in Play; finish and skip not yet saved by a real new account.
+3. The prompt panel, the Skip button, and the ramp arrow on the client, fed each frame from CarController. Written Nov 19 (TutorialHints): the first prompt and SKIP show in Play; the arrow and the later steps not yet seen or driven.
+4. A TUTORIAL button in the CONTROLS panel that teleports to the hub and starts it again. Written Nov 19 (PLAY THE TUTORIAL, under SOUND), not yet clicked.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.

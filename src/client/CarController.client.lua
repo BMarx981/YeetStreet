@@ -97,6 +97,7 @@ local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 local TrainSet = require(script.Parent.TrainSet)
+local TutorialHints = require(script.Parent.TutorialHints)
 
 local player = Players.LocalPlayer :: Player
 
@@ -162,6 +163,8 @@ local rig: Rig? = nil
 local defaultControls: any = nil
 local fuel = 0
 local burning = false
+-- This frame's input, for the tutorial (TutorialHints).
+local lastInput: Controls.Frame? = nil
 -- What the server was last told about the jets burning in the T-Rex's jaws.
 local heldJetsSent = false
 -- What the server was last told about this car's jets burning (JetsBurningEvent).
@@ -340,6 +343,7 @@ local function endRun(result: RunTracker.Result)
 	Hud.result(result, Scoring.score(result, Tuning.Score), false)
 	Hud.live(nil)
 	tricksShown = 0
+	TutorialHints.runEnded()
 end
 
 -- Feeds this step to RunTracker, from the same CarSensor sample the server
@@ -626,6 +630,7 @@ end
 
 local function step(r: Rig, dt: number)
 	local input = Controls.read()
+	lastInput = input
 	local cf = r.hull.CFrame
 	local velocity = r.hull.AssemblyLinearVelocity
 	local forwardSpeed = velocity:Dot(cf.LookVector)
@@ -1107,6 +1112,19 @@ RunService.PreSimulation:Connect(function(dt: number)
 	if current then
 		step(current, dt)
 		ReplayRecorder.step(current.hull, current.sensor.contact.airborne or run.phase == "flying")
+		local input = lastInput
+		if input then
+			TutorialHints.frame({
+				dt = dt,
+				speed = current.hull.AssemblyLinearVelocity.Magnitude,
+				inRun = run.phase == "flying",
+				throttle = input.throttle,
+				steer = input.steer,
+				pitch = input.pitch,
+				roll = input.roll,
+				burning = burning,
+			})
+		end
 	end
 end)
 
@@ -1121,6 +1139,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		hudHidden = replaying
 		Hud.setVisible(not replaying)
 		TouchControls.setVisible(not replaying)
+		TutorialHints.setVisible(not replaying)
 	end
 	if replaying then
 		return

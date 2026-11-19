@@ -3802,4 +3802,41 @@ Tuning.Dino = {
 	},
 }
 
+-- The first-session tutorial (Tutorial, TutorialHints). One prompt shows at a
+-- time, naming the player's own controls. The arrow floats Arrow.Height above
+-- the start of the hub ramp while the player should head for it.
+Tuning.Tutorial = {
+	DriveSpeed = 20, -- studs per second with the gas held to finish Drive
+	JetHold = 0.5, -- seconds of jets in a run to finish Jets
+	TiltInput = 0.5, -- how far a steer, gas, brake, or stick input counts as tilting
+	TiltHold = 0.5, -- seconds of tilting in a run to finish Tilt
+	FinishTime = 5, -- seconds the last line shows
+	Arrow = { X = 0, Z = Tuning.TestPark.RampStartZ, Height = 30 },
+	Text = {
+		Drive = { Keyboard = "Hold W to drive", Gamepad = "Hold RT to drive", Touch = "Hold GAS to drive" },
+		Ramp = {
+			Keyboard = "Steer with A and D. Hit the ramp!",
+			Gamepad = "Steer with the left stick. Hit the ramp!",
+			Touch = "Steer with < and >. Hit the ramp!",
+		},
+		Again = { Keyboard = "Hit the ramp again!", Gamepad = "Hit the ramp again!", Touch = "Hit the ramp again!" },
+		Jets = { Keyboard = "Hold SHIFT for jets!", Gamepad = "Hold A for jets!", Touch = "Hold JETS!" },
+		Tilt = {
+			Keyboard = "A and D spin. W and S tip the nose.",
+			Gamepad = "The left stick spins and tips the nose.",
+			Touch = "< and > spin. GAS and BRAKE tip the nose.",
+		},
+		Land = {
+			Keyboard = "Land it or crash it. Both pay!",
+			Gamepad = "Land it or crash it. Both pay!",
+			Touch = "Land it or crash it. Both pay!",
+		},
+		Finish = {
+			Keyboard = "Airtime, tricks, and crashes pay cash. Go again!",
+			Gamepad = "Airtime, tricks, and crashes pay cash. Go again!",
+			Touch = "Airtime, tricks, and crashes pay cash. Go again!",
+		},
+	},
+}
+
 return Tuning

@@ -40,6 +40,7 @@ local Purchases = require(ReplicatedStorage.Purchases)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
 local Trails = require(ReplicatedStorage.Trails)
+local Tutorial = require(ReplicatedStorage.Tutorial)
 local Tuning = require(ReplicatedStorage.Tuning)
 
 local S = Tuning.Save
@@ -63,6 +64,7 @@ export type Data = {
 	Flames: Flames.State, -- prize jet flames (FlameService)
 	Trails: Trails.State, -- prize trails and the trail picked (TrailService)
 	Purchases: Purchases.State, -- Robux receipts already granted (RobuxShop)
+	TutorialDone: boolean, -- finished or skipped the tutorial (TutorialService)
 }
 
 type Session = {
@@ -120,6 +122,7 @@ local function reconcile(saved: any): Data
 		Flames = Flames.reconcile(raw.Flames, Tuning.Flames.Looks),
 		Trails = Trails.reconcile(raw.Trails, Tuning.Trails.Prizes),
 		Purchases = Purchases.reconcile(raw.Purchases),
+		TutorialDone = Tutorial.reconcile(raw.TutorialDone, raw.Best),
 	}
 end
 

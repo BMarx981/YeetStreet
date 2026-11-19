@@ -12,6 +12,8 @@
 -- Above the controls, a SOUND row picks the engine sound setting
 -- (Tuning.EngineSound.Settings). The server saves it (SoundSettings) and puts
 -- it on the player as the EngineSound attribute, which lights the choice.
+-- Under it, PLAY THE TUTORIAL teleports the car to the hub and starts the
+-- tutorial again (TutorialHints).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +21,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local EngineSound = require(ReplicatedStorage.EngineSound)
 local Tuning = require(ReplicatedStorage.Tuning)
+local TutorialHints = require(script.Parent.TutorialHints)
 local UiStyle = require(script.Parent.UiStyle)
 
 local ControlsMenu = {}
@@ -95,6 +98,7 @@ local TOUCH: { Group } = {
 }
 
 local SETTINGS = Tuning.EngineSound.Settings
+local HUB = "Hub" -- the Teleport destination with the tutorial's ramp
 local ROW = 34
 local KEY_WIDTH = 110
 
@@ -227,6 +231,14 @@ local function build()
 	end
 
 	soundRow()
+
+	-- A button that takes the car to the hub and starts the tutorial again.
+	order += 1
+	local again = UiStyle.sticker("Tutorial", list, "PLAY THE TUTORIAL")
+	again.LayoutOrder = order
+	again.Size = UDim2.new(1, -12, 0, ROW + 6)
+	again.Rotation = 0
+	UiStyle.springy(again)
 	local keyboard = section(KEYBOARD)
 	local gamepad = section(GAMEPAD)
 	local touch = section(TOUCH)
@@ -267,6 +279,14 @@ local function build()
 	end)
 	close.Activated:Connect(function()
 		setOpen(false)
+	end)
+	again.Activated:Connect(function()
+		setOpen(false)
+		local teleport = ReplicatedStorage:FindFirstChild("Teleport")
+		if teleport and teleport:IsA("RemoteFunction") then
+			pcall(teleport.InvokeServer, teleport, HUB)
+		end
+		TutorialHints.start()
 	end)
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
