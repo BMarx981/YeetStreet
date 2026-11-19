@@ -129,7 +129,6 @@ Tuning.Analytics = {
 		Upgrade = "Shop",
 		Car = "Shop",
 		Body = "Shop",
-		Limited = "Shop",
 		BoneShop = "Shop",
 		Rebirth = "Gameplay", -- the cash a rebirth wipes; the SKU is Rebirth_ and the rebirth's number
 	},
@@ -993,48 +992,34 @@ Tuning.Trails = {
 	CheckEvery = 0.1, -- seconds between air checks
 }
 
--- Limited edition items, purchasable in the store's Limiteds tab. Each has a
--- stock that decreases as players buy it; when stock hits zero it's sold out.
+-- Limited edition items in the store's Limiteds tab (Economy.Limited). Admins
+-- can give any of them. Players buy one with Robux only while its Sale window
+-- is open; without a Sale it is admin only.
 Tuning.Limiteds = {
 	{
 		Id = "FrogCar",
 		Name = "Frog Car",
-		Price = 0,
-		Stock = 0,
-		Description = "A special car that jumps instead of using jets. Admin-only.",
-		AdminOnly = true,
+		Description = "A special car that jumps instead of using jets.",
 	},
 	{
 		Id = "NeonGlow",
 		Name = "Neon Underglow",
-		Price = 25000,
-		Stock = 100,
 		Description = "Glowing neon lights beneath your car.",
-		AdminOnly = true,
 	},
 	{
 		Id = "GoldRims",
 		Name = "Gold Rims",
-		Price = 50000,
-		Stock = 50,
 		Description = "Premium gold-plated wheels.",
-		AdminOnly = true,
 	},
 	{
 		Id = "RainbowTrail",
 		Name = "Rainbow Trail",
-		Price = 100000,
-		Stock = 25,
-		AdminOnly = true,
 		Description = "A rainbow trail follows your car through the air.",
 	},
 	{
 		Id = "Crown",
 		Name = "Royal Crown",
-		Price = 250000,
-		Stock = 10,
 		Description = "A golden crown floats above your car.",
-		AdminOnly = true,
 	},
 }
 

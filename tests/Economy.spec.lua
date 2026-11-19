@@ -567,4 +567,37 @@ Check.test("a worn body that isn't owned or left the list falls back to the car'
 	Check.eq(Economy.wornSeed(gone, car), 3)
 end)
 
+local DEC_1_2026 = 1796083200 -- 2026-12-01 00:00 UTC
+local DEC_8_2026 = 1796688000 -- 2026-12-08 00:00 UTC
+local MAR_1_2028 = 1835481600 -- 2028-03-01 00:00 UTC
+
+local function limited(sale: Economy.Sale?): Economy.Limited
+	return { Id = "Crown", Name = "Royal Crown", Description = "", Sale = sale }
+end
+
+Check.test("a limited with no sale window is never on sale", function()
+	Check.eq(Economy.onSale(limited(nil), DEC_1_2026), false)
+end)
+
+Check.test("a limited is on sale from midnight UTC on Starts until midnight UTC on Ends", function()
+	local item = limited({ Starts = "2026-12-01", Ends = "2026-12-08" })
+	Check.eq(Economy.onSale(item, DEC_1_2026 - 1), false, "the second before")
+	Check.eq(Economy.onSale(item, DEC_1_2026), true, "the first second")
+	Check.eq(Economy.onSale(item, DEC_8_2026 - 1), true, "the last second")
+	Check.eq(Economy.onSale(item, DEC_8_2026), false, "Ends is the first day off sale")
+end)
+
+Check.test("sale dates count leap days", function()
+	local item = limited({ Starts = "2028-02-29", Ends = "2028-03-01" })
+	Check.eq(Economy.onSale(item, MAR_1_2028 - 1), true, "Feb 29")
+	Check.eq(Economy.onSale(item, MAR_1_2028), false)
+end)
+
+Check.test("a sale window with a bad date is never on sale", function()
+	Check.eq(Economy.onSale(limited({ Starts = "2026-12-1", Ends = "2026-12-08" }), DEC_1_2026), false, "short day")
+	Check.eq(Economy.onSale(limited({ Starts = "2026-13-01", Ends = "2027-01-08" }), DEC_1_2026), false, "month 13")
+	Check.eq(Economy.onSale(limited({ Starts = "2027-02-29", Ends = "2027-03-08" }), 1803859200), false, "no Feb 29")
+	Check.eq(Economy.onSale(limited({ Starts = "soon", Ends = "2026-12-08" }), DEC_1_2026), false, "not a date")
+end)
+
 Check.finish("Economy")

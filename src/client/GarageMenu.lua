@@ -97,8 +97,6 @@ local REASONS: { [string]: string } = {
 	NotForSale = "That car can't be bought. Invite friends to win it!",
 	TooSoon = "One moment...",
 	NotLoaded = "Your garage is still loading.",
-	SoldOut = "That item is sold out.",
-	UnknownLimited = "That item doesn't exist.",
 	NotEnoughBones = "Not enough bones yet.",
 	AllOwned = "You already have every dino car!",
 	UnknownBoneShop = "That trade doesn't exist.",
@@ -201,11 +199,6 @@ end
 local function bodyWorn(car: Economy.Car): number
 	local value = player:GetAttribute(`BodyWorn_{car.Id}`)
 	return if typeof(value) == "number" then value else car.Seed
-end
-
-local function limitedStockRemaining(id: string): number
-	local value = player:GetAttribute(`LimitedStock_{id}`)
-	return if typeof(value) == "number" then value else 0
 end
 
 local function carText(car: Economy.Car): string
@@ -642,32 +635,20 @@ local function build()
 		local ownedLimiteds = limitedsOwned()
 		for _, item in Tuning.Limiteds do
 			local r = limitedRows[item.Id]
-			if item.AdminOnly then
-				r.detail.Text = item.Description
-				if table.find(ownedLimiteds, item.Id) then
-					if item.Id == "FrogCar" then
-						local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
-						if frogEquipped then
-							setButton(r.button, "UNEQUIP", loaded and not busy)
-						else
-							setButton(r.button, "EQUIP", loaded and not busy)
-						end
+			r.detail.Text = item.Description
+			if table.find(ownedLimiteds, item.Id) then
+				if item.Id == "FrogCar" then
+					local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
+					if frogEquipped then
+						setButton(r.button, "UNEQUIP", loaded and not busy)
 					else
-						setButton(r.button, "OWNED", false)
+						setButton(r.button, "EQUIP", loaded and not busy)
 					end
 				else
-					setButton(r.button, "LOCKED", false)
+					setButton(r.button, "OWNED", false)
 				end
 			else
-				local remaining = limitedStockRemaining(item.Id)
-				r.detail.Text = `{item.Description} {remaining} left in stock.`
-				if table.find(ownedLimiteds, item.Id) then
-					setButton(r.button, "OWNED", false)
-				elseif remaining <= 0 then
-					setButton(r.button, "SOLD OUT", false)
-				else
-					setButton(r.button, `$ {withCommas(item.Price)}`, loaded and not busy and money >= item.Price, true)
-				end
+				setButton(r.button, "LOCKED", false)
 			end
 		end
 
@@ -810,13 +791,11 @@ local function build()
 			if not r.button.Active then
 				return
 			end
-			if item.AdminOnly and item.Id == "FrogCar" then
+			if item.Id == "FrogCar" then
 				local remote = ReplicatedStorage:FindFirstChild("ToggleFrogCar")
 				if remote and remote:IsA("RemoteEvent") then
 					remote:FireServer()
 				end
-			else
-				ask("BuyLimited", item.Id, `Got the {item.Name}!`, r)
 			end
 		end)
 	end
@@ -1040,9 +1019,6 @@ local function build()
 	end)
 
 	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "BoneCoins", "Rebirths" }
-	for _, item in Tuning.Limiteds do
-		table.insert(refreshAttrs, `LimitedStock_{item.Id}`)
-	end
 	for id in bodyLists do
 		table.insert(refreshAttrs, `BodiesOwned_{id}`)
 		table.insert(refreshAttrs, `BodyWorn_{id}`)

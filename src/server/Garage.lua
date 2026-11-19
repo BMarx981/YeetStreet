@@ -50,18 +50,6 @@ local Garage = {}
 
 local lastRequestAt: { [Player]: number } = {}
 
--- Remaining stock for limited items, shared across all players. Initialized from
--- Tuning.Limiteds on first use; decreases as players buy.
-local limitedStock: { [string]: number } = {}
-local function initLimitedStock()
-	for _, item in Tuning.Limiteds do
-		if limitedStock[item.Id] == nil then
-			limitedStock[item.Id] = item.Stock
-		end
-	end
-end
-initLimitedStock()
-
 local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Cash", state.Cash)
 	player:SetAttribute("Speed", state.Levels.Speed)
@@ -72,10 +60,6 @@ local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Equipped", state.Equipped)
 	player:SetAttribute("CarsOwned", table.concat(state.Cars, ","))
 	player:SetAttribute("LimitedsOwned", table.concat(state.Limiteds, ","))
-	-- Publish remaining stock for each limited item so the UI can show it.
-	for _, item in Tuning.Limiteds do
-		player:SetAttribute(`LimitedStock_{item.Id}`, limitedStock[item.Id] or item.Stock)
-	end
 	for _, car in Tuning.Ladder do
 		if car.Bodies then
 			player:SetAttribute(`BodiesOwned_{car.Id}`, table.concat(state.Bodies[car.Id] or {}, ","))
@@ -311,15 +295,6 @@ remote("Rebirth", function(player: Player): (boolean, string?)
 		task.spawn(announce, player, count, old)
 	end
 	return ok, reason
-end)
-
-remote("BuyLimited", function(player: Player, id: any): (boolean, string?)
-	if typeof(id) ~= "string" then
-		return false, "UnknownLimited"
-	end
-	return request(player, function(state)
-		return Economy.buyLimited(state, id, Tuning.Limiteds, limitedStock)
-	end, false, "Limited", id)
 end)
 
 remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)

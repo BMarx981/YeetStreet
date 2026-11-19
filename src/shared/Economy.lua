@@ -49,14 +49,21 @@ export type Body = {
 	Paint: { number }?, -- paints the whole body this color (CarDesign)
 }
 
--- A limited edition item from Tuning.Limiteds.
+-- When a limited is sold, as "YYYY-MM-DD" UTC dates. On sale from midnight
+-- at the start of Starts until midnight at the start of Ends.
+export type Sale = {
+	Starts: string,
+	Ends: string,
+}
+
+-- A limited edition item from Tuning.Limiteds. Admins can give any of them;
+-- players buy one with Robux only while its Sale window is open.
 export type Limited = {
 	Id: string,
 	Name: string, -- shown to players
-	Price: number,
-	Stock: number, -- how many exist in total; decreases as players buy
 	Description: string,
-	AdminOnly: boolean?, -- if true, only obtainable via admin command, never purchasable
+	Sale: Sale?, -- none means never on sale, admin only
+	ProductId: number?, -- the Robux developer product that sells it
 }
 
 -- What a player owns. This is the saved part of their data.
@@ -218,6 +225,37 @@ function Economy.findLimited(limiteds: { Limited }, id: string): Limited?
 		end
 	end
 	return nil
+end
+
+-- Unix time of midnight UTC at the start of a "YYYY-MM-DD" date, or nil if
+-- it isn't a real date. Days from 1970 by Howard Hinnant's days_from_civil.
+local function utcMidnight(date: string): number?
+	local y, m, d = string.match(date, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+	if not y then
+		return nil
+	end
+	local year, month, day = tonumber(y) :: number, tonumber(m) :: number, tonumber(d) :: number
+	local leap = year % 4 == 0 and (year % 100 ~= 0 or year % 400 == 0)
+	local lengths = { 31, if leap then 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+	if month < 1 or month > 12 or day < 1 or day > lengths[month] then
+		return nil
+	end
+	local shifted = if month <= 2 then year - 1 else year
+	local era = math.floor(shifted / 400)
+	local yearOfEra = shifted - era * 400
+	local dayOfYear = math.floor((153 * (if month > 2 then month - 3 else month + 9) + 2) / 5) + day - 1
+	local dayOfEra = yearOfEra * 365 + math.floor(yearOfEra / 4) - math.floor(yearOfEra / 100) + dayOfYear
+	return (era * 146097 + dayOfEra - 719468) * 86400
+end
+
+-- Whether players can buy `item` at unix time `now`.
+function Economy.onSale(item: Limited, now: number): boolean
+	local sale = item.Sale
+	if not sale then
+		return false
+	end
+	local starts, ends = utcMidnight(sale.Starts), utcMidnight(sale.Ends)
+	return starts ~= nil and ends ~= nil and now >= starts and now < ends
 end
 
 function Economy.findCar(ladder: { Car }, id: string): Car?
@@ -480,33 +518,6 @@ function Economy.wearBody(
 	after.Worn = table.clone(state.Worn)
 	after.Worn[id] = seed
 	after.Equipped = id
-	return after, nil
-end
-
--- Buys a limited edition item. Fails with "UnknownLimited", "Owned", "SoldOut",
--- or "NotEnoughCash".
-function Economy.buyLimited(state: State, id: string, limiteds: { Limited }, stock: { [string]: number }): (State?, string?)
-	local item = Economy.findLimited(limiteds, id)
-	if not item then
-		return nil, "UnknownLimited"
-	end
-	if item.AdminOnly then
-		return nil, "UnknownLimited"
-	end
-	if table.find(state.Limiteds, id) then
-		return nil, "Owned"
-	end
-	if (stock[id] or item.Stock) <= 0 then
-		return nil, "SoldOut"
-	end
-	if state.Cash < item.Price then
-		return nil, "NotEnoughCash"
-	end
-	local after = table.clone(state)
-	after.Cash -= item.Price
-	after.Limiteds = table.clone(state.Limiteds)
-	table.insert(after.Limiteds, id)
-	stock[id] = (stock[id] or item.Stock) - 1
 	return after, nil
 end
 
