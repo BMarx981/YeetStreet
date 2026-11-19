@@ -258,6 +258,29 @@ function Economy.onSale(item: Limited, now: number): boolean
 	return starts ~= nil and ends ~= nil and now >= starts and now < ends
 end
 
+-- The limited that the Robux developer product `productId` sells.
+function Economy.findLimitedByProduct(limiteds: { Limited }, productId: number): Limited?
+	for _, item in limiteds do
+		if item.ProductId == productId then
+			return item
+		end
+	end
+	return nil
+end
+
+-- Why `state` can't be offered `item` for Robux at unix time `now`:
+-- "NotForSale" off its window or before it has a product, or "Owned". Nil
+-- if it can.
+function Economy.robuxProblem(state: State, item: Limited, now: number): string?
+	if not item.ProductId or not Economy.onSale(item, now) then
+		return "NotForSale"
+	end
+	if table.find(state.Limiteds, item.Id) then
+		return "Owned"
+	end
+	return nil
+end
+
 function Economy.findCar(ladder: { Car }, id: string): Car?
 	for _, car in ladder do
 		if car.Id == id then

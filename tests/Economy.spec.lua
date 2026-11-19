@@ -600,4 +600,41 @@ Check.test("a sale window with a bad date is never on sale", function()
 	Check.eq(Economy.onSale(limited({ Starts = "soon", Ends = "2026-12-08" }), DEC_1_2026), false, "not a date")
 end)
 
+local FOR_SALE: { Economy.Limited } = {
+	{ Id = "FrogCar", Name = "Frog Car", Description = "" },
+	{
+		Id = "Crown",
+		Name = "Royal Crown",
+		Description = "",
+		Sale = { Starts = "2026-12-01", Ends = "2026-12-08" },
+		ProductId = 111,
+	},
+	{
+		Id = "GoldRims",
+		Name = "Gold Rims",
+		Description = "",
+		Sale = { Starts = "2026-12-01", Ends = "2026-12-08" },
+	},
+}
+
+Check.test("findLimitedByProduct finds the limited a Robux product sells", function()
+	local item = Economy.findLimitedByProduct(FOR_SALE, 111)
+	Check.eq(item and item.Id, "Crown")
+	Check.eq(Economy.findLimitedByProduct(FOR_SALE, 222), nil, "no such product")
+end)
+
+Check.test("a limited can be bought with Robux only on sale, with a product, and not owned", function()
+	local s = Economy.newState(LADDER)
+	local frog = Economy.findLimited(FOR_SALE, "FrogCar") :: Economy.Limited
+	local crown = Economy.findLimited(FOR_SALE, "Crown") :: Economy.Limited
+	local rims = Economy.findLimited(FOR_SALE, "GoldRims") :: Economy.Limited
+	Check.eq(Economy.robuxProblem(s, crown, DEC_1_2026), nil, "on sale")
+	Check.eq(Economy.robuxProblem(s, crown, DEC_8_2026), "NotForSale", "window closed")
+	Check.eq(Economy.robuxProblem(s, frog, DEC_1_2026), "NotForSale", "no window")
+	Check.eq(Economy.robuxProblem(s, rims, DEC_1_2026), "NotForSale", "no product yet")
+	local owner = table.clone(s)
+	owner.Limiteds = { "Crown" }
+	Check.eq(Economy.robuxProblem(owner, crown, DEC_1_2026), "Owned")
+end)
+
 Check.finish("Economy")

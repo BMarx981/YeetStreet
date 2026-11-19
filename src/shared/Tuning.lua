@@ -642,6 +642,9 @@ Tuning.Save = {
 	-- it) retries this many times, this far apart, then takes the lock anyway.
 	LoadAttempts = 5,
 	LoadRetryGap = 6,
+	-- Robux receipt ids each player's data remembers (Purchases), so a
+	-- receipt Roblox sends again never grants twice.
+	KeepReceipts = 50,
 }
 
 -- The global leaderboards (Leaderboard). Each board has an all-time list and

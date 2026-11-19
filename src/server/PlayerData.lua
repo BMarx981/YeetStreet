@@ -36,6 +36,7 @@ local Flames = require(ReplicatedStorage.Flames)
 local Invites = require(ReplicatedStorage.Invites)
 local LaunchRecords = require(ReplicatedStorage.LaunchRecords)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
+local Purchases = require(ReplicatedStorage.Purchases)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local SaveRecord = require(ReplicatedStorage.SaveRecord)
 local Trails = require(ReplicatedStorage.Trails)
@@ -61,6 +62,7 @@ export type Data = {
 	Daily: DailyReward.State, -- the daily reward calendar (DailyRewards)
 	Flames: Flames.State, -- prize jet flames (FlameService)
 	Trails: Trails.State, -- prize trails and the trail picked (TrailService)
+	Purchases: Purchases.State, -- Robux receipts already granted (RobuxShop)
 }
 
 type Session = {
@@ -117,6 +119,7 @@ local function reconcile(saved: any): Data
 		Daily = DailyReward.reconcile(raw.Daily),
 		Flames = Flames.reconcile(raw.Flames, Tuning.Flames.Looks),
 		Trails = Trails.reconcile(raw.Trails, Tuning.Trails.Prizes),
+		Purchases = Purchases.reconcile(raw.Purchases),
 	}
 end
 
@@ -153,10 +156,11 @@ local function claim(player: Player): (boolean, any)
 	return false, nil
 end
 
--- Writes the player's data, and releases the lock if `release`.
-local function save(player: Player, session: Session, release: boolean)
+-- Writes the player's data, and releases the lock if `release`. Returns
+-- whether it was written.
+local function save(player: Player, session: Session, release: boolean): boolean
 	if not session.saves then
-		return
+		return false
 	end
 	pendingSaves += 1
 	local problem: string? = nil
@@ -179,6 +183,7 @@ local function save(player: Player, session: Session, release: boolean)
 			warn(`PlayerData: {player.Name}'s data moved to another server, stopped saving here`)
 		end
 	end
+	return ok and not problem
 end
 
 local function onPlayerAdded(player: Player)
@@ -219,6 +224,14 @@ function PlayerData.update(player: Player, change: (Data) -> ())
 	if session then
 		change(session.data)
 	end
+end
+
+-- Writes the player's data now, without waiting for the autosave. Returns
+-- whether it was written: false if they've left, their data doesn't save
+-- (a failed load), or the write failed. Yields.
+function PlayerData.saveNow(player: Player): boolean
+	local session = sessions[player]
+	return session ~= nil and save(player, session, false)
 end
 
 -- Whether this is the player's first time in the game: their record loaded
