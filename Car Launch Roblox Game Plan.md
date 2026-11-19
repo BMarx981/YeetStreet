@@ -79,7 +79,7 @@ The ladder as built (Nov 2026):
 | Axolotl Throttle | 125,000, or free for clearing obby world 1 | 36 |
 | Squad hover car | Invite reward (10 friends) | 34 |
 | Five dino cars | Dino Mystery Box in the Bone Shop | 34 to 50 |
-| Frog Car | Limited (son's admin car) | |
+| Frog Car | Limited (son's car): admin or Robux during its sale window | |
 | PlaneCar, HeliCar | Admin only for now; PlaneCar planned at 1,000,000 or a game pass | |
 
 No oof rules:
@@ -88,6 +88,34 @@ No oof rules:
 - Impacts drain toughness based on impact speed. Cosmetic parts (bumpers, doors, spoiler) break off for show and score points.
 - At zero toughness the car bursts into sparks and respawns fresh at the last launcher. You lose your current combo, nothing else.
 - Toughness refills between runs.
+
+### Limiteds picks (Nov 18, 2026)
+
+Limiteds started as the son's shop tab (Oct 19). Today all five are admin only, only the Frog Car works, and stock is counted per server and resets on restart.
+
+Brian's picks:
+
+- **What:** a mix of cars and cosmetics. First batch: the Frog Car, Neon Underglow, Gold Rims, Rainbow Trail, and Royal Crown.
+- **How you get them:** an admin gives them, or you buy them with Robux. No cash.
+- **Limited means:** on sale for a time window, then gone. No stock count.
+- **Look:** the name sets the look. Neon Underglow glows under the car, Gold Rims are gold wheels, Rainbow Trail is a rainbow trail, and Royal Crown is a gold crown floating above the car.
+- **Rebirth:** keeps every limited, so nothing paid for is lost (already true in the rebirth code).
+
+Steps:
+
+1. Data: each limited gets a sale window (start and end, UTC) and a Robux product id in place of Price and Stock. A pure on-sale check with tests. Drop the per-server stock count and the cash buy.
+2. Robux: one server module owns MarketplaceService.ProcessReceipt for developer products. It grants through the data module and remembers receipt ids so one purchase never grants twice. The window is checked when the prompt opens; a receipt that lands after the window closes still grants.
+3. Admin: a general give-limited admin command in place of `:frog` only.
+4. Shop tab: items on sale now with a "leaves in" countdown and a Robux button. Owned items stay listed with Equip after their window ends.
+5. Looks: build the four cosmetics, worn on any car, equipped in the garage. Only the equipped flags replicate and each client builds the look, like other cosmetics. Gold Rims skip cars with no wheels (HeliCar, Squad, PlaneCar).
+6. Replay ghost shows equipped limiteds.
+7. Test a real Robux purchase with a second account.
+
+Open:
+
+- Robux prices for each item.
+- Window length and dates for the first batch.
+- The daily reward already gives a rainbow trail. Rename the limited trail (a new name means a new look), or keep both rainbow.
 
 ## Car generator
 
@@ -415,6 +443,7 @@ Nothing past M0 starts until flight feels fun with one car and one ramp.
 - No parked cars to grab. Players spawn a car anywhere and use the Teleport menu to reach parks and the obby (Oct 18).
 - Obby checkpoints last one visit, stage cash pays every visit, and the world prize pays once (Oct 29).
 - Planes earn no score with their wings out and no obby pay (Oct 29).
+- Limiteds are given by admins or sold for Robux during a time window, and rebirth keeps them (Nov 18).
 
 ## Open questions
 
