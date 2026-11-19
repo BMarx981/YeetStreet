@@ -1016,6 +1016,7 @@ Tuning.Limiteds = {
 		Name = "Neon Underglow",
 		Description = "Glowing neon lights beneath your car.",
 		Look = "Underglow",
+		Sale = { Starts = "2026-11-18", Ends = "2026-11-22" },
 	},
 	{
 		Id = "GoldRims",
