@@ -66,6 +66,7 @@ local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local PadPush = require(ReplicatedStorage.PadPush)
+local PipeCatch = require(ReplicatedStorage.PipeCatch)
 local PlaneFlight = require(ReplicatedStorage.PlaneFlight)
 local Righting = require(ReplicatedStorage.Righting)
 local RunTracker = require(ReplicatedStorage.RunTracker)
@@ -588,6 +589,41 @@ local function towerThrow(position: Vector3, velocity: Vector3, look: Vector3, n
 	return nil, false
 end
 
+-- A car flying up off the top of a skate half pipe wall is caught once per
+-- flight (PipeCatch): its speed across the pipe is set to bring it back down
+-- on top of that wall, and its spin across the pipe stopped, so it comes
+-- back in wheels to the wall. The pipe runs along Z, its walls rising toward
+-- -X and +X.
+local skateArea = MapLayout.find(Tuning.Map.Areas :: any, "Skate")
+local pipeCaught = false
+local function pipeCatch(r: Rig, airborne: boolean)
+	if not airborne then
+		pipeCaught = false
+		return
+	end
+	if pipeCaught or not skateArea or CarSensor.flying(r.model) then
+		return
+	end
+	local H = Tuning.Skate.HalfPipe
+	local position = r.hull.Position
+	local velocity = r.hull.AssemblyLinearVelocity
+	local across = PipeCatch.catch(
+		H :: any,
+		position.X - skateArea.X - H.X,
+		position.Z - skateArea.Z - H.Z,
+		position.Y - Tuning.Map.FloorTop,
+		velocity.Y,
+		workspace.Gravity
+	)
+	if not across then
+		return
+	end
+	pipeCaught = true
+	setVelocity(r, Vector3.new(across, velocity.Y, velocity.Z))
+	local spin = r.hull.AssemblyAngularVelocity
+	r.hull.AssemblyAngularVelocity = Vector3.new(spin.X, spin.Y, 0)
+end
+
 -- Boulders (Knockable parts with a BreakSpeed) streamed in here, each with
 -- its BreakSpeed and the time it turns solid again (0 while it is solid).
 -- A car faster than that is let through the boulders near it, on this
@@ -698,6 +734,7 @@ local function step(r: Rig, dt: number)
 		zapped = false
 	end
 	local airborne = reading.airborne
+	pipeCatch(r, airborne)
 	CarSounds.drive(input.throttle, airborne)
 	-- The gravitron's surface carries the car round with it, and high up its
 	-- wall leaving the surface starts a run.

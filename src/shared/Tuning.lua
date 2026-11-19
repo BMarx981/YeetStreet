@@ -3118,19 +3118,29 @@ Tuning.Skate = {
 		RampLength = 60,
 	},
 	-- Tall walls with pads along the bottom of both, so a car rolling toward
-	-- either wall is boosted up it and into the air, then comes back down and
-	-- across to the other: back and forth.
+	-- either wall is boosted up it and into the air, then comes back down on
+	-- top of the same wall (PipeCatch) and rolls across to the other: back
+	-- and forth.
 	HalfPipe = {
 		X = -700,
 		Z = -470,
 		FlatWidth = 60,
 		Radius = 70,
-		Angle = 110, -- leaning back past vertical keeps launches over the pipe
+		Angle = 94, -- the top plank tilts about 90.6, so cars leave it going straight up
 		Steps = 14,
 		Length = 800,
 		PadPlanks = 3, -- per wall, from the bottom
 		LaunchSpeed = 220,
 		DeckDepth = 20,
+		-- A car flying up off the top of a wall has its speed across the pipe
+		-- set once so it comes down Inset studs inside that wall's lip (the
+		-- hull's middle rides about 2.6 off the wall), and its spin across
+		-- the pipe stopped so it comes back down wheels to the wall.
+		Catch = {
+			Inset = 3,
+			Reach = 12, -- studs either side of the lip, across the pipe
+			MinRise = 20, -- studs per second up
+		},
 	},
 	-- Knocked flying by a car, back in place after Tuning.Props.ResetTime.
 	Props = {
