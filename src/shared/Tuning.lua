@@ -661,6 +661,7 @@ Tuning.Leaderboards = {
 		{ Id = "Best", Title = "BEST RUN", Kind = "Points" },
 		{ Id = "Airtime", Title = "LONGEST AIRTIME", Kind = "Seconds" },
 		{ Id = "Rebirths", Title = "MOST REBIRTHS", Kind = "Count" },
+		{ Id = "Mega", Title = "MEGA BOOSTERS", Kind = "Points" }, -- best run during Mega Boosters
 	},
 	Top = 10,
 	SecondsScale = 10, -- airtime is stored in tenths of a second
@@ -3853,6 +3854,24 @@ Tuning.Tutorial = {
 			Touch = "Airtime, tricks, and crashes pay cash. Go again!",
 		},
 	},
+}
+
+-- Server-wide timed events (TimedEvents, EventService). Every server runs the
+-- same schedule from the clock: an event starts every Every seconds and lasts
+-- Duration, taking turns down Rotation. Titles name them on the HUD.
+Tuning.TimedEvents = {
+	Every = 20 * 60,
+	Duration = 3 * 60,
+	Rotation = { "Mega", "BoneRain" },
+	Titles = { Mega = "MEGA BOOSTERS", BoneRain = "BONE RAIN" },
+	-- The line under the title on the start banner.
+	Blurbs = { Mega = "Every booster throws harder!", BoneRain = "Grab the bones! Find the Bone Trader!" },
+	BannerTime = 4, -- seconds the start banner shows
+	-- Played when an event starts. For now the obby's finish fanfare.
+	StartSound = { Id = Tuning.ObbySounds.Finish.Id, Pitch = 1, Volume = 0.5 },
+	-- Boosters launch at this times their speed during Mega Boosters, except
+	-- obby boosters (NoRun).
+	Mega = { LaunchScale = 1.5 },
 }
 
 return Tuning

@@ -45,6 +45,7 @@ export type Week = {
 	Best: number,
 	Airtime: number,
 	Rebirths: number,
+	Mega: number, -- best run during Mega Boosters
 }
 
 -- The week a Unix time falls in, counted from the first Monday after the epoch.
@@ -99,9 +100,15 @@ end
 function Leaderboard.weekRecord(saved: any, week: number): Week
 	local raw = if typeof(saved) == "table" then saved else {}
 	if raw.Week ~= week then
-		return { Week = week, Best = 0, Airtime = 0, Rebirths = 0 }
+		return { Week = week, Best = 0, Airtime = 0, Rebirths = 0, Mega = 0 }
 	end
-	return { Week = week, Best = count(raw.Best), Airtime = count(raw.Airtime), Rebirths = count(raw.Rebirths) }
+	return {
+		Week = week,
+		Best = count(raw.Best),
+		Airtime = count(raw.Airtime),
+		Rebirths = count(raw.Rebirths),
+		Mega = count(raw.Mega),
+	}
 end
 
 -- `week` after a run that scored `points` and flew `seconds`, each kept only
@@ -113,6 +120,14 @@ function Leaderboard.recordRun(week: Week, points: number, seconds: number, tuni
 	return after
 end
 
+-- `week` after a run during Mega Boosters that scored `points`, kept only if
+-- it beats the week's Mega best so far.
+function Leaderboard.recordMega(week: Week, points: number, tuning: Tuning): Week
+	local after = table.clone(week)
+	after.Mega = math.max(week.Mega, Leaderboard.encode("Points", points, tuning))
+	return after
+end
+
 -- `week` after one more rebirth.
 function Leaderboard.recordRebirth(week: Week): Week
 	local after = table.clone(week)
@@ -121,13 +136,14 @@ function Leaderboard.recordRebirth(week: Week): Week
 end
 
 -- The value each of a player's lists should hold, by store name: every
--- board's all-time list from `best` (points), `airtime` (seconds), and
--- `rebirths`, and its list for `week.Week` from `week`. A board's Id is its
--- key in `week`.
+-- board's all-time list from `best` (points), `airtime` (seconds),
+-- `rebirths`, and `mega` (points during Mega Boosters), and its list for
+-- `week.Week` from `week`. A board's Id is its key in `week`.
 function Leaderboard.lists(
 	best: number,
 	airtime: number,
 	rebirths: number,
+	mega: number,
 	week: Week,
 	studio: boolean,
 	tuning: Tuning
@@ -136,6 +152,7 @@ function Leaderboard.lists(
 		Best = Leaderboard.encode("Points", best, tuning),
 		Airtime = Leaderboard.encode("Seconds", airtime, tuning),
 		Rebirths = Leaderboard.encode("Count", rebirths, tuning),
+		Mega = Leaderboard.encode("Points", mega, tuning),
 	}
 	local thisWeek = week :: any
 	local lists: { [string]: number } = {}

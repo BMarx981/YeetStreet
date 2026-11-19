@@ -168,6 +168,9 @@ type Watch = {
 	-- the hull the server gets while it flies, the last one being checkedAt.
 	check: RunCheck.State?,
 	checkedAt: CFrame?,
+	-- The run started during Mega Boosters (EventService), by this server's
+	-- Event attribute when its check began.
+	mega: boolean,
 	-- os.clock() when a launch pad, swing seat or rail last moved the car.
 	thrownAt: number,
 }
@@ -268,6 +271,7 @@ local function watchFor(car: Model): Watch?
 		check = nil,
 		checkedAt = nil,
 		thrownAt = -math.huge,
+		mega = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -385,6 +389,9 @@ local function checkStep(watch: Watch)
 		return
 	end
 	watch.checkedAt = cf
+	if not watch.check then
+		watch.mega = workspace:GetAttribute("Event") == "Mega"
+	end
 	local check = watch.check or RunCheck.new()
 	watch.check = check
 	local now = os.clock()
@@ -431,7 +438,16 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	watch.smashes = 0
 	watch.toughness = watch.maxToughness
 	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
-	if not flagged then
+	local mega = watch.mega
+	watch.mega = false
+	if mega and not flagged then
+		-- Mega Boosters runs pay, but count only for the Mega board.
+		PlayerData.update(watch.player, function(data)
+			data.MegaBest = math.max(data.MegaBest, score.total)
+			local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))
+			data.ThisWeek = Leaderboard.recordMega(week, score.total, Tuning.Leaderboards)
+		end)
+	elseif not flagged then
 		local best = Leaderstats.value(watch.player, "Best")
 		if score.total > best.Value then
 			best.Value = score.total
@@ -451,7 +467,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local paid = Economy.payout(score.total, rate * daily)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
-	if watch.launcher and not flagged then
+	if watch.launcher and not flagged and not mega then
 		launcherRun:Fire(watch.player, watch.launcher, result.distance)
 	end
 	watch.launcher = nil

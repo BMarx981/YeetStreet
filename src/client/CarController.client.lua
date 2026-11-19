@@ -391,6 +391,15 @@ local function launch(r: Rig, pad: BasePart)
 	if typeof(speed) ~= "number" then
 		return
 	end
+	-- Mega Boosters (EventService) throws harder from every booster but the
+	-- obby's (NoRun) and eruptions (LaunchZone).
+	if
+		workspace:GetAttribute("Event") == "Mega"
+		and pad:GetAttribute("NoRun") ~= true
+		and pad:GetAttribute("LaunchZone") ~= true
+	then
+		speed *= Tuning.TimedEvents.Mega.LaunchScale
+	end
 	local direction = pad:GetAttribute("LaunchDirection")
 	local pitch = pad:GetAttribute("LaunchPitch")
 	local velocity = r.hull.AssemblyLinearVelocity

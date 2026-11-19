@@ -2,14 +2,14 @@
 -- DinoWeather (Script) -> ServerScriptService.DinoWeather
 -- Rains dino bones from the sky when triggered by an admin via the
 -- `:weather bonerain` command. Players pick them up by touching them
--- to earn BoneCoins, shown in the leaderstats.
+-- to earn BoneCoins (Garage.addBones), saved with their data and shown in
+-- the leaderstats.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local Analytics = require(ServerScriptService.Analytics)
-local Leaderstats = require(ServerScriptService.Leaderstats)
+local Garage = require(ServerScriptService.Garage)
 
 local boneRainEvent = ReplicatedStorage:FindFirstChild("BoneRainEvent")
 local toggleEvent = ServerScriptService:FindFirstChild("BoneRainToggle")
@@ -209,13 +209,9 @@ local function spawnBone(center: Vector3)
 		if not player then return end
 
 		collected = true
-		local coins = Leaderstats.value(player, "BoneCoins")
-		coins.Value += BONE_VALUE
-		local bones = Leaderstats.value(player, "Bones")
-		bones.Value += 1
-		-- Also publish as an attribute so the GarageMenu client can refresh
-		player:SetAttribute("BoneCoins", coins.Value)
-		Analytics.gained(player, "Bones", "BoneRain", BONE_VALUE, coins.Value)
+		-- Saved with the player's data, and shown in leaderstats and the
+		-- BoneCoins attribute for the GarageMenu.
+		Garage.addBones(player, 1, BONE_VALUE, "BoneRain")
 		bone:Destroy()
 	end)
 

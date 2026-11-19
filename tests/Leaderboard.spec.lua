@@ -78,7 +78,7 @@ Check.test("a missing or broken weekly record starts fresh", function()
 end)
 
 Check.test("a run raises this week's best run and airtime, never lowers them", function()
-	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2 }
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2, Mega = 0 }
 	local better = Leaderboard.recordRun(week, 900.6, 12.37, T)
 	Check.eq(better.Best, 900, "Best raised")
 	Check.eq(better.Airtime, 123, "Airtime raised, in tenths")
@@ -91,7 +91,7 @@ Check.test("a run raises this week's best run and airtime, never lowers them", f
 end)
 
 Check.test("a rebirth counts once on this week's record", function()
-	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2 }
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2, Mega = 0 }
 	local after = Leaderboard.recordRebirth(week)
 	Check.eq(after.Rebirths, 3, "Rebirths")
 	Check.eq(after.Best, 500, "Best kept")
@@ -99,8 +99,8 @@ Check.test("a rebirth counts once on this week's record", function()
 end)
 
 Check.test("a player's six lists hold their all-time and this week's bests", function()
-	local week = { Week = 2918, Best = 400, Airtime = 55, Rebirths = 1 }
-	local lists = Leaderboard.lists(1234.9, 8.79, 3, week, false, T)
+	local week = { Week = 2918, Best = 400, Airtime = 55, Rebirths = 1, Mega = 0 }
+	local lists = Leaderboard.lists(1234.9, 8.79, 3, 0, week, false, T)
 	Check.eq(lists["Boards1_Best_All"], 1234, "all-time best")
 	Check.eq(lists["Boards1_Airtime_All"], 87, "all-time airtime")
 	Check.eq(lists["Boards1_Rebirths_All"], 3, "all-time rebirths")
@@ -112,8 +112,42 @@ Check.test("a player's six lists hold their all-time and this week's bests", fun
 		n += 1
 	end
 	Check.eq(n, 6, "six lists")
-	local studio = Leaderboard.lists(1, 1, 1, week, true, T)
+	local studio = Leaderboard.lists(1, 1, 1, 0, week, true, T)
 	Check.eq(studio["StudioBoards1_Best_All"], 1, "Studio lists")
+end)
+
+Check.test("this week's Mega best is kept within the week and starts fresh in a new one", function()
+	local saved = { Week = 5, Best = 900, Airtime = 120, Rebirths = 1, Mega = 3000 }
+	Check.eq(Leaderboard.weekRecord(saved, 5).Mega, 3000, "same week")
+	Check.eq(Leaderboard.weekRecord(saved, 6).Mega, 0, "new week")
+	Check.eq(Leaderboard.weekRecord({ Week = 5, Mega = "lots" }, 5).Mega, 0, "broken")
+	Check.eq(Leaderboard.weekRecord({ Week = 5, Best = 10 }, 5).Mega, 0, "saved before Mega existed")
+end)
+
+Check.test("a Mega run raises this week's Mega best only, never lowers it", function()
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2, Mega = 1000 }
+	local better = Leaderboard.recordMega(week, 2500.7, T)
+	Check.eq(better.Mega, 2500, "Mega raised")
+	Check.eq(better.Best, 500, "Best kept")
+	Check.eq(better.Airtime, 80, "Airtime kept")
+	Check.eq(Leaderboard.recordMega(week, 10, T).Mega, 1000, "Mega kept")
+	Check.eq(week.Mega, 1000, "the record passed in is unchanged")
+end)
+
+Check.test("a normal run leaves this week's Mega best alone", function()
+	local week = { Week = 4, Best = 500, Airtime = 80, Rebirths = 2, Mega = 1000 }
+	Check.eq(Leaderboard.recordRun(week, 9000, 30, T).Mega, 1000)
+end)
+
+Check.test("a Mega board gets its all-time and weekly lists", function()
+	local withMega = table.clone(T)
+	withMega.Boards = table.clone(T.Boards)
+	table.insert(withMega.Boards, { Id = "Mega", Title = "MEGA BOOSTERS", Kind = "Points" })
+	local week = { Week = 2918, Best = 400, Airtime = 55, Rebirths = 1, Mega = 1500 }
+	local lists = Leaderboard.lists(1234.9, 8.79, 3, 4321.5, week, false, withMega)
+	Check.eq(lists["Boards1_Mega_All"], 4321, "all-time Mega")
+	Check.eq(lists["Boards1_Mega_W2918"], 1500, "weekly Mega")
+	Check.eq(lists["Boards1_Best_All"], 1234, "Best unchanged")
 end)
 
 Check.test("only lists that beat what was sent go out", function()

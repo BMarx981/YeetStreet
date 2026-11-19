@@ -78,6 +78,8 @@ export type State = {
 	LimitedsWorn: { string }, -- ids of owned limiteds with a Look that are worn
 	Bodies: { [string]: { number } }, -- by car id, the seeds bought for that car
 	Worn: { [string]: number }, -- by car id, the seed it wears; none means its own
+	BoneCoins: number, -- spent at the Bone Trader
+	Bones: number, -- bones collected, the count on the HUD
 }
 
 export type CostTuning = {
@@ -153,6 +155,8 @@ function Economy.newState(ladder: { Car }): State
 		LimitedsWorn = {},
 		Bodies = {},
 		Worn = {},
+		BoneCoins = 0,
+		Bones = 0,
 	}
 end
 
@@ -172,6 +176,8 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 		return state
 	end
 	state.Cash = count(saved.Cash)
+	state.BoneCoins = math.floor(count(saved.BoneCoins))
+	state.Bones = math.floor(count(saved.Bones))
 	local levels = if typeof(saved.Levels) == "table" then saved.Levels else {}
 	state.Levels = {
 		Speed = math.floor(count(levels.Speed)),
@@ -644,6 +650,25 @@ function Economy.wearBody(
 	after.Worn = table.clone(state.Worn)
 	after.Worn[id] = seed
 	after.Equipped = id
+	return after, nil
+end
+
+-- The state after collecting `bones` bones worth `coins` BoneCoins.
+function Economy.addBones(state: State, bones: number, coins: number): State
+	local after = table.clone(state)
+	after.Bones += bones
+	after.BoneCoins += coins
+	return after
+end
+
+-- The state after spending `price` BoneCoins. Fails with "NotEnoughBones".
+-- The Bones count stays: it counts bones collected.
+function Economy.spendBones(state: State, price: number): (State?, string?)
+	if state.BoneCoins < price then
+		return nil, "NotEnoughBones"
+	end
+	local after = table.clone(state)
+	after.BoneCoins -= price
 	return after, nil
 end
 

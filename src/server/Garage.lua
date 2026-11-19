@@ -89,7 +89,10 @@ local function publish(player: Player, state: Economy.State)
 		end
 	end
 	player:SetAttribute("BodiesOwned_Any", table.concat(Economy.anyBodiesOwned(state), ","))
+	player:SetAttribute("BoneCoins", state.BoneCoins)
 	Leaderstats.value(player, "Cash").Value = state.Cash
+	Leaderstats.value(player, "Bones").Value = state.Bones
+	Leaderstats.value(player, "BoneCoins").Value = state.BoneCoins
 end
 
 -- The equipped ladder car, its stats from the player's levels, and the levels
@@ -352,32 +355,29 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	if item.Mystery and DinoBox.allOwned(Tuning.DinoMystery.Rewards, data.Economy.Cars) then
 		return false, "AllOwned"
 	end
-	local boneCoins = Leaderstats.value(player, "BoneCoins")
-	if not boneCoins or boneCoins.Value < item.BonePrice then
-		return false, "NotEnoughBones"
+	if item.CarId and table.find(data.Economy.Cars, item.CarId) then
+		return false, "Owned"
 	end
-	boneCoins.Value -= item.BonePrice
-	player:SetAttribute("BoneCoins", boneCoins.Value)
+	local paid, problem = Economy.spendBones(data.Economy, item.BonePrice)
+	if not paid then
+		return false, problem
+	end
+	data.Economy = paid
 	if item.Mystery then
 		local won = DinoBox.pick(Tuning.DinoMystery.Rewards, data.Economy.Cars, math.random()) :: DinoBox.Reward
 		table.insert(data.Economy.Cars, won.CarId)
 		publish(player, data.Economy)
-		Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, boneCoins.Value)
+		Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.BoneCoins)
 		Analytics.gotCar(player, #data.Economy.Cars == 2)
 		return true, won.CarId
 	end
 	if item.CarId then
-		if table.find(data.Economy.Cars, item.CarId) then
-			boneCoins.Value += item.BonePrice
-			player:SetAttribute("BoneCoins", boneCoins.Value)
-			return false, "Owned"
-		end
 		table.insert(data.Economy.Cars, item.CarId)
 	else
 		data.Economy.Cash += item.CashReward
 	end
 	publish(player, data.Economy)
-	Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, boneCoins.Value)
+	Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.BoneCoins)
 	if item.CarId then
 		Analytics.gotCar(player, #data.Economy.Cars == 2)
 	else
@@ -386,20 +386,27 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	return true, nil
 end)
 
--- Adds `amount` bones, the same as collecting that many from bone rain:
--- both the "Bones" counter (shown on the HUD) and the "BoneCoins" currency
--- (used in the bone shop) go up. Used by admin commands (e.g. :bones).
--- `reason` is a source in Tuning.Analytics.
-function Garage.giveBones(player: Player, amount: number, reason: string)
-	if amount <= 0 then
+-- Adds `bones` to the "Bones" count (shown on the HUD) and `coins` to the
+-- "BoneCoins" currency (spent at the Bone Trader), saved with the player's
+-- economy state. Bone rain pickups (DinoWeather) come through here. `reason`
+-- is a source in Tuning.Analytics.
+function Garage.addBones(player: Player, bones: number, coins: number, reason: string)
+	local data = PlayerData.get(player)
+	if not data or bones < 0 or coins <= 0 then
 		return
 	end
-	local bones = Leaderstats.value(player, "Bones")
-	bones.Value += amount
-	local coins = Leaderstats.value(player, "BoneCoins")
-	coins.Value += amount
-	player:SetAttribute("BoneCoins", coins.Value)
-	Analytics.gained(player, "Bones", reason, amount, coins.Value)
+	data.Economy = Economy.addBones(data.Economy, bones, coins)
+	publish(player, data.Economy)
+	Analytics.gained(player, "Bones", reason, coins, data.Economy.BoneCoins)
+end
+
+-- Adds `amount` bones, the same as collecting that many from bone rain:
+-- both the "Bones" counter and the "BoneCoins" currency go up. Used by admin
+-- commands (e.g. :bones).
+function Garage.giveBones(player: Player, amount: number, reason: string)
+	if amount > 0 then
+		Garage.addBones(player, amount, amount, reason)
+	end
 end
 
 -- Grants the limited `id` without charge (Economy.giveLimited): admin

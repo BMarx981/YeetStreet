@@ -55,6 +55,7 @@ export type Data = {
 	Economy: Economy.State,
 	Best: number, -- best run score
 	BestAirtime: number, -- seconds, the longest airtime of one run
+	MegaBest: number, -- best run score during Mega Boosters (EventService)
 	ThisWeek: Leaderboard.Week, -- this week's bests, as the boards store them
 	Invites: Invites.State,
 	ObbyCleared: boolean, -- whether the obby's world prize has been paid
@@ -108,11 +109,13 @@ local function reconcile(saved: any): Data
 	local raw = if typeof(saved) == "table" then saved else {}
 	local best = raw.Best
 	local airtime = raw.BestAirtime
+	local mega = raw.MegaBest
 	return {
 		Version = VERSION,
 		Economy = Economy.reconcile(raw.Economy, Tuning.Ladder),
 		Best = if typeof(best) == "number" and best >= 0 then best else 0,
 		BestAirtime = if typeof(airtime) == "number" and airtime >= 0 and airtime < math.huge then airtime else 0,
+		MegaBest = if typeof(mega) == "number" and mega >= 0 and mega < math.huge then mega else 0,
 		ThisWeek = Leaderboard.weekRecord(raw.ThisWeek, Leaderboard.week(os.time())),
 		Invites = Invites.reconcile(raw.Invites),
 		ObbyCleared = raw.ObbyCleared == true,

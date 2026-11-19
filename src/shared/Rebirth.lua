@@ -6,7 +6,7 @@
 -- Each rebirth needs a car: the first of Needs for the first rebirth, the
 -- next for the next, and the last one for every rebirth after that.
 --
--- A rebirth resets cash, every upgrade level, and every car on the cash
+-- A rebirth resets cash, bones, every upgrade level, and every car on the cash
 -- ladder, and puts the player back in the first ladder car. A car is on the
 -- cash ladder unless it is never for sale (ForSale = false: the dino cars and
 -- the invite prize). Everything else in the state stays: limiteds, owned
@@ -59,6 +59,8 @@ export type State = {
 	LimitedsWorn: { string },
 	Bodies: { [string]: { number } },
 	Worn: { [string]: number },
+	BoneCoins: number,
+	Bones: number,
 }
 
 -- The rebirths in a save: a whole number, 0 or more, or 0 if it isn't one.
@@ -124,6 +126,8 @@ function Rebirth.reset(state: State, ladder: { Car }): State
 	table.move(kept, 1, #kept, 2, cars)
 	local after = table.clone(state)
 	after.Cash = 0
+	after.BoneCoins = 0
+	after.Bones = 0
 	after.Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
 	after.Cars = cars
 	after.Equipped = first

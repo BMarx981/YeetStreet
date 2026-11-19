@@ -45,7 +45,7 @@ local function send(player: Player)
 		return
 	end
 	local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))
-	local lists = Leaderboard.lists(data.Best, data.BestAirtime, data.Rebirths, week, studio, B)
+	local lists = Leaderboard.lists(data.Best, data.BestAirtime, data.Rebirths, data.MegaBest, week, studio, B)
 	for name, value in Leaderboard.changed(lists, mine) do
 		if PlayerData.raiseBoard(name, player.UserId, value) then
 			mine[name] = value

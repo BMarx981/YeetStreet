@@ -314,6 +314,7 @@ local COMMAND_INFO = {
 	{ name = "admin",      desc = "Show the text-based admin help list",                usage = ":admin abuse",                 optionsType = "none" },
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
 	{ name = "dino",       desc = "Toggle Dino Valley on/off",                        usage = ":dino",                         optionsType = "none" },
+	{ name = "event",      desc = "Start a timed event now in this server, or stop it", usage = ":event <mega|bonerain|stop>",   optionsType = "text" },
 }
 
 -- Dino Valley's park folder, kept by the :dino command so the park can be
@@ -796,6 +797,27 @@ local COMMANDS = {
 		return "Dino Valley enabled."
 	end,
 
+	-- Starts a timed event (EventService) in this server for one event's
+	-- length, or stops the one on now.
+	event = function(adminPlayer, args)
+		local forceEvent = game:GetService("ServerStorage"):FindFirstChild("ForceEvent")
+		if not (forceEvent and forceEvent:IsA("BindableEvent")) then
+			return "Timed events aren't running."
+		end
+		local which = string.lower(string.match(args, "%S+") or "")
+		if which == "stop" then
+			forceEvent:Fire(nil)
+			return "Stopped the timed event in this server."
+		end
+		for _, name in Tuning.TimedEvents.Rotation do
+			if string.lower(name) == which then
+				forceEvent:Fire(name)
+				return `Started {Tuning.TimedEvents.Titles[name]} in this server.`
+			end
+		end
+		return "Usage: :event <mega|bonerain|stop>"
+	end,
+
 	cmd = function(adminPlayer, args)
 		-- Send the live command list to the admin's client
 		commandListEvent:FireClient(adminPlayer, COMMAND_INFO)
@@ -823,6 +845,7 @@ local COMMANDS = {
 :givelimited <item|all> [playerName] - Give a limited (crown, goldrims, neonglow, galaxytrail, frogcar) or all of them, saved
 :obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
+:event <mega|bonerain|stop> - Start a timed event now in this server, or stop it
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers
 :cmd - Show the interactive command list

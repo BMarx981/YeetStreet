@@ -421,6 +421,40 @@ Steps, one diff each:
 4. A TUTORIAL button in the CONTROLS panel that teleports to the hub and starts it again. Written Nov 19 (PLAY THE TUTORIAL, under SOUND), not yet clicked.
 5. Analytics (added Nov 19 at Brian's ask): a Tutorial funnel, one session per new player's tutorial, with the steps Drive, Ramp, Jets, Tilt, Land, Finish, and Done. A step reached early also logs the ones it passed (AnalyticsEvents.tutorialSteps). A skip logs a TutorialSkip event with the step. Only players whose saved flag is still false are logged, so replays and old accounts are not. Written Nov 19: in Play the client sends each step to the server; nothing logs in Studio, and the live dashboard is not yet seen.
 
+## Timed events
+
+Server-wide events on a timer give players a reason to stay a few more minutes and to come back. Before this, Bone Rain only ran when an admin started it, and Bones were not saved, so the dino cars could not be earned.
+
+### Timed event picks (Nov 19, 2026)
+
+Brian's picks:
+
+- **Events:** Bone Rain, with Bones saved from now on, and Mega Boosters, where every booster launches much harder.
+- **Schedule:** the same clock in every server: an event starts every 20 minutes and lasts 3.
+- **Mega Boosters runs:** pay normally, but don't count for Best, the three spawn boards, or the launcher record signs. They get their own Mega board (best run score during Mega Boosters, this week and all time) beside the others at spawn.
+- **Bones and rebirth:** rebirth resets Bones, like cash.
+- **Announcing:** a small countdown on the HUD all the time ("MEGA BOOSTERS in 4:12"), a big banner and sound when one starts, and a timer while it runs.
+
+Claude's calls:
+
+- The two events take turns, so each comes round every 40 minutes. Which one is on comes from the clock alone (UTC), so every server agrees without messaging.
+- Obby boosters (NoRun) stay normal during Mega Boosters, so obby stages play the same.
+- The server decides whether a run is a Mega run from when it started, by its own clock; the client's word is not used.
+- Both bone counts save: BoneCoins (spent at the Bone Trader) and Bones (the count on the HUD).
+- An admin command, `:event`, starts either event now or stops it, for testing.
+- Times, the rotation, and the Mega launch multiplier live in Tuning.TimedEvents.
+
+Steps, one diff each:
+
+1. Pure TimedEvents module and tests: which event is on at a given time, how long it has left, and which comes next and when. Done Nov 19 (13 tests).
+2. Save Bones: BoneCoins and Bones in PlayerData, loaded into leaderstats, saved on every change (rain pickups, giveBones, the Bone Trader), and reset on rebirth. Written Nov 19: the counts live in the economy state (Economy.addBones, spendBones), so Garage saves and shows them and Rebirth.reset clears them; the rebirth panel now lists bones under YOU LOSE. Checked in Play: rain pickups count and survive a Play restart. Not tried: buying at the Bone Trader, a real rebirth.
+3. EventService on the server: follows the clock, publishes the current and next event as workspace attributes, starts and stops Bone Rain, and the `:event` admin command. Written Nov 19. Checked in Play: the schedule was live (Mega Boosters on, Bone Rain next), and the override started and stopped Bone Rain and the Bone Trader. Server time matched Unix time. `:event` itself not typed yet; it acts in one server only.
+4. Mega Boosters on the client: boosters launch at Tuning.TimedEvents.Mega.LaunchScale times their speed, except obby boosters. Written Nov 19 (CarController.launch): eruptions (LaunchZone) are left alone too. Not driven yet.
+5. Mega runs on the server: a run that started during Mega Boosters pays but skips Best, the boards, and record signs, and goes to a new Mega board at spawn. Written Nov 19 (ScoreService, Leaderboard.recordMega, MegaBest in PlayerData). The fourth board shows at spawn. Not flown yet.
+6. The HUD countdown, the start banner and sound, and the running timer. Written Nov 19 (EventHud, Tuning.TimedEvents.Blurbs and StartSound, the obby fanfare for now). Not seen: the Rojo plugin had disconnected before it synced.
+
+Open: Bone Rain drops about one bone every 0.4 seconds per player, so a 3 minute rain can give a few hundred bones, enough to buy everything at the Bone Trader. Bone value and prices need a look once it runs on the timer.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.

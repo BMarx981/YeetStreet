@@ -21,6 +21,7 @@ export type Summary = {
 	cars: { string }, -- owned car ids
 	rebirths: number, -- so far
 	limiteds: number, -- how many limited items they own
+	boneCoins: number,
 }
 
 export type Confirm = {
@@ -130,6 +131,9 @@ function RebirthConfirm.new(parent: Instance): Confirm
 		gain.Text = `RUN PAY x{multiplier} FOREVER`
 
 		local lose = { `Your cash ($ {withCommas(summary.cash)})`, "Every upgrade level" }
+		if summary.boneCoins > 0 then
+			table.insert(lose, `Your bones ({withCommas(summary.boneCoins)})`)
+		end
 		for _, id in lost do
 			table.insert(lose, `The {carName(id)}`)
 		end
@@ -144,7 +148,7 @@ function RebirthConfirm.new(parent: Instance): Confirm
 		if summary.limiteds > 0 then
 			table.insert(keep, "Your limited items")
 		end
-		table.insert(keep, "Bones, your best score, and invite progress")
+		table.insert(keep, "Your best score and invite progress")
 		keepLines.Text = bullets(keep)
 
 		onYes = yes

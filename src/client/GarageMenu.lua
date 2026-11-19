@@ -901,6 +901,7 @@ local function build()
 			cars = owned(),
 			rebirths = rebirths,
 			limiteds = #limitedsOwned(),
+			boneCoins = number("BoneCoins"),
 		}
 		confirm.ask(summary, function()
 			local pay = Rebirth.payMultiplier(rebirths + 1, Tuning.Rebirth)
