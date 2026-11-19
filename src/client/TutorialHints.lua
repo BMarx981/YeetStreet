@@ -6,8 +6,9 @@
 -- by itself once the server says the player hasn't done it (the TutorialDone
 -- attribute, TutorialService), and again from the CONTROLS panel (start).
 -- CarController feeds it each frame (frame) and each run's end (runEnded).
--- Finishing or skipping tells the server (TutorialEvent) so it never starts
--- by itself again.
+-- On the player's first tutorial it tells the server (TutorialEvent) each
+-- step reached, for the Tutorial funnel, and when it is finished or skipped,
+-- so it never starts by itself again.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -28,6 +29,7 @@ local TutorialHints = {}
 
 local state: Tutorial.State? = nil
 local shown: string? = nil -- the text on screen, so it only changes when it must
+local sentStep: string? = nil -- the last step told to the server
 local hidden = false
 
 local gui = Instance.new("ScreenGui")
@@ -98,21 +100,34 @@ arrowLabel.TextColor3 = UiStyle.Yellow
 
 arrowPart.Parent = workspace
 
+-- Tells the server, only on the player's first tutorial: replays log nothing.
+local function tell(kind: string, name: string?)
+	if player:GetAttribute("TutorialDone") ~= true then
+		local remote = ReplicatedStorage:FindFirstChild("TutorialEvent")
+		if remote and remote:IsA("RemoteEvent") then
+			remote:FireServer(kind, name)
+		end
+	end
+end
+
 local function stop()
 	state = nil
 	shown = nil
+	sentStep = nil
 	gui.Enabled = false
 	board.Enabled = false
 end
 
 local function finish()
 	stop()
-	if player:GetAttribute("TutorialDone") ~= true then
-		local remote = ReplicatedStorage:FindFirstChild("TutorialEvent")
-		if remote and remote:IsA("RemoteEvent") then
-			remote:FireServer()
-		end
-	end
+	tell("Done")
+end
+
+local function skipNow()
+	local current = state
+	local step = if current then current.step else nil
+	stop()
+	tell("Skip", step)
 end
 
 local function show()
@@ -123,6 +138,10 @@ local function show()
 	if current.done then
 		finish()
 		return
+	end
+	if current.step ~= sentStep then
+		sentStep = current.step
+		tell("Step", current.step)
 	end
 	local prompt = Tutorial.prompt(current)
 	if not prompt then
@@ -175,7 +194,7 @@ function TutorialHints.setVisible(visible: boolean)
 	end
 end
 
-skip.Activated:Connect(finish)
+skip.Activated:Connect(skipNow)
 
 local function checkDone()
 	if player:GetAttribute("TutorialDone") == false and not state then

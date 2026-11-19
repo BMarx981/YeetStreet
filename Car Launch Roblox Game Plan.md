@@ -419,6 +419,7 @@ Steps, one diff each:
 2. The saved flag: TutorialDone in PlayerData, put on the player as an attribute, and set by a TutorialEvent from the client on finish or skip. Written Nov 19 (TutorialService): Brian's record loads as done in Play; finish and skip not yet saved by a real new account.
 3. The prompt panel, the Skip button, and the ramp arrow on the client, fed each frame from CarController. Written Nov 19 (TutorialHints): the first prompt and SKIP show in Play; the arrow and the later steps not yet seen or driven.
 4. A TUTORIAL button in the CONTROLS panel that teleports to the hub and starts it again. Written Nov 19 (PLAY THE TUTORIAL, under SOUND), not yet clicked.
+5. Analytics (added Nov 19 at Brian's ask): a Tutorial funnel, one session per new player's tutorial, with the steps Drive, Ramp, Jets, Tilt, Land, Finish, and Done. A step reached early also logs the ones it passed (AnalyticsEvents.tutorialSteps). A skip logs a TutorialSkip event with the step. Only players whose saved flag is still false are logged, so replays and old accounts are not. Written Nov 19: in Play the client sends each step to the server; nothing logs in Studio, and the live dashboard is not yet seen.
 
 ## Technical approach
 

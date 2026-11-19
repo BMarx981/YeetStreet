@@ -162,8 +162,14 @@ Tuning.Analytics = {
 		FirstNewCar = "FirstNewCar",
 		FlaggedRun = "FlaggedRun", -- a run that failed RunCheck: reason, park, car
 		Rebirth = "Rebirth", -- each rebirth: its number, minutes into the session, first session or not
+		TutorialSkip = "TutorialSkip", -- a new player skipped the tutorial: the step they were on
 	},
 	ObbyFunnel = "Obby", -- one funnel session per obby visit, one step per pad
+	-- One funnel session per new player's tutorial (TutorialService), never
+	-- for a replay from the CONTROLS panel. The steps match Tutorial's, then
+	-- Done once it is finished.
+	TutorialFunnel = "Tutorial",
+	TutorialSteps = { "Drive", "Ramp", "Jets", "Tilt", "Land", "Finish", "Done" },
 	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },
 	MinuteBuckets = { 2, 5, 10, 20, 40, 80 },
 }

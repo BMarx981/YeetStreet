@@ -156,6 +156,38 @@ Check.test("obby step for a stage with no name still has its number", function()
 	Check.eq(name, "05")
 end)
 
+local TUTORIAL = { "Drive", "Ramp", "Jets", "Done" }
+
+local function stepList(steps: { AnalyticsEvents.Step }): string
+	local parts = {}
+	for _, s in steps do
+		table.insert(parts, `{s.Step} {s.Name}`)
+	end
+	return table.concat(parts, ", ")
+end
+
+Check.test("the first tutorial step logs as step 1", function()
+	Check.eq(stepList(AnalyticsEvents.tutorialSteps(0, "Drive", TUTORIAL)), "1 Drive")
+end)
+
+Check.test("the next tutorial step logs on its own", function()
+	Check.eq(stepList(AnalyticsEvents.tutorialSteps(1, "Ramp", TUTORIAL)), "2 Ramp")
+end)
+
+Check.test("a tutorial step reached early logs the steps it passed too", function()
+	Check.eq(stepList(AnalyticsEvents.tutorialSteps(1, "Jets", TUTORIAL)), "2 Ramp, 3 Jets")
+	Check.eq(stepList(AnalyticsEvents.tutorialSteps(0, "Done", TUTORIAL)), "1 Drive, 2 Ramp, 3 Jets, 4 Done")
+end)
+
+Check.test("a tutorial step already logged logs nothing", function()
+	Check.eq(#AnalyticsEvents.tutorialSteps(2, "Ramp", TUTORIAL), 0, "same step")
+	Check.eq(#AnalyticsEvents.tutorialSteps(3, "Drive", TUTORIAL), 0, "earlier step")
+end)
+
+Check.test("an unknown tutorial step logs nothing", function()
+	Check.eq(#AnalyticsEvents.tutorialSteps(0, "Fly", TUTORIAL), 0)
+end)
+
 Check.test("fields fill the custom field keys in order", function()
 	local fields = AnalyticsEvents.fields({ "Dino", "<100" })
 	Check.eq(fields.CustomField01, "Dino")

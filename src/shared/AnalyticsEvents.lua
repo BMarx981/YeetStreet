@@ -217,6 +217,22 @@ function AnalyticsEvents.obbyStep(checkpoint: number, stageNames: { string }): (
 	return checkpoint + 1, if name then `{number} {name}` else number
 end
 
+-- The tutorial funnel steps to log when a player reaches step `name`, with
+-- `logged` steps logged so far: every step after those up to and including
+-- `name`. Unlike onboarding, reaching a step means passing the ones before
+-- it, even one the tutorial jumped over (a launch on Drive skips Ramp).
+-- Empty for an unknown step or one already logged.
+function AnalyticsEvents.tutorialSteps(logged: number, name: string, steps: { string }): { Step }
+	local ready: { Step } = {}
+	local index = table.find(steps, name)
+	if index then
+		for i = logged + 1, index do
+			table.insert(ready, { Step = i, Name = steps[i] })
+		end
+	end
+	return ready
+end
+
 -- Custom fields from up to three string values, in order.
 function AnalyticsEvents.fields(values: { string }): { [string]: string }
 	local fields = {}
