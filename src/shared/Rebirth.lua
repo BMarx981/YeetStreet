@@ -56,6 +56,7 @@ export type State = {
 	Cars: { string },
 	Equipped: string,
 	Limiteds: { string },
+	LimitedsWorn: { string },
 	Bodies: { [string]: { number } },
 	Worn: { [string]: number },
 }

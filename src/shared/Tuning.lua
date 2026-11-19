@@ -985,9 +985,16 @@ Tuning.Trails = {
 		Rebirth3 = { Color = { 255, 200, 40 } },
 		-- The rainbow jet flame's colors.
 		Rainbow = { Name = "Rainbow", Colors = Tuning.Flames.Looks.Rainbow.Colors },
+		-- The Galaxy Trail limited: deep space colors with twinkling stars
+		-- (Sparkle, the stars' color).
+		Galaxy = {
+			Name = "Galaxy",
+			Colors = { { 120, 60, 255 }, { 60, 40, 200 }, { 200, 60, 220 }, { 30, 20, 90 } },
+			Sparkle = { 255, 245, 220 },
+		},
 	},
 	-- Looks that are given as prizes, never earned by rebirthing (TrailService).
-	Prizes = { Rainbow = true },
+	Prizes = { Rainbow = true, Galaxy = true },
 	Width = 3, -- studs across, at the back of the hull
 	Lifetime = 1.5, -- seconds each bit of trail lasts
 	LiftDelay = 0.3,
@@ -1008,21 +1015,53 @@ Tuning.Limiteds = {
 		Id = "NeonGlow",
 		Name = "Neon Underglow",
 		Description = "Glowing neon lights beneath your car.",
+		Look = "Underglow",
 	},
 	{
 		Id = "GoldRims",
 		Name = "Gold Rims",
 		Description = "Premium gold-plated wheels.",
+		Look = "GoldRims",
 	},
 	{
-		Id = "RainbowTrail",
-		Name = "Rainbow Trail",
-		Description = "A rainbow trail follows your car through the air.",
+		Id = "GalaxyTrail",
+		Name = "Galaxy Trail",
+		Description = "A starry galaxy trail follows your car through the air.",
+		Trail = "Galaxy",
 	},
 	{
 		Id = "Crown",
 		Name = "Royal Crown",
 		Description = "A golden crown floats above your car.",
+		Look = "Crown",
+	},
+}
+
+-- How the worn limited looks are drawn on every client (LimitedLooks).
+-- Studs are in the car's space, where the hull's middle is 0.
+Tuning.LimitedLooks = {
+	Underglow = {
+		CycleTime = 6, -- seconds to fade through every color once
+		Inset = 0.5, -- studs the glowing strip stays in from the hull's edges
+		Brightness = 4,
+		Range = 12, -- studs the light reaches below the car
+	},
+	GoldRims = {
+		Color = { 255, 196, 48 },
+		Reflectance = 0.25,
+		Spokes = 5,
+		RingPieces = 12, -- blocks that make the round rim
+		Size = 0.8, -- the rim's radius as a share of the wheel's
+	},
+	Crown = {
+		Color = { 255, 196, 48 },
+		Gem = { 220, 30, 60 },
+		Cushion = { 150, 20, 40 },
+		Radius = 1.4, -- studs from the middle to the band
+		Gap = 1.5, -- studs between the top of the car and the crown
+		Bob = 0.3, -- studs it floats up and down
+		BobTime = 2, -- seconds per float up and down
+		SpinTime = 5, -- seconds per turn
 	},
 }
 

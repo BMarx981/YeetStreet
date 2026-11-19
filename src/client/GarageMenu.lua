@@ -108,6 +108,7 @@ local REASONS: { [string]: string } = {
 	Locked = "Rebirth more to unlock that car.",
 	OffSale = "That's not on sale right now.",
 	UnknownLimited = "That item doesn't exist.",
+	NotWearable = "That one isn't worn on the car.",
 }
 
 local player = Players.LocalPlayer :: Player
@@ -157,6 +158,12 @@ end
 
 local function limitedsOwned(): { string }
 	local value = player:GetAttribute("LimitedsOwned")
+	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
+end
+
+-- The limiteds with a look the player has on (Garage's LimitedsWorn).
+local function limitedsWorn(): { string }
+	local value = player:GetAttribute("LimitedsWorn")
 	return if typeof(value) == "string" and value ~= "" then string.split(value, ",") else {}
 end
 
@@ -673,9 +680,13 @@ local function build()
 			end
 			r.detail.Text = if left and not isOwned
 				then `LEAVES IN {Economy.leavesIn(left)}. {item.Description}`
+				elseif isOwned and item.Trail then "Pick it in the Cars tab's TRAIL row."
 				else item.Description
 			if isOwned then
-				if item.Id == "FrogCar" then
+				if item.Look then
+					local worn = table.find(limitedsWorn(), item.Id) ~= nil
+					setButton(r.button, if worn then "TAKE OFF" else "WEAR", loaded and not busy)
+				elseif item.Id == "FrogCar" then
 					local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
 					if frogEquipped then
 						setButton(r.button, "UNEQUIP", loaded and not busy)
@@ -829,7 +840,7 @@ local function build()
 			end
 		end
 	end
-	for _, item in Tuning.Limiteds do
+	for _, item: Economy.Limited in Tuning.Limiteds do
 		local r = limitedRows[item.Id]
 		r.button.Activated:Connect(function()
 			if not r.button.Active then
@@ -839,6 +850,9 @@ local function build()
 				ask("BuyLimited", item.Id, "Finish buying in the Robux window.", r, nil, function()
 					awaitedLimited = item.Id
 				end)
+			elseif item.Look then
+				local worn = table.find(limitedsWorn(), item.Id) ~= nil
+				ask("WearLimited", item.Id, if worn then `{item.Name} off.` else `{item.Name} on!`, r)
 			elseif item.Id == "FrogCar" then
 				local remote = ReplicatedStorage:FindFirstChild("ToggleFrogCar")
 				if remote and remote:IsA("RemoteEvent") then
@@ -1095,6 +1109,7 @@ local function build()
 	table.insert(refreshAttrs, "FlameWorn")
 	table.insert(refreshAttrs, "TrailsOwned")
 	table.insert(refreshAttrs, "TrailChoice")
+	table.insert(refreshAttrs, "LimitedsWorn")
 	for _, attribute in refreshAttrs do
 		player:GetAttributeChangedSignal(attribute):Connect(function()
 			if open then

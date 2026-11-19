@@ -38,6 +38,7 @@ local function state(cars: { string }, equipped: string): Rebirth.State
 		Cars = cars,
 		Equipped = equipped,
 		Limiteds = { "FrogCar" },
+		LimitedsWorn = {},
 		Bodies = { Speed = { 7, 8 } },
 		Worn = { Speed = 7 },
 	}

@@ -15,6 +15,7 @@
 --   WearBody(id, seed)  an owned body, and gets in that car
 --   Rebirth()         resets the cash ladder (Rebirth) if the player owns the
 --                     car it needs; reason "NeedsCar" if not
+--   WearLimited(id)   takes an owned limited with a Look off, or puts it on
 -- An upgrade or equip changes the car's stats, so the car respawns through
 -- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset. Wearing a
 -- body respawns it too, to rebuild its looks, and a rebirth respawns the
@@ -24,7 +25,9 @@
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
 -- joined by commas). Each car with bodies also gets BodiesOwned_<id> (seeds
 -- joined by commas) and BodyWorn_<id>. Rebirths is the player's rebirth
--- count. Cash is also in leaderstats.
+-- count. Cash is also in leaderstats. LimitedsOwned and LimitedsWorn list
+-- limited ids, and the player's car gets each worn limited's Look attribute
+-- (dressCar).
 --
 -- The panel opens near any model tagged Garage. The hand-placed
 -- workspace.Shopkeeper gets that tag here, so it stays a garage.
@@ -50,6 +53,17 @@ local Garage = {}
 
 local lastRequestAt: { [Player]: number } = {}
 
+-- Sets each limited Look's attribute on `car`: true while worn, nil
+-- otherwise, for every client to draw (LimitedLooks).
+function Garage.dressCar(car: Model, state: Economy.State)
+	local worn = Economy.limitedLooks(state, Tuning.Limiteds)
+	for _, item: Economy.Limited in Tuning.Limiteds do
+		if item.Look then
+			car:SetAttribute(item.Look, if table.find(worn, item.Look) then true else nil)
+		end
+	end
+end
+
 local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Cash", state.Cash)
 	player:SetAttribute("Speed", state.Levels.Speed)
@@ -60,6 +74,12 @@ local function publish(player: Player, state: Economy.State)
 	player:SetAttribute("Equipped", state.Equipped)
 	player:SetAttribute("CarsOwned", table.concat(state.Cars, ","))
 	player:SetAttribute("LimitedsOwned", table.concat(state.Limiteds, ","))
+	player:SetAttribute("LimitedsWorn", table.concat(state.LimitedsWorn, ","))
+	local cars = workspace:FindFirstChild("Cars")
+	local driven = cars and cars:FindFirstChild(`Car_{player.Name}`)
+	if driven and driven:IsA("Model") then
+		Garage.dressCar(driven, state)
+	end
 	for _, car in Tuning.Ladder do
 		if car.Bodies then
 			player:SetAttribute(`BodiesOwned_{car.Id}`, table.concat(state.Bodies[car.Id] or {}, ","))
@@ -297,6 +317,15 @@ remote("Rebirth", function(player: Player): (boolean, string?)
 	return ok, reason
 end)
 
+remote("WearLimited", function(player: Player, id: any): (boolean, string?)
+	if typeof(id) ~= "string" then
+		return false, "UnknownLimited"
+	end
+	return request(player, function(state)
+		return Economy.wearLimited(state, id, Tuning.Limiteds)
+	end, false, "Limited", id)
+end)
+
 remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	if typeof(id) ~= "string" then
 		return false, "UnknownBoneShop"
@@ -373,17 +402,22 @@ function Garage.giveBones(player: Player, amount: number, reason: string)
 	Analytics.gained(player, "Bones", reason, amount, coins.Value)
 end
 
--- Grants a limited item without charge. Used by admin commands (e.g. :frog)
--- to give admin-only limiteds like the Frog Car. Adds the id to the player's
--- saved Limiteds and publishes the update so the garage UI refreshes.
+-- Grants the limited `id` without charge (Economy.giveLimited): admin
+-- commands and Robux receipts (RobuxShop). One with a Look goes on, and one
+-- with a Trail gives that prize trail and puts it on (TrailService).
 function Garage.giveLimited(player: Player, id: string)
 	local data = PlayerData.get(player)
-	if not data then
+	local item = Economy.findLimited(Tuning.Limiteds, id)
+	if not (data and item) then
 		return
 	end
-	if not table.find(data.Economy.Limiteds, id) then
-		table.insert(data.Economy.Limiteds, id)
-		publish(player, data.Economy)
+	local after = Economy.giveLimited(data.Economy, item)
+	if after then
+		data.Economy = after
+		publish(player, after)
+	end
+	if item.Trail then
+		TrailService.give(player, item.Trail)
 	end
 end
 

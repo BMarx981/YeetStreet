@@ -29,6 +29,7 @@
 --   Fire burns on the hull while the car's Burning attribute is true, set
 --   by the server while lava burns it (ScoreService).
 --   A car with a Trail attribute leaves that trail in the air (CarTrail).
+--   Worn limiteds (Underglow, GoldRims, Crown attributes) show (LimitedLooks).
 --   Every other player's car, the Frog Car too, gets a nameplate with
 --   their name and rebirths (CarNameplate).
 
@@ -51,6 +52,7 @@ local BrakeLights = require(script.Parent.BrakeLights)
 local CarNameplate = require(script.Parent.CarNameplate)
 local CarTrail = require(script.Parent.CarTrail)
 local JetFlames = require(script.Parent.JetFlames)
+local LimitedLooks = require(script.Parent.LimitedLooks)
 
 local T = Tuning.Toughness
 
@@ -650,6 +652,7 @@ local function setUp(car: Model)
 			BrakeLights.add(frogBrakes, light)
 		end
 		lightWhileBraking(car, frogBrakes)
+		LimitedLooks.add(car, hull)
 		return
 	end
 	local design = CarParts.designFor(car)
@@ -801,6 +804,7 @@ local function setUp(car: Model)
 	car:GetAttributeChangedSignal("Burning"):Connect(showBurning)
 	showBurning()
 	CarTrail.add(car, hull)
+	LimitedLooks.add(car, hull)
 end
 
 local carsFolder = workspace:WaitForChild("Cars")

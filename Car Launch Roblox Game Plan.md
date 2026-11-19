@@ -95,10 +95,10 @@ Limiteds started as the son's shop tab (Oct 19). Today all five are admin only, 
 
 Brian's picks:
 
-- **What:** a mix of cars and cosmetics. First batch: the Frog Car, Neon Underglow, Gold Rims, Rainbow Trail, and Royal Crown.
+- **What:** a mix of cars and cosmetics. First batch: the Frog Car, Neon Underglow, Gold Rims, Galaxy Trail, and Royal Crown.
 - **How you get them:** an admin gives them, or you buy them with Robux. No cash.
 - **Limited means:** on sale for a time window, then gone. No stock count.
-- **Look:** the name sets the look. Neon Underglow glows under the car, Gold Rims are gold wheels, Rainbow Trail is a rainbow trail, and Royal Crown is a gold crown floating above the car.
+- **Look:** the name sets the look. Neon Underglow glows under the car and fades through every color, Gold Rims are gold spoked rims, Galaxy Trail is a deep space trail with twinkling stars, and Royal Crown is a gold crown floating above the car. Each look is worn or taken off in the garage; the Galaxy Trail is picked in the TRAIL row.
 - **Rebirth:** keeps every limited, so nothing paid for is lost (already true in the rebirth code).
 
 Steps:
@@ -115,7 +115,6 @@ Open:
 
 - Robux prices for each item.
 - Window length and dates for the first batch.
-- The daily reward already gives a rainbow trail. Rename the limited trail (a new name means a new look), or keep both rainbow.
 
 ## Car generator
 

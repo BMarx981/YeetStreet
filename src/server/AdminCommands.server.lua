@@ -820,7 +820,7 @@ local COMMANDS = {
 :bones [amount] - Give yourself BoneCoins (default 100)
 :bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
-:givelimited <item|all> [playerName] - Give a limited (crown, goldrims, neonglow, rainbowtrail, frogcar) or all of them, saved
+:givelimited <item|all> [playerName] - Give a limited (crown, goldrims, neonglow, galaxytrail, frogcar) or all of them, saved
 :obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)

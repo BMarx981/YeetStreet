@@ -135,6 +135,9 @@ local function placeCar(player: Player, humanoid: Humanoid, cframe: CFrame)
 	local data = PlayerData.get(player)
 	car:SetAttribute("Trail", if data then Trails.worn(data.Trails, data.Rebirths, Tuning.Trails.Rebirth) else nil)
 	car:SetAttribute("Flame", if data then data.Flames.Worn else nil)
+	if data then
+		Garage.dressCar(car, data.Economy)
+	end
 	if player:GetAttribute("HeliCarEquipped") == true then
 		car:SetAttribute("HeliCar", true)
 	end
@@ -166,6 +169,10 @@ placeFrogCar = function(player: Player, humanoid: Humanoid, cframe: CFrame)
 	car.Name = `Car_{player.Name}`
 	car:SetAttribute("OwnerUserId", player.UserId)
 	car:SetAttribute("FrogCar", true)
+	local data = PlayerData.get(player)
+	if data then
+		Garage.dressCar(car, data.Economy)
+	end
 	car.Parent = carsFolder
 	cars[player] = car
 	seatDriver(car, humanoid)

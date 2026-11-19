@@ -64,6 +64,8 @@ export type Limited = {
 	Description: string,
 	Sale: Sale?, -- none means never on sale, admin only
 	ProductId: number?, -- the Robux developer product that sells it
+	Look: string?, -- a car look it adds, worn or not: the car attribute set true while worn
+	Trail: string?, -- a prize trail it gives (Tuning.Trails.Prizes), picked in the garage
 }
 
 -- What a player owns. This is the saved part of their data.
@@ -73,6 +75,7 @@ export type State = {
 	Cars: { string }, -- ids of owned cars, in the order they were bought
 	Equipped: string,
 	Limiteds: { string }, -- ids of owned limited items
+	LimitedsWorn: { string }, -- ids of owned limiteds with a Look that are worn
 	Bodies: { [string]: { number } }, -- by car id, the seeds bought for that car
 	Worn: { [string]: number }, -- by car id, the seed it wears; none means its own
 }
@@ -147,6 +150,7 @@ function Economy.newState(ladder: { Car }): State
 		Cars = { first },
 		Equipped = first,
 		Limiteds = {},
+		LimitedsWorn = {},
 		Bodies = {},
 		Worn = {},
 	}
@@ -188,6 +192,14 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 		for _, id in saved.Limiteds do
 			if typeof(id) == "string" and not table.find(state.Limiteds, id) then
 				table.insert(state.Limiteds, id)
+			end
+		end
+	end
+	state.LimitedsWorn = {}
+	if typeof(saved.LimitedsWorn) == "table" then
+		for _, id in saved.LimitedsWorn do
+			if table.find(state.Limiteds, id) and not table.find(state.LimitedsWorn, id) then
+				table.insert(state.LimitedsWorn, id)
 			end
 		end
 	end
@@ -301,6 +313,57 @@ function Economy.robuxProblem(state: State, item: Limited, now: number): string?
 		return "Owned"
 	end
 	return nil
+end
+
+-- `state` with `item` owned, and worn if it has a Look. Nil if already owned.
+function Economy.giveLimited(state: State, item: Limited): State?
+	if table.find(state.Limiteds, item.Id) then
+		return nil
+	end
+	local after = table.clone(state)
+	after.Limiteds = table.clone(state.Limiteds)
+	table.insert(after.Limiteds, item.Id)
+	if item.Look then
+		after.LimitedsWorn = table.clone(state.LimitedsWorn)
+		table.insert(after.LimitedsWorn, item.Id)
+	end
+	return after
+end
+
+-- Takes the owned limited `id` off if worn, or puts it on. Fails with
+-- "UnknownLimited", "NotOwned", or "NotWearable" (it has no Look).
+function Economy.wearLimited(state: State, id: string, limiteds: { Limited }): (State?, string?)
+	local item = Economy.findLimited(limiteds, id)
+	if not item then
+		return nil, "UnknownLimited"
+	end
+	if not table.find(state.Limiteds, id) then
+		return nil, "NotOwned"
+	end
+	if not item.Look then
+		return nil, "NotWearable"
+	end
+	local after = table.clone(state)
+	after.LimitedsWorn = table.clone(state.LimitedsWorn)
+	local at = table.find(after.LimitedsWorn, id)
+	if at then
+		table.remove(after.LimitedsWorn, at)
+	else
+		table.insert(after.LimitedsWorn, id)
+	end
+	return after, nil
+end
+
+-- The Look of each worn limited, in `limiteds`' order: the car attributes
+-- that are true on the player's car.
+function Economy.limitedLooks(state: State, limiteds: { Limited }): { string }
+	local looks = {}
+	for _, item in limiteds do
+		if item.Look and table.find(state.LimitedsWorn, item.Id) then
+			table.insert(looks, item.Look)
+		end
+	end
+	return looks
 end
 
 function Economy.findCar(ladder: { Car }, id: string): Car?

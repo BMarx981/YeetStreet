@@ -656,6 +656,61 @@ Check.test("leavesIn shows the two biggest units left", function()
 	Check.eq(Economy.leavesIn(-3), "0m 0s")
 end)
 
+local WEARABLES: { Economy.Limited } = {
+	{ Id = "FrogCar", Name = "Frog Car", Description = "" },
+	{ Id = "NeonGlow", Name = "Neon Underglow", Description = "", Look = "Underglow" },
+	{ Id = "Crown", Name = "Royal Crown", Description = "", Look = "Crown" },
+	{ Id = "GalaxyTrail", Name = "Galaxy Trail", Description = "", Trail = "Galaxy" },
+}
+
+Check.test("giveLimited adds a limited, and puts on one with a look", function()
+	local s = Economy.newState(LADDER)
+	local crown = Economy.findLimited(WEARABLES, "Crown") :: Economy.Limited
+	local frog = Economy.findLimited(WEARABLES, "FrogCar") :: Economy.Limited
+	local after = Economy.giveLimited(s, crown) :: Economy.State
+	Check.eq(table.concat(after.Limiteds, ","), "Crown")
+	Check.eq(table.concat(after.LimitedsWorn, ","), "Crown", "worn")
+	Check.eq(#s.Limiteds, 0, "old state")
+	local both = Economy.giveLimited(after, frog) :: Economy.State
+	Check.eq(table.concat(both.Limiteds, ","), "Crown,FrogCar")
+	Check.eq(table.concat(both.LimitedsWorn, ","), "Crown", "no look to wear")
+	Check.eq(Economy.giveLimited(both, crown), nil, "already owned")
+end)
+
+Check.test("wearLimited takes an owned look off and puts it back on", function()
+	local s = Economy.giveLimited(Economy.newState(LADDER), WEARABLES[3]) :: Economy.State
+	local off = Economy.wearLimited(s, "Crown", WEARABLES) :: Economy.State
+	Check.eq(#off.LimitedsWorn, 0, "off")
+	Check.eq(#s.LimitedsWorn, 1, "old state")
+	local on = Economy.wearLimited(off, "Crown", WEARABLES) :: Economy.State
+	Check.eq(table.concat(on.LimitedsWorn, ","), "Crown", "on again")
+end)
+
+Check.test("wearLimited fails for unknown, unowned, or lookless limiteds", function()
+	local s = Economy.giveLimited(Economy.newState(LADDER), WEARABLES[1]) :: Economy.State
+	local _, unknown = Economy.wearLimited(s, "Hat", WEARABLES)
+	Check.eq(unknown, "UnknownLimited")
+	local _, notOwned = Economy.wearLimited(s, "Crown", WEARABLES)
+	Check.eq(notOwned, "NotOwned")
+	local _, noLook = Economy.wearLimited(s, "FrogCar", WEARABLES)
+	Check.eq(noLook, "NotWearable")
+end)
+
+Check.test("limitedLooks lists the looks a car shows, in the limiteds' order", function()
+	local s = Economy.newState(LADDER)
+	s = Economy.giveLimited(s, WEARABLES[3]) :: Economy.State
+	s = Economy.giveLimited(s, WEARABLES[2]) :: Economy.State
+	Check.eq(table.concat(Economy.limitedLooks(s, WEARABLES), ","), "Underglow,Crown")
+	s = Economy.wearLimited(s, "NeonGlow", WEARABLES) :: Economy.State
+	Check.eq(table.concat(Economy.limitedLooks(s, WEARABLES), ","), "Crown", "underglow off")
+end)
+
+Check.test("reconcile keeps worn limiteds that are owned", function()
+	local s = Economy.reconcile({ Limiteds = { "Crown" }, LimitedsWorn = { "Crown", "NeonGlow", 4, "Crown" } }, LADDER)
+	Check.eq(table.concat(s.LimitedsWorn, ","), "Crown")
+	Check.eq(#Economy.reconcile({ Limiteds = { "Crown" } }, LADDER).LimitedsWorn, 0, "old save")
+end)
+
 local function limitedIds(items: { Economy.Limited }): string
 	local out = {}
 	for _, item in items do

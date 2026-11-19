@@ -4,7 +4,8 @@
 -- comes from the car's Trail attribute (Tuning.Trails.Looks), which the
 -- server sets; a car without one gets no trail. It shows only in the air
 -- (Trails.step), checked with a ray down from the hull every CheckEvery
--- seconds, and fades out after landing. A replay ghost gets one too (ghost,
+-- seconds, and fades out after landing. A look with a Sparkle also scatters
+-- stars behind the car while the trail shows. A replay ghost gets one too (ghost,
 -- showGhost), from the look its car had, stepped on the replay's clock.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,8 +17,9 @@ local Tuning = require(ReplicatedStorage.Tuning)
 
 local T = Tuning.Trails
 
--- One Color, or Colors that run along the trail from the car back.
-type Look = { Color: { number }?, Colors: { { number } }? }
+-- One Color, or Colors that run along the trail from the car back, and
+-- Sparkle, the color of stars it scatters behind it.
+type Look = { Color: { number }?, Colors: { { number } }?, Sparkle: { number }? }
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -77,18 +79,49 @@ local function build(hull: BasePart): Trail
 	return trail
 end
 
+-- Stars that twinkle out behind the back of `hull`, off until something
+-- lights them, for a look with a Sparkle.
+local function sparkler(hull: BasePart): ParticleEmitter
+	local back = Instance.new("Attachment")
+	back.Name = "TrailSparkles"
+	back.Position = Vector3.new(0, 0, hull.Size.Z / 2)
+	back.Parent = hull
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Name = "TrailSparkles"
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Rate = 40
+	sparkles.Lifetime = NumberRange.new(0.8, 1.6)
+	sparkles.Speed = NumberRange.new(0, 2)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.6),
+		NumberSequenceKeypoint.new(0.5, 0.9),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	sparkles.Transparency = NumberSequence.new(0, 1)
+	sparkles.LightEmission = 1
+	sparkles.Enabled = false
+	sparkles.Parent = back
+	return sparkles
+end
+
 -- Gives `car` its trail at the back of `hull`, following its Trail
 -- attribute, until the car is gone.
 function CarTrail.add(car: Model, hull: BasePart)
 	local trail = build(hull)
+	local sparkles = sparkler(hull)
 	local look = lookOf(car)
 	local function showLook()
 		look = lookOf(car)
 		if look then
 			trail.Color = sequence(look)
+			if look.Sparkle then
+				sparkles.Color = ColorSequence.new(rgb(look.Sparkle))
+			end
 		else
 			trail.Enabled = false
 		end
+		sparkles.Enabled = trail.Enabled and look ~= nil and look.Sparkle ~= nil
 	end
 	car:GetAttributeChangedSignal("Trail"):Connect(showLook)
 	showLook()
@@ -112,6 +145,7 @@ function CarTrail.add(car: Model, hull: BasePart)
 		local up = Trails.step(air, grounded, since, T.LiftDelay)
 		since = 0
 		trail.Enabled = up and look ~= nil
+		sparkles.Enabled = trail.Enabled and look ~= nil and look.Sparkle ~= nil
 	end)
 end
 
