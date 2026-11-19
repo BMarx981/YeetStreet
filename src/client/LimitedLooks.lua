@@ -10,6 +10,9 @@
 --   Crown      a gold crown floating and turning above the car's top
 -- Values live in Tuning.LimitedLooks. The parts are massless and out of
 -- physics, like the rest of the car's looks.
+--
+-- A replay ghost wears the same looks (ghost), held on by ReplayPlayer
+-- instead of welds and moved on the replay's clock.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -21,9 +24,18 @@ local L = Tuning.LimitedLooks
 
 local WHEEL_NAMES = { "WheelFL", "WheelFR", "WheelRL", "WheelRR" }
 
+-- How a look's parts are held on. `fix` holds `part` to `base` where it is
+-- now. `float` holds it at `offset` from `base` and returns what moves it to
+-- another offset. `wheels` are the wheels Gold Rims go on.
+export type Rig = {
+	wheels: { BasePart },
+	fix: (base: BasePart, part: BasePart) -> (),
+	float: (base: BasePart, part: BasePart, offset: CFrame) -> (CFrame) -> (),
+}
+
 -- Draws one look into `folder`, and returns what moves it each frame, if
 -- anything, given the server time.
-type Build = (car: Model, hull: BasePart, folder: Folder) -> ((number) -> ())?
+type Build = (car: Model, hull: BasePart, folder: Folder, rig: Rig) -> ((number) -> ())?
 
 local LimitedLooks = {}
 
@@ -45,11 +57,35 @@ local function piece(name: string, size: Vector3, cframe: CFrame, parent: Instan
 	return part
 end
 
-local function weld(base: BasePart, part: BasePart)
-	local joint = Instance.new("WeldConstraint")
-	joint.Part0 = base
-	joint.Part1 = part
-	joint.Parent = part
+-- A real car's rig: welds, on its visible wheels.
+local function weldRig(car: Model): Rig
+	local wheels: { BasePart } = {}
+	for _, name in WHEEL_NAMES do
+		local wheel = car:FindFirstChild(name)
+		if wheel and wheel:IsA("BasePart") and wheel.Transparency < 1 then
+			table.insert(wheels, wheel)
+		end
+	end
+	return {
+		wheels = wheels,
+		fix = function(base: BasePart, part: BasePart)
+			local joint = Instance.new("WeldConstraint")
+			joint.Part0 = base
+			joint.Part1 = part
+			joint.Parent = part
+		end,
+		-- A Weld, not a WeldConstraint, so it can move every frame.
+		float = function(base: BasePart, part: BasePart, offset: CFrame): (CFrame) -> ()
+			local joint = Instance.new("Weld")
+			joint.Part0 = base
+			joint.Part1 = part
+			joint.C0 = offset
+			joint.Parent = part
+			return function(moved: CFrame)
+				joint.C0 = moved
+			end
+		end,
+	}
 end
 
 local function gold(part: BasePart, color: { number }, reflectance: number)
@@ -58,12 +94,12 @@ local function gold(part: BasePart, color: { number }, reflectance: number)
 	part.Reflectance = reflectance
 end
 
-local function underglow(_car: Model, hull: BasePart, folder: Folder): ((number) -> ())?
+local function underglow(_car: Model, hull: BasePart, folder: Folder, rig: Rig): ((number) -> ())?
 	local U = L.Underglow
 	local size = Vector3.new(hull.Size.X - 2 * U.Inset, 0.1, hull.Size.Z - 2 * U.Inset)
 	local strip = piece("Underglow", size, hull.CFrame * CFrame.new(0, Tuning.CarLooks.BodyBottom - 0.1, 0), folder)
 	strip.Material = Enum.Material.Neon
-	weld(hull, strip)
+	rig.fix(hull, strip)
 	local light = Instance.new("SurfaceLight")
 	light.Face = Enum.NormalId.Bottom
 	light.Angle = 120
@@ -77,21 +113,18 @@ local function underglow(_car: Model, hull: BasePart, folder: Folder): ((number)
 	end
 end
 
-local function goldRims(car: Model, _hull: BasePart, folder: Folder): ((number) -> ())?
+local function goldRims(_car: Model, hull: BasePart, folder: Folder, rig: Rig): ((number) -> ())?
 	local R = L.GoldRims
-	for _, name in WHEEL_NAMES do
-		local wheel = car:FindFirstChild(name)
-		if not (wheel and wheel:IsA("BasePart")) or wheel.Transparency >= 1 then
-			continue
-		end
-		-- A wheel's axle is its X axis, and left wheels end in L.
-		local side = if string.sub(name, -1) == "L" then -1 else 1
+	for _, wheel in rig.wheels do
+		-- A wheel's axle is its X axis, and the rim goes on the end away from
+		-- the hull.
+		local side = if wheel.CFrame:PointToObjectSpace(hull.Position).X > 0 then -1 else 1
 		local x = side * (wheel.Size.X / 2 + 0.06)
 		local radius = wheel.Size.Y / 2 * R.Size
 		local function add(partName: string, size: Vector3, offset: CFrame)
 			local part = piece(partName, size, wheel.CFrame * offset, folder)
 			gold(part, R.Color, R.Reflectance)
-			weld(wheel, part)
+			rig.fix(wheel, part)
 		end
 		for _, ring in LimitedPoses.ring(radius, R.RingPieces) do
 			local at = CFrame.new(x, radius * math.cos(ring.angle), radius * math.sin(ring.angle))
@@ -106,7 +139,7 @@ local function goldRims(car: Model, _hull: BasePart, folder: Folder): ((number) 
 			piece("RimCap", Vector3.new(0.18, radius * 0.6, radius * 0.6), wheel.CFrame * CFrame.new(x, 0, 0), folder)
 		cap.Shape = Enum.PartType.Cylinder
 		gold(cap, R.Color, R.Reflectance)
-		weld(wheel, cap)
+		rig.fix(wheel, cap)
 	end
 	return nil
 end
@@ -123,19 +156,20 @@ local function carTop(car: Model, hull: BasePart, skip: Instance): number
 	return top
 end
 
-local function crown(car: Model, hull: BasePart, folder: Folder): ((number) -> ())?
+local function crown(car: Model, hull: BasePart, folder: Folder, rig: Rig): ((number) -> ())?
 	local C = L.Crown
 	local looks = folder.Parent :: Instance
 	local rest = carTop(car, hull, looks) + C.Gap
 	local root = piece("CrownRoot", Vector3.one * 0.2, hull.CFrame * CFrame.new(0, rest, 0), folder)
 	root.Transparency = 1
+	local float = rig.float(hull, root, CFrame.new(0, rest, 0))
 	local function add(name: string, size: Vector3, offset: CFrame, shape: Enum.PartType?): Part
 		local part = piece(name, size, root.CFrame * offset, folder)
 		if shape then
 			part.Shape = shape
 		end
 		gold(part, C.Color, 0.2)
-		weld(root, part)
+		rig.fix(root, part)
 		return part
 	end
 	local bandHeight = 0.7
@@ -175,16 +209,9 @@ local function crown(car: Model, hull: BasePart, folder: Folder): ((number) -> (
 	cushion.Material = Enum.Material.Fabric
 	cushion.Reflectance = 0
 	add("Top", Vector3.one * 0.45, CFrame.new(0, 0.7, 0), Enum.PartType.Ball)
-
-	-- A Weld, not a WeldConstraint, so the float can move it every frame.
-	local float = Instance.new("Weld")
-	float.Part0 = hull
-	float.Part1 = root
-	float.C0 = CFrame.new(0, rest, 0)
-	float.Parent = root
 	return function(t: number)
 		local lift, turn = LimitedPoses.crownFloat(t, C)
-		float.C0 = CFrame.new(0, rest + lift, 0) * CFrame.Angles(0, turn, 0)
+		float(CFrame.new(0, rest + lift, 0) * CFrame.Angles(0, turn, 0))
 	end
 end
 
@@ -209,7 +236,7 @@ function LimitedLooks.add(car: Model, hull: BasePart)
 				local folder = Instance.new("Folder")
 				folder.Name = look
 				folder.Parent = looks
-				shown[look] = { folder = folder, step = build(car, hull, folder) }
+				shown[look] = { folder = folder, step = build(car, hull, folder, weldRig(car)) }
 			elseif not on and now then
 				now.folder:Destroy()
 				shown[look] = nil
@@ -232,6 +259,35 @@ function LimitedLooks.add(car: Model, hull: BasePart)
 			end
 		end
 	end)
+end
+
+-- Draws replay ghost `ghost`'s worn limited looks, from the Look attributes
+-- copied from its car, on `hull` (a stand-in for the car's hull), held on by
+-- `rig`. Returns what moves them to a server time, nil if it wears none.
+function LimitedLooks.ghost(ghost: Model, hull: BasePart, rig: Rig): ((number) -> ())?
+	local looks = Instance.new("Folder")
+	looks.Name = "LimitedLooks"
+	looks.Parent = ghost
+	local steps: { (number) -> () } = {}
+	for look, build in BUILDS do
+		if ghost:GetAttribute(look) == true then
+			local folder = Instance.new("Folder")
+			folder.Name = look
+			folder.Parent = looks
+			local step = build(ghost, hull, folder, rig)
+			if step then
+				table.insert(steps, step)
+			end
+		end
+	end
+	if #steps == 0 then
+		return nil
+	end
+	return function(t: number)
+		for _, step in steps do
+			step(t)
+		end
+	end
 end
 
 return LimitedLooks

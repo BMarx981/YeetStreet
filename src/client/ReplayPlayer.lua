@@ -23,6 +23,12 @@
 -- it. It also flies the car's trail (CarTrail.ghost), lit in the air as on
 -- a real car, checked on the replay's clock.
 --
+-- It wears the limited looks the car wore (LimitedLooks.ghost), held on as
+-- pieces: Gold Rims ride their wheel, and the underglow's color and the
+-- crown's float follow the server time of the moment shown, so they look
+-- as they did in the run and freeze on pause. The hidden real car's lights,
+-- like its underglow, are off until the replay ends.
+--
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
 -- HUD alone. The camera starts on the ghost from the side, a little behind
@@ -73,6 +79,7 @@ local CarPreview = require(script.Parent.CarPreview)
 local CarTrail = require(script.Parent.CarTrail)
 local CarSounds = require(script.Parent.CarSounds)
 local JetFlames = require(script.Parent.JetFlames)
+local LimitedLooks = require(script.Parent.LimitedLooks)
 local ReplayCamera = require(script.Parent.ReplayCamera)
 local ReplayDebris = require(script.Parent.ReplayDebris)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
@@ -148,6 +155,7 @@ type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
 	lights: Lights,
+	looks: ((number) -> ())?, -- moves the worn limited looks to a server time
 	sounds: ReplaySounds.Sounds,
 	axolotl: AxolotlGhost?,
 	legs: LegsGhost?,
@@ -157,6 +165,7 @@ type Playing = {
 	random: Random,
 	streamed: number, -- os.clock when the map round the ghost was last asked for
 	hidden: { BasePart },
+	dimmed: { Light }, -- the real car's lights that were on, like its underglow
 	clock: ReplayClock.Clock,
 }
 
@@ -339,7 +348,41 @@ local function lightUp(
 	fire.Parent = addHolder(ghost, pieces, "FireHolder", Vector3.one, CFrame.new())
 	local hull = addHolder(ghost, pieces, "TrailHolder", Tuning.Chassis.HullSize, CFrame.new())
 	local trail = CarTrail.ghost(ghost, hull)
+	if trail and trail.sparkles then
+		table.insert(emitters, trail.sparkles)
+	end
 	return { flames = flames, brakes = brakes, fire = fire, emitters = emitters, trail = trail, time = 0 }
+end
+
+-- Puts the limited looks the car wore on `ghost`, each part a piece that
+-- rides the piece it is fixed to, with Gold Rims on `wheels`. Returns what
+-- moves them to a server time, nil if it wears none.
+local function dressUp(ghost: Model, pieces: { Piece }, wheels: { BasePart }): ((number) -> ())?
+	local index: { [BasePart]: number } = {}
+	for i, piece in pieces do
+		index[piece.part] = i
+	end
+	local hull = addHolder(ghost, pieces, "LooksHolder", Tuning.Chassis.HullSize, CFrame.new())
+	index[hull] = #pieces
+	local function hold(base: BasePart, part: BasePart, offset: CFrame): Piece
+		part.Anchored = true
+		local piece: Piece = { part = part, offset = offset, on = index[base] }
+		table.insert(pieces, piece)
+		index[part] = #pieces
+		return piece
+	end
+	return LimitedLooks.ghost(ghost, hull, {
+		wheels = wheels,
+		fix = function(base: BasePart, part: BasePart)
+			hold(base, part, base.CFrame:ToObjectSpace(part.CFrame))
+		end,
+		float = function(base: BasePart, part: BasePart, offset: CFrame): (CFrame) -> ()
+			local piece = hold(base, part, offset)
+			return function(moved: CFrame)
+				piece.offset = moved
+			end
+		end,
+	})
 end
 
 -- The ghost car for `replay`, its pieces, and its lights, built at the
@@ -576,6 +619,9 @@ end
 local function show(now: Playing, dt: number)
 	local time = now.clock.time
 	local pose = poseAt(now.replay.clip, time)
+	if now.looks then
+		now.looks(now.replay.serverStart + time)
+	end
 	if now.axolotl then
 		moveAxolotl(now.axolotl, now.replay.clip, time, pose)
 	end
@@ -663,6 +709,9 @@ function ReplayPlayer.stop()
 	for _, part in now.hidden do
 		part.LocalTransparencyModifier = 0
 	end
+	for _, light in now.dimmed do
+		light.Enabled = true
+	end
 end
 
 -- Plays `replay`, hiding `car` and `character` while it does.
@@ -673,6 +722,15 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		warn("ReplayPlayer: the replay's car has no look attributes; nothing to play")
 		return
 	end
+	-- The Axolotl Throttle's wheels are its own, which a real one keeps
+	-- hidden from Gold Rims.
+	local wheels: { BasePart } = {}
+	for _, piece in pieces do
+		if piece.wheel and not axolotl then
+			table.insert(wheels, piece.part)
+		end
+	end
+	local looks = dressUp(ghost, pieces, wheels)
 	local ground = RaycastParams.new()
 	ground.FilterType = Enum.RaycastFilterType.Exclude
 	ground.FilterDescendantsInstances = { ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
@@ -687,12 +745,16 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		end
 	end
 	local hidden: { BasePart } = {}
+	local dimmed: { Light } = {}
 	for _, model in { car, character } do
 		if model then
 			for _, part in model:GetDescendants() do
 				if part:IsA("BasePart") then
 					part.LocalTransparencyModifier = 1
 					table.insert(hidden, part)
+				elseif part:IsA("Light") and part.Enabled then
+					part.Enabled = false
+					table.insert(dimmed, part)
 				end
 			end
 		end
@@ -705,6 +767,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		replay = replay,
 		ghost = ghost,
 		lights = lights,
+		looks = looks,
 		sounds = ReplaySounds.start(ghost, replay.clip, replay.look, ground),
 		axolotl = axolotl,
 		legs = legs,
@@ -714,6 +777,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		random = Random.new(),
 		streamed = os.clock(),
 		hidden = hidden,
+		dimmed = dimmed,
 		clock = ReplayClock.new(replay.clip.duration),
 	}
 	playing = now

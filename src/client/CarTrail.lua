@@ -6,7 +6,8 @@
 -- (Trails.step), checked with a ray down from the hull every CheckEvery
 -- seconds, and fades out after landing. A look with a Sparkle also scatters
 -- stars behind the car while the trail shows. A replay ghost gets one too (ghost,
--- showGhost), from the look its car had, stepped on the replay's clock.
+-- showGhost), stars and all, from the look its car had, stepped on the
+-- replay's clock.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -152,6 +153,7 @@ end
 -- A replay ghost's trail, stepped by ReplayPlayer.
 export type Ghost = {
 	trail: Trail,
+	sparkles: ParticleEmitter?, -- for a look with a Sparkle
 	hull: BasePart,
 	ground: RaycastParams,
 	air: Trails.Air,
@@ -168,15 +170,22 @@ function CarTrail.ghost(ghost: Model, hull: BasePart): Ghost?
 	end
 	local trail = build(hull)
 	trail.Color = sequence(look)
+	local sparkles: ParticleEmitter? = nil
+	if look.Sparkle then
+		local made = sparkler(hull)
+		made.Color = ColorSequence.new(rgb(look.Sparkle))
+		sparkles = made
+	end
 	local ground = RaycastParams.new()
 	ground.FilterType = Enum.RaycastFilterType.Exclude
 	local cars = workspace:FindFirstChild("Cars")
 	ground.FilterDescendantsInstances = if cars then { ghost, cars } else { ghost }
-	return { trail = trail, hull = hull, ground = ground, air = Trails.newAir(), since = 0 }
+	return { trail = trail, sparkles = sparkles, hull = hull, ground = ground, air = Trails.newAir(), since = 0 }
 end
 
 -- Steps a ghost's trail on by `dt` replay seconds (0 while paused). A seek
--- wipes what it had drawn, so it doesn't streak across the jump.
+-- wipes what it had drawn, so it doesn't streak across the jump. Its stars
+-- follow the replay's clock with the ghost's other emitters (ReplayPlayer).
 function CarTrail.showGhost(g: Ghost, dt: number, seek: boolean)
 	if seek then
 		g.trail:Clear()
@@ -190,6 +199,9 @@ function CarTrail.showGhost(g: Ghost, dt: number, seek: boolean)
 	local grounded = workspace:Raycast(g.hull.Position, Vector3.new(0, -T.AirCheck, 0), g.ground) ~= nil
 	g.trail.Enabled = Trails.step(g.air, grounded, g.since, T.LiftDelay)
 	g.since = 0
+	if g.sparkles then
+		g.sparkles.Enabled = g.trail.Enabled
+	end
 end
 
 return CarTrail
