@@ -8,6 +8,8 @@
 -- REBIRTH turns it on and off, and once they have more than one trail to
 -- pick from, a TRAIL row switches between them and off (TrailService). The
 -- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
+-- The Limiteds tab lists the player's limiteds and the ones on sale now,
+-- with the time left and a Robux button (RobuxShop).
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
 -- keyboard or X on a gamepad. The same keys, the panel's X button, and gamepad
@@ -21,6 +23,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -103,6 +106,8 @@ local REASONS: { [string]: string } = {
 	UnknownBody = "That body doesn't exist.",
 	NeedsCar = "You don't own the car this rebirth needs yet.",
 	Locked = "Rebirth more to unlock that car.",
+	OffSale = "That's not on sale right now.",
+	UnknownLimited = "That item doesn't exist.",
 }
 
 local player = Players.LocalPlayer :: Player
@@ -443,6 +448,29 @@ local function build()
 	for i, item in Tuning.Limiteds do
 		limitedRows[item.Id] = row(limitedsList, i, item.Name)
 	end
+	-- Shown when no limited is on sale or owned.
+	local noLimitedsRow = row(limitedsList, #Tuning.Limiteds + 1, "Nothing on sale")
+	noLimitedsRow.detail.Text = "Limiteds come and go. Check back soon!"
+	noLimitedsRow.button.Visible = false
+	-- The limited whose Robux prompt is open, to cheer when it arrives.
+	local awaitedLimited: string? = nil
+	-- Robux prices by product id, asked of Roblox once each.
+	local robuxPrices: { [number]: number } = {}
+	local askedPrices: { [number]: boolean } = {}
+	local function robuxPrice(productId: number, ready: () -> ()): number?
+		if not askedPrices[productId] then
+			askedPrices[productId] = true
+			task.spawn(function()
+				local ok, info =
+					pcall(MarketplaceService.GetProductInfo, MarketplaceService, productId, Enum.InfoType.Product)
+				if ok and typeof(info) == "table" and typeof(info.PriceInRobux) == "number" then
+					robuxPrices[productId] = info.PriceInRobux
+					ready()
+				end
+			end)
+		end
+		return robuxPrices[productId]
+	end
 	local boneRows: { [string]: Row } = {}
 	for i, item in Tuning.BoneShop do
 		boneRows[item.Id] = row(bonesList, i, item.Name)
@@ -631,12 +659,22 @@ local function build()
 			end
 		end
 
-		-- Limiteds tab
+		-- Limiteds tab: owned ones, and ones on sale now with time left.
 		local ownedLimiteds = limitedsOwned()
-		for _, item in Tuning.Limiteds do
+		local now = workspace:GetServerTimeNow()
+		local limitedsShown = 0
+		for _, item: Economy.Limited in Tuning.Limiteds do
 			local r = limitedRows[item.Id]
-			r.detail.Text = item.Description
-			if table.find(ownedLimiteds, item.Id) then
+			local isOwned = table.find(ownedLimiteds, item.Id) ~= nil
+			local left = if item.ProductId then Economy.saleLeft(item, now) else nil
+			r.frame.Visible = isOwned or left ~= nil
+			if r.frame.Visible then
+				limitedsShown += 1
+			end
+			r.detail.Text = if left and not isOwned
+				then `LEAVES IN {Economy.leavesIn(left)}. {item.Description}`
+				else item.Description
+			if isOwned then
 				if item.Id == "FrogCar" then
 					local frogEquipped = player:GetAttribute("FrogCarEquipped") == true
 					if frogEquipped then
@@ -647,10 +685,16 @@ local function build()
 				else
 					setButton(r.button, "OWNED", false)
 				end
-			else
-				setButton(r.button, "LOCKED", false)
+			elseif item.ProductId and left then
+				local price = robuxPrice(item.ProductId, function()
+					if open then
+						refresh()
+					end
+				end)
+				setButton(r.button, if price then `R$ {withCommas(price)}` else "BUY", loaded and not busy, true)
 			end
 		end
+		noLimitedsRow.frame.Visible = limitedsShown == 0
 
 		-- Bone shop tab
 		local boneCoinsVal = player:GetAttribute("BoneCoins")
@@ -791,7 +835,11 @@ local function build()
 			if not r.button.Active then
 				return
 			end
-			if item.Id == "FrogCar" then
+			if not table.find(limitedsOwned(), item.Id) then
+				ask("BuyLimited", item.Id, "Finish buying in the Robux window.", r, nil, function()
+					awaitedLimited = item.Id
+				end)
+			elseif item.Id == "FrogCar" then
 				local remote = ReplicatedStorage:FindFirstChild("ToggleFrogCar")
 				if remote and remote:IsA("RemoteEvent") then
 					remote:FireServer()
@@ -799,6 +847,15 @@ local function build()
 			end
 		end)
 	end
+	player:GetAttributeChangedSignal("LimitedsOwned"):Connect(function()
+		local id = awaitedLimited
+		if id and table.find(limitedsOwned(), id) then
+			awaitedLimited = nil
+			local item = Economy.findLimited(Tuning.Limiteds, id)
+			status.Text = `Got the {if item then item.Name else id}!`
+			UiStyle.flash(limitedRows[id].frame)
+		end
+	end)
 	flameRow.button.Activated:Connect(function()
 		if not flameRow.button.Active then
 			return
@@ -1014,6 +1071,16 @@ local function build()
 						body.preview.spin(dt)
 					end
 				end
+			end
+		end
+	end)
+
+	-- The Limiteds tab's sale countdowns tick while it shows.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if open and tab == "Limiteds" and not busy then
+				refresh()
 			end
 		end
 	end)

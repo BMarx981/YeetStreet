@@ -629,12 +629,31 @@ Check.test("a limited can be bought with Robux only on sale, with a product, and
 	local crown = Economy.findLimited(FOR_SALE, "Crown") :: Economy.Limited
 	local rims = Economy.findLimited(FOR_SALE, "GoldRims") :: Economy.Limited
 	Check.eq(Economy.robuxProblem(s, crown, DEC_1_2026), nil, "on sale")
-	Check.eq(Economy.robuxProblem(s, crown, DEC_8_2026), "NotForSale", "window closed")
-	Check.eq(Economy.robuxProblem(s, frog, DEC_1_2026), "NotForSale", "no window")
-	Check.eq(Economy.robuxProblem(s, rims, DEC_1_2026), "NotForSale", "no product yet")
+	Check.eq(Economy.robuxProblem(s, crown, DEC_8_2026), "OffSale", "window closed")
+	Check.eq(Economy.robuxProblem(s, frog, DEC_1_2026), "OffSale", "no window")
+	Check.eq(Economy.robuxProblem(s, rims, DEC_1_2026), "OffSale", "no product yet")
 	local owner = table.clone(s)
 	owner.Limiteds = { "Crown" }
 	Check.eq(Economy.robuxProblem(owner, crown, DEC_1_2026), "Owned")
+end)
+
+Check.test("saleLeft counts the seconds until the window closes, nil off sale", function()
+	local crown = Economy.findLimited(FOR_SALE, "Crown") :: Economy.Limited
+	local frog = Economy.findLimited(FOR_SALE, "FrogCar") :: Economy.Limited
+	Check.eq(Economy.saleLeft(crown, DEC_1_2026), 7 * 86400)
+	Check.eq(Economy.saleLeft(crown, DEC_8_2026 - 1), 1)
+	Check.eq(Economy.saleLeft(crown, DEC_8_2026), nil, "closed")
+	Check.eq(Economy.saleLeft(crown, DEC_1_2026 - 1), nil, "not open yet")
+	Check.eq(Economy.saleLeft(frog, DEC_1_2026), nil, "no window")
+end)
+
+Check.test("leavesIn shows the two biggest units left", function()
+	Check.eq(Economy.leavesIn(3 * 86400 + 4 * 3600 + 59), "3d 4h")
+	Check.eq(Economy.leavesIn(86400), "1d 0h")
+	Check.eq(Economy.leavesIn(5 * 3600 + 12 * 60 + 30), "5h 12m")
+	Check.eq(Economy.leavesIn(12 * 60 + 5.7), "12m 5s")
+	Check.eq(Economy.leavesIn(9), "0m 9s")
+	Check.eq(Economy.leavesIn(-3), "0m 0s")
 end)
 
 local function limitedIds(items: { Economy.Limited }): string

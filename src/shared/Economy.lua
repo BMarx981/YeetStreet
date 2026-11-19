@@ -258,6 +258,28 @@ function Economy.onSale(item: Limited, now: number): boolean
 	return starts ~= nil and ends ~= nil and now >= starts and now < ends
 end
 
+-- Seconds from unix time `now` until `item`'s sale window closes; nil when
+-- it isn't on sale.
+function Economy.saleLeft(item: Limited, now: number): number?
+	local sale = item.Sale
+	if not sale or not Economy.onSale(item, now) then
+		return nil
+	end
+	return (utcMidnight(sale.Ends) :: number) - now
+end
+
+-- `seconds` left as its two biggest units, such as "3d 4h", "5h 12m", or
+-- "12m 5s".
+function Economy.leavesIn(seconds: number): string
+	local whole = math.max(math.floor(seconds), 0)
+	if whole >= 86400 then
+		return `{whole // 86400}d {whole // 3600 % 24}h`
+	elseif whole >= 3600 then
+		return `{whole // 3600}h {whole // 60 % 60}m`
+	end
+	return `{whole // 60}m {whole % 60}s`
+end
+
 -- The limited that the Robux developer product `productId` sells.
 function Economy.findLimitedByProduct(limiteds: { Limited }, productId: number): Limited?
 	for _, item in limiteds do
@@ -269,11 +291,11 @@ function Economy.findLimitedByProduct(limiteds: { Limited }, productId: number):
 end
 
 -- Why `state` can't be offered `item` for Robux at unix time `now`:
--- "NotForSale" off its window or before it has a product, or "Owned". Nil
+-- "OffSale" off its window or before it has a product, or "Owned". Nil
 -- if it can.
 function Economy.robuxProblem(state: State, item: Limited, now: number): string?
 	if not item.ProductId or not Economy.onSale(item, now) then
-		return "NotForSale"
+		return "OffSale"
 	end
 	if table.find(state.Limiteds, item.Id) then
 		return "Owned"
