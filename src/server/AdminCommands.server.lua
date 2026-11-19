@@ -307,6 +307,7 @@ local COMMAND_INFO = {
 	{ name = "axolotl",    desc = "Turn the Axolotl Throttle on or off for you or a player", usage = ":axolotl [playerName]",  optionsType = "player" },
 	{ name = "raptor",     desc = "Turn the mesh Velociraptor on or off for you or a player", usage = ":raptor [playerName]",  optionsType = "player" },
 	{ name = "givecar",    desc = "Add a ladder car (or all dino cars) to a garage, saved", usage = ":givecar <car|dinos> [playerName]", optionsType = "text" },
+	{ name = "givelimited", desc = "Give a limited (or all of them), saved",            usage = ":givelimited <item|all> [playerName]", optionsType = "text" },
 	{ name = "daily",      desc = "Open the next daily reward now, or start a player's calendar over", usage = ":daily <next|reset> [playerName]", optionsType = "text" },
 	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
 	{ name = "promote",    desc = "Make a player an admin (gives them the command bar)", usage = ":promote <playerName>",         optionsType = "player" },
@@ -652,6 +653,49 @@ local COMMANDS = {
 		return reply
 	end,
 
+	-- Gives limiteds for free (Garage.giveLimited), saved, by Id or Name
+	-- (Economy.matchLimiteds), or every limited for "all".
+	givelimited = function(adminPlayer, args)
+		local word, targetName = string.match(args, "^%s*(%S+)%s*(%S*)")
+		if not word then
+			return "Usage: :givelimited <item|all> [playerName]"
+		end
+		local target = if targetName ~= "" then findPlayer(targetName) else adminPlayer
+		if not target then
+			return if targetName ~= ""
+				then "Player not found: " .. targetName
+				else "Usage: :givelimited <item|all> [playerName]"
+		end
+		local items = Economy.matchLimiteds(Tuning.Limiteds, word)
+		if #items == 0 then
+			return "No limited called " .. word
+		end
+		local function owns(id)
+			return table.find(string.split(target:GetAttribute("LimitedsOwned") or "", ","), id) ~= nil
+		end
+		local given, had = {}, {}
+		for _, item in items do
+			if owns(item.Id) then
+				table.insert(had, item.Name)
+			else
+				Garage.giveLimited(target, item.Id)
+				if owns(item.Id) then
+					table.insert(given, item.Name)
+				end
+			end
+		end
+		if #given == 0 and #had == 0 then
+			return target.Name .. "'s data isn't loaded yet, try again"
+		end
+		local reply = if #given > 0
+			then "Gave " .. target.Name .. ": " .. table.concat(given, ", ")
+			else "Nothing new for " .. target.Name
+		if #had > 0 then
+			reply ..= ". Already owned: " .. table.concat(had, ", ")
+		end
+		return reply
+	end,
+
 	-- Puts a car on an obby pad from anywhere, as if every pad up to it had
 	-- been reached, paying nothing (ObbyService.skipTo). Pads go by the number
 	-- painted on them, 0 for START.
@@ -776,6 +820,7 @@ local COMMANDS = {
 :bones [amount] - Give yourself BoneCoins (default 100)
 :bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
+:givelimited <item|all> [playerName] - Give a limited (crown, goldrims, neonglow, rainbowtrail, frogcar) or all of them, saved
 :obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :promote <playerName> - Make a player an admin (gives them the admin command bar)

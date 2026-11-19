@@ -637,4 +637,25 @@ Check.test("a limited can be bought with Robux only on sale, with a product, and
 	Check.eq(Economy.robuxProblem(owner, crown, DEC_1_2026), "Owned")
 end)
 
+local function limitedIds(items: { Economy.Limited }): string
+	local out = {}
+	for _, item in items do
+		table.insert(out, item.Id)
+	end
+	return table.concat(out, ",")
+end
+
+Check.test("matchLimiteds finds a limited by id or name, any case, spaces and dashes ignored", function()
+	Check.eq(limitedIds(Economy.matchLimiteds(FOR_SALE, "crown")), "Crown")
+	Check.eq(limitedIds(Economy.matchLimiteds(FOR_SALE, "RoyalCrown")), "Crown")
+	Check.eq(limitedIds(Economy.matchLimiteds(FOR_SALE, "gold-rims")), "GoldRims")
+	Check.eq(limitedIds(Economy.matchLimiteds(FOR_SALE, "frog car")), "FrogCar")
+end)
+
+Check.test("matchLimiteds gives every limited for all, and nothing for an unknown word", function()
+	Check.eq(limitedIds(Economy.matchLimiteds(FOR_SALE, "ALL")), "FrogCar,Crown,GoldRims")
+	Check.eq(#Economy.matchLimiteds(FOR_SALE, "hat"), 0)
+	Check.eq(#Economy.matchLimiteds(FOR_SALE, ""), 0)
+end)
+
 Check.finish("Economy")

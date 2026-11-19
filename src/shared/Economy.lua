@@ -290,13 +290,15 @@ function Economy.findCar(ladder: { Car }, id: string): Car?
 	return nil
 end
 
+-- A typed word as admin commands match it: lowercase, no spaces or dashes.
+local function squash(text: string): string
+	return (string.gsub(string.lower(text), "[%s%-]", ""))
+end
+
 -- The cars a typed word names, for admin commands: a car's Id or Name in any
 -- case, with spaces and dashes ignored ("t-rex", "muscle car"), or every Tier
 -- "Dino" car for "dinos". Empty if nothing matches.
 function Economy.matchCars(ladder: { Car }, word: string): { Car }
-	local function squash(text: string): string
-		return (string.gsub(string.lower(text), "[%s%-]", ""))
-	end
 	local wanted = squash(word)
 	local found: { Car } = {}
 	if wanted == "" then
@@ -305,6 +307,22 @@ function Economy.matchCars(ladder: { Car }, word: string): { Car }
 	for _, car in ladder do
 		if (wanted == "dinos" and car.Tier == "Dino") or squash(car.Id) == wanted or squash(car.Name) == wanted then
 			table.insert(found, car)
+		end
+	end
+	return found
+end
+
+-- The limiteds a typed word names, for admin commands: an Id or Name matched
+-- like matchCars, or every limited for "all". Empty if nothing matches.
+function Economy.matchLimiteds(limiteds: { Limited }, word: string): { Limited }
+	local wanted = squash(word)
+	local found: { Limited } = {}
+	if wanted == "" then
+		return found
+	end
+	for _, item in limiteds do
+		if wanted == "all" or squash(item.Id) == wanted or squash(item.Name) == wanted then
+			table.insert(found, item)
 		end
 	end
 	return found
