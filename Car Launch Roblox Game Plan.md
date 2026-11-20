@@ -455,6 +455,48 @@ Steps, one diff each:
 
 Open: Bone Rain drops about one bone every 0.4 seconds per player, so a 3 minute rain can give a few hundred bones, enough to buy everything at the Bone Trader. Bone value and prices need a look once it runs on the timer.
 
+## Store page art
+
+The icon and thumbnails are the first thing a player sees on Roblox, and they looked blurry.
+
+What was wrong (checked Nov 20 against the live game and the Desktop YeetStreetImages files):
+
+- The only home page thumbnail is the 512x512 square icon (v2_side_icon_512). Roblox stretches every thumbnail to 16:9, so it shows squashed sideways and blown up. The 1920x1080 files were never put up.
+- Every shot came from Studio's screen capture, which draws the viewport at 1x on a Retina Mac and sends back a 1920 wide JPEG. The October shots held about 960x500 of real detail, and the thumbnails were then stretched another 8% to reach 1080 tall.
+- At 150x150, where Roblox often shows the icon, the car is small against a pale sky and road.
+
+Roblox specs (docs checked Nov 20): icon square, 512x512 or larger, shown as small as 150x150. Thumbnails 16:9, 1920x1080, .png or .jpg, under 3 MB for the home page. Thumbnail personalization (A/B) starts with 2 to 5 active home page thumbnails. Keep text off the bottom, where the player count can cover it.
+
+### Store art picks (Nov 20, 2026)
+
+Brian's picks:
+
+- **Capture:** Claude stages and grabs the shots by script in Studio Play, like the October icon.
+- **Shots:** three thumbnails: jets mid-air off a Mega Booster, a big crash in Downtown, and a car flying through the obby with Jets.
+- **Numbers:** none. HUD and all GUIs hidden.
+- **Text:** Claude adds it.
+
+Claude's calls:
+
+- Capture through a 3840x2160 custom device in Studio's device simulator (ThumbShot4K). Studio then renders 4K and the frame is scaled down to 1920x1080, so it is sharp. Studio's own quality set to the top level for the shoot.
+- Grab frames losslessly from the Studio window (macOS screencapture) rather than the JPEG screen capture.
+- The car is posed and held still on the client for each shot: jets lit, GUIs off, camera placed by script. Nothing is saved to the place, and Play is stopped after.
+- Text: the title on the hero shot, and one short line on each of the others, placed top or middle, never bottom. A new icon from the hero shot with the car filling most of the square, checked at 150x150.
+- Files go to Desktop/YeetStreetImages/v3, nothing in the repo.
+
+Steps:
+
+1. Hero thumbnail: jets mid-air off a Mega Booster. Done Nov 20: the Speed Car climbing over Downtown with a long flame, the YEET STREET street sign below. Mega Boosters have no look of their own, so it is a high launch.
+2. Crash thumbnail: Downtown. Done Nov 20: the car bursting out of the YEET STREET billboard, tiles flying.
+3. Obby thumbnail: through a ring stage with Jets. Done Nov 20: Stage 19's first ring, booster ahead.
+4. Text on all three, export 1920x1080 PNGs under 3 MB. Done Nov 20: "YEET STREET / LAUNCH YOUR CAR!", "SMASH / FOR POINTS!", "CAR OBBY! / FLY THROUGH THE RINGS", in LuckiestGuy (the game's font), all about 1 MB.
+5. New 512x512 icon, checked at 150x150. Done Nov 20: the hero car up close with "YEET!".
+6. Brian uploads: the icon, then the three thumbnails as active on the Home Page tab, which starts personalization. Remove the stretched square thumbnail.
+
+Files: Desktop/YeetStreetImages/v3 (thumb1_launch, thumb2_crash, thumb3_obby, icon_512, icon_1024, and the shots without text in clean/).
+
+Shoot notes: the Phoenix, Comet, and Eclipse are too dark to read small, so the shots use the Speed Car. The Roblox menu buttons stay on screen in Studio Play, so the top left corner is filled in from the sky. After a long Play session the city's buildings started drawing black with specks, and a fresh Play fixed it; cause unknown.
+
 ## Technical approach
 
 The client drives and flies the car for smooth feel; the server owns stats, cash, and scores.
