@@ -25,6 +25,9 @@ local SPAWN_RADIUS = 80       -- studs around the player to scatter bones
 local DESPAWN_Y = -50         -- bones below this Y are removed
 
 local BONE_COLOR = Color3.fromRGB(220, 210, 180)
+local BONE_SHAFT = 0.7 -- studs across the bone's shaft
+local BONE_KNOB = 1.2 -- studs across each knob
+local BONE_KNOB_GAP = 0.45 -- studs from the shaft's middle to each knob's
 
 -- ── State (declared early so functions below can reference) ──────────────
 
@@ -166,6 +169,44 @@ end
 
 -- ── Bone spawning ──────────────────────────────────────────────────────
 
+-- One piece of a bone's look: massless and never colliding, welded to `box`.
+local function bonePiece(box: BasePart, shape: Enum.PartType, size: Vector3, offset: CFrame)
+	local piece = Instance.new("Part")
+	piece.Name = "Look"
+	piece.Shape = shape
+	piece.Size = size
+	piece.CFrame = box.CFrame * offset
+	piece.Color = BONE_COLOR
+	piece.Material = Enum.Material.SmoothPlastic
+	piece.CanCollide = false
+	piece.CanQuery = false
+	piece.CanTouch = false
+	piece.Massless = true
+	piece.Anchored = false
+	piece.Parent = box
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = box
+	weld.Part1 = piece
+	weld.Parent = piece
+end
+
+-- A cartoon bone along the box's long side: a round shaft with two knobs on
+-- each end.
+local function addBoneShape(box: BasePart)
+	local half = box.Size.Z / 2 - BONE_KNOB / 2
+	bonePiece(
+		box,
+		Enum.PartType.Cylinder,
+		Vector3.new(half * 2, BONE_SHAFT, BONE_SHAFT),
+		CFrame.Angles(0, math.pi / 2, 0)
+	)
+	for _, z in { -half, half } do
+		for _, x in { -BONE_KNOB_GAP, BONE_KNOB_GAP } do
+			bonePiece(box, Enum.PartType.Ball, Vector3.one * BONE_KNOB, CFrame.new(x, 0, z))
+		end
+	end
+end
+
 local function spawnBone(center: Vector3)
 	local angle = math.random() * math.pi * 2
 	local dist = math.random() * SPAWN_RADIUS
@@ -173,24 +214,15 @@ local function spawnBone(center: Vector3)
 	local z = center.Z + math.sin(angle) * dist
 	local y = center.Y + FALL_HEIGHT
 
+	-- An invisible box falls, lands, and is touched; the bone shape rides on it.
 	local bone = Instance.new("Part")
 	bone.Name = "DinoBone"
 	bone.Size = Vector3.new(2, 1, 4)
-	bone.Color = BONE_COLOR
-	bone.Material = Enum.Material.SmoothPlastic
+	bone.Transparency = 1
 	bone.CFrame = CFrame.new(x, y, z) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
 	bone.Anchored = false
 	bone.CanCollide = true
-	bone.TopSurface = Enum.SurfaceType.Smooth
-	bone.BottomSurface = Enum.SurfaceType.Smooth
-
-	-- Small glow so bones are easy to spot
-	local highlight = Instance.new("SelectionBox")
-	highlight.Adornee = bone
-	highlight.Color3 = Color3.fromRGB(255, 200, 80)
-	highlight.LineThickness = 0.05
-	highlight.Transparency = 0.5
-	highlight.Parent = bone
+	addBoneShape(bone)
 
 	bone.Parent = boneFolder
 
@@ -284,6 +316,11 @@ if toggleEvent then
 			stopBoneRain()
 		end
 	end)
+end
+
+-- EventService may have started Bone Rain before this script was listening.
+if workspace:GetAttribute("Event") == "BoneRain" then
+	startBoneRain()
 end
 
 -- Fire for players who join mid-rain
