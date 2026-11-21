@@ -15,6 +15,9 @@
 -- Other scripts read with PlayerData.get or wait with PlayerData.waitFor, and
 -- change data with PlayerData.update.
 --
+-- Studio and live games save to different stores (Tuning.Save), so Studio
+-- testing never touches real players' data.
+--
 -- It also keeps invite credits (InviteRewards) in a store of their own, keyed
 -- by the inviter: the UserIds of friends they brought in. A friend's server
 -- adds to it, since the inviter's record is locked to their own server.
@@ -46,9 +49,8 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local S = Tuning.Save
 
 -- Bump only for a change old saves can't be reconciled from.
-local STORE_NAME = "PlayerData1"
 local VERSION = 1
-local CREDIT_STORE_NAME = "InviteCredits1"
+local STORE_NAME, CREDIT_STORE_NAME = SaveRecord.storeNames(RunService:IsStudio(), S)
 
 export type Data = {
 	Version: number,

@@ -76,4 +76,19 @@ Check.test("a server that lost its lock can't write", function()
 	Check.eq(missing, nil, "no record")
 end)
 
+Check.test("Studio saves to stores of its own", function()
+	local stores: SaveRecord.Stores = {
+		Store = "PlayerData2",
+		StudioStore = "PlayerData1",
+		CreditStore = "InviteCredits2",
+		StudioCreditStore = "InviteCredits1",
+	}
+	local data, credits = SaveRecord.storeNames(false, stores)
+	Check.eq(data, "PlayerData2", "live data")
+	Check.eq(credits, "InviteCredits2", "live credits")
+	data, credits = SaveRecord.storeNames(true, stores)
+	Check.eq(data, "PlayerData1", "Studio data")
+	Check.eq(credits, "InviteCredits1", "Studio credits")
+end)
+
 Check.finish("SaveRecord")

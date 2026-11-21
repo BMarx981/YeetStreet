@@ -651,6 +651,12 @@ Tuning.Save = {
 	-- Robux receipt ids each player's data remembers (Purchases), so a
 	-- receipt Roblox sends again never grants twice.
 	KeepReceipts = 50,
+	-- Player data and invite credits (SaveRecord.storeNames). Studio kept the
+	-- stores everyone shared before Nov 21, 2026; live games started over.
+	Store = "PlayerData2",
+	StudioStore = "PlayerData1",
+	CreditStore = "InviteCredits2",
+	StudioCreditStore = "InviteCredits1",
 }
 
 -- The global leaderboards (Leaderboard). Each board has an all-time list and
@@ -665,7 +671,7 @@ Tuning.Leaderboards = {
 	},
 	Top = 10,
 	SecondsScale = 10, -- airtime is stored in tenths of a second
-	Store = "Boards1",
+	Store = "Boards2",
 	StudioStore = "StudioBoards1",
 	-- Seconds between sends of each player's new bests. Every list a player
 	-- beats is one store write, which shares the server's write budget with
@@ -688,7 +694,7 @@ Tuning.LaunchRecords = {
 		{ Id = "MiddleRamp", Name = "MIDDLE RAMP", Path = "Parks.Corkscrew.MiddleRamp" },
 		{ Id = "Overpass", Name = "HIGHWAY OVERPASS", Path = "Parks.City.HighwayOverpass" },
 	},
-	Store = "LaunchRecords1",
+	Store = "LaunchRecords2",
 	StudioStore = "StudioLaunchRecords1",
 	-- Seconds between reads of every record (2 per launcher), from a read
 	-- budget of 60 + 10 per player a minute.

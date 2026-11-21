@@ -58,4 +58,21 @@ function SaveRecord.write(stored: any, session: string, now: number, data: any, 
 	return { Data = data, Lock = if release then nil else { Session = session, Time = now } }, nil
 end
 
+-- Store names from Tuning.Save. Studio saves apart from live games, so test
+-- cash and admin gifts never reach real players' data.
+export type Stores = {
+	Store: string,
+	StudioStore: string,
+	CreditStore: string,
+	StudioCreditStore: string,
+}
+
+-- The player data store and the invite credit store to use.
+function SaveRecord.storeNames(studio: boolean, stores: Stores): (string, string)
+	if studio then
+		return stores.StudioStore, stores.StudioCreditStore
+	end
+	return stores.Store, stores.CreditStore
+end
+
 return SaveRecord

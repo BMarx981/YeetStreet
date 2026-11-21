@@ -491,11 +491,37 @@ Steps:
 3. Obby thumbnail: through a ring stage with Jets. Done Nov 20: Stage 19's first ring, booster ahead.
 4. Text on all three, export 1920x1080 PNGs under 3 MB. Done Nov 20: "YEET STREET / LAUNCH YOUR CAR!", "SMASH / FOR POINTS!", "CAR OBBY! / FLY THROUGH THE RINGS", in LuckiestGuy (the game's font), all about 1 MB.
 5. New 512x512 icon, checked at 150x150. Done Nov 20: the hero car up close with "YEET!".
-6. Brian uploads: the icon, then the three thumbnails as active on the Home Page tab, which starts personalization. Remove the stretched square thumbnail.
+6. Brian uploads: the icon, then the three thumbnails as active on the Home Page tab, which starts personalization. Remove the stretched square thumbnail. Done Nov 21, also on the Experience Detail Page tab, a separate list that feeds the game page's carousel and the blurred background behind the title.
 
 Files: Desktop/YeetStreetImages/v3 (thumb1_launch, thumb2_crash, thumb3_obby, icon_512, icon_1024, and the shots without text in clean/).
 
 Shoot notes: the Phoenix, Comet, and Eclipse are too dark to read small, so the shots use the Speed Car. The Roblox menu buttons stay on screen in Studio Play, so the top left corner is filled in from the sky. After a long Play session the city's buildings started drawing black with specks, and a fresh Play fixed it; cause unknown.
+
+## Separate Studio and live saves
+
+Studio and the live game saved player progress to the same stores (PlayerData1 and InviteCredits1), so test cash and admin gifts from Studio went into real players' data, and live servers posted those bests to the live boards. Leaderboards and launcher records already had Studio stores of their own. This has to be fixed before ads bring in real players (see Kids and Select below).
+
+### Save split picks (Nov 21, 2026)
+
+Brian's picks:
+
+- **Saves:** the live game starts fresh. Studio keeps PlayerData1 and InviteCredits1, so all test progress stays. Everyone who played the live game before (testers, Brian's and his sons' real accounts, the NeonGlow test purchase) starts over.
+- **Boards:** the live leaderboards and launcher records start over too. Studio's are untouched.
+
+Claude's calls:
+
+- One game, split by RunService:IsStudio(), like the boards and records. No dev copy of the game.
+- Store names live in Tuning.Save next to the other save settings. SaveRecord.storeNames picks them, so it is tested outside Roblox.
+- Live names: PlayerData2, InviteCredits2, Boards2, LaunchRecords2.
+
+Steps:
+
+1. Test, then SaveRecord.storeNames and the Tuning.Save names; PlayerData uses them. Done Nov 21.
+2. Bump the live boards and records to Boards2 and LaunchRecords2. Done Nov 21.
+3. Check in Studio Play that the Studio save still loads with its progress.
+4. Brian publishes, then joins the live game: fresh save, empty boards and record signs. Before the ads start, so ad players never save into the old store.
+
+Kids and Select: the game shows Ages 16+ until it passes Roblox's evaluation, 100 unique plays from highly engaged age-checked players within 60 days. Brian paid the 1,000 Robux publishing fee on Nov 20. Ads Manager's Qualify for Kids and Select objective reaches only those players and counts toward the 100; a 5 day campaign is set up with the three store thumbnails.
 
 ## Technical approach
 
