@@ -8,8 +8,8 @@
 -- (ScoreService, through ServerStorage.MovePlayerCar) and builds the car at
 -- the destination. A hub or park becomes where later resets and wrecks
 -- respawn, until the next launch pad. "Garage" goes to the Garage-tagged
--- model nearest the player, GarageDistance in front of it and facing it, and
--- leaves the respawn point alone. A player on foot moves there on foot.
+-- model nearest the player (not the Bone Trader), GarageDistance in front of
+-- it and facing it, and leaves the respawn point alone. A player on foot moves there on foot.
 -- "Obby" starts a fresh obby visit on its start pad (ObbyService), with
 -- resets and wrecks coming back to its checkpoints; any other teleport ends
 -- the visit.
@@ -26,6 +26,9 @@ local Analytics = require(ServerScriptService.Analytics)
 local ObbyService = require(ServerScriptService.ObbyService)
 
 local GARAGE = "Garage"
+-- The Bone Rain trader is also tagged Garage so the shop key opens near it,
+-- but it wanders, so a "Garage" teleport never goes to it.
+local BONE_TRADER = "BoneTrader"
 local OBBY = "Obby"
 -- The hull's center above the floor, the same as a car in a spawn lane.
 local HULL_HEIGHT = Tuning.TestPark.SpawnHeight
@@ -64,7 +67,7 @@ local function nearestGarage(from: Vector3): PVInstance?
 	local best: PVInstance? = nil
 	local bestDistance = math.huge
 	for _, garage in CollectionService:GetTagged(GARAGE) do
-		if garage:IsA("PVInstance") then
+		if garage:IsA("PVInstance") and not CollectionService:HasTag(garage, BONE_TRADER) then
 			local distance = (garage:GetPivot().Position - from).Magnitude
 			if distance < bestDistance then
 				best, bestDistance = garage, distance
