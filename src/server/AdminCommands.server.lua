@@ -306,7 +306,7 @@ local COMMAND_INFO = {
 	{ name = "planecar",   desc = "Turn the PlaneCar on or off for you or a player",    usage = ":planecar [playerName]",        optionsType = "player" },
 	{ name = "axolotl",    desc = "Turn the Axolotl Throttle on or off for you or a player", usage = ":axolotl [playerName]",  optionsType = "player" },
 	{ name = "raptor",     desc = "Turn the mesh Velociraptor on or off for you or a player", usage = ":raptor [playerName]",  optionsType = "player" },
-	{ name = "givecar",    desc = "Add a ladder car (or all dino cars) to a garage, saved", usage = ":givecar <car|dinos> [playerName]", optionsType = "text" },
+	{ name = "givecar",    desc = "Add a ladder car (or all dino cars) to a garage, saved", usage = ":givecar <car|dinos> [playerName]", optionsType = "car" },
 	{ name = "givelimited", desc = "Give a limited (or all of them), saved",            usage = ":givelimited <item|all> [playerName]", optionsType = "text" },
 	{ name = "daily",      desc = "Open the next daily reward now, or start a player's calendar over", usage = ":daily <next|reset> [playerName]", optionsType = "text" },
 	{ name = "obby",       desc = "Go to any obby pad, from anywhere (pays nothing)",   usage = ":obby <pad|start> [playerName]", optionsType = "obby" },
@@ -614,9 +614,14 @@ local COMMANDS = {
 	-- Adds ladder cars to a player's saved garage for free (Garage.giveCar),
 	-- by Id or Name (Economy.matchCars), or every dino car for "dinos".
 	givecar = function(adminPlayer, args)
+		local carIds = {}
+		for _, car in Tuning.Ladder do
+			table.insert(carIds, car.Id)
+		end
+		local carList = "Cars: " .. table.concat(carIds, ", ") .. ", dinos"
 		local word, targetName = string.match(args, "^%s*(%S+)%s*(%S*)")
 		if not word then
-			return "Usage: :givecar <car|dinos> [playerName]"
+			return "Usage: :givecar <car|dinos> [playerName]. " .. carList
 		end
 		local target = if targetName ~= "" then findPlayer(targetName) else adminPlayer
 		if not target then
@@ -626,7 +631,7 @@ local COMMANDS = {
 		end
 		local cars = Economy.matchCars(Tuning.Ladder, word)
 		if #cars == 0 then
-			return "No car called " .. word
+			return "No car called " .. word .. ". " .. carList
 		end
 		local function owns(id)
 			return table.find(string.split(target:GetAttribute("CarsOwned") or "", ","), id) ~= nil

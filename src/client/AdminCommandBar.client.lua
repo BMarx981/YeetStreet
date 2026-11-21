@@ -872,6 +872,19 @@ local function showOptions(info)
 			end)
 		end
 
+	elseif optType == "car" then
+		-- One button per ladder car, plus every dino car at once, given to you
+		createOptionButton("All dino cars", optionsScroll, function()
+			sendCommand("givecar dinos")
+			commandListGui.Enabled = false
+		end)
+		for _, car in require(ReplicatedStorage.Tuning).Ladder do
+			createOptionButton(car.Name .. " (" .. car.Id .. ")", optionsScroll, function()
+				sendCommand("givecar " .. car.Id)
+				commandListGui.Enabled = false
+			end)
+		end
+
 	elseif optType == "text" then
 		-- Text input for commands like :global message <text>
 		local textInput = Instance.new("TextBox")
