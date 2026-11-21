@@ -79,7 +79,7 @@ local function build()
 	squad.TextColor3 = UiStyle.Cash
 	squad.TextXAlignment = Enum.TextXAlignment.Right
 	squad.AnchorPoint = Vector2.new(1, 0)
-	squad.Position = UDim2.new(0.5, -146, 0, 6)
+	squad.Position = UDim2.new(0.5, -146, 0, 36)
 	squad.Size = UDim2.fromOffset(160, 24)
 	squad.Visible = false
 
