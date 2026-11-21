@@ -41,7 +41,7 @@ local sent: { [Player]: { [string]: number } } = {}
 local function send(player: Player)
 	local data = PlayerData.get(player)
 	local mine = sent[player]
-	if not (data and mine) then
+	if not (data and mine and Leaderboard.counts(player.UserId)) then
 		return
 	end
 	local week = Leaderboard.weekRecord(data.ThisWeek, Leaderboard.week(os.time()))

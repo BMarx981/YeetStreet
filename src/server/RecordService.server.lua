@@ -79,7 +79,7 @@ end
 
 local launcherRun = ServerStorage:WaitForChild("LauncherRun") :: BindableEvent
 launcherRun.Event:Connect(function(player: Player, launcherId: string, distance: number)
-	if not LaunchRecords.find(launcherId, R) then
+	if not (LaunchRecords.find(launcherId, R) and Leaderboard.counts(player.UserId)) then
 		return
 	end
 	local value = LaunchRecords.encode(distance)

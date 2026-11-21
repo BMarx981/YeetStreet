@@ -174,6 +174,12 @@ function Leaderboard.changed(lists: { [string]: number }, sent: { [string]: numb
 	return out
 end
 
+-- Whether `userId` can go on a board. Studio's Local Server test players
+-- (Player1, Player2, ...) have UserIds of 0 or below.
+function Leaderboard.counts(userId: number): boolean
+	return userId > 0
+end
+
 -- One line of a list as a board shows it.
 export type Row = {
 	Rank: number,
@@ -184,7 +190,7 @@ export type Row = {
 
 -- A sorted page from an ordered store (best first) as up to `tuning.Top`
 -- rows, with display names from `names` by UserId. Keys that aren't a
--- UserId are skipped.
+-- UserId, or are a test player's (counts), are skipped.
 function Leaderboard.rows(
 	page: { { key: string, value: number } },
 	names: { [number]: string },
@@ -193,7 +199,7 @@ function Leaderboard.rows(
 	local rows: { Row } = {}
 	for _, entry in page do
 		local userId = tonumber(entry.key)
-		if userId and #rows < tuning.Top then
+		if userId and Leaderboard.counts(userId) and #rows < tuning.Top then
 			table.insert(rows, {
 				Rank = #rows + 1,
 				UserId = userId,

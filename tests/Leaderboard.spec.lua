@@ -190,6 +190,24 @@ Check.test("rows stop at the board's top", function()
 	Check.eq(#Leaderboard.rows(page, {}, T), 10)
 end)
 
+Check.test("Studio test players (UserId 0 or below) never count", function()
+	Check.eq(Leaderboard.counts(9569197820), true, "real account")
+	Check.eq(Leaderboard.counts(0), false, "zero")
+	Check.eq(Leaderboard.counts(-1), false, "Player1")
+	Check.eq(Leaderboard.counts(-2), false, "Player2")
+end)
+
+Check.test("rows skip Studio test players", function()
+	local rows = Leaderboard.rows({
+		{ key = "-2", value = 900 },
+		{ key = "42", value = 800 },
+		{ key = "-1", value = 700 },
+	}, {}, T)
+	Check.eq(#rows, 1)
+	Check.eq(rows[1].UserId, 42)
+	Check.eq(rows[1].Rank, 1)
+end)
+
 Check.test("a board is found by id", function()
 	local board = Leaderboard.find("Airtime", T)
 	assert(board, "Airtime board")
