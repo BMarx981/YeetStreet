@@ -5,16 +5,23 @@
 -- lane floor between two walls, open at both ends; over each swing hammer a
 -- gantry it hangs from, and beside each slam hammer the post it turns on; a
 -- sign over the start; and a kicker at the end, every plank a booster, whose
--- wrecks and resets come back to the start. The hammers move, so every client
--- makes and moves its own (HammerAlleyLook).
+-- wrecks and resets come back to the start. Where the kicker throws cars lies
+-- a junk pile (Junk.mound) of knockable pieces, one Shatter model per
+-- sector, that burst when a car smashes in (PropService) and pay a Junk pile
+-- target. The hammers move, so every client makes and moves its own
+-- (HammerAlleyLook).
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Hammers = require(ReplicatedStorage.Hammers)
+local Junk = require(ReplicatedStorage.Junk)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
+local JunkPieces = require(ServerScriptService.Pieces.JunkPieces)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
 
 local A = Tuning.Scrapyard.Alley
@@ -84,6 +91,33 @@ local function buildSign(model: Model)
 	label.TextColor3 = A.SignColor
 	label.Text = "HAMMER ALLEY"
 	label.Parent = gui
+end
+
+-- The junk pile, a model per sector, every piece a knockable prop worth a
+-- Junk pile target. Laid flat on the floor, turned and tipped at random.
+local function buildPile(model: Model)
+	local P = A.Pile
+	local pile = Instance.new("Model")
+	pile.Name = "JunkPile"
+	local sectors: { Model } = {}
+	for sector = 1, P.Sectors do
+		local group = Instance.new("Model")
+		group.Name = `Sector{sector}`
+		group:SetAttribute("Shatter", true)
+		group.Parent = pile
+		sectors[sector] = group
+	end
+	local rng = Rng.new(P.Seed)
+	for _, piece in Junk.mound(P :: any, rng) do
+		local at = lane(piece.x, piece.y, P.At + piece.z)
+			* CFrame.Angles(0, math.rad(piece.yaw), 0)
+			* CFrame.Angles(math.rad(piece.tilt), 0, 0)
+		local part = JunkPieces.make(sectors[piece.sector], piece.kind, at, rng)
+		part:SetAttribute("Target", "Junk pile")
+		part:SetAttribute("ResetTime", P.ResetTime)
+		CollectionService:AddTag(part, "Knockable")
+	end
+	pile.Parent = model
 end
 
 function ScrapyardAlley.build(folder: Folder, _area: MapLayout.Area)
@@ -165,6 +199,8 @@ function ScrapyardAlley.build(folder: Folder, _area: MapLayout.Area)
 			pad:SetAttribute("AlleyKicker", true)
 		end
 	end
+
+	buildPile(model)
 
 	model.Parent = folder
 end

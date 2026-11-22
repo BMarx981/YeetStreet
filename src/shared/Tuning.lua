@@ -1384,6 +1384,7 @@ Tuning.Score = {
 		["Gravitron Ludicrous"] = 800,
 		TNT = 100, -- thrown by a Scrapyard TNT barrel (ScoreService)
 		["Hammer Alley"] = 200, -- off its kicker, having run the lane from the start (ScoreService)
+		["Junk pile"] = 150, -- smashing into the pile past Hammer Alley's kicker (PropService)
 	},
 }
 
@@ -1460,7 +1461,8 @@ Tuning.Hud = {
 		Kaiju = "Kaiju snack",
 		Zapped = "Zapped",
 		TNT = "TNT blast",
-		["Hammer Alley"] = "Ran Hammer Alley",
+		["Hammer Alley"] = "Hammer Alley",
+		["Junk pile"] = "Junk pile",
 		Helipad = "Helipad landing",
 		Pool = "Pool splash",
 	},
@@ -1997,6 +1999,20 @@ Tuning.Scrapyard = {
 		-- The kicker at the lane's end: every plank a booster.
 		Kicker = { Radius = 80, Angle = 35, Steps = 8, LaunchSpeed = 180, PayScale = 1 },
 		RespawnBack = 30, -- wrecks and resets come back this far before the start
+		-- The junk pile the kicker throws cars into (Junk.mound), its middle At
+		-- studs from the lane's start. Its pieces are knocked flying (PropService)
+		-- a Sector at a time, paying a Junk pile target on the run for each.
+		Pile = {
+			At = 850, -- where a car off the kicker comes down, with no jets
+			RadiusAcross = 38,
+			RadiusAlong = 60,
+			Height = 20,
+			Pieces = 120,
+			Sectors = 1, -- the whole pile bursts at once, one target a landing
+			Kinds = { "Car", "Car", "Tire", "Drum", "Panel" },
+			Seed = 5,
+			ResetTime = 6,
+		},
 		Server = { Lag = 0.5, Slack = 4, HitGrace = 0.4, Kick = 20, Cooldown = 1 },
 		SteelColor = Color3.fromRGB(64, 66, 72),
 		WallColor = Color3.fromRGB(150, 120, 90),
@@ -2035,6 +2051,51 @@ Tuning.Scrapyard = {
 		Grace = 0.5, -- no hit is measured this long after a throw, while it reaches the driver
 		BarrelColor = Color3.fromRGB(200, 30, 25),
 		BandColor = Color3.fromRGB(255, 196, 0),
+	},
+	-- Loose junk (Junk, Pieces.JunkPieces): each kind's size, and the faded
+	-- paints a crushed car, panel, or drum is given.
+	Junk = {
+		Car = Vector3.new(7, 2.5, 12), -- a crushed car, flat
+		Panel = Vector3.new(6, 0.6, 8),
+		Tire = Vector3.new(1.6, 4, 4), -- a cylinder, its axis along X
+		Drum = Vector3.new(5, 3.4, 3.4), -- a cylinder, stood on end
+		Paints = {
+			Color3.fromRGB(140, 60, 50),
+			Color3.fromRGB(70, 90, 120),
+			Color3.fromRGB(120, 115, 60),
+			Color3.fromRGB(90, 110, 85),
+			Color3.fromRGB(150, 150, 145),
+			Color3.fromRGB(110, 70, 45),
+		},
+		TireColor = Color3.fromRGB(28, 28, 30),
+	},
+	-- Scrap Mountain (Parks.ScrapyardMountain): a ramp up a hill of junk, its
+	-- foot at X, Z from the yard's middle, climbing Rise over Run toward Turn
+	-- (as an area's Heading; 180 is toward the TNT field), with boosters on
+	-- the way up and a kicker at the top. Each side of the ramp slopes down
+	-- FlankWidth to the ground, with Decor pieces of junk lying on it, and the
+	-- front slopes down FrontRun from the top.
+	Mountain = {
+		X = -200,
+		Z = -480,
+		Turn = 180,
+		Run = 380,
+		Rise = 95,
+		Width = 36,
+		WallRadius = 10,
+		WallSteps = 8,
+		Thickness = 2,
+		FlankWidth = 70,
+		FrontRun = 120, -- the front slopes down this far from the top, under the kicker
+		BoostEvery = 70,
+		BoostLength = 10,
+		BoostSpeed = 150,
+		Kicker = { Radius = 70, Angle = 24, Steps = 8, LaunchSpeed = 210, PayScale = 0.8 },
+		RespawnBack = 30,
+		Decor = 40,
+		Seed = 11,
+		RampColor = Color3.fromRGB(105, 80, 60),
+		FlankColor = Color3.fromRGB(96, 78, 62),
 	},
 }
 

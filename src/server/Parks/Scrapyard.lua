@@ -5,8 +5,8 @@
 -- both walls facing the Skate Park. The gate is cut out of TestPark's saved
 -- edge wall when the park is built, like the silo's hole in the ground, so
 -- the saved place itself never changes. Each machine has its own module:
--- the car crusher (ScrapyardCrusher), Hammer Alley (ScrapyardAlley), and
--- the TNT barrel field (ScrapyardTnt).
+-- the car crusher (ScrapyardCrusher), Hammer Alley (ScrapyardAlley), the
+-- TNT barrel field (ScrapyardTnt), and Scrap Mountain (ScrapyardMountain).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -17,6 +17,7 @@ local Scrapyard = require(ReplicatedStorage.Scrapyard)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ScrapyardAlley = require(ServerScriptService.Parks.ScrapyardAlley)
 local ScrapyardCrusher = require(ServerScriptService.Parks.ScrapyardCrusher)
+local ScrapyardMountain = require(ServerScriptService.Parks.ScrapyardMountain)
 local ScrapyardTnt = require(ServerScriptService.Parks.ScrapyardTnt)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 
@@ -164,6 +165,7 @@ function ScrapyardPark.build(folder: Folder, area: MapLayout.Area)
 	ScrapyardCrusher.build(folder, area)
 	ScrapyardAlley.build(folder, area)
 	ScrapyardTnt.build(folder, area)
+	ScrapyardMountain.build(folder, area)
 end
 
 function ScrapyardPark.start(folder: Folder, area: MapLayout.Area)
