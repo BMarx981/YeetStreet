@@ -1283,8 +1283,9 @@ task.spawn(function()
 	end)
 end)
 
--- The kaiju's laser struck the car (ScoreService): the server says how fast
--- it is blasted, and that arms a run like a launch pad.
+-- The kaiju's laser struck the car, or a Scrapyard TNT barrel blew up by it
+-- (ScoreService): the server says how fast it is blasted, and that arms a
+-- run like a launch pad.
 task.spawn(function()
 	local remote = ReplicatedStorage:WaitForChild("Zapped")
 	if not remote:IsA("RemoteEvent") then

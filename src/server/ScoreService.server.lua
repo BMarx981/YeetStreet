@@ -72,7 +72,8 @@
 -- WreckingBalls): that pays a Wrecking ball target on a run, or arms one
 -- like a launch pad and pays the target once it takes off. The kaiju's
 -- laser blasting a car (ServerStorage.CarZapped) is the same, paying a
--- Zapped target.
+-- Zapped target. So is a Scrapyard TNT barrel (ServerStorage.TntBlast),
+-- paying a TNT target, but its blast also costs some toughness.
 --
 -- The gravitron (GravitronRide) does no damage either. High up its wall a
 -- car on the surface is armed like on a launch pad, sets its respawn at the
@@ -807,6 +808,36 @@ carZapped.Event:Connect(function(car: Model, velocity: Vector3)
 	zapped:FireClient(watch.player, velocity)
 end)
 carZapped.Parent = ServerStorage
+
+-- A Scrapyard TNT barrel blowing up near a car (Parks.ScrapyardTnt fires
+-- ServerStorage.TntBlast with the velocity it throws the car at): it costs
+-- BlastDamage toughness from underneath, run or not, and can wreck it.
+-- Otherwise it is thrown like the kaiju's laser blasts a car, through the
+-- same Zapped remote, paying a TNT target on the run, or on the run it arms.
+local tntBlast = Instance.new("BindableEvent")
+tntBlast.Name = "TntBlast"
+tntBlast.Event:Connect(function(car: Model, velocity: Vector3)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	local B = Tuning.Scrapyard.Tnt
+	damageCar(watch, B.BlastDamage, "underside")
+	if watch.toughness <= 0 then
+		wreck(watch)
+		return
+	end
+	local now = os.clock()
+	watch.hitsFrom = math.max(watch.hitsFrom, now + B.Grace)
+	if watch.run.phase == "flying" then
+		table.insert(watch.targets, "TNT")
+	else
+		watch.armTarget, watch.armUntil = "TNT", now + B.Grace
+	end
+	print(`TNT blast, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`)
+	zapped:FireClient(watch.player, velocity)
+end)
+tntBlast.Parent = ServerStorage
 
 local carEaten = Instance.new("BindableEvent")
 carEaten.Name = "CarEaten"

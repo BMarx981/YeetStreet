@@ -1380,6 +1380,7 @@ Tuning.Score = {
 		Gravitron = 200,
 		["Gravitron Fast"] = 400,
 		["Gravitron Ludicrous"] = 800,
+		TNT = 100, -- thrown by a Scrapyard TNT barrel (ScoreService)
 	},
 }
 
@@ -1455,6 +1456,7 @@ Tuning.Hud = {
 		["Wrecking ball"] = "Wrecking ball",
 		Kaiju = "Kaiju snack",
 		Zapped = "Zapped",
+		TNT = "TNT blast",
 		Helipad = "Helipad landing",
 		Pool = "Pool splash",
 	},
@@ -1991,6 +1993,35 @@ Tuning.Scrapyard = {
 		WallColor = Color3.fromRGB(150, 120, 90),
 		HeadColor = Color3.fromRGB(200, 40, 30),
 		SignColor = Color3.fromRGB(255, 196, 0),
+	},
+	-- The TNT barrel field (Tnt, Parks.ScrapyardTnt, TntBoom), its middle at
+	-- X, Z from the yard's middle. A car touching a barrel blows it up: every
+	-- car within BlastRadius is thrown (ScoreService, like the kaiju's laser,
+	-- arming a run with a TNT target) and loses BlastDamage toughness, barrels
+	-- within ChainRadius go off ChainDelay later, and each comes back after
+	-- Respawn seconds.
+	Tnt = {
+		X = -150,
+		Z = 350,
+		Width = 360,
+		Depth = 240,
+		Spacing = 45,
+		Jitter = 12,
+		Seed = 7,
+		Radius = 3,
+		Height = 7,
+		Trigger = 5, -- the hull's middle this far past a barrel's side sets it off
+		BlastRadius = 30,
+		Up = 160,
+		Out = 70,
+		MinShare = 0.5,
+		ChainRadius = 42,
+		ChainDelay = 0.3,
+		Respawn = 10,
+		BlastDamage = 10,
+		Grace = 0.5, -- no hit is measured this long after a throw, while it reaches the driver
+		BarrelColor = Color3.fromRGB(200, 30, 25),
+		BandColor = Color3.fromRGB(255, 196, 0),
 	},
 }
 
