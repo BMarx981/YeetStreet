@@ -68,6 +68,8 @@
 -- T-Rex, over a time it works out from the car's toughness, and the crush
 -- pays cash at once. So does a Hammer Alley hit. Each pays at most once
 -- every so often per player (ScrapPay).
+-- The shredder (ServerStorage.CarShredded) holds and chews a car the same
+-- way; a run that comes down in it ends as a landing with a shredder target.
 --
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
@@ -120,6 +122,7 @@ local RunCheck = require(ReplicatedStorage.RunCheck)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
 local ScrapPay = require(ReplicatedStorage.ScrapPay)
+local Shredder = require(ReplicatedStorage.Shredder)
 local Toughness = require(ReplicatedStorage.Toughness)
 local Trains = require(ReplicatedStorage.Trains)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -1136,6 +1139,29 @@ carCrushed.Event:Connect(function(car: Model, moment: "grabbed" | "crush", respa
 	end
 end)
 carCrushed.Parent = ServerStorage
+
+-- The Scrapyard's shredder (Parks.ScrapyardShredder fires
+-- ServerStorage.CarShredded) holds a car like the T-Rex does and chews it
+-- over `seconds` until it wrecks. Coming down in it is the jump's goal, so
+-- a run ends as a landing (combo kept, never clean), paying a target by how
+-- far it flew (Shredder.target).
+local carShredded = Instance.new("BindableEvent")
+carShredded.Name = "CarShredded"
+carShredded.Event:Connect(function(car: Model, seconds: number)
+	local watch = watches[car]
+	if not watch or watch.wrecked or watch.held then
+		return
+	end
+	watch.held = true
+	watch.chewed = true
+	watch.chewFor = seconds
+	local result = RunTracker.abort(watch.run, "landed")
+	if result then
+		table.insert(watch.targets, Shredder.target(Tuning.Scrapyard.Shredder :: any, result.distance))
+		finish(watch, result)
+	end
+end)
+carShredded.Parent = ServerStorage
 
 -- Ends the player's run, if any, and respawns their car. A rider stays on
 -- their missile until it hits.

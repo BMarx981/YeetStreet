@@ -1387,6 +1387,11 @@ Tuning.Score = {
 		["Hammer Alley"] = 200, -- off its kicker, having run the lane from the start (ScoreService)
 		["Junk pile"] = 150, -- smashing into the pile past Hammer Alley's kicker (PropService)
 		["Junk stack"] = 100, -- flying into a stack of crushed cars on the Scrapyard floor (PropService)
+		-- Coming down in the Scrapyard's shredder, by how far the run flew
+		-- (ScoreService, Shredder.target)
+		Shredder = 200,
+		["Long shred"] = 400,
+		["Mega shred"] = 800,
 	},
 }
 
@@ -1466,6 +1471,9 @@ Tuning.Hud = {
 		["Hammer Alley"] = "Hammer Alley",
 		["Junk pile"] = "Junk pile",
 		["Junk stack"] = "Junk stack",
+		Shredder = "Shredded",
+		["Long shred"] = "Long shred",
+		["Mega shred"] = "Mega shred",
 		Helipad = "Helipad landing",
 		Pool = "Pool splash",
 	},
@@ -2117,6 +2125,7 @@ Tuning.Scrapyard = {
 			{ AX = -330, AZ = 350, BX = 30, BZ = 350, Radius = 150 }, -- the TNT field
 			{ AX = -60, AZ = -420, BX = 150, BZ = -420, Radius = 90 }, -- the crusher and the way in
 			{ AX = 350, AZ = 560, BX = 350, BZ = -420, Radius = 70 }, -- Hammer Alley and its junk pile
+			{ AX = -240, AZ = 545, BX = 280, BZ = 545, Radius = 70 }, -- the shredder and its lane
 		},
 		MinCars = 5,
 		MaxCars = 10,
@@ -2264,6 +2273,72 @@ Tuning.Scrapyard = {
 		LitColor = Color3.fromRGB(90, 200, 255), -- the magnet's rim while it holds a car
 		PadColor = Color3.fromRGB(255, 196, 0),
 	},
+	-- The shredder (Shredder, Parks.ScrapyardShredder, ShredderLook): a steel
+	-- hopper of toothed rollers, its opening's middle at X, Z from the yard's
+	-- middle, Length long along the kicker's line. A lane of boosters
+	-- heading Turn (as an area's Heading; 90 is toward -X) ends in a kicker
+	-- Distance before the opening's middle, its speed worked out to land cars
+	-- there (Shredder.launchSpeed). A car coming down inside is held, chewed
+	-- like the T-Rex chews (ScoreService), and wrecks; a run that brought it
+	-- ends as a landing paying a Tiers target by how far it flew.
+	Shredder = {
+		X = -200,
+		Z = 545,
+		Turn = 90,
+		Length = 70,
+		Width = 50,
+		RimHeight = 14,
+		WallThickness = 4,
+		CatchAbove = 4,
+		ChewBase = 1.5,
+		ChewPerToughness = 0.015,
+		ChewMax = 5,
+		Settle = 0.4,
+		RestHeight = 12, -- a held car's middle at the rollers' tops
+		SinkDepth = 7,
+		Shake = 0.5,
+		ShakeRate = 7,
+		-- Chewed bits fly up out of the top (ShredderLook, and the car's own
+		-- broken parts in CarVisuals), BitsPerSecond while a car is chewed.
+		SprayUp = 70,
+		SprayUpJitter = 35,
+		SpraySide = 22,
+		BitsPerSecond = 14,
+		BitSize = { Min = 0.6, Max = 1.8 },
+		BitLife = 3,
+		Tiers = {
+			{ Min = 0, Target = "Shredder" },
+			{ Min = 350, Target = "Long shred" },
+			{ Min = 550, Target = "Mega shred" }, -- Scrap Mountain is 645 from the top of its kicker
+		},
+		Rollers = 6, -- across the opening, neighbors turning toward each other
+		RollerRadius = 5,
+		RollerSpin = 2.5, -- turns a second
+		Teeth = 6, -- round each roller, in TeethRows rows along it
+		TeethRows = 5,
+		-- The lane: LaneLength of floor before the kicker, boosters every
+		-- BoostEvery, and wrecks and resets come back RespawnBack behind it.
+		Distance = 220,
+		LaneLength = 200,
+		LaneWidth = 40,
+		BoostEvery = 50,
+		BoostLength = 10,
+		BoostSpeed = 140,
+		Kicker = { Radius = 60, Angle = 30, Steps = 8, PayScale = 1 },
+		HullAbove = 2, -- a car's middle above the kicker's top as it leaves
+		RespawnBack = 20,
+		SignHeight = 24,
+		-- Where the driver's camera watches from while their car is chewed
+		-- (ShredderCamera): Back along the kicker's line from the opening's
+		-- middle, and Up, looking at Focus above the floor in the middle.
+		Watch = { Back = 70, Up = 45, Focus = 8, Sharpness = 4 },
+		SteelColor = Color3.fromRGB(64, 66, 72),
+		HopperColor = Color3.fromRGB(70, 110, 70),
+		RimColor = Color3.fromRGB(255, 196, 0),
+		RollerColor = Color3.fromRGB(45, 45, 50),
+		TeethColor = Color3.fromRGB(150, 150, 155),
+		SignColor = Color3.fromRGB(255, 196, 0),
+	},
 	-- The machines' sounds, all Pro Sound Effects. Each is heard at full
 	-- volume within Near studs, fading out by Far (OneShot).
 	Sounds = {
@@ -2288,6 +2363,11 @@ Tuning.Scrapyard = {
 		-- clang as it lets go.
 		MagnetClamp = { Id = "rbxassetid://9116684884", Pitch = 0.8, Volume = 1, Start = 0.2 }, -- metal impacts
 		MagnetRelease = { Id = "rbxassetid://9119072660", Pitch = 0.6, Volume = 1 },
+		-- The shredder: its rollers grinding all the time, louder and higher
+		-- while it chews a car (ShredGrinding), and a crunch as it catches one.
+		ShredIdle = { Id = "rbxassetid://9118064886", Pitch = 0.35, Volume = 0.25 }, -- rattling metal cart, looped
+		ShredGrinding = { Id = "rbxassetid://9118064886", Pitch = 0.6, Volume = 0.9 },
+		ShredCatch = { Id = "rbxassetid://9116684884", Pitch = 0.7, Volume = 1, Start = 0.2 }, -- metal impacts
 	},
 }
 

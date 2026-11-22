@@ -8,8 +8,8 @@
 -- the car crusher (ScrapyardCrusher), Hammer Alley (ScrapyardAlley), the
 -- TNT barrel field (ScrapyardTnt), Scrap Mountain (ScrapyardMountain), the
 -- magnet crane (ScrapyardCrane), the stacks of crushed cars on the open
--- floor (ScrapyardStacks), and the junk, lights, and office shack along the
--- walls (ScrapyardDressing).
+-- floor (ScrapyardStacks), the junk, lights, and office shack along the
+-- walls (ScrapyardDressing), and the shredder (ScrapyardShredder).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -23,6 +23,7 @@ local ScrapyardCrane = require(ServerScriptService.Parks.ScrapyardCrane)
 local ScrapyardCrusher = require(ServerScriptService.Parks.ScrapyardCrusher)
 local ScrapyardDressing = require(ServerScriptService.Parks.ScrapyardDressing)
 local ScrapyardMountain = require(ServerScriptService.Parks.ScrapyardMountain)
+local ScrapyardShredder = require(ServerScriptService.Parks.ScrapyardShredder)
 local ScrapyardStacks = require(ServerScriptService.Parks.ScrapyardStacks)
 local ScrapyardTnt = require(ServerScriptService.Parks.ScrapyardTnt)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
@@ -175,12 +176,14 @@ function ScrapyardPark.build(folder: Folder, area: MapLayout.Area)
 	ScrapyardCrane.build(folder, area)
 	ScrapyardStacks.build(folder, area)
 	ScrapyardDressing.build(folder, area)
+	ScrapyardShredder.build(folder, area)
 end
 
 function ScrapyardPark.start(folder: Folder, area: MapLayout.Area)
 	ScrapyardCrusher.start(folder, area)
 	ScrapyardTnt.start(folder, area)
 	ScrapyardCrane.start(folder, area)
+	ScrapyardShredder.start(folder, area)
 end
 
 return ScrapyardPark

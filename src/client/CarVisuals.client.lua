@@ -26,6 +26,8 @@
 --   Broken<Slot> counts from the server (CarDamage) knock parts off, in
 --   CarDesign.breakable order. They fly off in the Props collision group,
 --   which never touches cars, and are removed after PartLifetime.
+--   A car in the Scrapyard's shredder (its Shredding attribute) sprays
+--   them up out of the top instead (Shredder.spray).
 --   Fire burns on the hull while the car's Burning attribute is true, set
 --   by the server while lava burns it (ScoreService).
 --   A car with a Trail attribute leaves that trail in the air (CarTrail).
@@ -46,7 +48,9 @@ local DinoLegs = require(ReplicatedStorage.DinoLegs)
 local HeliCar = require(ReplicatedStorage.HeliCar)
 local PlaneCar = require(ReplicatedStorage.PlaneCar)
 local PlaneMorph = require(ReplicatedStorage.PlaneMorph)
+local Rng = require(ReplicatedStorage.Rng)
 local RotorMorph = require(ReplicatedStorage.RotorMorph)
+local Shredder = require(ReplicatedStorage.Shredder)
 local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
 local CarNameplate = require(script.Parent.CarNameplate)
@@ -55,10 +59,12 @@ local JetFlames = require(script.Parent.JetFlames)
 local LimitedLooks = require(script.Parent.LimitedLooks)
 
 local T = Tuning.Toughness
+local SHREDDER: Shredder.Config = Tuning.Scrapyard.Shredder :: any
 
 local PROPS_GROUP = "Props" -- CollisionGroups.Props, a server module
 local HULL_WAIT = 30 -- seconds to wait for a new car's hull to replicate
 local WHEEL_NAMES = { "WheelFL", "WheelFR", "WheelRL", "WheelRR" }
+local sprayRng = Rng.new(os.time())
 
 -- Cars already given looks, so a car is never built twice.
 local built: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
@@ -95,7 +101,12 @@ local function knockOff(part: BasePart, hull: BasePart)
 	part.Parent = workspace
 	local away = part.Position - hull.Position
 	local pop = if away.Magnitude > 1e-3 then away.Unit * T.BreakPop else Vector3.zero
-	part.AssemblyLinearVelocity = hull.AssemblyLinearVelocity + pop
+	local car = hull.Parent
+	if car and car:GetAttribute("Shredding") == true then
+		part.AssemblyLinearVelocity = Vector3.new(Shredder.spray(SHREDDER, sprayRng))
+	else
+		part.AssemblyLinearVelocity = hull.AssemblyLinearVelocity + pop
+	end
 	Debris:AddItem(part, T.PartLifetime)
 end
 

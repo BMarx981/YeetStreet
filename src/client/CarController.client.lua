@@ -95,6 +95,7 @@ local ObbyHud = require(script.Parent.ObbyHud)
 local ReplayControls = require(script.Parent.ReplayControls)
 local ReplayPlayer = require(script.Parent.ReplayPlayer)
 local ReplayRecorder = require(script.Parent.ReplayRecorder)
+local ShredderCamera = require(script.Parent.ShredderCamera)
 local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
@@ -1211,6 +1212,8 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		MissileCamera.update(current.hull, dt)
 	elseif current.model:GetAttribute("Crushing") == true then
 		CrusherCamera.update(dt)
+	elseif current.model:GetAttribute("Shredding") == true then
+		ShredderCamera.update(dt)
 	else
 		MissileCamera.release()
 		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
