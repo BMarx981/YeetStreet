@@ -16,10 +16,10 @@
 --   Rebirth()         resets the cash ladder (Rebirth) if the player owns the
 --                     car it needs; reason "NeedsCar" if not
 --   WearLimited(id)   takes an owned limited with a Look off, or puts it on
--- An upgrade or equip changes the car's stats, so the car respawns through
--- ServerStorage.ResetPlayerCar (ScoreService), the same as a reset. Wearing a
--- body respawns it too, to rebuild its looks, and a rebirth respawns the
--- player in the first ladder car.
+-- An upgrade or equip changes the car's stats, so the car is rebuilt where it
+-- stands through ServerStorage.MovePlayerCar (ScoreService), not sent back to
+-- the last launcher as a reset would. Wearing a body rebuilds it too, for
+-- its looks, and a rebirth rebuilds it as the first ladder car.
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
@@ -134,8 +134,27 @@ function Garage.take(player: Player, amount: number): number
 	return taken
 end
 
+-- Rebuilds the player's car where it is, upright with the same heading, so
+-- shopping never moves them. A player on foot gets the new stats in their
+-- next car.
 local function respawn(player: Player)
-	(ServerStorage:FindFirstChild("ResetPlayerCar") :: BindableEvent):Fire(player)
+	local cars = workspace:FindFirstChild("Cars")
+	local car = cars and cars:FindFirstChild(`Car_{player.Name}`)
+	if not (car and car:IsA("Model")) or car:GetAttribute("OnMissile") == true then
+		return
+	end
+	local pivot = car:GetPivot()
+	local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+	if look.Magnitude < 0.01 then
+		look = Vector3.new(-pivot.UpVector.X, 0, -pivot.UpVector.Z)
+	end
+	local upright = if look.Magnitude < 0.01
+		then CFrame.new(pivot.Position)
+		else CFrame.lookAt(pivot.Position, pivot.Position + look)
+	local move = ServerStorage:FindFirstChild("MovePlayerCar") :: BindableFunction?
+	if move then
+		move:Invoke(player, upright, false)
+	end
 end
 
 -- Picking a car in the garage gets the player out of a car an admin toggle put

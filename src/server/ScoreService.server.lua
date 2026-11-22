@@ -82,8 +82,8 @@
 -- the position and the car, which the driver's replay records), and the run
 -- ends as "wrecked". WreckBeat seconds later, so the driver sees it, the car
 -- respawns.
--- A reset (the client asks on ReplicatedStorage.ResetCar, or Garage fires
--- ServerStorage.ResetPlayerCar after a purchase) respawns at once.
+-- A reset (the client asks on ReplicatedStorage.ResetCar, or ObbyService
+-- fires ServerStorage.ResetPlayerCar after a fall) respawns at once.
 -- Both build a fresh car at the last launcher the player used, through
 -- CarService's ServerStorage.RespawnCar. A teleport (TeleportService invokes
 -- ServerStorage.MovePlayerCar) ends the run the same way and builds the car

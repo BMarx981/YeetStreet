@@ -707,7 +707,7 @@ Tuning.LaunchRecords = {
 -- Dealership), between its north wall and the spawn and clear of the
 -- runways, turned a little toward the spawn.
 Tuning.LeaderboardSigns = {
-	CenterX = -110, -- the middle of the row, on the ground
+	CenterX = -130, -- the middle of the row, on the ground
 	CenterZ = 650,
 	FaceX = -60, -- the point on the ground the row faces
 	FaceZ = 900,
