@@ -2285,8 +2285,8 @@ Tuning.Scrapyard = {
 		X = -200,
 		Z = 545,
 		Turn = 90,
-		Length = 70,
-		Width = 50,
+		Length = 110,
+		Width = 80,
 		RimHeight = 14,
 		WallThickness = 4,
 		CatchAbove = 4,
@@ -2311,11 +2311,11 @@ Tuning.Scrapyard = {
 			{ Min = 350, Target = "Long shred" },
 			{ Min = 550, Target = "Mega shred" }, -- Scrap Mountain is 645 from the top of its kicker
 		},
-		Rollers = 6, -- across the opening, neighbors turning toward each other
+		Rollers = 9, -- across the opening, neighbors turning toward each other
 		RollerRadius = 5,
 		RollerSpin = 2.5, -- turns a second
 		Teeth = 6, -- round each roller, in TeethRows rows along it
-		TeethRows = 5,
+		TeethRows = 7,
 		-- The lane: LaneLength of floor before the kicker, boosters every
 		-- BoostEvery, and wrecks and resets come back RespawnBack behind it.
 		Distance = 220,
@@ -2331,7 +2331,7 @@ Tuning.Scrapyard = {
 		-- Where the driver's camera watches from while their car is chewed
 		-- (ShredderCamera): Back along the kicker's line from the opening's
 		-- middle, and Up, looking at Focus above the floor in the middle.
-		Watch = { Back = 70, Up = 45, Focus = 8, Sharpness = 4 },
+		Watch = { Back = 100, Up = 60, Focus = 8, Sharpness = 4 },
 		SteelColor = Color3.fromRGB(64, 66, 72),
 		HopperColor = Color3.fromRGB(70, 110, 70),
 		RimColor = Color3.fromRGB(255, 196, 0),
