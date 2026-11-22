@@ -1285,18 +1285,18 @@ end)
 
 -- The kaiju's laser struck the car, or a Scrapyard TNT barrel blew up by it
 -- (ScoreService): the server says how fast it is blasted, and that arms a
--- run like a launch pad.
+-- run like a launch pad, unless the server says it starts no run.
 task.spawn(function()
 	local remote = ReplicatedStorage:WaitForChild("Zapped")
 	if not remote:IsA("RemoteEvent") then
 		warn("CarController: ReplicatedStorage.Zapped is not a RemoteEvent; lasers do nothing")
 		return
 	end
-	remote.OnClientEvent:Connect(function(velocity: any)
+	remote.OnClientEvent:Connect(function(velocity: any, noRun: any)
 		local r = rig
 		if r and typeof(velocity) == "Vector3" then
 			setVelocity(r, velocity)
-			zapped = true
+			zapped = noRun ~= true
 		end
 	end)
 end)

@@ -115,6 +115,8 @@ Tuning.Analytics = {
 		RaptorSurvive = "Gameplay",
 		NearMiss = "Gameplay", -- a Downtown walker diving clear
 		Bounty = "Gameplay", -- shooting down a car with a PlaneCar
+		Crush = "Gameplay", -- a car crushed in the Scrapyard's crusher
+		HammerHit = "Gameplay", -- a car hit by a Hammer Alley hammer
 		ObbyStage = "Gameplay",
 		ObbyPrize = "Gameplay",
 		InviteWelcome = "Onboarding",
@@ -136,7 +138,7 @@ Tuning.Analytics = {
 	Unlogged = { "Admin" },
 	-- Reasons that can pay many times a minute, added up and logged as one
 	-- event every BatchGap seconds, and when the player leaves.
-	Batched = { "BoneRain", "NearMiss" },
+	Batched = { "BoneRain", "NearMiss", "HammerHit" },
 	BatchGap = 15,
 	-- The onboarding funnel's steps, in order. Each counts once per session,
 	-- and Roblox keeps only a player's first.
@@ -1381,6 +1383,7 @@ Tuning.Score = {
 		["Gravitron Fast"] = 400,
 		["Gravitron Ludicrous"] = 800,
 		TNT = 100, -- thrown by a Scrapyard TNT barrel (ScoreService)
+		["Hammer Alley"] = 200, -- off its kicker, having run the lane from the start (ScoreService)
 	},
 }
 
@@ -1457,6 +1460,7 @@ Tuning.Hud = {
 		Kaiju = "Kaiju snack",
 		Zapped = "Zapped",
 		TNT = "TNT blast",
+		["Hammer Alley"] = "Ran Hammer Alley",
 		Helipad = "Helipad landing",
 		Pool = "Pool splash",
 	},
@@ -1913,6 +1917,8 @@ Tuning.Scrapyard = {
 		CrushPerToughness = 0.02,
 		CrushMax = 8,
 		TonsPerSecond = 20,
+		PayPerTon = 3, -- cash for a crush (ScrapPay), at most once every PayGap seconds
+		PayGap = 60,
 		MinSquash = 0.15,
 		Fill = 3,
 		HeadThickness = 8,
@@ -1945,6 +1951,9 @@ Tuning.Scrapyard = {
 		Reach = 3, -- a hull's middle this much past a hammer's head is hit
 		Cooldown = 0.8, -- seconds after a knock before the driver's game lets another push
 		HitDamage = 25,
+		HitPay = 20, -- cash for a hammer hit, at most once every HitPayGap seconds
+		HitPayGap = 5,
+		StartZone = 60, -- a car this far into the lane has started it, for the kicker run's Hammer Alley target
 		Swing = {
 			Height = 56,
 			Length = 50,
@@ -2019,6 +2028,10 @@ Tuning.Scrapyard = {
 		ChainDelay = 0.3,
 		Respawn = 10,
 		BlastDamage = 10,
+		-- A blast starts a scoring run at most once every RunGap seconds, paying
+		-- PayScale of its cash; between, it only throws the car.
+		RunGap = 15,
+		PayScale = 0.5,
 		Grace = 0.5, -- no hit is measured this long after a throw, while it reaches the driver
 		BarrelColor = Color3.fromRGB(200, 30, 25),
 		BandColor = Color3.fromRGB(255, 196, 0),

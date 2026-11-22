@@ -65,7 +65,9 @@
 -- PlaneCar's shot (ServerStorage.CarShot) costs toughness the same way, and
 -- the shot that wrecks a car pays its shooter cash at once. The Scrapyard's
 -- crusher (ServerStorage.CarCrushed) holds a car and chews it like the
--- T-Rex, over a time it works out from the car's toughness.
+-- T-Rex, over a time it works out from the car's toughness, and the crush
+-- pays cash at once. So does a Hammer Alley hit. Each pays at most once
+-- every so often per player (ScrapPay).
 --
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
@@ -117,6 +119,7 @@ local Rebirth = require(ReplicatedStorage.Rebirth)
 local RunCheck = require(ReplicatedStorage.RunCheck)
 local RunTracker = require(ReplicatedStorage.RunTracker)
 local Scoring = require(ReplicatedStorage.Scoring)
+local ScrapPay = require(ReplicatedStorage.ScrapPay)
 local Toughness = require(ReplicatedStorage.Toughness)
 local Trains = require(ReplicatedStorage.Trains)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -130,6 +133,9 @@ local Leaderstats = require(ServerScriptService.Leaderstats)
 local PlayerData = require(ServerScriptService.PlayerData)
 
 local T = Tuning.Toughness
+-- Seconds a car off Hammer Alley's kicker stays armed with its target, long
+-- enough to climb the kicker.
+local ALLEY_ARM = 3
 
 type Watch = {
 	player: Player,
@@ -160,6 +166,8 @@ type Watch = {
 	hitsFrom: number,
 	ballAt: number, -- os.clock() when a wrecking ball last smacked it
 	hammerAt: number, -- os.clock() when a Hammer Alley hammer last hit it
+	alleyRun: boolean, -- running Hammer Alley from its start (ScrapPay.alleyRun)
+	crushing: boolean, -- being crushed in the Scrapyard's crusher, which pays when it wrecks
 	-- Launched off the ground by something other than a launch pad (a
 	-- wrecking ball, the kaiju's laser): the run it arms pays this target
 	-- once it takes off, and it stays armed until armUntil (os.clock()).
@@ -270,6 +278,8 @@ local function watchFor(car: Model): Watch?
 		hitsFrom = -math.huge,
 		ballAt = -math.huge,
 		hammerAt = -math.huge,
+		alleyRun = false,
+		crushing = false,
 		armTarget = nil,
 		armUntil = -math.huge,
 		gravitronArmed = false,
@@ -659,27 +669,51 @@ local function smack(watch: Watch, reading: CarSensor.Reading)
 	end
 end
 
+-- When each player was last paid by each of the Scrapyard's machines, by
+-- kind. scrapDue says whether one is due now (ScrapPay.due), and if so
+-- counts it as paid.
+local scrapPaidAt: { [Player]: { [string]: number } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function scrapDue(player: Player, kind: string, gap: number): boolean
+	local paid = scrapPaidAt[player]
+	if not paid then
+		paid = {}
+		scrapPaidAt[player] = paid
+	end
+	local now = os.clock()
+	if not ScrapPay.due(paid[kind], now, gap) then
+		return false
+	end
+	paid[kind] = now
+	return true
+end
+
 -- A Hammer Alley hammer in reach of the car lately is it knocking the car
 -- (CarController, Hammers), so no hit is measured for a moment. A jump in
 -- its speed of at least Kick is a hammer hit, once every Cooldown: it costs
--- HitDamage toughness on the side it hit, run or not, and can wreck it. In
--- the lane, resets and wrecks come back to its start.
-local function hammer(watch: Watch, reading: CarSensor.Reading)
+-- HitDamage toughness on the side it hit, run or not, and can wreck it.
+-- Returns whether it hit, for its pay (payHammerHit). In the lane, resets
+-- and wrecks come back to its start, and it tracks whether the car is
+-- running the lane from the start (ScrapPay.alleyRun) for the kicker's
+-- Hammer Alley target.
+local function hammer(watch: Watch, reading: CarSensor.Reading): boolean
 	local A = Tuning.Scrapyard.Alley
 	local S = A.Server
 	local position = watch.sensor.hull.Position
 	if Hammers.inLane(position) then
 		lastLaunch[watch.player] = Hammers.respawn
 	end
+	local x, _, a = Hammers.toLane(position)
+	watch.alleyRun = ScrapPay.alleyRun(A :: any, watch.alleyRun, x, a)
 	local time = workspace:GetServerTimeNow()
 	if not Hammers.smacked(position, time - S.Lag, time, S.Slack) then
-		return
+		return false
 	end
 	local now = os.clock()
 	watch.hitsFrom = math.max(watch.hitsFrom, now + S.HitGrace)
 	local hit = reading.impact
 	if hit.Magnitude < S.Kick or now - watch.hammerAt < S.Cooldown then
-		return
+		return false
 	end
 	watch.hammerAt = now
 	local slot = Impact.slot(hit.X, hit.Y, hit.Z)
@@ -688,6 +722,7 @@ local function hammer(watch: Watch, reading: CarSensor.Reading)
 		`Hammer hit {slot}, damage {A.HitDamage}, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`
 	)
 	carImpact:FireClient(watch.player, hit.Magnitude, slot, watch.run.phase == "flying", A.HitDamage, watch.toughness)
+	return true
 end
 
 -- A car in the gravitron takes no hits, nor for HitGrace after. On the
@@ -814,6 +849,8 @@ carZapped.Parent = ServerStorage
 -- BlastDamage toughness from underneath, run or not, and can wreck it.
 -- Otherwise it is thrown like the kaiju's laser blasts a car, through the
 -- same Zapped remote, paying a TNT target on the run, or on the run it arms.
+-- A blast arms a run at most once every RunGap seconds, paying PayScale of
+-- its cash; between, it only throws the car, with no run on either side.
 local tntBlast = Instance.new("BindableEvent")
 tntBlast.Name = "TntBlast"
 tntBlast.Event:Connect(function(car: Model, velocity: Vector3)
@@ -829,13 +866,19 @@ tntBlast.Event:Connect(function(car: Model, velocity: Vector3)
 	end
 	local now = os.clock()
 	watch.hitsFrom = math.max(watch.hitsFrom, now + B.Grace)
+	local run = true
 	if watch.run.phase == "flying" then
 		table.insert(watch.targets, "TNT")
-	else
+	elseif scrapDue(watch.player, "TntRun", B.RunGap) then
 		watch.armTarget, watch.armUntil = "TNT", now + B.Grace
+		watch.payScale = B.PayScale
+	else
+		run = false
 	end
-	print(`TNT blast, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`)
-	zapped:FireClient(watch.player, velocity)
+	print(
+		`TNT blast{if run then "" else " (no run)"}, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`
+	)
+	zapped:FireClient(watch.player, velocity, not run)
 end)
 tntBlast.Parent = ServerStorage
 
@@ -1037,11 +1080,35 @@ carBlasted.Event:Connect(function(car: Model, beat: number?)
 end)
 carBlasted.Parent = ServerStorage
 
+-- A car crushed flat pays at once, by the tons the crusher reached
+-- (ScrapPay.crush), at most once every PayGap seconds. One let out early
+-- pays nothing.
+local function payCrush(watch: Watch)
+	local C = Tuning.Scrapyard.Crusher
+	if not scrapDue(watch.player, "Crush", C.PayGap) then
+		return
+	end
+	local amount = ScrapPay.crush(C, watch.chewFor)
+	Garage.pay(watch.player, amount, "Crush")
+	print(`Crushed, paid {amount}, {watch.player.Name}`)
+	cashBonus:FireClient(watch.player, "Crushed", amount)
+end
+
+-- A Hammer Alley hit pays HitPay cash at once, at most once every HitPayGap
+-- seconds.
+local function payHammerHit(watch: Watch)
+	local A = Tuning.Scrapyard.Alley
+	if scrapDue(watch.player, "HammerHit", A.HitPayGap) then
+		Garage.pay(watch.player, A.HitPay, "HammerHit")
+		cashBonus:FireClient(watch.player, "Hammer hit", A.HitPay)
+	end
+end
+
 -- The Scrapyard's crusher (Parks.ScrapyardCrusher fires
 -- ServerStorage.CarCrushed). "grabbed" holds the car like the T-Rex does,
 -- ending any run, and resets and wrecks come back to `respawnAt`, in front
 -- of the crusher. "crush" drains all its toughness evenly over `seconds`,
--- breaking parts as it goes, then it wrecks.
+-- breaking parts as it goes, then it wrecks and pays (payCrush).
 local carCrushed = Instance.new("BindableEvent")
 carCrushed.Name = "CarCrushed"
 carCrushed.Event:Connect(function(car: Model, moment: "grabbed" | "crush", respawnAt: CFrame?, seconds: number?)
@@ -1051,6 +1118,7 @@ carCrushed.Event:Connect(function(car: Model, moment: "grabbed" | "crush", respa
 	end
 	if moment == "crush" then
 		watch.chewed = watch.held
+		watch.crushing = watch.held
 		watch.chewFor = seconds or Tuning.Scrapyard.Crusher.CrushBase
 		return
 	end
@@ -1168,6 +1236,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 				if watch.chewed and not watch.wrecked then
 					damageCar(watch, Toughness.burn(watch.maxToughness, dt, watch.chewFor), nil)
 					if watch.toughness <= 0 then
+						if watch.crushing then
+							payCrush(watch)
+						end
 						wreck(watch)
 					end
 				end
@@ -1182,6 +1253,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 					local payScale = pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 					watch.launcher = launcherOf(pad)
+					-- Off Hammer Alley's kicker, having run the lane from the start.
+					if pad:GetAttribute("AlleyKicker") == true and watch.alleyRun then
+						watch.alleyRun = false
+						watch.armTarget, watch.armUntil = "Hammer Alley", os.clock() + ALLEY_ARM
+					end
 				end
 				if reading.pad or reading.padBelow or reading.sample.swing or reading.sample.grinding then
 					watch.thrownAt = os.clock()
@@ -1212,7 +1288,9 @@ RunService.Heartbeat:Connect(function(dt: number)
 					car:SetAttribute("Burning", burning)
 				end
 				smack(watch, reading)
-				hammer(watch, reading)
+				if hammer(watch, reading) then
+					payHammerHit(watch)
+				end
 				trainPush(watch, reading)
 				gravitron(watch, reading)
 				globe(watch)

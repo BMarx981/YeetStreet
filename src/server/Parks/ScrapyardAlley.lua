@@ -158,6 +158,13 @@ function ScrapyardAlley.build(folder: Folder, _area: MapLayout.Area)
 	kicker.Name = "Kicker"
 	CurvedWall.fill(kicker, Tuning.Map.FloorTop, options)
 	LaunchPad.top(kicker, A.Kicker.Steps, A.Kicker.LaunchSpeed, Hammers.respawn, A.Kicker.PayScale)
+	-- A run off it pays the Hammer Alley target if the car ran the lane
+	-- (ScoreService).
+	for _, pad in kicker:GetDescendants() do
+		if pad:IsA("BasePart") and pad:GetAttribute("LaunchSpeed") then
+			pad:SetAttribute("AlleyKicker", true)
+		end
+	end
 
 	model.Parent = folder
 end
