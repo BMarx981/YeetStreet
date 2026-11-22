@@ -108,6 +108,7 @@ local GrindRails = require(ReplicatedStorage.GrindRails)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
 local Guns = require(ReplicatedStorage.Guns)
+local Hammers = require(ReplicatedStorage.Hammers)
 local Impact = require(ReplicatedStorage.Impact)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local MapLayout = require(ReplicatedStorage.MapLayout)
@@ -157,6 +158,7 @@ type Watch = {
 	-- jumps when its driver's game takes it back, which is not a hit.
 	hitsFrom: number,
 	ballAt: number, -- os.clock() when a wrecking ball last smacked it
+	hammerAt: number, -- os.clock() when a Hammer Alley hammer last hit it
 	-- Launched off the ground by something other than a launch pad (a
 	-- wrecking ball, the kaiju's laser): the run it arms pays this target
 	-- once it takes off, and it stays armed until armUntil (os.clock()).
@@ -266,6 +268,7 @@ local function watchFor(car: Model): Watch?
 		chewFor = Tuning.Dino.Rex.Chew,
 		hitsFrom = -math.huge,
 		ballAt = -math.huge,
+		hammerAt = -math.huge,
 		armTarget = nil,
 		armUntil = -math.huge,
 		gravitronArmed = false,
@@ -653,6 +656,37 @@ local function smack(watch: Watch, reading: CarSensor.Reading)
 		watch.armTarget, watch.armUntil = "Wrecking ball", now
 		reading.sample.onPad = true
 	end
+end
+
+-- A Hammer Alley hammer in reach of the car lately is it knocking the car
+-- (CarController, Hammers), so no hit is measured for a moment. A jump in
+-- its speed of at least Kick is a hammer hit, once every Cooldown: it costs
+-- HitDamage toughness on the side it hit, run or not, and can wreck it. In
+-- the lane, resets and wrecks come back to its start.
+local function hammer(watch: Watch, reading: CarSensor.Reading)
+	local A = Tuning.Scrapyard.Alley
+	local S = A.Server
+	local position = watch.sensor.hull.Position
+	if Hammers.inLane(position) then
+		lastLaunch[watch.player] = Hammers.respawn
+	end
+	local time = workspace:GetServerTimeNow()
+	if not Hammers.smacked(position, time - S.Lag, time, S.Slack) then
+		return
+	end
+	local now = os.clock()
+	watch.hitsFrom = math.max(watch.hitsFrom, now + S.HitGrace)
+	local hit = reading.impact
+	if hit.Magnitude < S.Kick or now - watch.hammerAt < S.Cooldown then
+		return
+	end
+	watch.hammerAt = now
+	local slot = Impact.slot(hit.X, hit.Y, hit.Z)
+	damageCar(watch, A.HitDamage, slot)
+	print(
+		`Hammer hit {slot}, damage {A.HitDamage}, toughness {math.floor(watch.toughness + 0.5)} left, {watch.player.Name}`
+	)
+	carImpact:FireClient(watch.player, hit.Magnitude, slot, watch.run.phase == "flying", A.HitDamage, watch.toughness)
 end
 
 -- A car in the gravitron takes no hits, nor for HitGrace after. On the
@@ -1147,6 +1181,7 @@ RunService.Heartbeat:Connect(function(dt: number)
 					car:SetAttribute("Burning", burning)
 				end
 				smack(watch, reading)
+				hammer(watch, reading)
 				trainPush(watch, reading)
 				gravitron(watch, reading)
 				globe(watch)

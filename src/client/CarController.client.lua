@@ -58,6 +58,7 @@ local Glide = require(ReplicatedStorage.Glide)
 local Guns = require(ReplicatedStorage.Guns)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
+local Hammers = require(ReplicatedStorage.Hammers)
 local HeliFlight = require(ReplicatedStorage.HeliFlight)
 local Contact = require(ReplicatedStorage.Contact)
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
@@ -491,6 +492,7 @@ end
 -- knocked, it is left alone for Cooldown seconds so it can fly clear.
 local siloTraps = SiloTraps.layout(Tuning.Silo.Traps :: any)
 local siloTrapAt = -math.huge
+local hammerAt = -math.huge -- when a Hammer Alley hammer last knocked the car
 local function siloTrapPush(position: Vector3, velocity: Vector3, now: number): Vector3?
 	if not siloArea or not inSilo(position) or now - siloTrapAt < Tuning.Silo.Traps.Cooldown then
 		return nil
@@ -730,6 +732,15 @@ local function step(r: Rig, dt: number)
 	local knocked = siloTrapPush(cf.Position, r.hull.AssemblyLinearVelocity, now)
 	if knocked then
 		setVelocity(r, knocked)
+	end
+	-- A hammer in Hammer Alley that reaches the car knocks it, then leaves it
+	-- alone for Cooldown seconds so it can fly clear.
+	if now - hammerAt >= Tuning.Scrapyard.Alley.Cooldown then
+		local hammered = Hammers.push(cf.Position, r.hull.AssemblyLinearVelocity, now)
+		if hammered then
+			hammerAt = now
+			setVelocity(r, hammered)
+		end
 	end
 	-- Hot water bursting under the car throws it out of the tower, and that
 	-- starts a run like a launch pad.

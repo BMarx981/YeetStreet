@@ -1927,6 +1927,71 @@ Tuning.Scrapyard = {
 		SteelColor = Color3.fromRGB(64, 66, 72),
 		HeadColor = Color3.fromRGB(214, 160, 30),
 	},
+	-- Hammer Alley (HammerAlley, Hammers, Parks.ScrapyardAlley,
+	-- HammerAlleyLook): a walled lane of giant hammers from X, Z (from the
+	-- yard's middle) heading Turn (as an area's Heading), ending in a kicker.
+	-- Each hammer hit costs HitDamage toughness, so tougher cars get further;
+	-- wrecks and resets in the lane come back to its start.
+	Alley = {
+		X = 350,
+		Z = 500,
+		Turn = 0,
+		Length = 560,
+		Width = 40,
+		WallHeight = 10,
+		WallThickness = 3,
+		Reach = 3, -- a hull's middle this much past a hammer's head is hit
+		Cooldown = 0.8, -- seconds after a knock before the driver's game lets another push
+		HitDamage = 25,
+		Swing = {
+			Height = 56,
+			Length = 50,
+			Amplitude = 65,
+			Period = 2.4,
+			HeadSize = 12,
+			HeadLength = 18,
+			SideKick = 90,
+			Lift = 40,
+		},
+		Slam = {
+			Height = 12,
+			Length = 36,
+			PivotOut = 4,
+			Period = 2.8,
+			Slam = 0.2,
+			Hold = 0.4,
+			Rise = 0.9,
+			HeadSize = 14,
+			HeadLength = 16,
+			Up = 30,
+			Back = 70,
+		},
+		-- At is studs from the lane's start; Side is which wall a slam hammer
+		-- stands by (-1 left, 1 right) or which way a swing starts.
+		Hammers = {
+			{ Kind = "Swing", At = 50, Side = 1, Phase = 0 },
+			{ Kind = "Slam", At = 90, Side = -1, Phase = 0.62 },
+			{ Kind = "Swing", At = 130, Side = -1, Phase = 0.24 },
+			{ Kind = "Slam", At = 170, Side = 1, Phase = 0.86 },
+			{ Kind = "Slam", At = 210, Side = -1, Phase = 0.48 },
+			{ Kind = "Swing", At = 250, Side = 1, Phase = 0.1 },
+			{ Kind = "Slam", At = 290, Side = 1, Phase = 0.72 },
+			{ Kind = "Swing", At = 330, Side = -1, Phase = 0.34 },
+			{ Kind = "Slam", At = 370, Side = -1, Phase = 0.96 },
+			{ Kind = "Slam", At = 410, Side = 1, Phase = 0.58 },
+			{ Kind = "Swing", At = 450, Side = 1, Phase = 0.2 },
+			{ Kind = "Slam", At = 490, Side = -1, Phase = 0.82 },
+			{ Kind = "Swing", At = 530, Side = -1, Phase = 0.44 },
+		},
+		-- The kicker at the lane's end: every plank a booster.
+		Kicker = { Radius = 80, Angle = 35, Steps = 8, LaunchSpeed = 180, PayScale = 1 },
+		RespawnBack = 30, -- wrecks and resets come back this far before the start
+		Server = { Lag = 0.5, Slack = 4, HitGrace = 0.4, Kick = 20, Cooldown = 1 },
+		SteelColor = Color3.fromRGB(64, 66, 72),
+		WallColor = Color3.fromRGB(150, 120, 90),
+		HeadColor = Color3.fromRGB(200, 40, 30),
+		SignColor = Color3.fromRGB(255, 196, 0),
+	},
 }
 
 -- The nuclear plant (ServerScriptService.Parks.Plant): two cooling towers a car
