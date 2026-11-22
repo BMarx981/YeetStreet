@@ -63,6 +63,16 @@ Check.test("pieces on a flank lie on its surface", function()
 	end
 end)
 
+Check.test("junk on a slope lies on it, clear of its top", function()
+	local pieces = Junk.onSlope({ "Car", "Tire" }, Rng.new(5), 30, 40, 120, 90, 30)
+	Check.eq(#pieces, 30)
+	for i, piece in pieces do
+		Check.eq(math.abs(piece.x) <= 20, true, `piece {i} across`)
+		Check.eq(piece.z >= 30 and piece.z <= 120, true, `piece {i} along`)
+		Check.near(piece.y, 90 * (1 - piece.z / 120), `piece {i} on the surface`)
+	end
+end)
+
 local STACK: Junk.Stack = { MinCars = 3, MaxCars = 6, CarHeight = 2.5, Wobble = 1, Turn = 15 }
 
 Check.test("a stack is a few crushed cars, one on another", function()

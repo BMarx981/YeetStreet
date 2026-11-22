@@ -106,6 +106,27 @@ function Junk.flankHeight(along: number, out: number, length: number, width: num
 	return rise * t - rise * out / width
 end
 
+-- `count` pieces lying on a slope `width` across that falls `rise` over
+-- `length`, from z = `from` on: x across from its middle, z down it from
+-- the top.
+function Junk.onSlope(
+	kinds: { string },
+	rng: Rng,
+	count: number,
+	width: number,
+	length: number,
+	rise: number,
+	from: number
+): { Piece }
+	local pieces: { Piece } = {}
+	for _ = 1, count do
+		local x = rng.range(-width / 2, width / 2)
+		local z = rng.range(from, length)
+		table.insert(pieces, piece(kinds, rng, x, rise * (1 - z / length), z, 1))
+	end
+	return pieces
+end
+
 -- `count` pieces lying on a flank, x out from the ramp's edge and z along it.
 function Junk.onFlank(
 	kinds: { string },

@@ -2109,7 +2109,7 @@ Tuning.Scrapyard = {
 		Count = 24,
 		Gap = 70,
 		Seed = 13,
-		Area = { MinX = -510, MaxX = 510, MinZ = -610, MaxZ = 610 }, -- inside the wall's curve
+		Area = { MinX = -480, MaxX = 480, MinZ = -580, MaxZ = 580 }, -- inside the junk along the walls (Dressing)
 		KeepOut = {
 			{ AX = -600, AZ = 0, BX = -380, BZ = 0, Radius = 90 }, -- the gate and the teleport stop
 			{ AX = -200, AZ = -560, BX = -200, BZ = 60, Radius = 130 }, -- Scrap Mountain and its signs
@@ -2149,6 +2149,8 @@ Tuning.Scrapyard = {
 		Kicker = { Radius = 70, Angle = 24, Steps = 8, LaunchSpeed = 210, PayScale = 0.8 },
 		RespawnBack = 30,
 		Decor = 40,
+		FrontDecor = 30, -- junk on the front slope, from FrontClear down it, clear of the kicker
+		FrontClear = 35,
 		Seed = 11,
 		RampColor = Color3.fromRGB(105, 80, 60),
 		FlankColor = Color3.fromRGB(96, 78, 62),
@@ -2156,6 +2158,68 @@ Tuning.Scrapyard = {
 		-- this high.
 		SignHeight = 30,
 		SignColor = Color3.fromRGB(255, 196, 0),
+		SteelColor = Color3.fromRGB(64, 66, 72),
+	},
+	-- Junk along the walls (Dressing, Parks.ScrapyardDressing), in studs from
+	-- the yard's middle: a band just inside the wall's foot (which is 60 in
+	-- from the edge), along each side's straight run. Tires, Drums and Heap
+	-- burst when a car hits them (PropService), back after ResetTime, and
+	-- pay nothing; containers are solid. A floodlight every LightEvery, and
+	-- the office shack by the gate with the SCRAPYARD sign on its roof.
+	Dressing = {
+		HalfX = 522,
+		HalfZ = 622,
+		SpanX = 420, -- past this the corners curve
+		SpanZ = 520,
+		Every = 45,
+		Jitter = 8,
+		LightEvery = 300,
+		LightClear = 20,
+		Seed = 17,
+		KeepOut = {
+			{ AX = -600, AZ = 0, BX = -380, BZ = 0, Radius = 100 }, -- the gate and the teleport stop
+			{ AX = -522, AZ = -170, BX = -522, BZ = -170, Radius = 30 }, -- the shack
+			{ AX = 350, AZ = 640, BX = 350, BZ = 480, Radius = 60 }, -- the way into Hammer Alley
+			{ AX = -200, AZ = -640, BX = -200, BZ = -480, Radius = 110 }, -- the foot of Scrap Mountain
+		},
+		Kinds = {
+			{ Kind = "Tires", Weight = 3 },
+			{ Kind = "Drums", Weight = 3 },
+			{ Kind = "Heap", Weight = 2 },
+			{ Kind = "Container", Weight = 1 },
+			{ Kind = "Containers", Weight = 0.5 }, -- two, one on the other
+		},
+		ResetTime = 6,
+		-- A small heap of junk (Junk.mound).
+		Heap = {
+			RadiusAcross = 14,
+			RadiusAlong = 8,
+			Height = 6,
+			Pieces = 12,
+			Sectors = 1,
+			Kinds = { "Car", "Panel", "Tire", "Drum" },
+		},
+		Container = Vector3.new(20, 8.5, 8.5), -- long along the wall
+		ContainerColors = {
+			Color3.fromRGB(150, 60, 40),
+			Color3.fromRGB(50, 90, 130),
+			Color3.fromRGB(70, 110, 70),
+			Color3.fromRGB(200, 120, 40),
+		},
+		Light = {
+			Height = 45,
+			Range = 90,
+			Angle = 70,
+			Brightness = 3,
+			Color = Color3.fromRGB(255, 236, 200),
+		},
+		Shack = {
+			X = -522,
+			Z = -170,
+			Size = Vector3.new(26, 12, 16), -- along the wall, up, and out
+			Color = Color3.fromRGB(110, 120, 128),
+			SignColor = Color3.fromRGB(255, 196, 0),
+		},
 		SteelColor = Color3.fromRGB(64, 66, 72),
 	},
 	-- The magnet crane (MagnetCrane, Parks.ScrapyardCrane, CraneLook): its

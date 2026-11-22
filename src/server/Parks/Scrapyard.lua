@@ -7,8 +7,9 @@
 -- the saved place itself never changes. Each machine has its own module:
 -- the car crusher (ScrapyardCrusher), Hammer Alley (ScrapyardAlley), the
 -- TNT barrel field (ScrapyardTnt), Scrap Mountain (ScrapyardMountain), the
--- magnet crane (ScrapyardCrane), and the stacks of crushed cars on the open
--- floor (ScrapyardStacks).
+-- magnet crane (ScrapyardCrane), the stacks of crushed cars on the open
+-- floor (ScrapyardStacks), and the junk, lights, and office shack along the
+-- walls (ScrapyardDressing).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -20,6 +21,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local ScrapyardAlley = require(ServerScriptService.Parks.ScrapyardAlley)
 local ScrapyardCrane = require(ServerScriptService.Parks.ScrapyardCrane)
 local ScrapyardCrusher = require(ServerScriptService.Parks.ScrapyardCrusher)
+local ScrapyardDressing = require(ServerScriptService.Parks.ScrapyardDressing)
 local ScrapyardMountain = require(ServerScriptService.Parks.ScrapyardMountain)
 local ScrapyardStacks = require(ServerScriptService.Parks.ScrapyardStacks)
 local ScrapyardTnt = require(ServerScriptService.Parks.ScrapyardTnt)
@@ -172,6 +174,7 @@ function ScrapyardPark.build(folder: Folder, area: MapLayout.Area)
 	ScrapyardMountain.build(folder, area)
 	ScrapyardCrane.build(folder, area)
 	ScrapyardStacks.build(folder, area)
+	ScrapyardDressing.build(folder, area)
 end
 
 function ScrapyardPark.start(folder: Folder, area: MapLayout.Area)

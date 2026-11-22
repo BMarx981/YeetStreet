@@ -6,7 +6,8 @@
 -- slow car climbing, and a kicker at the top, every plank a booster, throws
 -- cars out over the yard toward the TNT field. Under the ramp is a solid
 -- wedge, the front slopes down from the top, and each side slopes down to
--- the ground (a flank, Junk.flankHeight) with junk lying on it. Resets and
+-- the ground (a flank, Junk.flankHeight); junk lies on the flanks and down
+-- the front (Junk.onSlope). Resets and
 -- wrecks after a launch come back to the foot, under a SCRAP MOUNTAIN sign.
 -- Its record sign is Tuning.LaunchRecords' (RecordService).
 
@@ -175,6 +176,15 @@ function ScrapyardMountain.build(folder: Folder, area: MapLayout.Area)
 			part.CanCollide = false
 			part.CanQuery = false
 		end
+	end
+	-- And down the front, below the kicker.
+	for _, piece in Junk.onSlope(kinds, rng, M.FrontDecor, 2 * edge, M.FrontRun, M.Rise, M.FrontClear) do
+		local at = CFrame.new(foot * Vector3.new(piece.x, piece.y, -(M.Run + piece.z)))
+			* CFrame.Angles(0, math.rad(piece.yaw), 0)
+			* CFrame.Angles(math.rad(piece.tilt), 0, 0)
+		local part = JunkPieces.make(model, piece.kind, at, rng)
+		part.CanCollide = false
+		part.CanQuery = false
 	end
 
 	model.Parent = folder

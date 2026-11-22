@@ -57,6 +57,7 @@ type Prop = {
 	down: boolean,
 	breakSpeed: number?, -- a boulder's
 	group: string, -- its collision group while standing
+	reach: number, -- no hull's middle further than this from its home can hit it
 }
 
 local props: { [BasePart]: Prop } = {}
@@ -90,6 +91,8 @@ local function adopt(instance: Instance)
 		down = false,
 		breakSpeed = if boulder then breakSpeed else nil,
 		group = instance.CollisionGroup,
+		-- The corner of its box grown by HitRadius on every side.
+		reach = instance.Size.Magnitude / 2 + P.HitRadius * math.sqrt(3),
 	}
 end
 
@@ -179,8 +182,14 @@ end
 local function sweep(car: Model, from: Vector3, to: Vector3, carVelocity: Vector3)
 	local speed = carVelocity.Magnitude
 	local burning = car:GetAttribute("Burning") == true
+	-- Props are many, so first a quick check that the step came near each.
+	local middle = (from + to) / 2
+	local halfStep = (to - from).Magnitude / 2
 	for _, prop in props do
 		local breakSpeed = prop.breakSpeed
+		if (prop.home.Position - middle).Magnitude > prop.reach + halfStep then
+			continue
+		end
 		if not prop.down and (breakSpeed == nil or (speed > breakSpeed and not burning)) then
 			local r = if breakSpeed then 0 else P.HitRadius
 			local a = prop.home:PointToObjectSpace(from)
