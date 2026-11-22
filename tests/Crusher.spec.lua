@@ -86,4 +86,21 @@ Check.test("the countdown shows whole seconds left until the press starts", func
 	Check.eq(tostring(Crusher.countdown(CONFIG, 3.01)), "0", "never shows -0")
 end)
 
+local function cues(from: number, to: number): string
+	return table.concat(Crusher.cues(CONFIG, from, to, 3), ",")
+end
+
+Check.test("the crusher hisses as it starts, slams on contact, and hisses open", function()
+	Check.eq(cues(-0.1, 0.1), "close")
+	Check.eq(cues(0.9, 1.1), "slam")
+	Check.eq(cues(4.9, 5.1), "open", "after the crush and the hold")
+	Check.eq(cues(-1, 8), "close,slam,open", "all in one step")
+	Check.eq(cues(2, 3), "", "mid crush")
+end)
+
+Check.test("no crusher cues when time stands still or goes back", function()
+	Check.eq(cues(1.1, 1.1), "")
+	Check.eq(cues(1.1, 0.9), "")
+end)
+
 Check.finish("Crusher")

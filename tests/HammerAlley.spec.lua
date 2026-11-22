@@ -108,4 +108,27 @@ Check.test("the server sees a hammer reach a car any time in a window", function
 	Check.eq(HammerAlley.smacked(CONFIG, { SLAM }, 3.9, 4.4, 0, 3, 200, 0), true, "the next slam")
 end)
 
+local function cues(h: HammerAlley.Hammer, from: number, to: number): string
+	return table.concat(HammerAlley.cues(CONFIG, h, from, to), ",")
+end
+
+Check.test("a swing whooshes each time it passes the bottom", function()
+	Check.eq(cues(SWING, 1.9, 2.1), "whoosh")
+	Check.eq(cues(SWING, 2.1, 3.9), "", "between")
+	Check.eq(cues(SWING, 3.9, 4.1), "whoosh", "and back")
+	Check.eq(cues({ Kind = "Swing", At = 100, Side = 1, Phase = 0.25 }, 0.9, 1.1), "whoosh", "a quarter turn on")
+end)
+
+Check.test("a slam hammer whooshes as it starts down and slams when it lands", function()
+	Check.eq(cues(SLAM, 3.9, 4.1), "whoosh")
+	Check.eq(cues(SLAM, 4.2, 4.3), "slam")
+	Check.eq(cues(SLAM, 3.9, 4.3), "whoosh,slam", "both in one step")
+	Check.eq(cues(SLAM, 4.3, 7.9), "", "holding, rising, waiting")
+end)
+
+Check.test("no hammer cues when time stands still or goes back", function()
+	Check.eq(cues(SLAM, 4.1, 4.1), "")
+	Check.eq(cues(SLAM, 4.3, 3.9), "")
+end)
+
 Check.finish("HammerAlley")

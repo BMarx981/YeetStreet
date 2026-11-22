@@ -86,6 +86,25 @@ function Crusher.tons(c: Config, elapsed: number, crushTime: number): number
 	return c.TonsPerSecond * math.clamp(elapsed - c.Close, 0, crushTime)
 end
 
+-- The sounds a cycle makes after `from` and by `to` seconds into it, in
+-- order: "close" as the head starts down, "slam" as it meets the cars, and
+-- "open" as it starts back up.
+function Crusher.cues(c: Config, from: number, to: number, crushTime: number): { string }
+	local cues: { string } = {}
+	for _, cue in
+		{
+			{ name = "close", at = 0 },
+			{ name = "slam", at = c.Close },
+			{ name = "open", at = c.Close + crushTime + c.Hold },
+		}
+	do
+		if from < cue.at and cue.at <= to then
+			table.insert(cues, cue.name)
+		end
+	end
+	return cues
+end
+
 -- Whether a hull at (x, z) on the bed, `y` above its top, is on it.
 function Crusher.onBed(c: Config, x: number, z: number, y: number): boolean
 	return math.abs(x) <= c.BedWidth / 2 and math.abs(z) <= c.BedLength / 2 and y >= -2 and y <= c.CatchHeight

@@ -7,8 +7,8 @@
 -- sign over the start; and a kicker at the end, every plank a booster, whose
 -- wrecks and resets come back to the start. Where the kicker throws cars lies
 -- a junk pile (Junk.mound) of knockable pieces, one Shatter model per
--- sector, that burst when a car smashes in (PropService) and pay a Junk pile
--- target. The hammers move, so every client makes and moves its own
+-- sector, that burst with a crash when a car smashes in (PropService) and pay
+-- a Junk pile target. The hammers move, so every client makes and moves its own
 -- (HammerAlleyLook).
 
 local CollectionService = game:GetService("CollectionService")
@@ -104,6 +104,7 @@ local function buildPile(model: Model)
 		local group = Instance.new("Model")
 		group.Name = `Sector{sector}`
 		group:SetAttribute("Shatter", true)
+		group:SetAttribute("BurstSound", "Junk")
 		group.Parent = pile
 		sectors[sector] = group
 	end

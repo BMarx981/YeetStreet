@@ -5,10 +5,11 @@
 -- never collide, so a car drives right into one.
 --
 -- start watches every car. A hull touching a standing barrel blows it up:
--- the barrel hides, every client shows an explosion there
--- (ReplicatedStorage.TntBoom, TntBoom), every car in reach is thrown
--- (ServerStorage.TntBlast, ScoreService), the barrels near it go off
--- ChainDelay later, and it stands back up after Respawn seconds.
+-- the barrel's BlownAt attribute gets the server time, from which every
+-- client shows an explosion there and hides the barrel until it stands
+-- back up Respawn seconds later (TntBoom), every car in reach is thrown
+-- (ServerStorage.TntBlast, ScoreService), and the barrels near it go off
+-- ChainDelay later.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -66,18 +67,7 @@ function ScrapyardTnt.build(folder: Folder, area: MapLayout.Area)
 	model.Parent = folder
 end
 
-local function show(barrel: Model, standing: boolean)
-	for _, part in barrel:GetChildren() do
-		if part:IsA("BasePart") then
-			part.Transparency = if standing then 0 else 1
-		end
-	end
-end
-
 function ScrapyardTnt.start(folder: Folder, area: MapLayout.Area)
-	local boom = Instance.new("RemoteEvent")
-	boom.Name = "TntBoom"
-	boom.Parent = ReplicatedStorage
 	local tntBlast = ServerStorage:WaitForChild("TntBlast") :: BindableEvent
 	local field = folder:FindFirstChild("TntField")
 	if not field then
@@ -103,10 +93,9 @@ function ScrapyardTnt.start(folder: Folder, area: MapLayout.Area)
 			return
 		end
 		standing[index] = false
-		show(barrel, false)
+		barrel:SetAttribute("BlownAt", workspace:GetServerTimeNow())
 		local spot = spots[index]
 		local at = center + Vector3.new(spot.x, 0, spot.z)
-		boom:FireAllClients(at)
 		local cars = workspace:FindFirstChild("Cars")
 		for _, car in if cars then cars:GetChildren() else {} do
 			local hull = car:IsA("Model") and car.PrimaryPart
@@ -123,7 +112,6 @@ function ScrapyardTnt.start(folder: Folder, area: MapLayout.Area)
 		end
 		task.delay(B.Respawn, function()
 			standing[index] = true
-			show(barrel, true)
 		end)
 	end
 

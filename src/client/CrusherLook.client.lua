@@ -11,6 +11,12 @@
 -- here, then squashed down toward the bed each frame. Parts knocked off on
 -- the way fly as usual (CarVisuals unanchors them). Its driver is hidden
 -- until the car is gone, as nobody is ever hurt.
+--
+-- The head hisses as it starts down and again as it opens, slams as it
+-- meets the cars, and grinds while it crushes (Crusher.cues); the gauge
+-- beeps each second of the countdown. During a replay the head and gauge
+-- are as they were at the moment being watched (ReplayWorld), sounds too;
+-- the cars it squashes stay as they are now.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,8 +26,14 @@ local Crusher = require(ReplicatedStorage.Crusher)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CrusherCamera = require(script.Parent.CrusherCamera)
+local OneShot = require(script.Parent.OneShot)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local C = Tuning.Scrapyard.Crusher
+local S = Tuning.Scrapyard.Sounds
+-- Seconds; a longer jump in time between frames (a replay starting or
+-- scrubbing) plays no sounds.
+local CUE_GAP = 0.5
 local CONFIG: Crusher.Config = C :: any
 
 if not MapLayout.find(Tuning.Map.Areas :: any, "Scrapyard") then
@@ -75,6 +87,12 @@ label.TextScaled = true
 label.TextColor3 = IDLE_COLOR
 label.Text = IDLE_TEXT
 label.Parent = gui
+
+local hiss = OneShot.make(S.CrusherHiss, S.Near, S.Far, head)
+local slam = OneShot.make(S.CrusherSlam, S.Near, S.Far, head)
+local grind = OneShot.make(S.CrusherGrind, S.Near, S.Far, head)
+grind.Looped = true
+local beep = OneShot.make(S.CrusherBeep, S.Near, S.Far, gauge)
 
 local function placeHead(height: number)
 	head.CFrame = frame * CFrame.new(0, height + C.HeadThickness / 2, 0)
@@ -173,23 +191,61 @@ local function crusherModel(): Instance?
 	return yard and yard:FindFirstChild("Crusher")
 end
 
+local followed: Instance? = nil
+local lastTime = 0
+local lastCycleAt: number? = nil
+local lastCount: number? = nil
+
 RunService.RenderStepped:Connect(function()
 	local model = crusherModel()
-	local cycleAt = model and model:GetAttribute("CycleAt")
-	local crushTime = model and model:GetAttribute("CrushTime")
-	local fillAt = model and model:GetAttribute("FillAt")
+	if model and model ~= followed then
+		followed = model
+		ReplayWorld.follow(model)
+	end
+	local cycleAt = model and ReplayWorld.attribute(model, "CycleAt")
+	local crushTime = model and ReplayWorld.attribute(model, "CrushTime")
+	local fillAt = model and ReplayWorld.attribute(model, "FillAt")
+	local now = ReplayWorld.serverTime()
+	local step = now - lastTime
+	local cueing = step > 0 and step <= CUE_GAP
+	lastTime = now
+	local grinding = false
+	local count: number? = nil
 	local height = C.TopHeight
 	if typeof(cycleAt) == "number" and typeof(crushTime) == "number" then
-		local elapsed = workspace:GetServerTimeNow() - cycleAt
+		local elapsed = now - cycleAt
 		height = Crusher.headHeight(CONFIG, elapsed, crushTime)
 		label.Text = `{math.floor(Crusher.tons(CONFIG, elapsed, crushTime))} TONS`
 		label.TextColor3 = CRUSH_COLOR
+		if cueing then
+			-- A cycle seen for the first time hisses only if it just started.
+			local from = if cycleAt == lastCycleAt then elapsed - step elseif elapsed < CUE_GAP then -1e-3 else elapsed
+			for _, cue in Crusher.cues(CONFIG, from, elapsed, crushTime) do
+				if cue == "slam" then
+					OneShot.play(slam, S.CrusherSlam)
+				else
+					OneShot.play(hiss, S.CrusherHiss)
+				end
+			end
+			grinding = Crusher.phase(CONFIG, elapsed, crushTime) == "crushing"
+		end
 	elseif typeof(fillAt) == "number" then
-		label.Text = `CRUSHING IN {Crusher.countdown(CONFIG, workspace:GetServerTimeNow() - fillAt)}`
+		count = Crusher.countdown(CONFIG, now - fillAt)
+		label.Text = `CRUSHING IN {count}`
 		label.TextColor3 = CRUSH_COLOR
+		if cueing and count ~= lastCount and (count :: number) > 0 then
+			OneShot.play(beep, S.CrusherBeep)
+		end
 	else
 		label.Text = IDLE_TEXT
 		label.TextColor3 = IDLE_COLOR
+	end
+	lastCycleAt = if typeof(cycleAt) == "number" then cycleAt else nil
+	lastCount = count
+	if grinding and not grind.Playing then
+		grind:Play()
+	elseif not grinding and grind.Playing then
+		grind:Stop()
 	end
 	placeHead(height)
 

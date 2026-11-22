@@ -1619,6 +1619,14 @@ Tuning.Props = {
 	-- Props in a Model with Shatter set all fly when one is hit, each also
 	-- thrown this fast out from the hit, studs per second.
 	ShatterBurst = 40,
+	-- A Shatter model with a BurstSound attribute plays that sound from here
+	-- where it was hit, heard within Near studs and fading out by Far
+	-- (PropSounds). All Pro Sound Effects.
+	BurstSounds = {
+		Junk = { Id = "rbxassetid://9118064969", Pitch = 0.8, Volume = 1 }, -- rattling, banging metal cart
+	},
+	BurstNear = 40,
+	BurstFar = 300,
 	-- A car faster than a boulder's BreakSpeed is let through boulders
 	-- within LookAhead seconds of its speed plus Margin studs, until Hold
 	-- seconds after it was last (CarController).
@@ -2096,6 +2104,27 @@ Tuning.Scrapyard = {
 		Seed = 11,
 		RampColor = Color3.fromRGB(105, 80, 60),
 		FlankColor = Color3.fromRGB(96, 78, 62),
+	},
+	-- The machines' sounds, all Pro Sound Effects. Each is heard at full
+	-- volume within Near studs, fading out by Far (OneShot).
+	Sounds = {
+		Near = 40,
+		Far = 300,
+		-- The crusher: a hiss as the head starts down and again as it opens,
+		-- a slam as it meets the cars, metal grinding while it crushes, and a
+		-- beep each second of the countdown.
+		CrusherHiss = { Id = "rbxassetid://9114887944", Pitch = 0.7, Volume = 0.8 },
+		CrusherSlam = { Id = "rbxassetid://9116684884", Pitch = 0.6, Volume = 1, Start = 0.2 }, -- metal impacts
+		CrusherGrind = { Id = "rbxassetid://9118064886", Pitch = 0.5, Volume = 0.7 }, -- rattling metal cart, looped
+		CrusherBeep = { Id = "rbxassetid://9119717523", Pitch = 1.6, Volume = 0.6 },
+		-- Hammer Alley: a whoosh as a swing passes the bottom or a slam hammer
+		-- starts down, a thud as a slam hammer lands, and a clang on a car.
+		Whoosh = { Id = "rbxassetid://9120711172", Pitch = 0.7, Volume = 0.6 },
+		HammerSlam = { Id = "rbxassetid://9113480917", Pitch = 0.7, Volume = 0.8 },
+		Clang = { Id = "rbxassetid://9119072660", Pitch = 0.8, Volume = 1 },
+		HammerNear = 20, -- hammers are many, so each is quieter further off
+		HammerFar = 120,
+		TntBoom = { Id = "rbxassetid://9125484367", Pitch = 1, Volume = 1 },
 	},
 }
 

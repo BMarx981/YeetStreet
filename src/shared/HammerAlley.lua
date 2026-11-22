@@ -165,6 +165,36 @@ function HammerAlley.push(
 	return nil, nil, nil
 end
 
+-- Whether a moment `delay` seconds into each turn of `period`, shifted by
+-- `phase` of it, falls after `from` and by `to`.
+local function passes(period: number, phase: number, delay: number, from: number, to: number): boolean
+	return math.floor((to - delay) / period + phase) > math.floor((from - delay) / period + phase)
+end
+
+-- The sounds the hammer makes after `from` and by `to`, in order: a swing
+-- whooshes each time it passes the bottom; a slam hammer whooshes as it
+-- starts down and slams as it lands across the lane.
+function HammerAlley.cues(c: Config, h: Hammer, from: number, to: number): { string }
+	local cues: { string } = {}
+	if to <= from then
+		return cues
+	end
+	if h.Kind == "Swing" then
+		if passes(c.Swing.Period / 2, 2 * h.Phase, 0, from, to) then
+			table.insert(cues, "whoosh")
+		end
+		return cues
+	end
+	local s = c.Slam
+	if passes(s.Period, h.Phase, 0, from, to) then
+		table.insert(cues, "whoosh")
+	end
+	if passes(s.Period, h.Phase, s.Slam, from, to) then
+		table.insert(cues, "slam")
+	end
+	return cues
+end
+
 local SAMPLE = 0.02 -- seconds between the times smacked tries
 
 -- Whether any hammer could have knocked a car at (x, y, a) at any time from

@@ -12,7 +12,10 @@
 -- thin board.
 --
 -- A Model with a Shatter attribute is one target: hitting any of its props
--- knocks all of them, each also thrown out from the hit. A prop with a Target
+-- knocks all of them, each also thrown out from the hit. If it also has a
+-- BurstSound (a Tuning.Props.BurstSounds name, such as the Scrapyard's junk
+-- pile), every client is told where on ReplicatedStorage.PropBurst and plays
+-- it there (PropSounds). A prop with a Target
 -- attribute (such as a billboard tile) is something worth points to smash:
 -- the car and the Target go out on ServerStorage.PropSmashed, once per hit
 -- however many props fly, and ScoreService counts it on the car's run. A
@@ -67,6 +70,10 @@ propSmashed.Parent = ServerStorage
 local boulderSmashed = Instance.new("BindableEvent")
 boulderSmashed.Name = "BoulderSmashed"
 boulderSmashed.Parent = ServerStorage
+
+local propBurst = Instance.new("RemoteEvent")
+propBurst.Name = "PropBurst"
+propBurst.Parent = ReplicatedStorage
 
 local function adopt(instance: Instance)
 	if not instance:IsA("BasePart") or props[instance] then
@@ -149,6 +156,10 @@ local function hit(car: Model, prop: Prop, carVelocity: Vector3, at: Vector3)
 				local out = other.part.Position - at
 				knock(other, carVelocity, if out.Magnitude > 1e-3 then out.Unit * P.ShatterBurst else Vector3.zero, at)
 			end
+		end
+		local sound = group:GetAttribute("BurstSound")
+		if typeof(sound) == "string" then
+			propBurst:FireAllClients(sound, at)
 		end
 	else
 		knock(prop, carVelocity, Vector3.zero, at)
