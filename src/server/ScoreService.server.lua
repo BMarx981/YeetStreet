@@ -914,15 +914,16 @@ carEaten.Parent = ServerStorage
 -- ServerStorage.CarCarried) ends any run it had, and while carried it takes
 -- no hits and starts no run. When it is "dropped" a run starts there, its
 -- height counted from the ground below (`groundY`) and its cash scaled by
--- Tuning.Dino.Ptero.PayScale, and the driver's client is told on
--- ReplicatedStorage.DropRun so its live score starts too.
+-- `payScale`, or Tuning.Dino.Ptero.PayScale, and the driver's client is told
+-- on ReplicatedStorage.DropRun so its live score starts too. The Scrapyard's
+-- magnet crane (Parks.ScrapyardCrane) carries and drops cars the same way.
 local dropRun = Instance.new("RemoteEvent")
 dropRun.Name = "DropRun"
 dropRun.Parent = ReplicatedStorage
 
 local carCarried = Instance.new("BindableEvent")
 carCarried.Name = "CarCarried"
-carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", groundY: number?)
+carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", groundY: number?, payScale: number?)
 	local watch = watches[car]
 	if not watch or watch.wrecked then
 		return
@@ -939,7 +940,7 @@ carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", gro
 			return
 		end
 		RunTracker.drop(watch.run, at.X, at.Y, at.Z, ground)
-		watch.payScale = Tuning.Dino.Ptero.PayScale
+		watch.payScale = payScale or Tuning.Dino.Ptero.PayScale
 		watch.launcher = nil
 		dropRun:FireClient(watch.player, ground)
 		return

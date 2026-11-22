@@ -6,8 +6,9 @@
 -- edge wall when the park is built, like the silo's hole in the ground, so
 -- the saved place itself never changes. Each machine has its own module:
 -- the car crusher (ScrapyardCrusher), Hammer Alley (ScrapyardAlley), the
--- TNT barrel field (ScrapyardTnt), Scrap Mountain (ScrapyardMountain), and
--- the stacks of crushed cars on the open floor (ScrapyardStacks).
+-- TNT barrel field (ScrapyardTnt), Scrap Mountain (ScrapyardMountain), the
+-- magnet crane (ScrapyardCrane), and the stacks of crushed cars on the open
+-- floor (ScrapyardStacks).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -17,6 +18,7 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Scrapyard = require(ReplicatedStorage.Scrapyard)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ScrapyardAlley = require(ServerScriptService.Parks.ScrapyardAlley)
+local ScrapyardCrane = require(ServerScriptService.Parks.ScrapyardCrane)
 local ScrapyardCrusher = require(ServerScriptService.Parks.ScrapyardCrusher)
 local ScrapyardMountain = require(ServerScriptService.Parks.ScrapyardMountain)
 local ScrapyardStacks = require(ServerScriptService.Parks.ScrapyardStacks)
@@ -168,12 +170,14 @@ function ScrapyardPark.build(folder: Folder, area: MapLayout.Area)
 	ScrapyardAlley.build(folder, area)
 	ScrapyardTnt.build(folder, area)
 	ScrapyardMountain.build(folder, area)
+	ScrapyardCrane.build(folder, area)
 	ScrapyardStacks.build(folder, area)
 end
 
 function ScrapyardPark.start(folder: Folder, area: MapLayout.Area)
 	ScrapyardCrusher.start(folder, area)
 	ScrapyardTnt.start(folder, area)
+	ScrapyardCrane.start(folder, area)
 end
 
 return ScrapyardPark

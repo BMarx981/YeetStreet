@@ -2113,6 +2113,7 @@ Tuning.Scrapyard = {
 		KeepOut = {
 			{ AX = -600, AZ = 0, BX = -380, BZ = 0, Radius = 90 }, -- the gate and the teleport stop
 			{ AX = -200, AZ = -560, BX = -200, BZ = 60, Radius = 130 }, -- Scrap Mountain and its signs
+			{ AX = 110, AZ = -16, BX = 110, BZ = 180, Radius = 50 }, -- the magnet crane's pad and tower
 			{ AX = -330, AZ = 350, BX = 30, BZ = 350, Radius = 150 }, -- the TNT field
 			{ AX = -60, AZ = -420, BX = 150, BZ = -420, Radius = 90 }, -- the crusher and the way in
 			{ AX = 350, AZ = 560, BX = 350, BZ = -420, Radius = 70 }, -- Hammer Alley and its junk pile
@@ -2157,6 +2158,48 @@ Tuning.Scrapyard = {
 		SignColor = Color3.fromRGB(255, 196, 0),
 		SteelColor = Color3.fromRGB(64, 66, 72),
 	},
+	-- The magnet crane (MagnetCrane, Parks.ScrapyardCrane, CraneLook): its
+	-- tower at X, Z from the yard's middle, the magnet Radius out along the
+	-- boom. A car stopped on the pad (slower than CatchSpeed) under the
+	-- waiting magnet starts a cycle: it is clamped, lifted, swung out over the
+	-- TNT field, and dropped, which starts a run like the pterodactyl's drop,
+	-- its height counted from the floor and its cash scaled by PayScale.
+	-- A held car's middle hangs HoldBelow under the magnet's underside.
+	Crane = {
+		X = 110,
+		Z = 180,
+		TowerHeight = 300, -- to the boom's underside
+		TowerWidth = 14,
+		BoomDepth = 8,
+		BackLength = 60, -- the counter-jib behind the tower, with its weight
+		-- Radius and DropAngle put the drop right over a TNT barrel (Tnt's
+		-- 15th spot), so a dropped car lands on it and is blown up again.
+		Radius = 195.65,
+		PadAngle = 180, -- the pad, toward the yard's middle
+		DropAngle = 308.37, -- swung round past the west, over the TNT field
+		IdleHeight = 40,
+		GrabHeight = 8,
+		LiftHeight = 240,
+		HoldBelow = 5,
+		Lower = 1.5,
+		Lift = 4,
+		Swing = 4,
+		Hold = 1,
+		Return = 4,
+		Settle = 3,
+		PadRadius = 15,
+		CatchHeight = 10,
+		CatchSpeed = 25,
+		PayScale = 0.6,
+		MagnetSize = 18, -- across
+		MagnetThickness = 4,
+		SignHeight = 22,
+		CraneColor = Color3.fromRGB(230, 176, 30),
+		SteelColor = Color3.fromRGB(64, 66, 72),
+		MagnetColor = Color3.fromRGB(45, 45, 50),
+		LitColor = Color3.fromRGB(90, 200, 255), -- the magnet's rim while it holds a car
+		PadColor = Color3.fromRGB(255, 196, 0),
+	},
 	-- The machines' sounds, all Pro Sound Effects. Each is heard at full
 	-- volume within Near studs, fading out by Far (OneShot).
 	Sounds = {
@@ -2177,6 +2220,10 @@ Tuning.Scrapyard = {
 		HammerNear = 20, -- hammers are many, so each is quieter further off
 		HammerFar = 120,
 		TntBoom = { Id = "rbxassetid://9125484367", Pitch = 1, Volume = 1 },
+		-- The magnet crane: a heavy clunk as the magnet clamps a car, and a
+		-- clang as it lets go.
+		MagnetClamp = { Id = "rbxassetid://9116684884", Pitch = 0.8, Volume = 1, Start = 0.2 }, -- metal impacts
+		MagnetRelease = { Id = "rbxassetid://9119072660", Pitch = 0.6, Volume = 1 },
 	},
 }
 
