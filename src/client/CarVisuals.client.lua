@@ -88,6 +88,7 @@ local function knockOff(part: BasePart, hull: BasePart)
 			child:Destroy()
 		end
 	end
+	part.Anchored = false -- CrusherLook anchors the parts of a car it flattens
 	part.Massless = false
 	part.CanCollide = true
 	part.CollisionGroup = PROPS_GROUP

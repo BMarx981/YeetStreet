@@ -63,7 +63,9 @@
 -- ServerStorage.GiveCar. Raptor bites (ServerStorage.CarBitten) cost
 -- toughness, and shaking off or surviving a pack pays cash at once. A
 -- PlaneCar's shot (ServerStorage.CarShot) costs toughness the same way, and
--- the shot that wrecks a car pays its shooter cash at once.
+-- the shot that wrecks a car pays its shooter cash at once. The Scrapyard's
+-- crusher (ServerStorage.CarCrushed) holds a car and chews it like the
+-- T-Rex, over a time it works out from the car's toughness.
 --
 -- A train's nose pushing a car (Trains) does no damage. Nor does a
 -- wrecking ball smacking a car (the driver's client pushes it,
@@ -969,6 +971,37 @@ carBlasted.Event:Connect(function(car: Model, beat: number?)
 	end
 end)
 carBlasted.Parent = ServerStorage
+
+-- The Scrapyard's crusher (Parks.ScrapyardCrusher fires
+-- ServerStorage.CarCrushed). "grabbed" holds the car like the T-Rex does,
+-- ending any run, and resets and wrecks come back to `respawnAt`, in front
+-- of the crusher. "crush" drains all its toughness evenly over `seconds`,
+-- breaking parts as it goes, then it wrecks.
+local carCrushed = Instance.new("BindableEvent")
+carCrushed.Name = "CarCrushed"
+carCrushed.Event:Connect(function(car: Model, moment: "grabbed" | "crush", respawnAt: CFrame?, seconds: number?)
+	local watch = watches[car]
+	if not watch or watch.wrecked then
+		return
+	end
+	if moment == "crush" then
+		watch.chewed = watch.held
+		watch.chewFor = seconds or Tuning.Scrapyard.Crusher.CrushBase
+		return
+	end
+	if watch.held then
+		return
+	end
+	watch.held = true
+	if respawnAt then
+		lastLaunch[watch.player] = respawnAt
+	end
+	local result = RunTracker.abort(watch.run)
+	if result then
+		finish(watch, result)
+	end
+end)
+carCrushed.Parent = ServerStorage
 
 -- Ends the player's run, if any, and respawns their car. A rider stays on
 -- their missile until it hits.

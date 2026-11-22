@@ -79,6 +79,7 @@ local Tunnel = require(ReplicatedStorage.Tunnel)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local CarSounds = require(script.Parent.CarSounds)
 local ChaseCamera = require(script.Parent.ChaseCamera)
+local CrusherCamera = require(script.Parent.CrusherCamera)
 local EruptionCamera = require(script.Parent.EruptionCamera)
 local Controls = require(script.Parent.Controls)
 local GarageMenu = require(script.Parent.GarageMenu)
@@ -1197,6 +1198,8 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		MissileCamera.watch(current.hull, dt)
 	elseif onMissile then
 		MissileCamera.update(current.hull, dt)
+	elseif current.model:GetAttribute("Crushing") == true then
+		CrusherCamera.update(dt)
 	else
 		MissileCamera.release()
 		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)

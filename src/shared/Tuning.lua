@@ -1887,6 +1887,46 @@ Tuning.Scrapyard = {
 	PostHeight = 110,
 	BeamHeight = 10,
 	PostColor = Color3.fromRGB(70, 60, 54),
+	-- The car crusher (Parks.ScrapyardCrusher, Crusher, CrusherLook), big
+	-- enough for a crowd. Fill seconds after a car stops on its bed, every car
+	-- on it is held while the head slams down and crushes it, slower for
+	-- tougher cars, then it wrecks and comes back RespawnBack in front of the
+	-- bed, facing it.
+	Crusher = {
+		X = 100, -- the bed's middle, from the yard's middle
+		Z = -420,
+		Turn = -90, -- degrees; the way cars drive in, as an area's Heading
+		BedWidth = 60, -- about 4 cars across
+		BedLength = 80, -- and 4 deep
+		BedHeight = 0.6, -- the bed's top above the floor
+		CatchHeight = 10,
+		CatchSpeed = 25, -- a hull slower than this on the bed is caught
+		TopHeight = 40,
+		ContactHeight = 9,
+		FlatHeight = 1.5,
+		Close = 0.6,
+		Hold = 0.8,
+		Open = 3,
+		CrushBase = 1.5, -- seconds, plus CrushPerToughness for each point of the car's Toughness
+		CrushPerToughness = 0.02,
+		CrushMax = 8,
+		TonsPerSecond = 20,
+		MinSquash = 0.15,
+		Fill = 3,
+		HeadThickness = 8,
+		ColumnWidth = 8,
+		FrameHeight = 60, -- the top beam's underside above the bed
+		BeamDepth = 10,
+		PistonWidth = 8,
+		RespawnBack = 90,
+		-- Where the driver's camera watches from while their car is crushed
+		-- (CrusherCamera): Side out from the bed's middle, between the
+		-- columns, Up above it, and Along toward the open end, looking at
+		-- Focus above its middle.
+		Watch = { Side = 90, Up = 30, Along = 12, Focus = 3, Sharpness = 4 },
+		SteelColor = Color3.fromRGB(64, 66, 72),
+		HeadColor = Color3.fromRGB(214, 160, 30),
+	},
 }
 
 -- The nuclear plant (ServerScriptService.Parks.Plant): two cooling towers a car
