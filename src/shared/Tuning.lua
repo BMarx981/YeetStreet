@@ -695,6 +695,7 @@ Tuning.LaunchRecords = {
 		{ Id = "VolcanoVent", Name = "VOLCANO VENT", Path = "Parks.Dino.Volcano" },
 		{ Id = "MiddleRamp", Name = "MIDDLE RAMP", Path = "Parks.Corkscrew.MiddleRamp" },
 		{ Id = "Overpass", Name = "HIGHWAY OVERPASS", Path = "Parks.City.HighwayOverpass" },
+		{ Id = "ScrapMountain", Name = "SCRAP MOUNTAIN", Path = "Parks.Scrapyard.ScrapMountain" },
 	},
 	Store = "LaunchRecords2",
 	StudioStore = "StudioLaunchRecords1",
@@ -2059,6 +2060,26 @@ Tuning.Scrapyard = {
 		Grace = 0.5, -- no hit is measured this long after a throw, while it reaches the driver
 		BarrelColor = Color3.fromRGB(200, 30, 25),
 		BandColor = Color3.fromRGB(255, 196, 0),
+		-- Each blast's little mushroom cloud, like the silo missile's
+		-- (Silo.Blast, MushroomCloud) at about a quarter the size and quicker.
+		Cloud = {
+			Radius = 30,
+			Rise = 1.2,
+			Stem = { Puffs = 5, Height = 40, Radius = 5 },
+			Cap = { Puffs = 9, Height = 45, Reach = 18, Radius = 9, Crown = 4, CrownReach = 9, CrownRise = 8 },
+			Base = { Puffs = 6, Reach = 14, Radius = 6 },
+			Fire = Color3.fromRGB(255, 160, 40),
+			Smoke = Color3.fromRGB(72, 62, 56),
+			Cool = 1.5,
+			Hold = 2.5,
+			Fade = 2,
+			FlashTime = 0.3,
+			Ring = 0.6,
+			RingReach = 2,
+			ShakeReach = 200,
+			ShakeMax = 1,
+			ShakeTime = 0.6,
+		},
 	},
 	-- Loose junk (Junk, Pieces.JunkPieces): each kind's size, and the faded
 	-- paints a crushed car, panel, or drum is given.
@@ -2104,6 +2125,11 @@ Tuning.Scrapyard = {
 		Seed = 11,
 		RampColor = Color3.fromRGB(105, 80, 60),
 		FlankColor = Color3.fromRGB(96, 78, 62),
+		-- The SCRAP MOUNTAIN sign over the foot of the ramp, its underside
+		-- this high.
+		SignHeight = 30,
+		SignColor = Color3.fromRGB(255, 196, 0),
+		SteelColor = Color3.fromRGB(64, 66, 72),
 	},
 	-- The machines' sounds, all Pro Sound Effects. Each is heard at full
 	-- volume within Near studs, fading out by Far (OneShot).

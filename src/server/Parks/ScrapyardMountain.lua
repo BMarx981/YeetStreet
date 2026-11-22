@@ -7,7 +7,8 @@
 -- cars out over the yard toward the TNT field. Under the ramp is a solid
 -- wedge, the front slopes down from the top, and each side slopes down to
 -- the ground (a flank, Junk.flankHeight) with junk lying on it. Resets and
--- wrecks after a launch come back to the foot.
+-- wrecks after a launch come back to the foot, under a SCRAP MOUNTAIN sign.
+-- Its record sign is Tuning.LaunchRecords' (RecordService).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -16,6 +17,7 @@ local Junk = require(ReplicatedStorage.Junk)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ArchSign = require(ServerScriptService.Pieces.ArchSign)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local JunkPieces = require(ServerScriptService.Pieces.JunkPieces)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
@@ -121,6 +123,14 @@ function ScrapyardMountain.build(folder: Folder, area: MapLayout.Area)
 		color = M.RampColor,
 		material = Enum.Material.CorrodedMetal,
 	}
+	ArchSign.make(model, foot, {
+		across = edge + 2, -- the posts just outside the walls
+		bottom = M.SignHeight,
+		text = "SCRAP MOUNTAIN",
+		textColor = M.SignColor,
+		postColor = M.SteelColor,
+	})
+
 	local kicker = CurvedWall.straight(model, axis * CFrame.new(0, 0, -length), 2 * edge, kickOptions)
 	kicker.Name = "Kicker"
 	CurvedWall.fill(kicker, FLOOR, kickOptions)

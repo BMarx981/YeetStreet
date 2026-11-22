@@ -3,8 +3,9 @@
 -- Shows the Scrapyard's TNT barrels blowing up (Parks.ScrapyardTnt). When a
 -- barrel's BlownAt attribute changes, Roblox's own explosion goes off where
 -- it stands, sized to the blast, which pushes nothing and breaks no one's
--- joints, since the server throws the cars and nobody is ever hurt; and a
--- boom plays. The barrel is hidden here from BlownAt until it stands back up
+-- joints, since the server throws the cars and nobody is ever hurt; a
+-- little mushroom cloud like the silo missile's climbs out of it
+-- (MushroomCloud); and a boom plays. The barrel is hidden here from BlownAt until it stands back up
 -- Respawn seconds later.
 --
 -- During a replay the barrels are as they were at the moment being watched
@@ -18,12 +19,14 @@ local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Tnt = require(ReplicatedStorage.Tnt)
 local Tuning = require(ReplicatedStorage.Tuning)
+local MushroomCloud = require(script.Parent.MushroomCloud)
 local OneShot = require(script.Parent.OneShot)
 local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local B = Tuning.Scrapyard.Tnt
 local S = Tuning.Scrapyard.Sounds
 local CONFIG: Tnt.Config = B :: any
+local CLOUD: MushroomCloud.Config = B.Cloud :: any
 
 local area = MapLayout.find(Tuning.Map.Areas :: any, "Scrapyard")
 if not area then
@@ -47,6 +50,7 @@ local function boom(index: number)
 	explosion.DestroyJointRadiusPercent = 0
 	explosion.ExplosionType = Enum.ExplosionType.NoCraters
 	explosion.Parent = workspace
+	MushroomCloud.play(CLOUD, center + Vector3.new(spot.x, 0, spot.z))
 	OneShot.at(S.TntBoom, at, S.Near, S.Far)
 end
 

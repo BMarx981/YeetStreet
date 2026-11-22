@@ -20,6 +20,7 @@ local Junk = require(ReplicatedStorage.Junk)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local Rng = require(ReplicatedStorage.Rng)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ArchSign = require(ServerScriptService.Pieces.ArchSign)
 local CurvedWall = require(ServerScriptService.Pieces.CurvedWall)
 local JunkPieces = require(ServerScriptService.Pieces.JunkPieces)
 local LaunchPad = require(ServerScriptService.Pieces.LaunchPad)
@@ -55,42 +56,6 @@ end
 -- A place in the lane's studs (across, up, along) as a CFrame facing along it.
 local function lane(x: number, y: number, a: number): CFrame
 	return Hammers.frame * CFrame.new(x, y, -a)
-end
-
-local function buildSign(model: Model)
-	local across = A.Width / 2 + A.WallThickness + POST / 2
-	local top = SIGN_HEIGHT + 10
-	for _, side in { -1, 1 } do
-		block(
-			model,
-			"SignPost",
-			Vector3.new(POST, top, POST),
-			lane(side * across, top / 2, 0),
-			A.SteelColor,
-			Enum.Material.Metal
-		)
-	end
-	local board = block(
-		model,
-		"Sign",
-		Vector3.new(2 * across + POST, 10, 1),
-		lane(0, SIGN_HEIGHT + 5, 0),
-		Color3.fromRGB(22, 22, 26),
-		Enum.Material.SmoothPlastic
-	)
-	-- Its Back face looks back up the lane, at cars driving in.
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
-	gui.PixelsPerStud = 20
-	gui.Parent = board
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = A.SignColor
-	label.Text = "HAMMER ALLEY"
-	label.Parent = gui
 end
 
 -- The junk pile, a model per sector, every piece a knockable prop worth a
@@ -180,7 +145,13 @@ function ScrapyardAlley.build(folder: Folder, _area: MapLayout.Area)
 		end
 	end
 
-	buildSign(model)
+	ArchSign.make(model, lane(0, 0, 0), {
+		across = A.Width / 2 + A.WallThickness + POST / 2,
+		bottom = SIGN_HEIGHT,
+		text = "HAMMER ALLEY",
+		textColor = A.SignColor,
+		postColor = A.SteelColor,
+	})
 
 	local options: CurvedWall.Options = {
 		radius = A.Kicker.Radius,
