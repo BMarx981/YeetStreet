@@ -7,7 +7,8 @@
 -- car hitting one side bursts only that side (ScrapyardAlley's junk pile).
 -- A flank is the sloped side of Scrap Mountain: a triangle from the ramp's
 -- edge, which climbs `rise` over `length`, down to the ground `width` out
--- at the top (ScrapyardMountain). Places are studs: x across, z along, y up.
+-- at the top (ScrapyardMountain). A stack is a tower of crushed cars, a little
+-- askew (ScrapyardStacks). Places are studs: x across, z along, y up.
 -- Pure, see InputAxes. The caller passes Rng.new(seed).
 
 local Junk = {}
@@ -48,6 +49,32 @@ local function piece(kinds: { string }, rng: Rng, x: number, y: number, z: numbe
 		tilt = rng.range(-30, 30),
 		sector = sector,
 	}
+end
+
+export type Stack = {
+	MinCars: number,
+	MaxCars: number,
+	CarHeight: number,
+	Wobble: number, -- studs each car may sit off the stack's middle
+	Turn: number, -- degrees each car above the bottom may be turned from it
+}
+
+-- A stack of crushed cars, bottom first, each lying flat on the one below.
+function Junk.stack(c: Stack, rng: Rng): { Piece }
+	local cars: { Piece } = {}
+	local base = rng.range(0, 360)
+	for i = 1, rng.int(c.MinCars, c.MaxCars) do
+		table.insert(cars, {
+			kind = "Car",
+			x = rng.range(-c.Wobble, c.Wobble),
+			y = (i - 1) * c.CarHeight,
+			z = rng.range(-c.Wobble, c.Wobble),
+			yaw = if i == 1 then base else base + rng.range(-c.Turn, c.Turn),
+			tilt = 0,
+			sector = 1,
+		})
+	end
+	return cars
 end
 
 -- Every piece of a mound round its middle on the ground.

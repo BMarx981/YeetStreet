@@ -1386,6 +1386,7 @@ Tuning.Score = {
 		TNT = 100, -- thrown by a Scrapyard TNT barrel (ScoreService)
 		["Hammer Alley"] = 200, -- off its kicker, having run the lane from the start (ScoreService)
 		["Junk pile"] = 150, -- smashing into the pile past Hammer Alley's kicker (PropService)
+		["Junk stack"] = 100, -- flying into a stack of crushed cars on the Scrapyard floor (PropService)
 	},
 }
 
@@ -1464,6 +1465,7 @@ Tuning.Hud = {
 		TNT = "TNT blast",
 		["Hammer Alley"] = "Hammer Alley",
 		["Junk pile"] = "Junk pile",
+		["Junk stack"] = "Junk stack",
 		Helipad = "Helipad landing",
 		Pool = "Pool splash",
 	},
@@ -2097,6 +2099,30 @@ Tuning.Scrapyard = {
 			Color3.fromRGB(110, 70, 45),
 		},
 		TireColor = Color3.fromRGB(28, 28, 30),
+	},
+	-- Stacks of crushed cars on the open floor (Parks.ScrapyardStacks,
+	-- Junk.stack). Up to Count spots, Gap apart, inside Area and clear of
+	-- KeepOut, both in studs from the yard's middle (Scatter). Each stack
+	-- bursts all at once when a car hits it, with a crash (PropService), and
+	-- is a Junk stack target smashed in the air on a run.
+	Stacks = {
+		Count = 24,
+		Gap = 70,
+		Seed = 13,
+		Area = { MinX = -510, MaxX = 510, MinZ = -610, MaxZ = 610 }, -- inside the wall's curve
+		KeepOut = {
+			{ AX = -600, AZ = 0, BX = -380, BZ = 0, Radius = 90 }, -- the gate and the teleport stop
+			{ AX = -200, AZ = -560, BX = -200, BZ = 60, Radius = 130 }, -- Scrap Mountain and its signs
+			{ AX = -330, AZ = 350, BX = 30, BZ = 350, Radius = 150 }, -- the TNT field
+			{ AX = -60, AZ = -420, BX = 150, BZ = -420, Radius = 90 }, -- the crusher and the way in
+			{ AX = 350, AZ = 560, BX = 350, BZ = -420, Radius = 70 }, -- Hammer Alley and its junk pile
+		},
+		MinCars = 5,
+		MaxCars = 10,
+		CarHeight = 2.5, -- Junk.Car's height
+		Wobble = 1,
+		Turn = 15,
+		ResetTime = 8,
 	},
 	-- Scrap Mountain (Parks.ScrapyardMountain): a ramp up a hill of junk, its
 	-- foot at X, Z from the yard's middle, climbing Rise over Run toward Turn

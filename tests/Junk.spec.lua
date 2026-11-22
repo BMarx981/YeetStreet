@@ -63,4 +63,32 @@ Check.test("pieces on a flank lie on its surface", function()
 	end
 end)
 
+local STACK: Junk.Stack = { MinCars = 3, MaxCars = 6, CarHeight = 2.5, Wobble = 1, Turn = 15 }
+
+Check.test("a stack is a few crushed cars, one on another", function()
+	local counts = {}
+	for seed = 1, 40 do
+		local cars = Junk.stack(STACK, Rng.new(seed))
+		Check.eq(#cars >= 3 and #cars <= 6, true, `seed {seed} car count`)
+		counts[#cars] = true
+		for i, car in cars do
+			Check.eq(car.kind, "Car")
+			Check.near(car.y, (i - 1) * 2.5, `seed {seed} car {i} height`)
+			Check.eq(car.tilt, 0, "lying flat")
+		end
+	end
+	Check.eq(counts[3] and counts[6], true, "both the fewest and the most turn up")
+end)
+
+Check.test("each car sits a little off the one below, turned a little from the stack", function()
+	for seed = 1, 40 do
+		local cars = Junk.stack(STACK, Rng.new(seed))
+		local base = cars[1].yaw
+		for i, car in cars do
+			Check.eq(math.abs(car.x) <= 1 and math.abs(car.z) <= 1, true, `seed {seed} car {i} wobble`)
+			Check.eq(math.abs(car.yaw - base) <= 15 + 1e-9, true, `seed {seed} car {i} turn`)
+		end
+	end
+end)
+
 Check.finish("Junk")
