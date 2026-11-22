@@ -2,7 +2,7 @@
 local Check = require("./Check")
 local ParkLooks = require("../src/shared/ParkLooks")
 
-local PARKS = { "Skate", "Corkscrew", "City", "Dino", "Silo", "Plant" }
+local PARKS = { "Skate", "Corkscrew", "City", "Dino", "Silo", "Plant", "Scrapyard" }
 
 Check.test("every park has its own color, icon, and stripe", function()
 	local seen: { [string]: string } = {}

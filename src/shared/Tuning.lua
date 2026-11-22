@@ -1843,7 +1843,50 @@ Tuning.Map = {
 			ArriveZ = -6030,
 			Heading = 0,
 		},
+		{
+			Id = "Scrapyard",
+			Name = "Scrapyard",
+			Kind = "Park",
+			X = 3600, -- past the east edge wall, on its own lot (Lots)
+			Z = -100,
+			Width = 1200,
+			Depth = 1400,
+			ArriveX = 3160, -- just in through the gate, facing into the yard
+			ArriveZ = -100,
+			Heading = -90,
+		},
 	},
+	-- Ground built outside Bounds, each park's own floor. A park may sit on
+	-- one of these instead of inside Bounds.
+	Lots = {
+		{ MinX = 3000, MaxX = 4200, MinZ = -800, MaxZ = 600 }, -- the Scrapyard
+	},
+}
+
+-- The Scrapyard (ServerScriptService.Parks.Scrapyard): a junkyard on its own
+-- lot past the east edge wall, walled all round like the map, with a gate
+-- through both walls facing the Skate Park.
+Tuning.Scrapyard = {
+	EdgeX = Tuning.TestPark.GroundHalfWidth, -- the map's east edge, where the edge wall stands
+	GateZ = -100, -- the gate's middle, across from the Skate Park
+	GateWidth = 140,
+	-- The yard's wall: the same curve as the edge wall, in rusty metal.
+	Wall = {
+		Radius = 60,
+		EndAngle = 120,
+		Steps = 13,
+		Thickness = 2,
+		CornerRadius = 120,
+		CornerSlices = 10,
+	},
+	WallColor = Color3.fromRGB(122, 74, 46),
+	FloorColor = Color3.fromRGB(104, 92, 76),
+	-- A post each side of the gate, across both walls, closing off the space
+	-- between their backs, and a beam across the top.
+	PostWidth = 16,
+	PostHeight = 110,
+	BeamHeight = 10,
+	PostColor = Color3.fromRGB(70, 60, 54),
 }
 
 -- The nuclear plant (ServerScriptService.Parks.Plant): two cooling towers a car

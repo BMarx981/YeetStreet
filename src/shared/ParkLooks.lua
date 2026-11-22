@@ -61,6 +61,12 @@ local LOOKS: { [string]: Look } = {
 		tagline = "Cooling towers and boiling water",
 		sign = { stripe = "#7CFC3C", stripeBack = "#16161A", post = "#C9CDD2", postMaterial = "Metal" },
 	},
+	Scrapyard = {
+		color = "#8C5A32",
+		icon = "💥",
+		tagline = "Crusher, hammers, and TNT",
+		sign = { stripe = "#FF5A1F", stripeBack = "#2A1E16", post = "#6E4A32", postMaterial = "CorrodedMetal" },
+	},
 	Obby = { color = "#785ADC", icon = "🏁", tagline = "Sky course with checkpoints", sign = HAZARD },
 }
 

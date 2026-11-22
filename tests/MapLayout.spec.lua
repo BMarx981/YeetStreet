@@ -96,4 +96,16 @@ Check.test("stops are the hub and parks in layout order, without open areas", fu
 	Check.eq(stops[2].Id, "Hub")
 end)
 
+Check.test("an area on an extra lot past the bounds is not a problem", function()
+	local lot: MapLayout.Bounds = { MinX = 1000, MaxX = 1400, MinZ = -200, MaxZ = 200 }
+	local problems = MapLayout.problems({ area("Yard", 1200, 0, 400, 400) }, BOUNDS, 0, { lot })
+	Check.eq(#problems, 0)
+end)
+
+Check.test("an area hanging off its lot is a problem", function()
+	local lot: MapLayout.Bounds = { MinX = 1000, MaxX = 1400, MinZ = -200, MaxZ = 200 }
+	local problems = MapLayout.problems({ area("Yard", 1200, 0, 400, 600) }, BOUNDS, 0, { lot })
+	Check.eq(has(problems, "Yard"), true)
+end)
+
 Check.finish("MapLayout")

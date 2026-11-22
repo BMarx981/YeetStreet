@@ -64,9 +64,18 @@ function MapLayout.find(areas: { Area }, id: string): Area?
 	return nil
 end
 
+local function inside(a: Area, bounds: Bounds): boolean
+	return a.X - a.Width / 2 >= bounds.MinX
+		and a.X + a.Width / 2 <= bounds.MaxX
+		and a.Z - a.Depth / 2 >= bounds.MinZ
+		and a.Z + a.Depth / 2 <= bounds.MaxZ
+end
+
 -- Everything wrong with the layout, one line each: repeated ids, areas
 -- closer than `gap`, areas past the bounds, and arrivals outside their area.
-function MapLayout.problems(areas: { Area }, bounds: Bounds, gap: number): { string }
+-- An area may instead sit wholly on one of `lots`, ground built outside the
+-- bounds.
+function MapLayout.problems(areas: { Area }, bounds: Bounds, gap: number, lots: { Bounds }?): { string }
 	local problems = {}
 	local seen: { [string]: boolean } = {}
 	for i, a in areas do
@@ -74,12 +83,11 @@ function MapLayout.problems(areas: { Area }, bounds: Bounds, gap: number): { str
 			table.insert(problems, `{a.Id} is used by more than one area`)
 		end
 		seen[a.Id] = true
-		if
-			a.X - a.Width / 2 < bounds.MinX
-			or a.X + a.Width / 2 > bounds.MaxX
-			or a.Z - a.Depth / 2 < bounds.MinZ
-			or a.Z + a.Depth / 2 > bounds.MaxZ
-		then
+		local onMap = inside(a, bounds)
+		for _, lot in lots or {} do
+			onMap = onMap or inside(a, lot)
+		end
+		if not onMap then
 			table.insert(problems, `{a.Id} reaches past the edge of the map`)
 		end
 		if not MapLayout.contains(a, a.ArriveX, a.ArriveZ) then

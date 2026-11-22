@@ -16,7 +16,7 @@ local ParkBuilder = require(ServerScriptService.ParkBuilder)
 local M = Tuning.Map
 local areas: { MapLayout.Area } = M.Areas :: any
 
-for _, problem in MapLayout.problems(areas, M.Bounds, M.Gap) do
+for _, problem in MapLayout.problems(areas, M.Bounds, M.Gap, M.Lots) do
 	warn(`ParkService: {problem}`)
 end
 
