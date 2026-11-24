@@ -4387,6 +4387,15 @@ Tuning.Tutorial = {
 	},
 }
 
+-- After a run that paid, a player who has never bought an upgrade and can
+-- afford one is told where to buy it (UpgradeNudge, UpgradeHint).
+Tuning.UpgradeNudge = {
+	MaxShows = 3, -- times a session
+	ShowTime = 8, -- seconds on screen, unless the garage opens first
+	TutorialWait = 15, -- seconds it waits for the tutorial's last line to go
+	Text = "You have {cash}! Buy an upgrade at the GARAGE. TELEPORT gets you there.",
+}
+
 -- Server-wide timed events (TimedEvents, EventService). Every server runs the
 -- same schedule from the clock: an event starts every Every seconds and lasts
 -- Duration, taking turns down Rotation. Titles name them on the HUD.

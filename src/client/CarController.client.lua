@@ -102,6 +102,7 @@ local TeleportMenu = require(script.Parent.TeleportMenu)
 local TouchControls = require(script.Parent.TouchControls)
 local TrainSet = require(script.Parent.TrainSet)
 local TutorialHints = require(script.Parent.TutorialHints)
+local UpgradeHint = require(script.Parent.UpgradeHint)
 
 local player = Players.LocalPlayer :: Player
 
@@ -1199,6 +1200,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		Hud.setVisible(not replaying)
 		TouchControls.setVisible(not replaying)
 		TutorialHints.setVisible(not replaying)
+		UpgradeHint.setVisible(not replaying)
 	end
 	if replaying then
 		return
@@ -1263,6 +1265,7 @@ task.spawn(function()
 	end
 	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score)
 		Hud.result(result, score, true)
+		UpgradeHint.runPaid(score.total)
 	end)
 end)
 

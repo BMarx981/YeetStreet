@@ -60,6 +60,7 @@ local KEYBOARD: { Group } = {
 		rows = {
 			{ key = "V", what = "Replay your last flight" },
 			{ key = "G", what = "Open the garage (near one)" },
+			{ key = "C", what = "Switch cars (on the ground)" },
 			{ key = "F", what = "Wings or rotor (special cars)" },
 			{ key = "X", what = "Fire (PlaneCar)" },
 			{ key = "H", what = "Show or hide this panel" },

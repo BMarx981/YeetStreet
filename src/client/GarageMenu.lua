@@ -14,7 +14,9 @@
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
 -- keyboard, X on a gamepad, or the GARAGE button, which shows only inside the
 -- ring (the only way in on a phone or tablet). The same keys, the panel's X
--- button, and gamepad B close it.
+-- button, and gamepad B close it. Anywhere else, the CARS button in the
+-- GARAGE button's spot, or C, opens it as the car panel (only the Cars and
+-- Event tabs, no REBIRTH row) while the car is on the ground.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
@@ -110,11 +112,13 @@ local REASONS: { [string]: string } = {
 	OffSale = "That's not on sale right now.",
 	UnknownLimited = "That item doesn't exist.",
 	NotWearable = "That one isn't worn on the car.",
+	InAir = "Get your wheels on the ground first.",
 }
 
 local player = Players.LocalPlayer :: Player
 local started = false
 local open = false
+local carsOnly = false -- opened away from a garage: only the Cars and Event tabs
 local busy = false
 local tab: Tab = "Upgrades"
 
@@ -252,7 +256,17 @@ local function build()
 	openButton.Active = false
 	openButton.Selectable = false
 
+	-- In the same spot whenever the GARAGE button isn't showing.
+	local carsButton = UiStyle.sticker("Cars", gui, "CARS")
+	carsButton.AnchorPoint = openButton.AnchorPoint
+	carsButton.Position = openButton.Position
+	carsButton.Size = openButton.Size
+	carsButton.Visible = false
+	carsButton.Active = false
+	carsButton.Selectable = false
+
 	local panel, close = UiStyle.panel(gui, "GARAGE", Vector2.new(600, 460))
+	local title = panel:FindFirstChild("Title") :: TextLabel
 	local top = UiStyle.HeaderHeight
 
 	local cash = UiStyle.text("Cash", panel, 28, true)
@@ -748,7 +762,16 @@ local function build()
 		if tab == "Bones" and not atBoneTrader then
 			tab = "Upgrades"
 		end
-		bonesTab.Visible = atBoneTrader
+		if carsOnly and tab ~= "Cars" and tab ~= "Event" then
+			tab = "Cars"
+		end
+		bonesTab.Visible = atBoneTrader and not carsOnly
+		upgradesTab.Visible = not carsOnly
+		limitedsTab.Visible = not carsOnly
+		carsTab.Position = UDim2.fromOffset(if carsOnly then 0 else 114, carsTab.Position.Y.Offset)
+		eventTab.Position = UDim2.fromOffset(if carsOnly then 114 else 342, eventTab.Position.Y.Offset)
+		rebirthRow.frame.Visible = not carsOnly
+		title.Text = if carsOnly then "CARS" else "GARAGE"
 		upgradesList.Visible = tab == "Upgrades"
 		carsList.Visible = tab == "Cars"
 		limitedsList.Visible = tab == "Limiteds"
@@ -970,6 +993,7 @@ local function build()
 		open = value
 		UiStyle.show(panel, value)
 		if not value then
+			carsOnly = false
 			spin.close()
 			confirm.close()
 		end
@@ -1052,6 +1076,22 @@ local function build()
 			setOpen(not open, false)
 		end
 	end)
+
+	-- The car panel opens anywhere, but only with the car on the ground: the
+	-- server refuses to rebuild a car in the air. Away from a garage it shows
+	-- only the Cars and Event tabs.
+	local function toggleCars()
+		if open then
+			setOpen(false, false)
+		elseif eIsForFlying() then
+			UiStyle.play("Denied")
+		else
+			carsOnly = not nearGarage()
+			showTab("Cars")
+			setOpen(true, false)
+		end
+	end
+	carsButton.Activated:Connect(toggleCars)
 	close.Activated:Connect(function()
 		setOpen(false, false)
 	end)
@@ -1066,6 +1106,8 @@ local function build()
 				showTab("Cars")
 				setOpen(not open, false)
 			end
+		elseif input.KeyCode == Enum.KeyCode.C and not processed then
+			toggleCars()
 		elseif input.KeyCode == Enum.KeyCode.ButtonX then
 			if open or nearGarage() then
 				setOpen(not open, true)
@@ -1075,13 +1117,16 @@ local function build()
 		end
 	end)
 
-	-- The GARAGE button shows while the player is inside a garage's ring.
+	-- The GARAGE button shows while the player is inside a garage's ring, and
+	-- the CARS button in its place everywhere else.
 	task.spawn(function()
 		while true do
 			task.wait(Tuning.Garage.Ring.CheckEvery)
-			local shown = open or nearGarage()
-			openButton.Visible = shown
-			openButton.Active = shown
+			local garage = if open then not carsOnly else nearGarage()
+			openButton.Visible = garage
+			openButton.Active = garage
+			carsButton.Visible = not garage
+			carsButton.Active = not garage
 		end
 	end)
 

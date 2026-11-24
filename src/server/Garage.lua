@@ -19,7 +19,9 @@
 -- An upgrade or equip changes the car's stats, so the car is rebuilt where it
 -- stands through ServerStorage.MovePlayerCar (ScoreService), not sent back to
 -- the last launcher as a reset would. Wearing a body rebuilds it too, for
--- its looks, and a rebirth rebuilds it as the first ladder car.
+-- its looks, and a rebirth rebuilds it as the first ladder car. None of these
+-- go through while the car is in the air (reason "InAir"), since the rebuild
+-- stands it upright: the car panel opens anywhere (GarageMenu).
 --
 -- The state shows on the Player as attributes for the garage UI: Cash, one
 -- per stat level (Speed, Jets, Toughness, Grip, Brakes), Equipped, and CarsOwned (ids
@@ -134,6 +136,22 @@ function Garage.take(player: Player, amount: number): number
 	return taken
 end
 
+-- Whether the player's car has no ground within Tuning.Garage.GroundCheck
+-- under its hull. A player on foot is not in the air.
+local function inAir(player: Player): boolean
+	local cars = workspace:FindFirstChild("Cars")
+	local car = cars and cars:FindFirstChild(`Car_{player.Name}`)
+	local hull = if car and car:IsA("Model") then car.PrimaryPart else nil
+	if not (car and hull) then
+		return false
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = if player.Character then { car, player.Character } else { car }
+	params.RespectCanCollide = true
+	return workspace:Raycast(hull.Position, Vector3.new(0, -Tuning.Garage.GroundCheck, 0), params) == nil
+end
+
 -- Rebuilds the player's car where it is, upright with the same heading, so
 -- shopping never moves them. A player on foot gets the new stats in their
 -- next car.
@@ -190,6 +208,9 @@ local function request(
 	if not data then
 		return false, "NotLoaded"
 	end
+	if respawns and inAir(player) then
+		return false, "InAir"
+	end
 	local before = data.Economy
 	local after, reason = buy(before)
 	if not after then
@@ -245,6 +266,9 @@ remote("EquipCar", function(player: Player, id: any): (boolean, string?)
 	end
 	local data = PlayerData.get(player)
 	if data and data.Economy.Equipped == id then
+		if inAir(player) then
+			return false, "InAir"
+		end
 		if leaveAdminCar(player) then
 			respawn(player)
 		end

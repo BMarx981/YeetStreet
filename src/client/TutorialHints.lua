@@ -186,6 +186,11 @@ function TutorialHints.runEnded()
 	end
 end
 
+-- True while the tutorial is on screen.
+function TutorialHints.isRunning(): boolean
+	return state ~= nil
+end
+
 -- Hides the prompt and arrow while a replay plays, without stopping it.
 function TutorialHints.setVisible(visible: boolean)
 	hidden = not visible
