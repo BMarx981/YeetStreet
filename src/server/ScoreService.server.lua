@@ -9,7 +9,8 @@
 -- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
 -- the PayScale of the launch pad the run started from, by the squad boost
 -- for friends in the server (InviteRewards), and by the player's rebirth
--- multiplier (Rebirth), and a
+-- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus) that
+-- the client gets with the result. A
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 -- So do their longest airtime and this week's bests, for the leaderboards
 -- (Leaderboard). A run from one of the record launchers (LaunchRecords), the
@@ -105,6 +106,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Bonus = require(ReplicatedStorage.Bonus)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Economy = require(ReplicatedStorage.Economy)
@@ -214,6 +216,8 @@ local lastLaunch: { [Player]: CFrame } = {}
 local checkpoints: { [Player]: CFrame } = {}
 local lastResetAt: { [Player]: number } = {}
 local respawns = 0
+-- Rolls lucky runs (Bonus).
+local luckRandom = Random.new()
 
 local function onPlayerAdded(player: Player)
 	local best = Leaderstats.value(player, "Best")
@@ -483,14 +487,17 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local rate = Tuning.Cash.PerPoint * watch.payScale * InviteRewards.squadBoost(watch.player) * reborn
 	-- A flagged run is never doubled, and doesn't use up a double launch.
 	local daily = if flagged then 1 else DailyRewards.launchMultiplier(watch.player, Economy.payout(score.total, rate))
-	local paid = Economy.payout(score.total, rate * daily)
+	-- A flagged run, or one that scored nothing, is never lucky.
+	local lucky = if flagged or score.total <= 0 then nil else Bonus.lucky(luckRandom:NextNumber(), Tuning.Bonus)
+	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1 }, Tuning.Bonus)
+	local paid = Economy.payout(score.total, rate * daily * bonus)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
 	if watch.launcher and not flagged and not mega then
 		launcherRun:Fire(watch.player, watch.launcher, result.distance)
 	end
 	watch.launcher = nil
-	runResult:FireClient(watch.player, result, score)
+	runResult:FireClient(watch.player, result, score, lucky)
 	InviteRewards.ranRun(watch.player)
 	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
 	if flagged then

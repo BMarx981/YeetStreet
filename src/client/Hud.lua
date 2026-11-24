@@ -14,6 +14,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Bonus = require(ReplicatedStorage.Bonus)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -102,7 +103,7 @@ local function buildCard(gui: ScreenGui): Frame
 end
 
 -- One line of the run card: a name on the left, points on the right.
-local function cardRow(card: Frame, order: number, left: string, right: string, textSize: number)
+local function cardRow(card: Frame, order: number, left: string, right: string, textSize: number): Frame
 	local row = Instance.new("Frame")
 	row.Name = `Row{order}`
 	row.LayoutOrder = order
@@ -119,6 +120,7 @@ local function cardRow(card: Frame, order: number, left: string, right: string, 
 	points.Size = UDim2.fromScale(0.3, 1)
 	points.TextXAlignment = Enum.TextXAlignment.Right
 	points.Text = right
+	return row
 end
 
 -- The AGAIN row, last on the card. It stays when the card's rows are cleared.
@@ -436,8 +438,9 @@ end
 
 -- The breakdown card for a finished run. Repeats of a trick share one line.
 -- `official` is the server's score for the run; it replaces the client's card,
--- and a client card arriving just after it is dropped.
-function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
+-- and a client card arriving just after it is dropped. Only the server's card
+-- can be `lucky`, which shows in gold with a flash and stays up longer.
+function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, lucky: Bonus.Tier?)
 	local p = parts
 	if not p then
 		return
@@ -457,9 +460,9 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	p.again.Visible = run.ending ~= "aborted"
 
 	local order = 0
-	local function add(left: string, right: string, textSize: number)
+	local function add(left: string, right: string, textSize: number): Frame
 		order += 1
-		cardRow(p.card, order, left, right, textSize)
+		return cardRow(p.card, order, left, right, textSize)
 	end
 
 	add(cardTitle(run, score), "", 22)
@@ -525,7 +528,24 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 	if rebirths > 0 then
 		add("Rebirth pay", multiplier(Rebirth.payMultiplier(rebirths, Tuning.Rebirth)), 18)
 	end
-	cardUntil = now + H.ResultTime
+	if lucky then
+		local jackpot = lucky.Multiplier >= H.JackpotFrom
+		local row = add(`{lucky.Name}!`, multiplier(lucky.Multiplier), if jackpot then 30 else 24)
+		for _, text in row:GetChildren() do
+			if text:IsA("TextLabel") then
+				text.TextColor3 = UiStyle.Yellow
+			end
+		end
+		UiStyle.flash(row)
+		UiStyle.bounce(row)
+		UiStyle.play("Buy")
+		if jackpot then
+			p.popup.Text = `{lucky.Name} {multiplier(lucky.Multiplier)}!`
+			popupUntil = now + H.LuckyTime
+			UiStyle.bounce(p.popup)
+		end
+	end
+	cardUntil = now + if lucky then H.LuckyTime else H.ResultTime
 end
 
 -- Build the HUD immediately so the cash counter is always on screen,

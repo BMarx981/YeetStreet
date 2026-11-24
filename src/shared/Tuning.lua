@@ -1395,6 +1395,17 @@ Tuning.Score = {
 	},
 }
 
+-- Surprise bonuses on a run's cash, never its score (Bonus). Lucky tiers are
+-- rolled in this order; together they make about 1 run in 12 lucky.
+Tuning.Bonus = {
+	Cap = 10, -- lucky, golden booster, and clean streak multiplied, at most
+	Lucky = {
+		{ Name = "JACKPOT", Multiplier = 10, Chance = 1 / 200 },
+		{ Name = "LUCKY", Multiplier = 3, Chance = 1 / 40 },
+		{ Name = "LUCKY", Multiplier = 2, Chance = 1 / 12 - 1 / 40 - 1 / 200 },
+	},
+}
+
 -- Grinding rails (Grind, GrindRide). A rail is a part tagged GrindRail.
 Tuning.Grind = {
 	GrindHeight = 1.6, -- the hull's center above the rail's, sitting on it
@@ -1457,6 +1468,8 @@ Tuning.Hud = {
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
+	LuckyTime = 6, -- seconds a lucky run's card stays up
+	JackpotFrom = 10, -- a lucky tier this big also shows across the screen
 	-- The server's card replaces the client's. If the server's comes first, a
 	-- client card this many seconds later is dropped instead of covering it.
 	OfficialHold = 1,

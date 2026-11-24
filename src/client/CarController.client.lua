@@ -52,6 +52,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local AirControl = require(ReplicatedStorage.AirControl)
+local Bonus = require(ReplicatedStorage.Bonus)
 local CarSensor = require(ReplicatedStorage.CarSensor)
 local GapZones = require(ReplicatedStorage.GapZones)
 local Glide = require(ReplicatedStorage.Glide)
@@ -1264,8 +1265,8 @@ task.spawn(function()
 		warn("CarController: ReplicatedStorage.RunResult is not a RemoteEvent; run cards stay unofficial")
 		return
 	end
-	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score)
-		Hud.result(result, score, true)
+	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score, lucky: Bonus.Tier?)
+		Hud.result(result, score, true, lucky)
 		UpgradeHint.runPaid(score.total)
 	end)
 end)
