@@ -346,7 +346,10 @@ end
 
 local function endRun(result: RunTracker.Result)
 	result.gaps = GapZones.find(result)
-	Hud.result(result, Scoring.score(result, Tuning.Score), false)
+	-- The run card would cover the tutorial's prompt.
+	if not TutorialHints.isRunning() then
+		Hud.result(result, Scoring.score(result, Tuning.Score), false)
+	end
 	Hud.live(nil)
 	tricksShown = 0
 	TutorialHints.runEnded()
@@ -1266,7 +1269,9 @@ task.spawn(function()
 		return
 	end
 	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score, lucky: Bonus.Tier?)
-		Hud.result(result, score, true, lucky)
+		if not TutorialHints.isRunning() then
+			Hud.result(result, score, true, lucky)
+		end
 		UpgradeHint.runPaid(score.total)
 	end)
 end)
