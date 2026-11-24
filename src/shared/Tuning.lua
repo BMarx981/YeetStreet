@@ -1455,6 +1455,8 @@ Tuning.Swing = {
 Tuning.Hud = {
 	TrickPopupTime = 1.2, -- seconds a trick name stays on screen
 	ResultTime = 4, -- seconds the run card stays up after a run ends
+	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
+	AgainHeight = 44,
 	-- The server's card replaces the client's. If the server's comes first, a
 	-- client card this many seconds later is dropped instead of covering it.
 	OfficialHold = 1,

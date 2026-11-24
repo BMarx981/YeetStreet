@@ -8,7 +8,8 @@
 -- run ends. The card first shows the client's own score, then the server's
 -- when it arrives, since that is the one that counts. After a rebirth, the
 -- card also shows the multiplier on the run's cash (the Rebirths attribute
--- Garage sets on the player).
+-- Garage sets on the player). The card ends with an AGAIN button that does
+-- what R does (Hud.onAgain), so a phone player is one tap from the next launch.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +17,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
+local UiStyle = require(script.Parent.UiStyle)
 
 local H = Tuning.Hud
 
@@ -29,10 +31,12 @@ type Parts = {
 	live: TextLabel,
 	popup: TextLabel,
 	card: Frame,
+	again: Frame,
 	cashGui: ScreenGui,
 }
 
 local parts: Parts? = nil
+local againHandler: (() -> ())? = nil
 local popupUntil = 0
 local cardUntil = 0
 local officialAt = -math.huge
@@ -117,6 +121,30 @@ local function cardRow(card: Frame, order: number, left: string, right: string, 
 	points.Text = right
 end
 
+-- The AGAIN row, last on the card. It stays when the card's rows are cleared.
+local function buildAgain(card: Frame): Frame
+	local row = Instance.new("Frame")
+	row.Name = "AgainRow"
+	row.LayoutOrder = 1000000
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(1, 0, 0, H.AgainHeight + 12)
+	row.Parent = card
+	local button = UiStyle.sticker("Again", row, "AGAIN")
+	button.TextSize = 26
+	button.AnchorPoint = Vector2.new(0.5, 0.5)
+	button.Position = UDim2.fromScale(0.5, 0.5)
+	button.Size = UDim2.fromOffset(H.AgainWidth, H.AgainHeight)
+	UiStyle.springy(button)
+	button.Activated:Connect(function()
+		cardUntil = 0
+		card.Visible = false
+		if againHandler then
+			againHandler()
+		end
+	end)
+	return row
+end
+
 local function cardTitle(run: Scoring.Run, score: Scoring.Score): string
 	if run.ending == "crashed" or run.ending == "stopped" then
 		return "CRASHED"
@@ -195,6 +223,7 @@ local function build(): Parts
 	popup.Visible = false
 
 	local card = buildCard(gui)
+	local again = buildAgain(card)
 
 	-- Cash counter lives on its own always-on ScreenGui so it stays visible
 	-- even when the rest of the HUD is hidden (e.g. outside a car).
@@ -306,7 +335,22 @@ local function build(): Parts
 	end
 
 	gui.Parent = player:WaitForChild("PlayerGui")
-	return { gui = gui, fill = fill, readout = readout, impact = impact, live = live, popup = popup, card = card, cashGui = cashGui }
+	return {
+		gui = gui,
+		fill = fill,
+		readout = readout,
+		impact = impact,
+		live = live,
+		popup = popup,
+		card = card,
+		again = again,
+		cashGui = cashGui,
+	}
+end
+
+-- What the card's AGAIN button does.
+function Hud.onAgain(handler: () -> ())
+	againHandler = handler
 end
 
 function Hud.setVisible(visible: boolean)
@@ -405,10 +449,12 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean)
 		return
 	end
 	for _, child in p.card:GetChildren() do
-		if child:IsA("Frame") then
+		if child:IsA("Frame") and child ~= p.again then
 			child:Destroy()
 		end
 	end
+	-- After a reset the next car is already on its way.
+	p.again.Visible = run.ending ~= "aborted"
 
 	local order = 0
 	local function add(left: string, right: string, textSize: number)

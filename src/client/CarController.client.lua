@@ -389,6 +389,7 @@ local function resetCar()
 		resetRemote:FireServer()
 	end
 end
+Hud.onAgain(resetCar)
 
 local function launch(r: Rig, pad: BasePart)
 	local speed = pad:GetAttribute("LaunchSpeed")
