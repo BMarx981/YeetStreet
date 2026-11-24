@@ -12,8 +12,9 @@
 -- with the time left and a Robux button (RobuxShop).
 -- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
--- keyboard or X on a gamepad. The same keys, the panel's X button, and gamepad
--- B close it.
+-- keyboard, X on a gamepad, or the GARAGE button, which shows only inside the
+-- ring (the only way in on a phone or tablet). The same keys, the panel's X
+-- button, and gamepad B close it.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
@@ -245,7 +246,7 @@ local function build()
 
 	local openButton = UiStyle.sticker("Open", gui, "GARAGE")
 	openButton.AnchorPoint = Vector2.new(1, 0)
-	openButton.Position = UDim2.new(0.5, -146, 0, 6)
+	openButton.Position = UDim2.new(0.5, -146, 0, 40) -- under EventHud's countdown
 	openButton.Size = UDim2.fromOffset(110, 32)
 	openButton.Visible = false
 	openButton.Active = false
@@ -1071,6 +1072,16 @@ local function build()
 			end
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then
 			setOpen(false, true)
+		end
+	end)
+
+	-- The GARAGE button shows while the player is inside a garage's ring.
+	task.spawn(function()
+		while true do
+			task.wait(Tuning.Garage.Ring.CheckEvery)
+			local shown = open or nearGarage()
+			openButton.Visible = shown
+			openButton.Active = shown
 		end
 	end)
 
