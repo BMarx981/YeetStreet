@@ -93,6 +93,17 @@ if Tuning.JuiceSounds.Thump.Id ~= "" then
 	thump = s
 end
 
+local cashDing = Instance.new("Sound")
+cashDing.Name = "CashDing"
+cashDing.SoundId = Tuning.JuiceSounds.Cash.Id
+cashDing.PlaybackSpeed = Tuning.JuiceSounds.Cash.Pitch
+cashDing.Volume = Tuning.JuiceSounds.Cash.Volume
+cashDing.Parent = SoundService
+
+local COIN_COLOR = Color3.fromRGB(255, 200, 40)
+local COIN_EDGE = Color3.fromRGB(190, 120, 0)
+local COIN_MARK = Color3.fromRGB(120, 70, 0)
+
 type StampLook = { Text: string, Size: number, Color: Color3 }
 local STAMPS = H.Stamps :: { [string]: StampLook }
 local STAMP_EDGE = Color3.fromRGB(30, 22, 14)
@@ -350,6 +361,100 @@ local function build(): Parts
 	earned.TextColor3 = CASH_COLOR
 	earned.Visible = false
 
+	-- The counter rolls to each new amount instead of jumping.
+	local setCash = UiStyle.counter(cash, function(n: number): string
+		return `$ {withCommas(n)}`
+	end)
+
+	local function coin(size: number): Frame
+		local c = Instance.new("Frame")
+		c.Name = "FlyingCoin"
+		c.AnchorPoint = Vector2.new(0.5, 0.5)
+		c.Size = UDim2.fromOffset(size, size)
+		c.BackgroundColor3 = COIN_COLOR
+		c.ZIndex = 20
+		local circle = Instance.new("UICorner")
+		circle.CornerRadius = UDim.new(0.5, 0)
+		circle.Parent = c
+		UiStyle.stroke(c, 2, COIN_EDGE, true)
+		local mark = label("Mark", c, math.floor(size * 0.7))
+		mark.Size = UDim2.fromScale(1, 1)
+		mark.Text = "$"
+		mark.TextColor3 = COIN_MARK
+		mark.TextStrokeTransparency = 1
+		mark.ZIndex = 21
+		c.Parent = cashGui
+		return c
+	end
+
+	-- The newest change to the cash. Coins from an older one still land but
+	-- no longer move the counter.
+	local flight = 0
+	local lastDing = 0
+
+	-- Flies a run's pay from the run card into the counter as coins, each
+	-- adding its share to the counter with a ding as it lands.
+	local function payIn(from: number, gain: number)
+		local this = flight
+		local count = Juice.flyCoins(gain, Tuning.Juice)
+		local start = card.AbsolutePosition + card.AbsoluteSize / 2
+		for i = 1, count do
+			task.delay((i - 1) * H.CoinStagger, function()
+				local c = coin(H.CoinSize)
+				local s = H.CoinScatter
+				c.Position = UDim2.fromOffset(start.X + math.random(-s, s), start.Y + math.random(-s, s))
+				-- The amount is left aligned, so aim near the front of it.
+				local to = cash.AbsolutePosition + Vector2.new(40, cash.AbsoluteSize.Y / 2)
+				local info = TweenInfo.new(H.CoinFlyTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+				local small = UDim2.fromOffset(H.CoinSize / 2, H.CoinSize / 2)
+				local fly = TweenService:Create(c, info, { Position = UDim2.fromOffset(to.X, to.Y), Size = small })
+				fly.Completed:Connect(function()
+					c:Destroy()
+					if flight ~= this then
+						return
+					end
+					setCash(from + gain * i / count)
+					local now = os.clock()
+					if now - lastDing >= H.CoinDingGap then
+						lastDing = now
+						cashDing:Play()
+					end
+					if i == count then
+						UiStyle.bounce(cash)
+					end
+				end)
+				fly:Play()
+			end)
+		end
+	end
+
+	-- Coins falling down the whole screen, for a big run.
+	local function rain()
+		local screen = cashGui.AbsoluteSize
+		for _ = 1, H.RainCoins do
+			task.delay(math.random() * H.RainSpread, function()
+				local c = coin(H.RainCoinSize)
+				local x = math.random() * screen.X
+				c.Position = UDim2.fromOffset(x, -H.RainCoinSize)
+				c.Rotation = math.random(-30, 30)
+				local info = TweenInfo.new(
+					H.RainTime * (0.8 + math.random() * 0.4),
+					Enum.EasingStyle.Quad,
+					Enum.EasingDirection.In
+				)
+				local goal = {
+					Position = UDim2.fromOffset(x + math.random(-40, 40), screen.Y + H.RainCoinSize),
+					Rotation = c.Rotation + math.random(-180, 180),
+				}
+				local fall = TweenService:Create(c, info, goal)
+				fall.Completed:Connect(function()
+					c:Destroy()
+				end)
+				fall:Play()
+			end)
+		end
+	end
+
 	local shown: number? = nil
 	local earnedShows = 0
 	local function showCash()
@@ -358,9 +463,19 @@ local function build(): Parts
 			cash.Text = "$ ..."
 			return
 		end
-		cash.Text = `$ {withCommas(value)}`
+		flight += 1
 		-- In the obby the cash is stage cash, which CashBalloon shows.
-		if shown and value > shown and player:GetAttribute("ObbyCheckpoint") == nil then
+		local obby = player:GetAttribute("ObbyCheckpoint") ~= nil
+		-- A rise while the run card is up is the run's pay.
+		if shown and value > shown and not obby and gui.Enabled and card.Visible then
+			payIn(shown, value - shown)
+			if Juice.rains(value - shown, Tuning.Juice) then
+				rain()
+			end
+		else
+			setCash(value)
+		end
+		if shown and value > shown and not obby then
 			earned.Text = `+{withCommas(value - shown)}`
 			earned.Visible = true
 			earnedShows += 1

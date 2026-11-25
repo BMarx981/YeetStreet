@@ -4,7 +4,8 @@
 -- ReplicatedStorage.CoinLines: spinning gold coins along each launcher's
 -- flight path and a glowing gem above it, made here and seen only here.
 -- A coin the server says this player grabbed (CoinPickup) hides with a chime
--- that climbs with each coin in the run, until the run ends (CoinsBack). A
+-- that climbs with each coin in the run and a quick gold flash on the car,
+-- until the run ends (CoinsBack). A
 -- grabbed gem hides with a ding and a "+$" popup (Hud) until it comes back.
 
 local HttpService = game:GetService("HttpService")
@@ -12,6 +13,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -129,6 +131,44 @@ lines.Changed:Connect(function()
 end)
 build(lines)
 
+-- The car this player sits in, if any.
+local function myCar(): Model?
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local seat = humanoid and humanoid.SeatPart
+	local model = seat and seat:GetAttribute("CarSeat") and seat.Parent
+	return if model and model:IsA("Model") then model else nil
+end
+
+-- A quick gold glow over the car that fades away. One Highlight per car,
+-- restarted by each coin, so a row of coins never stacks them up.
+local flashFade: Tween? = nil
+local function flash()
+	local car = myCar()
+	if not car then
+		return
+	end
+	local glow = car:FindFirstChild("CoinFlash")
+	if not (glow and glow:IsA("Highlight")) then
+		local h = Instance.new("Highlight")
+		h.Name = "CoinFlash"
+		h.FillColor = C.CoinColor
+		h.OutlineTransparency = 1
+		h.DepthMode = Enum.HighlightDepthMode.Occluded
+		h.Adornee = car
+		h.Parent = car
+		glow = h
+	end
+	local h = glow :: Highlight
+	if flashFade then
+		flashFade:Cancel()
+	end
+	h.FillTransparency = C.FlashTransparency
+	local fade = TweenService:Create(h, TweenInfo.new(C.FlashTime), { FillTransparency = 1 })
+	flashFade = fade
+	fade:Play()
+end
+
 local pickup = ReplicatedStorage:WaitForChild("CoinPickup") :: RemoteEvent
 pickup.OnClientEvent:Connect(function(kind: string, li: number, value: number)
 	if kind == "coin" then
@@ -139,6 +179,7 @@ pickup.OnClientEvent:Connect(function(kind: string, li: number, value: number)
 		end
 		chime.PlaybackSpeed = math.min(C.CoinSound.Pitch + grabbed * C.PitchStep, C.PitchMax)
 		chime:Play()
+		flash()
 		grabbed += 1
 	elseif kind == "gem" then
 		local s = gemParts[li]

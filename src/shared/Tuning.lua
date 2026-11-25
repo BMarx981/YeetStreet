@@ -1451,6 +1451,9 @@ Tuning.Coins = {
 	CoinSound = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.5 },
 	PitchStep = 0.04,
 	PitchMax = 1.8,
+	-- The car flashes CoinColor for a moment on each coin grabbed.
+	FlashTransparency = 0.6, -- the flash's strongest, 1 is none
+	FlashTime = 0.15, -- seconds to fade out
 	-- The shop's cash register ding, until gems have a sound of their own.
 	GemSound = { Id = "rbxassetid://18264787819", Pitch = 1.3, Volume = 0.8 },
 }
@@ -1561,6 +1564,18 @@ Tuning.Hud = {
 	StampTilt = -8, -- degrees
 	StampTime = 0.9, -- seconds it stays after the slam
 	StampFade = 0.25,
+	-- A run's pay flies from the run card into the cash counter as coins
+	-- (Juice.flyCoins), and the counter ticks up as each lands.
+	CoinSize = 26,
+	CoinScatter = 50, -- pixels either way from the card's middle that coins start
+	CoinStagger = 0.07, -- seconds between coins leaving
+	CoinFlyTime = 0.45,
+	CoinDingGap = 0.05, -- the cash ding plays at most this often
+	-- A run paying Juice.RainFrom or more also rains coins down the screen.
+	RainCoins = 30,
+	RainCoinSize = 34,
+	RainTime = 1.4, -- seconds a coin takes to fall, give or take a fifth
+	RainSpread = 0.8, -- seconds over which the coins start falling
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
@@ -1807,6 +1822,7 @@ Tuning.Juice = {
 Tuning.JuiceSounds = {
 	Ding = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.4 },
 	Thump = { Id = "", Pitch = 1, Volume = 0.8 }, -- bass thump under a landing stamp
+	Cash = { Id = "rbxassetid://18264787819", Pitch = 1.2, Volume = 0.35 }, -- menu Buy ding, per coin landing
 }
 
 Tuning.Camera = {
