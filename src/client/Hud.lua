@@ -130,8 +130,9 @@ end
 local function buildCard(gui: ScreenGui): Frame
 	local card = Instance.new("Frame")
 	card.Name = "RunCard"
-	card.AnchorPoint = Vector2.new(0.5, 0)
-	card.Position = UDim2.new(0.5, 0, 0, 116)
+	-- On the right, halfway down, clear of the road ahead in the middle.
+	card.AnchorPoint = Vector2.new(1, 0.5)
+	card.Position = UDim2.new(1, -16, 0.5, 0)
 	card.Size = UDim2.fromOffset(300, 0)
 	card.AutomaticSize = Enum.AutomaticSize.Y
 	card.BackgroundColor3 = PANEL_COLOR
