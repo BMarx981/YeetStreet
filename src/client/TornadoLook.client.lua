@@ -19,6 +19,12 @@
 --
 -- It roars from the middle of the funnel at the camera's height, and when it
 -- throws a car out (its Throws attribute goes up) a whoosh plays at ThrowAt.
+-- The models and Base parts are recorded for replays (ReplayWorld.follow).
+-- During one, only the tornados that were there then are drawn, from the
+-- recording, jumping there (Tuning.Replay.Jump) as the replay starts or
+-- scrubs, on the replay's clock so they pause and slow with it, with a
+-- whoosh as the replay passes a throw. A tornado the server took away is
+-- kept hidden for replays, up to KeepGone of them.
 -- Numbers are in Tuning.Tornado.Look.
 
 local Debris = game:GetService("Debris")
@@ -27,6 +33,7 @@ local RunService = game:GetService("RunService")
 
 local Tornado = require(ReplicatedStorage.Tornado)
 local Tuning = require(ReplicatedStorage.Tuning)
+local ReplayWorld = require(script.Parent.ReplayWorld)
 
 local T: Tornado.Tuning = Tuning.Tornado :: any
 local L = Tuning.Tornado.Look
@@ -88,6 +95,8 @@ type Drawing = {
 	dust: ParticleEmitter,
 	dustPart: Part,
 	voice: Part, -- where the roar plays from
+	roar: Sound,
+	gone: boolean, -- the server took it away; kept for replays
 }
 
 local drawings: { [Model]: Drawing } = {}
@@ -256,11 +265,14 @@ local function build(model: Model): Drawing?
 	roar.Looped = true
 	roar:Play()
 
+	-- In a replay the whooshes come from the recording instead.
+	ReplayWorld.follow(model)
+	ReplayWorld.follow(base)
 	local thrown = model:GetAttribute("Throws")
 	model:GetAttributeChangedSignal("Throws"):Connect(function()
 		local now = model:GetAttribute("Throws")
 		local at = model:GetAttribute("ThrowAt")
-		if now ~= thrown and typeof(at) == "Vector3" then
+		if now ~= thrown and typeof(at) == "Vector3" and not ReplayWorld.isWatching() then
 			whoosh(at)
 		end
 		thrown = now
@@ -281,14 +293,16 @@ local function build(model: Model): Drawing?
 		dust = dust,
 		dustPart = dustPart,
 		voice = voice,
+		roar = roar,
+		gone = false,
 	}
 end
 
 -- How far up the funnel is not yet down (touching down) or already gone
 -- back up (lifting), and how solid the cloud is, from 0 to 1.
 local function reach(d: Drawing, now: number): (number, number)
-	local phase = d.model:GetAttribute("Phase")
-	local phaseAt = d.model:GetAttribute("PhaseAt")
+	local phase = ReplayWorld.attribute(d.model, "Phase")
+	local phaseAt = ReplayWorld.attribute(d.model, "PhaseAt")
 	local age = if typeof(phaseAt) == "number" then now - phaseAt else math.huge
 	if phase == "touchdown" then
 		local f = math.clamp(age / TOUCH_TIME, 0, 1)
@@ -386,9 +400,12 @@ local function draw(
 	parts: { BasePart },
 	frames: { CFrame }
 )
-	local target = d.base.Position
+	local target = ReplayWorld.cframe(d.base).Position
 	local at = d.at
-	at = if at then at:Lerp(target, 1 - math.exp(-L.Smooth * dt)) else target
+	-- A replay starting or scrubbing jumps it there.
+	at = if at and (target - at).Magnitude <= Tuning.Replay.Jump
+		then at:Lerp(target, 1 - math.exp(-L.Smooth * dt))
+		else target
 	d.at = at
 
 	local downFrom, cloudFade = reach(d, now)
@@ -457,11 +474,36 @@ local function draw(
 	table.insert(frames, CFrame.new(at + sway(d, voiceUp / d.height, t) + Vector3.new(0, voiceUp, 0)))
 end
 
+-- The server took `model` away: its drawing is kept, hidden, for replays
+-- of when it was there, up to KeepGone of them, dropping the oldest.
+local goneOrder: { Model } = {}
 local function forget(model: Model)
 	local d = drawings[model]
-	if d then
-		drawings[model] = nil
-		d.folder:Destroy()
+	if not d or d.gone then
+		return
+	end
+	d.gone = true
+	table.insert(goneOrder, model)
+	while #goneOrder > L.KeepGone do
+		local oldest = table.remove(goneOrder, 1) :: Model
+		local old = drawings[oldest]
+		drawings[oldest] = nil
+		if old then
+			old.folder:Destroy()
+		end
+	end
+end
+
+-- Shows or hides a whole drawing and its roar.
+local function show(d: Drawing, shown: boolean)
+	local parent = if shown then lookFolder else nil
+	if d.folder.Parent ~= parent then
+		d.folder.Parent = parent
+		if shown then
+			d.roar:Play()
+		else
+			d.roar:Stop()
+		end
 	end
 end
 
@@ -496,18 +538,34 @@ task.spawn(function()
 	watch(workspace:WaitForChild("Tornados"))
 end)
 
+local lastClock = ReplayWorld.time()
+
 RunService.RenderStepped:Connect(function(dt: number)
 	local camera = workspace.CurrentCamera
 	local cameraAt = if camera then camera.CFrame.Position else Vector3.zero
-	local now = workspace:GetServerTimeNow()
-	local t = os.clock()
+	-- In a replay it is drawn from the recording (ReplayWorld), only the
+	-- tornados that were there then, on the replay's clock.
+	local watching = ReplayWorld.isWatching()
+	local now = ReplayWorld.serverTime()
+	local t = ReplayWorld.time()
+	local tick = if watching then math.max(t - lastClock, 0) else dt
+	lastClock = t
 	local parts: { BasePart } = {}
 	local frames: { CFrame } = {}
 	for model, d in drawings do
 		if model.Parent == nil then
 			forget(model)
-		else
-			draw(d, dt, now, t, cameraAt, parts, frames)
+		end
+		local shown = if watching then ReplayWorld.recorded(d.base) else not d.gone
+		show(d, shown)
+		if shown then
+			if watching and #ReplayWorld.passed(model, "Throws") > 0 then
+				local at = ReplayWorld.attribute(model, "ThrowAt")
+				if typeof(at) == "Vector3" then
+					whoosh(at)
+				end
+			end
+			draw(d, tick, now, t, cameraAt, parts, frames)
 		end
 	end
 	if #parts > 0 then

@@ -491,7 +491,7 @@ Steps, one diff each:
    - Camera: TornadoCamera sits outside the funnel looking in at the car while the car's Tornado attribute names the tornado it rides (tornados are now named Tornado1, Tornado2 and on).
    - HUD: the air timer no longer counts while the car is held (anchored), and a run a tornado cuts short ends as "carried" on the client too, so its card shows at once.
    - Checked in Play: screenshots of the new look from outside and of the ride camera (car clear inside the thinned funnel), the roar loaded and playing, one whoosh on the throw, the camera back to the chase camera after. Not heard by a person yet.
-6. Replays: show the ride before the throw and draw the tornado in the replay.
+6. Replays: show the ride before the throw and draw the tornado in the replay. Written Nov 25. The ride was already in the clip (a carried car reads as airborne, so catch to landing is one flight); what was missing was the tornado. TornadoLook now records each tornado's model and Base (ReplayWorld.follow), and during a replay draws only the tornados recorded over that clip (new ReplayWorld.recorded), from the recording, on the replay's clock, with a whoosh as it passes a throw. A tornado the server took away keeps its drawing hidden for replays, the last KeepGone (12). Checked in Play: a 5.2 s ride and its fall made one 11.3 s clip with 7.8 s of air, and the replay showed the tornado round the ghost car. Not checked: a replay of a tornado that has since gone, and the whoosh during a replay.
 
 ## Store page art
 

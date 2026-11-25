@@ -4676,6 +4676,7 @@ Tuning.Tornado = {
 		DustTransparency = 0.15,
 		Smooth = 8, -- how fast the drawing catches up with the server's spot
 		Far = 2500, -- past this from the camera, only the cloud draws, without swooshes or junk
+		KeepGone = 12, -- tornados already gone kept for replays
 		-- Pro Sound Effects. The roar plays from the funnel's middle at the
 		-- camera's height; full volume within Near, silent past Reach.
 		Roar = { Id = "rbxassetid://9125443744", Volume = 1.2, Near = 80, Reach = 900 },

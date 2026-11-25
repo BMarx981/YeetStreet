@@ -169,6 +169,14 @@ function ReplayWorld.ghost(): CFrame?
 	return if now then now.carPose else nil
 end
 
+-- Whether a replay plays and recorded where `part` was over its clip, for
+-- things that come and go, like the tornados, to draw only those that were
+-- there.
+function ReplayWorld.recorded(part: BasePart): boolean
+	local now = moment
+	return now ~= nil and now.world.poses[part] ~= nil
+end
+
 -- Where `part` is in the world being drawn.
 function ReplayWorld.cframe(part: BasePart): CFrame
 	local now = moment
