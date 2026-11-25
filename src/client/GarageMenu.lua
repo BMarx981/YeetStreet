@@ -300,6 +300,11 @@ local function build()
 	local limitedsTab = tabButton("Limiteds", 228)
 	local eventTab = tabButton("Event", 342)
 	local bonesTab = tabButton("Bones", 456)
+	-- Where the tabs sit once springy has centered their anchors. The car
+	-- panel moves CARS and EVENT into the first two spots.
+	local firstSpot = upgradesTab.Position
+	local secondSpot = carsTab.Position
+	local eventSpot = eventTab.Position
 
 	local status = UiStyle.text("Status", panel, 16, false)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -776,8 +781,8 @@ local function build()
 		bonesTab.Visible = atBoneTrader and not carsOnly
 		upgradesTab.Visible = not carsOnly
 		limitedsTab.Visible = not carsOnly
-		carsTab.Position = UDim2.fromOffset(if carsOnly then 0 else 114, carsTab.Position.Y.Offset)
-		eventTab.Position = UDim2.fromOffset(if carsOnly then 114 else 342, eventTab.Position.Y.Offset)
+		carsTab.Position = if carsOnly then firstSpot else secondSpot
+		eventTab.Position = if carsOnly then secondSpot else eventSpot
 		rebirthRow.frame.Visible = not carsOnly
 		title.Text = if carsOnly then "CARS" else "GARAGE"
 		upgradesList.Visible = tab == "Upgrades"
