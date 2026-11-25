@@ -14,9 +14,10 @@
 -- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
 -- keyboard, X on a gamepad, or the GARAGE button, which shows only inside the
 -- ring (the only way in on a phone or tablet). The same keys, the panel's X
--- button, and gamepad B close it. Anywhere else, the CARS button in the
--- GARAGE button's spot, or C, opens it as the car panel (only the Cars and
--- Event tabs, no REBIRTH row) while the car is on the ground.
+-- button, and gamepad B close it. Anywhere else, the CARS button at the left
+-- end of the top right row (left of REPLAY while it shows), or C, opens it as
+-- the car panel (only the Cars and Event tabs, no REBIRTH row) while the car
+-- is on the ground.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
@@ -45,11 +46,16 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local CarPreview = require(script.Parent.CarPreview)
 local DinoSpin = require(script.Parent.DinoSpin)
 local RebirthConfirm = require(script.Parent.RebirthConfirm)
+local ReplayControls = require(script.Parent.ReplayControls)
 local UiStyle = require(script.Parent.UiStyle)
 
 local GarageMenu = {}
 
 local GARAGE_TAG = "Garage"
+-- The CARS button's spots in the top right row of 120 wide stickers, 128
+-- apart: where REPLAY sits (ReplayControls), and one further left.
+local CARS_BY_DAILY = UDim2.new(1, -524, 0, -4)
+local CARS_BY_REPLAY = UDim2.new(1, -652, 0, -4)
 
 type Tab = "Upgrades" | "Cars" | "Limiteds" | "Bones" | "Event"
 
@@ -256,11 +262,13 @@ local function build()
 	openButton.Active = false
 	openButton.Selectable = false
 
-	-- In the same spot whenever the GARAGE button isn't showing.
+	-- Whenever the GARAGE button isn't showing. Top right, in the Roblox top
+	-- bar like the row it ends: left of REPLAY while that shows, otherwise in
+	-- its place left of DAILY.
 	local carsButton = UiStyle.sticker("Cars", gui, "CARS")
-	carsButton.AnchorPoint = openButton.AnchorPoint
-	carsButton.Position = openButton.Position
-	carsButton.Size = openButton.Size
+	carsButton.AnchorPoint = Vector2.new(1, 1)
+	carsButton.Position = CARS_BY_DAILY
+	carsButton.Size = UDim2.fromOffset(120, 32)
 	carsButton.Visible = false
 	carsButton.Active = false
 	carsButton.Selectable = false
@@ -1132,6 +1140,7 @@ local function build()
 
 	-- The car previews only spin while someone can see them.
 	RunService.RenderStepped:Connect(function(dt: number)
+		carsButton.Position = if ReplayControls.buttonShown() then CARS_BY_REPLAY else CARS_BY_DAILY
 		if open and tab == "Cars" then
 			for _, r in carRows do
 				r.preview.spin(dt)

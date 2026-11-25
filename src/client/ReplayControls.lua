@@ -67,6 +67,7 @@ local ReplayControls = {}
 
 local started = false
 local driving = false
+local buttonShown = false
 
 local function isPress(input: InputObject): boolean
 	return input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
@@ -258,6 +259,7 @@ local function build(toggle: () -> (), play: (ReplayRecorder.Replay) -> ())
 		local clock = ReplayPlayer.clock()
 		local last = ReplayRecorder.last()
 		open.Visible = driving and last ~= nil and clock == nil
+		buttonShown = open.Visible
 		if last ~= shown then
 			shown = last
 			if open.Visible then
@@ -301,6 +303,12 @@ end
 -- Shows the REPLAY button while the player drives.
 function ReplayControls.setDriving(on: boolean)
 	driving = on
+end
+
+-- Whether the REPLAY button is showing, so the CARS button (GarageMenu) can
+-- sit left of it.
+function ReplayControls.buttonShown(): boolean
+	return buttonShown
 end
 
 return ReplayControls
