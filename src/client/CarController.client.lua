@@ -1231,7 +1231,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		ShredderCamera.update(dt)
 	else
 		MissileCamera.release()
-		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying)
+		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying, burning)
 		EruptionCamera.update(current.hull, contact.airborne)
 	end
 	Hud.update(

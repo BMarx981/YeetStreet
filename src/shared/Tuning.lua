@@ -1578,6 +1578,14 @@ Tuning.Hud = {
 	RainTime = 1.4, -- seconds a coin takes to fall, give or take a fifth
 	RainSpread = 0.8, -- seconds over which the coins start falling
 	TimerTapShow = 3, -- seconds a tapped timer chip shows its full line (TimerChip)
+	-- Streaks racing out to the screen's edges at speed (SpeedLines, Juice.speedLines).
+	SpeedLineCount = 28,
+	SpeedLineInner = 0.55, -- they start this far out, as a share of half the screen's diagonal
+	SpeedLineLength = 140, -- pixels, give or take 40%
+	SpeedLineWidth = 2,
+	SpeedLineSpeed = 2500, -- pixels per second outward, faster as they grow stronger
+	SpeedLineOpacity = 0.5, -- at full strength, 1 is solid white
+	SpeedLineFade = 8, -- how fast they follow the car's speed, higher is snappier
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
@@ -1805,6 +1813,7 @@ Tuning.Juice = {
 	DingSemitones = 2, -- the combo ding rises this much per combo step, an octave by x4
 	ScoreTiers = { 2, 3, 4 }, -- the live score grows and changes color at these combos
 	LinesFrom = 0.6, -- speed lines fade in from this much of Camera.FovFullSpeed
+	JetLines = 0.5, -- and show at least this strong while the jets burn
 	ShakeFrom = 0.9, -- and the camera shakes a little from this much
 	CashPerCoin = 250, -- coins flying into the cash counter, one per this much paid
 	MaxCoins = 12,
@@ -1825,6 +1834,7 @@ Tuning.JuiceSounds = {
 	Ding = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.4 },
 	Thump = { Id = "", Pitch = 1, Volume = 0.8 }, -- bass thump under a landing stamp
 	Cash = { Id = "rbxassetid://18264787819", Pitch = 1.2, Volume = 0.35 }, -- menu Buy ding, per coin landing
+	Wind = { Id = "", Pitch = 1, Volume = 0.6 }, -- loop, swells with the speed lines; Volume at full
 }
 
 Tuning.Camera = {
@@ -1837,6 +1847,9 @@ Tuning.Camera = {
 	Fov = 70,
 	FovBoost = 20,
 	FovFullSpeed = 300, -- speed where the FOV boost is fully applied
+	-- A slight shake near FovFullSpeed (Juice.topShake).
+	TopShake = 0.12, -- studs either way at full strength
+	TopShakeRate = 14, -- how quickly it wobbles
 }
 
 -- Watching the last run again (ReplayTape, ReplayRecorder).

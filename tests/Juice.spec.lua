@@ -9,6 +9,7 @@ local T: Juice.Tuning = {
 	DingSemitones = 2,
 	ScoreTiers = { 2, 3, 4 },
 	LinesFrom = 0.6,
+	JetLines = 0.5,
 	ShakeFrom = 0.9,
 	CashPerCoin = 250,
 	MaxCoins = 12,
@@ -85,17 +86,27 @@ Check.test("the live score steps up at x2, x3 and x4", function()
 end)
 
 Check.test("no speed lines below LinesFrom", function()
-	Check.eq(Juice.speedLines(0, T), 0)
-	Check.eq(Juice.speedLines(0.6, T), 0)
+	Check.eq(Juice.speedLines(0, false, T), 0)
+	Check.eq(Juice.speedLines(0.6, false, T), 0)
 end)
 
 Check.test("speed lines grow to full at top speed", function()
-	Check.near(Juice.speedLines(0.8, T), 0.5)
-	Check.near(Juice.speedLines(1, T), 1)
+	Check.near(Juice.speedLines(0.8, false, T), 0.5)
+	Check.near(Juice.speedLines(1, false, T), 1)
 end)
 
 Check.test("speed lines stay full past top speed", function()
-	Check.near(Juice.speedLines(1.5, T), 1)
+	Check.near(Juice.speedLines(1.5, false, T), 1)
+end)
+
+Check.test("burning jets show the speed lines at JetLines at any speed", function()
+	Check.near(Juice.speedLines(0, true, T), 0.5)
+	Check.near(Juice.speedLines(0.7, true, T), 0.5)
+end)
+
+Check.test("burning jets never weaken lines the speed already shows", function()
+	Check.near(Juice.speedLines(0.9, true, T), 0.75)
+	Check.near(Juice.speedLines(1, true, T), 1)
 end)
 
 Check.test("the top speed shake starts at ShakeFrom", function()

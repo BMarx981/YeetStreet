@@ -16,6 +16,7 @@ export type Tuning = {
 	DingSemitones: number, -- per combo step
 	ScoreTiers: { number }, -- combos where the live score steps up, lowest first
 	LinesFrom: number, -- out of 1 of the camera's full speed
+	JetLines: number, -- out of 1
 	ShakeFrom: number,
 	CashPerCoin: number,
 	MaxCoins: number,
@@ -112,9 +113,10 @@ local function ramp(t: number, from: number): number
 end
 
 -- How strong the speed lines are, 0 to 1, for `speedT` out of the camera's
--- full speed (ChaseCamera).
-function Juice.speedLines(speedT: number, tuning: Tuning): number
-	return ramp(speedT, tuning.LinesFrom)
+-- full speed (ChaseCamera). Burning jets keep them at JetLines at least.
+function Juice.speedLines(speedT: number, burning: boolean, tuning: Tuning): number
+	local lines = ramp(speedT, tuning.LinesFrom)
+	return if burning then math.max(lines, tuning.JetLines) else lines
 end
 
 -- How strong the camera shake near top speed is, 0 to 1.

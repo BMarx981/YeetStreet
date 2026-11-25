@@ -4,7 +4,8 @@
 -- air it looks along the direction of travel, so flips and spins happen in
 -- front of the camera instead of whipping it around. A plane with its wings
 -- out always looks along its nose, so the camera stays behind the driver even
--- while it sinks. FOV widens with speed.
+-- while it sinks. FOV widens with speed, speed lines (SpeedLines) grow, and
+-- near FovFullSpeed the view shakes a little (Juice.topShake).
 -- Up is world up, except inside a city tube, where it is toward the tube's
 -- middle line, so the camera rolls round with a car driving on the walls.
 -- A hit-stop (Juice) briefly holds the view and punches the zoom.
@@ -13,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Juice = require(ReplicatedStorage.Juice)
 local Tuning = require(ReplicatedStorage.Tuning)
+local SpeedLines = require(script.Parent.SpeedLines)
 
 local C = Tuning.Camera
 
@@ -38,7 +40,15 @@ local function wantedHeading(hull: BasePart, airborne: boolean, up: Vector3, fol
 	return (level + up * math.clamp(want:Dot(up), -C.MaxPitch, C.MaxPitch)).Unit
 end
 
-function ChaseCamera.update(hull: BasePart, airborne: boolean, dt: number, up: Vector3?, followNose: boolean?)
+-- `burning` is whether the jets are on, which brings out the speed lines.
+function ChaseCamera.update(
+	hull: BasePart,
+	airborne: boolean,
+	dt: number,
+	up: Vector3?,
+	followNose: boolean?,
+	burning: boolean?
+)
 	local camera = workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
 
@@ -65,6 +75,12 @@ function ChaseCamera.update(hull: BasePart, airborne: boolean, dt: number, up: V
 
 	local speedT = math.clamp(hull.AssemblyLinearVelocity.Magnitude / C.FovFullSpeed, 0, 1)
 	local fov = C.Fov + C.FovBoost * speedT
+	SpeedLines.set(Juice.speedLines(speedT, burning == true, Tuning.Juice))
+	local shake = Juice.topShake(speedT, Tuning.Juice) * C.TopShake
+	if shake > 0 then
+		local t = os.clock() * C.TopShakeRate
+		view *= CFrame.new(math.noise(t, 1.3) * 2 * shake, math.noise(t, 7.1) * 2 * shake, 0)
+	end
 
 	local at, from = stoppedAt, held
 	if at and from then
