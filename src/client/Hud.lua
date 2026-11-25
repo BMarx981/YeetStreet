@@ -252,11 +252,13 @@ local function build(): Parts
 	local card = buildCard(gui)
 	local again = buildAgain(card)
 
-	-- The clean streak, beside the fuel bar while it lasts.
+	-- The clean streak while it lasts, left of the fuel bar under the GARAGE
+	-- button (GarageMenu), clear of the cash on the right.
 	local streakBadge = label("StreakBadge", gui, 22)
-	streakBadge.Position = UDim2.new(0.5, 142, 0, 8)
-	streakBadge.Size = UDim2.fromOffset(180, 32)
-	streakBadge.TextXAlignment = Enum.TextXAlignment.Left
+	streakBadge.AnchorPoint = Vector2.new(1, 0)
+	streakBadge.Position = UDim2.new(0.5, -146, 0, 76)
+	streakBadge.Size = UDim2.fromOffset(200, 28)
+	streakBadge.TextXAlignment = Enum.TextXAlignment.Right
 	streakBadge.TextColor3 = UiStyle.Yellow
 	streakBadge.Visible = false
 	local streakShown = 0
@@ -495,6 +497,7 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, e
 	end
 	local lucky = if extras then extras.lucky else nil
 	local streak = if extras then extras.streak else nil
+	local golden = if extras then extras.golden else nil
 	local now = os.clock()
 	if official then
 		officialAt = now
@@ -596,6 +599,19 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, e
 		end
 		streakBefore = streak
 	end
+	if golden then
+		local row = add("GOLDEN BOOSTER!", multiplier(golden), 24)
+		for _, text in row:GetChildren() do
+			if text:IsA("TextLabel") then
+				text.TextColor3 = Tuning.Golden.Color
+			end
+		end
+		UiStyle.flash(row)
+		UiStyle.bounce(row)
+		if not lucky then
+			UiStyle.play("Buy")
+		end
+	end
 	if lucky then
 		local jackpot = lucky.Multiplier >= H.JackpotFrom
 		local row = add(`{lucky.Name}!`, multiplier(lucky.Multiplier), if jackpot then 30 else 24)
@@ -618,7 +634,7 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, e
 		order += 1
 		cardLine(p.card, order, close)
 	end
-	cardUntil = now + if lucky then H.LuckyTime else H.ResultTime
+	cardUntil = now + if lucky or golden then H.LuckyTime else H.ResultTime
 end
 
 -- Build the HUD immediately so the cash counter is always on screen,

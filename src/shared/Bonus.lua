@@ -25,6 +25,7 @@ export type Tier = {
 export type Extras = {
 	lucky: Tier?,
 	streak: number, -- clean landings in a row after the run
+	golden: number?, -- the golden booster's multiplier, if the run claimed it
 	paid: number, -- cash the run paid
 	cash: number, -- the player's cash after it
 	launcher: string?, -- the record launcher it flew from, if it counts for one

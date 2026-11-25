@@ -1408,6 +1408,23 @@ Tuning.Bonus = {
 	},
 }
 
+-- The golden booster (Golden, GoldenService, GoldenLook): one record launcher
+-- at a time turns gold, and the first launch off it pays more.
+Tuning.Golden = {
+	FirstAfter = 60, -- seconds after the server starts
+	Every = 180, -- seconds from one golden booster's start to the next
+	Duration = 60, -- seconds it stays gold if nobody claims it
+	Multiplier = 3,
+	-- LaunchRecords launcher ids. Not the Volcano Vent, whose launch is the
+	-- eruption's timing, not the player's.
+	Launchers = { "MainRamp", "SkyRamp", "MegaRamp", "MiddleRamp", "Overpass", "ScrapMountain" },
+	Color = Color3.fromRGB(255, 196, 0),
+	PillarHeight = 400, -- studs of light above the launcher, to find it from afar
+	PillarWidth = 8,
+	SparklePads = 6, -- pads that sparkle, at most
+	TakenTime = 4, -- seconds "X grabbed the golden booster!" stays up
+}
+
 -- The run card's "So close!" line (SoClose, CloseCall).
 Tuning.SoClose = {
 	BestWithin = 0.15, -- a run this close under the player's Best, out of 1

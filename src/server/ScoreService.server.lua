@@ -10,7 +10,8 @@
 -- the PayScale of the launch pad the run started from, by the squad boost
 -- for friends in the server (InviteRewards), and by the player's rebirth
 -- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus), and
--- on a clean landing by the player's clean streak (Bonus), capped together at
+-- on a clean landing by the player's clean streak (Bonus), and by the golden
+-- booster if the car claimed it (Golden), capped together at
 -- Tuning.Bonus.Cap. The client gets these with the result (Bonus.Extras). A
 -- better total becomes their Best in leaderstats and saves through PlayerData,
 -- and goes out on ReplicatedStorage.NewBest for the banner (NewBest).
@@ -113,6 +114,7 @@ local CarSensor = require(ReplicatedStorage.CarSensor)
 local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Economy = require(ReplicatedStorage.Economy)
 local GapZones = require(ReplicatedStorage.GapZones)
+local Golden = require(ReplicatedStorage.Golden)
 local GrindRails = require(ReplicatedStorage.GrindRails)
 local GlobeRide = require(ReplicatedStorage.GlobeRide)
 local GravitronRide = require(ReplicatedStorage.GravitronRide)
@@ -192,6 +194,9 @@ type Watch = {
 	-- The run started during Mega Boosters (EventService), by this server's
 	-- Event attribute when its check began.
 	mega: boolean,
+	-- Claimed the golden booster (Golden) since its last run ended, so the
+	-- next run to end pays Tuning.Golden.Multiplier more.
+	golden: boolean,
 	-- os.clock() when a launch pad, swing seat or rail last moved the car.
 	thrownAt: number,
 }
@@ -308,6 +313,7 @@ local function watchFor(car: Model): Watch?
 		checkedAt = nil,
 		thrownAt = -math.huge,
 		mega = false,
+		golden = false,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -515,7 +521,10 @@ local function finish(watch: Watch, result: RunTracker.Result)
 			streakPay = Bonus.streakMultiplier(streak, Tuning.Bonus)
 		end
 	end
-	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1, streakPay }, Tuning.Bonus)
+	-- A flagged run uses up a golden claim without being paid for it.
+	local goldenPay = if watch.golden and not flagged then Tuning.Golden.Multiplier else 1
+	watch.golden = false
+	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1, streakPay, goldenPay }, Tuning.Bonus)
 	local paid = Economy.payout(score.total, rate * daily * bonus)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
@@ -528,6 +537,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local extras: Bonus.Extras = {
 		lucky = lucky,
 		streak = streak,
+		golden = if goldenPay > 1 then goldenPay else nil,
 		paid = paid,
 		cash = if typeof(cash) == "number" then cash else 0,
 		launcher = recordLauncher,
@@ -1327,6 +1337,14 @@ RunService.Heartbeat:Connect(function(dt: number)
 					local payScale = pad:GetAttribute("PayScale")
 					watch.payScale = if typeof(payScale) == "number" then payScale else 1
 					watch.launcher = launcherOf(pad)
+					local golden = workspace:GetAttribute("GoldenBooster")
+					local mega = workspace:GetAttribute("Event") == "Mega"
+					if Golden.claims(if typeof(golden) == "string" then golden else nil, watch.launcher, mega) then
+						-- GoldenService sees it go and ends it.
+						workspace:SetAttribute("GoldenTakenBy", watch.player.DisplayName)
+						workspace:SetAttribute("GoldenBooster", nil)
+						watch.golden = true
+					end
 					-- Off Hammer Alley's kicker, having run the lane from the start.
 					if pad:GetAttribute("AlleyKicker") == true and watch.alleyRun then
 						watch.alleyRun = false
