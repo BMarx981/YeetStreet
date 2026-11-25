@@ -3,8 +3,9 @@
 -- Small timer chips stacked down the left of the screen, each an icon and the
 -- time ("🚀 4:12"). The full line ("MEGA BOOSTERS in 4:12") shows while the
 -- mouse is over a chip, or for Tuning.Hud.TimerTapShow seconds after a tap,
--- since phones have no hover. EventHud and GoldenLook each own one. Hidden
--- while a replay plays, like the rest of the HUD.
+-- since phones have no hover. EventHud and GoldenLook each own one, and Hud
+-- one for the clean streak above them. Hidden while a replay plays, like the
+-- rest of the HUD.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,7 +18,8 @@ local UiStyle = require(script.Parent.UiStyle)
 local TimerChip = {}
 
 export type Chip = {
-	-- `short` and `full` without the icon, which goes in front of both.
+	-- `short` and `full` without the icon, which goes in front of both. An
+	-- empty icon leaves just the text.
 	set: (icon: string, short: string, full: string, color: Color3) -> (),
 	setVisible: (on: boolean) -> (),
 	bounce: () -> (),
@@ -98,8 +100,9 @@ function TimerChip.new(name: string, order: number): Chip
 
 	return {
 		set = function(icon: string, short: string, full: string, color: Color3)
-			shortText = `{icon} {short}`
-			fullText = `{icon} {full}`
+			local front = if icon == "" then "" else `{icon} `
+			shortText = front .. short
+			fullText = front .. full
 			text.TextColor3 = color
 			draw()
 		end,

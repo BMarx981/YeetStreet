@@ -24,6 +24,7 @@ local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
 local CloseCall = require(script.Parent.CloseCall)
+local TimerChip = require(script.Parent.TimerChip)
 local UiStyle = require(script.Parent.UiStyle)
 
 local H = Tuning.Hud
@@ -314,23 +315,18 @@ local function build(): Parts
 	local card = buildCard(gui)
 	local again = buildAgain(card)
 
-	-- The clean streak while it lasts, left of the fuel bar under the GARAGE
-	-- button (GarageMenu), clear of the cash on the right.
-	local streakBadge = label("StreakBadge", gui, 22)
-	streakBadge.AnchorPoint = Vector2.new(1, 0)
-	streakBadge.Position = UDim2.new(0.5, -146, 0, 76)
-	streakBadge.Size = UDim2.fromOffset(200, 28)
-	streakBadge.TextXAlignment = Enum.TextXAlignment.Right
-	streakBadge.TextColor3 = UiStyle.Yellow
-	streakBadge.Visible = false
+	-- The clean streak while it lasts, a chip above the timers on the left
+	-- (TimerChip): just what it adds, "+30%", and the streak too on hover.
+	local streakChip = TimerChip.new("Streak", 0)
 	local streakShown = 0
 	local function showStreak()
 		local value = player:GetAttribute("CleanStreak")
 		local streak = if typeof(value) == "number" then value else 0
-		streakBadge.Text = `STREAK {streak}  {streakPercent(streak)}`
-		streakBadge.Visible = streak > 0
+		local percent = streakPercent(streak)
+		streakChip.set("", percent, `STREAK {streak}  {percent}`, UiStyle.Yellow)
+		streakChip.setVisible(streak > 0)
 		if streak > streakShown then
-			UiStyle.bounce(streakBadge)
+			streakChip.bounce()
 		end
 		streakShown = streak
 	end
