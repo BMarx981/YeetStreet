@@ -6,6 +6,10 @@
 -- the tiers of Tuning.Bonus.Lucky take slices of it in order, each Chance
 -- wide. A roll past every slice is not lucky.
 --
+-- A clean streak: clean landings in a row. Each one pays StreakStep more, up
+-- to StreakMax of them, on the run that made it. Any other ending loses the
+-- streak, except a wreck, which leaves it as it was (crashes are a reward).
+--
 -- The new bonuses (lucky, golden booster, clean streak) multiply together
 -- and never pass Cap. They scale the run's cash only, never its score.
 
@@ -21,6 +25,8 @@ export type Tier = {
 export type Tuning = {
 	Cap: number,
 	Lucky: { Tier },
+	StreakStep: number, -- pay added per clean landing in a row
+	StreakMax: number, -- clean landings that count toward the pay
 }
 
 function Bonus.lucky(roll: number, tuning: Tuning): Tier?
@@ -41,6 +47,21 @@ function Bonus.luckyChance(tuning: Tuning): number
 		total += tier.Chance
 	end
 	return total
+end
+
+-- The streak after a run that ended this way. `ending` is a RunTracker
+-- Ending; `clean` is whether it landed upright.
+function Bonus.streakAfter(streak: number, ending: string, clean: boolean): number
+	if ending == "wrecked" then
+		return streak
+	elseif ending == "landed" and clean then
+		return streak + 1
+	end
+	return 0
+end
+
+function Bonus.streakMultiplier(streak: number, tuning: Tuning): number
+	return 1 + tuning.StreakStep * math.min(streak, tuning.StreakMax)
 end
 
 function Bonus.combined(multipliers: { number }, tuning: Tuning): number

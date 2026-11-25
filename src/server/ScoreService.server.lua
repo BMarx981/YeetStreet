@@ -10,7 +10,8 @@
 -- the PayScale of the launch pad the run started from, by the squad boost
 -- for friends in the server (InviteRewards), and by the player's rebirth
 -- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus) that
--- the client gets with the result. A
+-- the client gets with the result, and on a clean landing by the player's
+-- clean streak (Bonus), capped together at Tuning.Bonus.Cap. A
 -- better total becomes their Best in leaderstats and saves through PlayerData.
 -- So do their longest airtime and this week's bests, for the leaderboards
 -- (Leaderboard). A run from one of the record launchers (LaunchRecords), the
@@ -218,6 +219,9 @@ local lastResetAt: { [Player]: number } = {}
 local respawns = 0
 -- Rolls lucky runs (Bonus).
 local luckRandom = Random.new()
+-- Each player's clean landings in a row (Bonus), also their CleanStreak
+-- attribute for the HUD. Never saved, so it starts over on rejoin.
+local streaks: { [Player]: number } = {}
 
 local function onPlayerAdded(player: Player)
 	local best = Leaderstats.value(player, "Best")
@@ -237,6 +241,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	lastLaunch[player] = nil
 	checkpoints[player] = nil
 	lastResetAt[player] = nil
+	streaks[player] = nil
 end)
 
 -- The watch for a car, started the first time its owner, driver, and parts
@@ -489,7 +494,18 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local daily = if flagged then 1 else DailyRewards.launchMultiplier(watch.player, Economy.payout(score.total, rate))
 	-- A flagged run, or one that scored nothing, is never lucky.
 	local lucky = if flagged or score.total <= 0 then nil else Bonus.lucky(luckRandom:NextNumber(), Tuning.Bonus)
-	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1 }, Tuning.Bonus)
+	-- A flagged run leaves the clean streak alone and is never paid for it.
+	local streak = streaks[watch.player] or 0
+	local streakPay = 1
+	if not flagged then
+		streak = Bonus.streakAfter(streak, result.ending, result.clean)
+		streaks[watch.player] = streak
+		watch.player:SetAttribute("CleanStreak", streak)
+		if result.ending == "landed" and result.clean then
+			streakPay = Bonus.streakMultiplier(streak, Tuning.Bonus)
+		end
+	end
+	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1, streakPay }, Tuning.Bonus)
 	local paid = Economy.payout(score.total, rate * daily * bonus)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
@@ -497,7 +513,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 		launcherRun:Fire(watch.player, watch.launcher, result.distance)
 	end
 	watch.launcher = nil
-	runResult:FireClient(watch.player, result, score, lucky)
+	runResult:FireClient(watch.player, result, score, lucky, streak)
 	InviteRewards.ranRun(watch.player)
 	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
 	if flagged then

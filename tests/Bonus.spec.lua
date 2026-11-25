@@ -4,6 +4,8 @@ local Bonus = require("../src/shared/Bonus")
 
 local T: Bonus.Tuning = {
 	Cap = 10,
+	StreakStep = 0.1,
+	StreakMax = 5,
 	Lucky = {
 		{ Name = "JACKPOT", Multiplier = 10, Chance = 0.005 },
 		{ Name = "LUCKY", Multiplier = 3, Chance = 0.025 },
@@ -53,6 +55,32 @@ Check.test("combined never goes past the cap", function()
 	Check.eq(Bonus.combined({ 10, 1.5 }, T), 10)
 	Check.eq(Bonus.combined({ 3, 10, 1.5 }, T), 10)
 	Check.eq(Bonus.combined({ 3, 3 }, T), 9)
+end)
+
+Check.test("a clean landing adds to the streak", function()
+	Check.eq(Bonus.streakAfter(0, "landed", true), 1)
+	Check.eq(Bonus.streakAfter(4, "landed", true), 5)
+	Check.eq(Bonus.streakAfter(7, "landed", true), 8)
+end)
+
+Check.test("a sloppy landing, crash, stop, or reset loses the streak", function()
+	Check.eq(Bonus.streakAfter(3, "landed", false), 0)
+	Check.eq(Bonus.streakAfter(3, "crashed", false), 0)
+	Check.eq(Bonus.streakAfter(3, "stopped", false), 0)
+	Check.eq(Bonus.streakAfter(3, "aborted", false), 0)
+end)
+
+Check.test("a wreck keeps the streak as it was", function()
+	Check.eq(Bonus.streakAfter(3, "wrecked", false), 3)
+	Check.eq(Bonus.streakAfter(0, "wrecked", false), 0)
+end)
+
+Check.test("the streak pays StreakStep per clean landing up to StreakMax", function()
+	Check.near(Bonus.streakMultiplier(0, T), 1)
+	Check.near(Bonus.streakMultiplier(1, T), 1.1)
+	Check.near(Bonus.streakMultiplier(3, T), 1.3)
+	Check.near(Bonus.streakMultiplier(5, T), 1.5)
+	Check.near(Bonus.streakMultiplier(9, T), 1.5)
 end)
 
 Check.finish("Bonus")

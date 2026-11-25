@@ -1268,12 +1268,14 @@ task.spawn(function()
 		warn("CarController: ReplicatedStorage.RunResult is not a RemoteEvent; run cards stay unofficial")
 		return
 	end
-	runResult.OnClientEvent:Connect(function(result: Scoring.Run, score: Scoring.Score, lucky: Bonus.Tier?)
-		if not TutorialHints.isRunning() then
-			Hud.result(result, score, true, lucky)
+	runResult.OnClientEvent:Connect(
+		function(result: Scoring.Run, score: Scoring.Score, lucky: Bonus.Tier?, streak: number?)
+			if not TutorialHints.isRunning() then
+				Hud.result(result, score, true, lucky, streak)
+			end
+			UpgradeHint.runPaid(score.total)
 		end
-		UpgradeHint.runPaid(score.total)
-	end)
+	)
 end)
 
 -- The pterodactyl let the car go: a run starts there, as on the server, its

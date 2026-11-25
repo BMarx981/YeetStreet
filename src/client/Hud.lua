@@ -38,6 +38,8 @@ type Parts = {
 
 local parts: Parts? = nil
 local againHandler: (() -> ())? = nil
+-- The clean streak from the last server card, to tell when one is lost.
+local streakBefore = 0
 local popupUntil = 0
 local cardUntil = 0
 local officialAt = -math.huge
@@ -61,6 +63,11 @@ end
 
 local function multiplier(x: number): string
 	return `x{string.format("%g", x)}`
+end
+
+-- What a clean streak adds to a run's pay, like "+30%".
+local function streakPercent(streak: number): string
+	return `+{round((Bonus.streakMultiplier(streak, Tuning.Bonus) - 1) * 100)}%`
 end
 
 local function label(name: string, parent: Instance, textSize: number): TextLabel
@@ -226,6 +233,27 @@ local function build(): Parts
 
 	local card = buildCard(gui)
 	local again = buildAgain(card)
+
+	-- The clean streak, beside the fuel bar while it lasts.
+	local streakBadge = label("StreakBadge", gui, 22)
+	streakBadge.Position = UDim2.new(0.5, 142, 0, 8)
+	streakBadge.Size = UDim2.fromOffset(180, 32)
+	streakBadge.TextXAlignment = Enum.TextXAlignment.Left
+	streakBadge.TextColor3 = UiStyle.Yellow
+	streakBadge.Visible = false
+	local streakShown = 0
+	local function showStreak()
+		local value = player:GetAttribute("CleanStreak")
+		local streak = if typeof(value) == "number" then value else 0
+		streakBadge.Text = `STREAK {streak}  {streakPercent(streak)}`
+		streakBadge.Visible = streak > 0
+		if streak > streakShown then
+			UiStyle.bounce(streakBadge)
+		end
+		streakShown = streak
+	end
+	player:GetAttributeChangedSignal("CleanStreak"):Connect(showStreak)
+	showStreak()
 
 	-- Cash counter lives on its own always-on ScreenGui so it stays visible
 	-- even when the rest of the HUD is hidden (e.g. outside a car).
@@ -439,8 +467,9 @@ end
 -- The breakdown card for a finished run. Repeats of a trick share one line.
 -- `official` is the server's score for the run; it replaces the client's card,
 -- and a client card arriving just after it is dropped. Only the server's card
--- can be `lucky`, which shows in gold with a flash and stays up longer.
-function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, lucky: Bonus.Tier?)
+-- can be `lucky`, which shows in gold with a flash and stays up longer, and
+-- has the clean `streak` after the run, shown if this run added to it or lost it.
+function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, lucky: Bonus.Tier?, streak: number?)
 	local p = parts
 	if not p then
 		return
@@ -527,6 +556,24 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, l
 	local rebirths = Rebirth.count((Players.LocalPlayer :: Player):GetAttribute("Rebirths"))
 	if rebirths > 0 then
 		add("Rebirth pay", multiplier(Rebirth.payMultiplier(rebirths, Tuning.Rebirth)), 18)
+	end
+	if streak then
+		if run.ending == "landed" and run.clean and streak > 0 then
+			local row = add(`Clean streak {streak}`, streakPercent(streak), 18)
+			for _, text in row:GetChildren() do
+				if text:IsA("TextLabel") then
+					text.TextColor3 = UiStyle.Yellow
+				end
+			end
+		elseif streak == 0 and streakBefore >= H.StreakLostFrom then
+			local row = add(`Streak of {streakBefore} lost`, "", 18)
+			for _, text in row:GetChildren() do
+				if text:IsA("TextLabel") then
+					text.TextTransparency = 0.4
+				end
+			end
+		end
+		streakBefore = streak
 	end
 	if lucky then
 		local jackpot = lucky.Multiplier >= H.JackpotFrom

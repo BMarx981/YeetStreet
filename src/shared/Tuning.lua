@@ -1399,6 +1399,8 @@ Tuning.Score = {
 -- rolled in this order; together they make about 1 run in 12 lucky.
 Tuning.Bonus = {
 	Cap = 10, -- lucky, golden booster, and clean streak multiplied, at most
+	StreakStep = 0.1, -- +10% pay per clean landing in a row
+	StreakMax = 5, -- so the streak pays at most +50%
 	Lucky = {
 		{ Name = "JACKPOT", Multiplier = 10, Chance = 1 / 200 },
 		{ Name = "LUCKY", Multiplier = 3, Chance = 1 / 40 },
@@ -1470,6 +1472,7 @@ Tuning.Hud = {
 	AgainHeight = 44,
 	LuckyTime = 6, -- seconds a lucky run's card stays up
 	JackpotFrom = 10, -- a lucky tier this big also shows across the screen
+	StreakLostFrom = 2, -- the card says a clean streak this long was lost
 	-- The server's card replaces the client's. If the server's comes first, a
 	-- client card this many seconds later is dropped instead of covering it.
 	OfficialHold = 1,
