@@ -101,6 +101,7 @@ local ShredderCamera = require(script.Parent.ShredderCamera)
 local SwingRide = require(script.Parent.SwingRide)
 local SwingSet = require(script.Parent.SwingSet)
 local TeleportMenu = require(script.Parent.TeleportMenu)
+local TornadoCamera = require(script.Parent.TornadoCamera)
 local TouchControls = require(script.Parent.TouchControls)
 local TrainSet = require(script.Parent.TrainSet)
 local TutorialHints = require(script.Parent.TutorialHints)
@@ -811,6 +812,14 @@ local function step(r: Rig, dt: number)
 	if r.hull.Anchored then
 		pushedAt = os.clock()
 	end
+	-- A tornado caught the car mid-run: the server ends the run there, and so
+	-- does its card here, rather than counting the ride.
+	if r.model:GetAttribute("Tornado") ~= nil and run.phase == "flying" then
+		local result = RunTracker.abort(run, "carried")
+		if result then
+			endRun(result)
+		end
+	end
 	CarSounds.hit(reading.impact, os.clock() - pushedAt)
 
 	local RT = Tuning.Righting
@@ -1221,7 +1230,16 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 	local contact = current.sensor.contact
 	local flying = CarSensor.flying(current.model)
 	local onMissile = current.model:GetAttribute("OnMissile") == true
-	if onMissile and player:GetAttribute("OnMissile") ~= true then
+	local tornadoName = current.model:GetAttribute("Tornado")
+	local tornadosFolder = workspace:FindFirstChild("Tornados")
+	local tornado = if typeof(tornadoName) == "string" and tornadosFolder
+		then tornadosFolder:FindFirstChild(tornadoName)
+		else nil
+	local tornadoBase = if tornado then tornado:FindFirstChild("Base") else nil
+	local tornadoHeight = if tornado then tornado:GetAttribute("Height") else nil
+	if tornadoBase and tornadoBase:IsA("BasePart") and typeof(tornadoHeight) == "number" then
+		TornadoCamera.update(current.hull, tornadoBase.Position, tornadoHeight, dt)
+	elseif onMissile and player:GetAttribute("OnMissile") ~= true then
 		MissileCamera.watch(current.hull, dt)
 	elseif onMissile then
 		MissileCamera.update(current.hull, dt)
@@ -1231,6 +1249,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		ShredderCamera.update(dt)
 	else
 		MissileCamera.release()
+		TornadoCamera.release()
 		ChaseCamera.update(current.hull, contact.airborne, dt, up, flying, burning)
 		EruptionCamera.update(current.hull, contact.airborne)
 	end
@@ -1240,7 +1259,7 @@ RunService:BindToRenderStep("YeetStreetCamera", Enum.RenderPriority.Camera.Value
 		if player:GetAttribute("OnMissile") == true
 			then Tuning.Silo.Missile.Speed
 			else current.hull.AssemblyLinearVelocity.Magnitude,
-		if contact.airborne and not flying and not onMissile then contact.airtime else nil,
+		if contact.airborne and not flying and not onMissile and not current.hull.Anchored then contact.airtime else nil,
 		burning
 	)
 end)

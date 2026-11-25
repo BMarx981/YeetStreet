@@ -64,9 +64,10 @@ function Bonus.luckyChance(tuning: Tuning): number
 end
 
 -- The streak after a run that ended this way. `ending` is a RunTracker
--- Ending; `clean` is whether it landed upright.
+-- Ending; `clean` is whether it landed upright. A wreck, or being carried
+-- off mid-run, leaves it as it was.
 function Bonus.streakAfter(streak: number, ending: string, clean: boolean): number
-	if ending == "wrecked" then
+	if ending == "wrecked" or ending == "carried" then
 		return streak
 	elseif ending == "landed" and clean then
 		return streak + 1

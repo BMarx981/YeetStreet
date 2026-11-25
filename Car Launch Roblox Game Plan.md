@@ -209,7 +209,7 @@ Built so far (Nov 2026), all reached from the Teleport menu:
 | Missile Silo | Sticky walls, spiral ramp with traps, buttons, rideable missile |
 | Nuclear Plant | Two sticky cooling towers with timed eruptions |
 
-Planned: a plane sky park with rings, tornados, and warp boosters.
+Planned: a plane sky park with rings and warp boosters. Tornados roam the whole map instead (see Tornados).
 
 The original list of theme ideas:
 
@@ -454,6 +454,50 @@ Steps, one diff each:
 6. The HUD countdown, the start banner and sound, and the running timer. Written Nov 19 (EventHud, Tuning.TimedEvents.Blurbs and StartSound, the obby fanfare for now). Seen Nov 19 in Play: the countdown, then the banner and "3:00 left" when the scheduled Bone Rain started on its own.
 
 Open: Bone Rain drops about one bone every 0.4 seconds per player, so a 3 minute rain can give a few hundred bones, enough to buy everything at the Bone Trader. Bone value and prices need a look once it runs on the timer.
+
+## Tornados
+
+Tornados touch down at random spots, wander, suck cars up their funnel, spin them to the top, and throw them out for a scoring run, like the pterodactyl's drop.
+
+### Tornado picks (Nov 25, 2026)
+
+Brian's picks:
+
+- **Where:** everywhere but the obby: the hub, every park, and the long jump field.
+- **How often:** always some, about 3 at a time across the map. Each touches down at a random spot, wanders about a minute, then lifts away, and a new one drops somewhere else.
+- **Heights:** each tornado rolls its own height, 200 to 600 studs. 200 is the minimum.
+- **Escape:** holding jets breaks free any time on the way up, as with the pterodactyl. Otherwise the car rides to the top and gets thrown out.
+- **Other players:** several cars can ride one tornado together.
+
+Claude's calls:
+
+- Cars only. Players on foot are never picked up (pillar 3).
+- It catches cars on the ground or in the air, anywhere inside the funnel. The funnel widens with height, so the base is small and you have to drive into it. A car caught mid-flight has its run paid first, as the pterodactyl and crane already do: base points count, the landing combo and clean bonus don't (pillar 4).
+- It moves slower than any car, so you can chase one down or get away.
+- The ride is server driven, like the pterodactyl's carry: the car is anchored and spun round the middle while it climbs and tumbles, driver seated in view. Riders are spread round the funnel so they never stack.
+- The throw goes out along the spin and up, level, with no spin of its own, so trick points come from the player's own flips. The run counts height from the ground under the tornado, with cash scaled like the pterodactyl drop.
+- Tornados pass through buildings and props without moving them. Cars something else holds (T-Rex, pterodactyl, crane, missile) are skipped.
+- Numbers live in Tuning.Tornado.
+
+Steps, one diff each:
+
+1. Pure Tornado module and tests: touchdown spot, height roll, phases, wander, catch, ride, spreading riders, jets escape, throw. Done Nov 25 (25 tests).
+2. TornadoService on the server: keeps 3 going, moves an invisible marker per tornado with its height and phase, catches and spins cars, hands them back on the throw (ServerStorage.CarCarried), jets escape through HeldJets, a grey stand-in column to see it by, and an admin command that drops one at your car. Written Nov 25 (TornadoService, `:tornado`). Found in Play: a car thrown at the top was still inside the funnel and was caught again in the same frame, so it sat at the top; a thrown car now can't be caught by that tornado for Recatch (4) seconds (Tornado.drop and the Recatch test added, 27 tests). Checked in Play by script: three touched down at the start, an admin tornado caught a parked car 3.1 s after touching down, carried it to 502 in 8.4 s, threw it at 110 flat and 70 up, the car landed about 380 away with a run and no damage; jets reported 1.5 s into a ride broke it free 0.63 s later. Not seen by a human yet, and no two-car ride tried.
+3. Scoring: the throw starts a drop run from the tornado's ground with Tuning.Tornado.PayScale. Written Nov 25: PayScale 0.5 (under the pterodactyl's 0.6, since tornados are always about). A run cut short by a catch now ends as "carried": it pays base points like a reset, keeps the clean streak like a wreck (it used to reset it), and its card reads CAUGHT. Checked in Play by script: a 239 tall ride with no tricks paid 356 cash; a car launched off the hub ramp into a tornado was caught at 144 up, the cut run paid 196 as "carried", the streak stayed at 3, CAUGHT showed, and the throw from the top scored its own run. Not checked: what the live score shows during a ride after a mid-flight catch (the client's run keeps going until the throw resets it).
+4. The look on each client: a twisting translucent funnel to its height, debris circling, a dust ring on the ground, touchdown and lift-off. Written Nov 25 (TornadoLook, Tuning.Tornado.Look); the server's grey stand-in is gone, so the server sends only a Base part and three attributes. Each tornado is 12 see-through funnel pieces with 6 dark spiral bands each, a cloud cap plus haze, 10 bits of junk and a dust emitter, about 98 parts, moved in one BulkMoveTo a frame; past 2500 studs only the funnel and cloud draw. Bands lean to match the twist so they join up, and only the near side's bands draw (the far side's showed through and made a lattice). Seen by Claude in Play screenshots: spiral funnel, cloud, brown dust at the base, and a rider tumbling inside with the driver showing. Found: the HUD shows "air" time counting during a ride even for a car caught on the ground.
+5. Sound and feel: a wind roar that grows as you get close, a whoosh on the throw, the chase camera pulled back during the ride. Written Nov 25, with a new look Brian asked for after step 4 ("more chaotic, like a cartoon whirlwind: a fast rotating cloud with fast horizontal-ish lines popping up"):
+   - Look: the even spiral bands are gone. The body is 10 rings of 3 see-through puffs of mixed sizes, each whirling at its own fast speed, bobbing and wobbling; 44 swoosh lines (4 curved pieces each, mostly dark) pop up at random heights, whip round for 0.25 to 0.6 s, fade, and pop up elsewhere; the cloud cap is 5 whirling lumps. About 119 parts per tornado. With the camera in or right beside a funnel its puffs thin to 0.85 so a riding car shows.
+   - Sound: a roar loop (Pro Sound Effects "Clouds Swirl Swirling Steamy Rumble Churning", 9125443744) from the funnel's middle at the camera's height, heard from 900 studs; a whoosh (Pro Sound Effects "Whoosh By Fast Airy", 9126229255) where each car is thrown (TornadoService counts Throws and sets ThrowAt on the tornado). Both picked by Claude; Brian to judge by ear.
+   - Camera: TornadoCamera sits outside the funnel looking in at the car while the car's Tornado attribute names the tornado it rides (tornados are now named Tornado1, Tornado2 and on).
+   - HUD: the air timer no longer counts while the car is held (anchored), and a run a tornado cuts short ends as "carried" on the client too, so its card shows at once.
+   - Checked in Play: screenshots of the new look from outside and of the ride camera (car clear inside the thinned funnel), the roar loaded and playing, one whoosh on the throw, the camera back to the chase camera after. Not heard by a person yet.
+6. Replays: show the ride before the throw and draw the tornado in the replay. Written Nov 25. The ride was already in the clip (a carried car reads as airborne, so catch to landing is one flight); what was missing was the tornado. TornadoLook now records each tornado's model and Base (ReplayWorld.follow), and during a replay draws only the tornados recorded over that clip (new ReplayWorld.recorded), from the recording, on the replay's clock, with a whoosh as it passes a throw. A tornado the server took away keeps its drawing hidden for replays, the last KeepGone (12). Checked in Play: a 5.2 s ride and its fall made one 11.3 s clip with 7.8 s of air, and the replay showed the tornado round the ghost car. Not checked: a replay of a tornado that has since gone, and the whoosh during a replay.
+
+After-steps fixes (Nov 25, Brian's first look):
+
+- Catching sooner: Brian saw cars drive into the funnel before being caught. The catch now reaches CatchScale (1.25) of the funnel's width, about as wide as it is drawn, and judges a moving car where it will be Lead (0.2) seconds on, since the server sees it late. Checked in Play: a car held still 24 studs from the middle (outside the old reach) was caught in 0.35 s.
+- Smooth ride: the car looked blurry in the tornado but not in the replay. The server moved the anchored car every step, and clients got those moves in jumps. Now the server leaves the car where it caught it and sets RideAt, RideAngle and RideUp; every client places the car each frame before the camera from Tornado.rideAfter (TornadoRiders). Checked: 101 riding frames with no frame standing still.
+- Flailing arms: while a car rides, every client turns its driver's shoulder and elbow joints over the head each physics step after the animations (Tuning.Tornado.Flail). This avatar uses AnimationConstraint joints; turning the rig attachment did nothing, setting Transform in PreSimulation works (Motor6D too). R15 only. Seen in a close screenshot: both arms up. The replay ghost's avatar does not flail.
 
 ## Store page art
 
