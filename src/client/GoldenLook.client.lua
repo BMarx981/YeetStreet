@@ -3,15 +3,16 @@
 -- Shows the golden booster (GoldenService) on this client while the
 -- workspace's GoldenBooster attribute names a launcher: a gold outline on
 -- the launcher that shows through walls, a pillar of light above it, sparkles
--- on its pads, and a countdown line left of the fuel bar under the clean
--- streak (Hud). When someone claims it (GoldenTakenBy), the line says who
--- for TakenTime seconds. All of it is made here and touches nothing the
--- server owns.
+-- on its pads, and a timer chip on the left (TimerChip, "⭐ 0:45", in full
+-- with the launcher's name). When someone claims it (GoldenTakenBy), the chip
+-- says TAKEN, and in full who, for TakenTime seconds. All of it is made here
+-- and touches nothing the server owns.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tuning = require(ReplicatedStorage.Tuning)
+local TimerChip = require(script.Parent.TimerChip)
 local UiStyle = require(script.Parent.UiStyle)
 
 local G = Tuning.Golden
@@ -19,18 +20,7 @@ local UPDATE_EVERY = 0.2
 
 local player = Players.LocalPlayer :: Player
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "GoldenBooster"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
-
-local line = UiStyle.text("Countdown", gui, 20, true)
-line.AnchorPoint = Vector2.new(1, 0)
-line.Position = UDim2.new(0.5, -146, 0, 104)
-line.Size = UDim2.fromOffset(320, 26)
-line.TextXAlignment = Enum.TextXAlignment.Right
-line.TextColor3 = G.Color
-line.Visible = false
+local chip = TimerChip.new("Golden", 2)
 
 local shown: { Instance } = {}
 local shownId: string? = nil
@@ -118,8 +108,8 @@ local function update()
 		if shownId then
 			clear()
 		end
-		line.Text = takenText
-		line.Visible = os.clock() < takenUntil
+		chip.set(G.Icon, "TAKEN", takenText, G.Color)
+		chip.setVisible(os.clock() < takenUntil)
 		return
 	end
 	local name, model = launcherOf(id)
@@ -130,12 +120,13 @@ local function update()
 			dress(model)
 		end
 		UiStyle.play("Open")
-		UiStyle.bounce(line)
+		chip.bounce()
 	end
 	local ends = workspace:GetAttribute("GoldenEnds")
 	local left = if typeof(ends) == "number" then math.max(ends - workspace:GetServerTimeNow(), 0) else 0
-	line.Text = `GOLDEN x{G.Multiplier}: {name} {math.floor(left / 60)}:{string.format("%02d", math.floor(left % 60))}`
-	line.Visible = true
+	local clock = `{math.floor(left / 60)}:{string.format("%02d", math.floor(left % 60))}`
+	chip.set(G.Icon, clock, `GOLDEN x{G.Multiplier}: {name} {clock}`, G.Color)
+	chip.setVisible(true)
 end
 
 workspace:GetAttributeChangedSignal("GoldenTakenBy"):Connect(function()

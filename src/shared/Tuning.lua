@@ -1415,6 +1415,7 @@ Tuning.Golden = {
 	Every = 180, -- seconds from one golden booster's start to the next
 	Duration = 60, -- seconds it stays gold if nobody claims it
 	Multiplier = 3,
+	Icon = "⭐", -- on the timer chip (GoldenLook)
 	-- LaunchRecords launcher ids. Not the Volcano Vent, whose launch is the
 	-- eruption's timing, not the player's.
 	Launchers = { "MainRamp", "SkyRamp", "MegaRamp", "MiddleRamp", "Overpass", "ScrapMountain" },
@@ -1452,8 +1453,8 @@ Tuning.Coins = {
 	PitchStep = 0.04,
 	PitchMax = 1.8,
 	-- The car flashes CoinColor for a moment on each coin grabbed.
-	FlashTransparency = 0.6, -- the flash's strongest, 1 is none
-	FlashTime = 0.15, -- seconds to fade out
+	FlashTransparency = 0.35, -- the flash's strongest, 1 is none
+	FlashTime = 0.35, -- seconds to fade out
 	-- The shop's cash register ding, until gems have a sound of their own.
 	GemSound = { Id = "rbxassetid://18264787819", Pitch = 1.3, Volume = 0.8 },
 }
@@ -1576,6 +1577,7 @@ Tuning.Hud = {
 	RainCoinSize = 34,
 	RainTime = 1.4, -- seconds a coin takes to fall, give or take a fifth
 	RainSpread = 0.8, -- seconds over which the coins start falling
+	TimerTapShow = 3, -- seconds a tapped timer chip shows its full line (TimerChip)
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
@@ -4561,6 +4563,7 @@ Tuning.TimedEvents = {
 	Duration = 3 * 60,
 	Rotation = { "Mega", "BoneRain" },
 	Titles = { Mega = "MEGA BOOSTERS", BoneRain = "BONE RAIN" },
+	Icons = { Mega = "🚀", BoneRain = "🦴" }, -- on the timer chip (EventHud)
 	-- The line under the title on the start banner.
 	Blurbs = { Mega = "Every booster throws harder!", BoneRain = "Grab the bones! Find the Bone Trader!" },
 	BannerTime = 4, -- seconds the start banner shows

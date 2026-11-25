@@ -256,7 +256,7 @@ local function build()
 
 	local openButton = UiStyle.sticker("Open", gui, "GARAGE")
 	openButton.AnchorPoint = Vector2.new(1, 0)
-	openButton.Position = UDim2.new(0.5, -146, 0, 40) -- under EventHud's countdown
+	openButton.Position = UDim2.new(0.5, -146, 0, 40) -- left of the fuel bar
 	openButton.Size = UDim2.fromOffset(110, 32)
 	openButton.Visible = false
 	openButton.Active = false

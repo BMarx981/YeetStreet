@@ -1,8 +1,9 @@
 --!strict
 -- EventHud (LocalScript) -> StarterPlayerScripts.EventHud
--- Shows the timed events (EventService) on the HUD: a line left of the fuel
--- bar counting down to the next event ("MEGA BOOSTERS in 4:12"), or the time
--- left in the one on now, and a banner with a sound when one starts. Reads
+-- Shows the timed events (EventService) on the HUD: a timer chip on the left
+-- (TimerChip) counting down to the next event ("🚀 4:12", in full "MEGA
+-- BOOSTERS in 4:12"), or the time left in the one on now in yellow, and a
+-- banner with a sound when one starts. Reads
 -- the workspace attributes EventService sets. Steps aside while a replay
 -- plays, like the rest of the HUD.
 
@@ -14,6 +15,7 @@ local SoundService = game:GetService("SoundService")
 local TimedEvents = require(ReplicatedStorage.TimedEvents)
 local Tuning = require(ReplicatedStorage.Tuning)
 local ReplayPlayer = require(script.Parent.ReplayPlayer)
+local TimerChip = require(script.Parent.TimerChip)
 local UiStyle = require(script.Parent.UiStyle)
 
 local TE = Tuning.TimedEvents
@@ -25,12 +27,7 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "Events"
 gui.ResetOnSpawn = false
 
--- Mirrors the cash line on the other side of the fuel bar (Hud).
-local line = UiStyle.text("Countdown", gui, 20, true)
-line.AnchorPoint = Vector2.new(1, 0)
-line.Position = UDim2.new(0.5, -146, 0, 8)
-line.Size = UDim2.fromOffset(300, 26)
-line.TextXAlignment = Enum.TextXAlignment.Right
+local chip = TimerChip.new("Event", 1)
 
 local banner = Instance.new("Frame")
 banner.Name = "Banner"
@@ -77,6 +74,10 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local shownEvent: string? = workspace:GetAttribute("Event") :: string?
 local bannerUntil = 0
 
+local function iconOf(name: string): string
+	return TE.Icons[name] or ""
+end
+
 local function titleOf(name: any): string
 	return if typeof(name) == "string" then TE.Titles[name] or name else ""
 end
@@ -113,17 +114,19 @@ local function redraw()
 	local event = workspace:GetAttribute("Event")
 	local endsAt = workspace:GetAttribute("EventEndsAt")
 	if typeof(event) == "string" and typeof(endsAt) == "number" then
-		line.Text = `{titleOf(event)} {TimedEvents.clock(endsAt - now)} left`
-		line.TextColor3 = UiStyle.Yellow
+		local left = TimedEvents.clock(endsAt - now)
+		chip.set(iconOf(event), left, `{titleOf(event)} {left} left`, UiStyle.Yellow)
+		chip.setVisible(true)
 		return
 	end
 	local nextEvent = workspace:GetAttribute("NextEvent")
 	local nextAt = workspace:GetAttribute("NextEventAt")
 	if typeof(nextEvent) == "string" and typeof(nextAt) == "number" then
-		line.Text = `{titleOf(nextEvent)} in {TimedEvents.clock(nextAt - now)}`
-		line.TextColor3 = Color3.new(1, 1, 1)
+		local wait = TimedEvents.clock(nextAt - now)
+		chip.set(iconOf(nextEvent), wait, `{titleOf(nextEvent)} in {wait}`, Color3.new(1, 1, 1))
+		chip.setVisible(true)
 	else
-		line.Text = ""
+		chip.setVisible(false)
 	end
 end
 
