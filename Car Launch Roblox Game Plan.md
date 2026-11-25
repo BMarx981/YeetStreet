@@ -493,6 +493,12 @@ Steps, one diff each:
    - Checked in Play: screenshots of the new look from outside and of the ride camera (car clear inside the thinned funnel), the roar loaded and playing, one whoosh on the throw, the camera back to the chase camera after. Not heard by a person yet.
 6. Replays: show the ride before the throw and draw the tornado in the replay. Written Nov 25. The ride was already in the clip (a carried car reads as airborne, so catch to landing is one flight); what was missing was the tornado. TornadoLook now records each tornado's model and Base (ReplayWorld.follow), and during a replay draws only the tornados recorded over that clip (new ReplayWorld.recorded), from the recording, on the replay's clock, with a whoosh as it passes a throw. A tornado the server took away keeps its drawing hidden for replays, the last KeepGone (12). Checked in Play: a 5.2 s ride and its fall made one 11.3 s clip with 7.8 s of air, and the replay showed the tornado round the ghost car. Not checked: a replay of a tornado that has since gone, and the whoosh during a replay.
 
+After-steps fixes (Nov 25, Brian's first look):
+
+- Catching sooner: Brian saw cars drive into the funnel before being caught. The catch now reaches CatchScale (1.25) of the funnel's width, about as wide as it is drawn, and judges a moving car where it will be Lead (0.2) seconds on, since the server sees it late. Checked in Play: a car held still 24 studs from the middle (outside the old reach) was caught in 0.35 s.
+- Smooth ride: the car looked blurry in the tornado but not in the replay. The server moved the anchored car every step, and clients got those moves in jumps. Now the server leaves the car where it caught it and sets RideAt, RideAngle and RideUp; every client places the car each frame before the camera from Tornado.rideAfter (TornadoRiders). Checked: 101 riding frames with no frame standing still.
+- Flailing arms: while a car rides, every client turns its driver's shoulder and elbow joints over the head each physics step after the animations (Tuning.Tornado.Flail). This avatar uses AnimationConstraint joints; turning the rig attachment did nothing, setting Transform in PreSimulation works (Motor6D too). R15 only. Seen in a close screenshot: both arms up. The replay ghost's avatar does not flail.
+
 ## Store page art
 
 The icon and thumbnails are the first thing a player sees on Roblox, and they looked blurry.

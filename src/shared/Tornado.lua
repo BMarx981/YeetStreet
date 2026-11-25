@@ -14,10 +14,13 @@
 --
 -- Its funnel is BaseRadius wide at the ground and TopSpread studs wider for
 -- every stud up, to its height (MinHeight to MaxHeight, see height). While
--- it roams it catches any car inside the funnel, from CatchBelow under the
--- ground to its top, ground or air. A caught car rides round the middle at
--- RideRadius of the funnel's width there, Spin radians a second, climbing
--- Climb studs a second and tumbling Tumble radians a second. A car caught
+-- it roams it catches any car within CatchScale of the funnel's width (it is
+-- drawn that wide), from CatchBelow under the ground to its top, ground or
+-- air, judged where the car will be Lead seconds on, since the server sees
+-- each car a moment late. A caught car rides round the middle at RideRadius of
+-- the funnel's width there, Spin radians a second, climbing Climb studs a
+-- second and tumbling Tumble radians a second, so where it is depends only on
+-- where it was caught and how long it has ridden (rideAfter). A car caught
 -- within RiderGap radians of another rider is moved to the middle of the
 -- widest gap, so riders never stack.
 --
@@ -57,6 +60,9 @@ export type Phase = "touchdown" | "roam" | "lift" | "gone"
 
 export type Rider = {
 	id: any,
+	angle0: number, -- where it was caught
+	up0: number,
+	age: number, -- seconds it has ridden
 	angle: number,
 	up: number,
 	tumble: number,
@@ -85,6 +91,8 @@ export type Car = {
 	x: number,
 	up: number,
 	z: number,
+	vx: number?, -- how fast it moves flat, if known
+	vz: number?,
 }
 
 -- Where a rider is: its middle, the way it faces (yaw, radians, the
@@ -124,6 +132,8 @@ export type Tuning = {
 	BaseRadius: number,
 	TopSpread: number,
 	CatchBelow: number,
+	CatchScale: number,
+	Lead: number,
 	Climb: number,
 	Spin: number,
 	RideRadius: number,
@@ -262,16 +272,21 @@ function Tornado.catch(s: State, cars: { Car }, t: Tuning): { any }
 		if riding or s.thrown[car.id] or car.up < -t.CatchBelow or car.up > s.height then
 			continue
 		end
-		local dx, dz = car.x - s.x, car.z - s.z
-		local reach = Tornado.radiusAt(s, car.up, t)
+		local dx = car.x + (car.vx or 0) * t.Lead - s.x
+		local dz = car.z + (car.vz or 0) * t.Lead - s.z
+		local reach = Tornado.radiusAt(s, car.up, t) * t.CatchScale
 		if dx * dx + dz * dz > reach * reach then
 			continue
 		end
 		local angle = spread(s, math.atan2(dz, dx), t)
+		local up = math.clamp(car.up, 0, s.height)
 		table.insert(s.riders, {
 			id = car.id,
+			angle0 = angle,
+			up0 = up,
+			age = 0,
 			angle = angle,
-			up = math.clamp(car.up, 0, s.height),
+			up = up,
 			tumble = 0,
 			jetsFor = 0,
 		})
@@ -290,6 +305,20 @@ function Tornado.drop(s: State, id: any): boolean
 		end
 	end
 	return false
+end
+
+-- A rider caught at `angle0` and `up0` round a funnel `height` tall, after
+-- riding `age` seconds: its angle round the middle, its height, and how far
+-- it has tumbled. Every client places a riding car from this, so it moves
+-- smoothly on every screen.
+function Tornado.rideAfter(
+	angle0: number,
+	up0: number,
+	height: number,
+	age: number,
+	t: Tuning
+): (number, number, number)
+	return (angle0 + t.Spin * age) % TAU, math.min(up0 + t.Climb * age, height), (t.Tumble * age) % TAU
 end
 
 -- Where rider `r` is now.
@@ -344,9 +373,8 @@ function Tornado.step(s: State, dt: number, rng: Rng, jets: { [any]: boolean }, 
 	local thrown: { Throw } = {}
 	for i = #s.riders, 1, -1 do
 		local r = s.riders[i]
-		r.up = math.min(r.up + t.Climb * dt, s.height)
-		r.angle = (r.angle + t.Spin * dt) % TAU
-		r.tumble = (r.tumble + t.Tumble * dt) % TAU
+		r.age += dt
+		r.angle, r.up, r.tumble = Tornado.rideAfter(r.angle0, r.up0, s.height, r.age, t)
 		if jets[r.id] then
 			r.jetsFor += dt
 		end

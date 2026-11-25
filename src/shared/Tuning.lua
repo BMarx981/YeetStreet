@@ -4608,6 +4608,8 @@ Tuning.Tornado = {
 	BaseRadius = 20, -- the funnel at the ground
 	TopSpread = 0.3, -- studs wider for every stud up
 	CatchBelow = 10,
+	CatchScale = 1.25, -- catches this far out of the funnel's width, about as wide as it is drawn
+	Lead = 0.2, -- seconds ahead it judges a moving car, since the server sees it late
 	Climb = 60, -- a rider's climb, studs a second: 200 tall takes about 3 s, 600 about 10 s
 	Spin = 2.5, -- about 2.5 s a turn
 	RideRadius = 0.6, -- riders circle this far out of the funnel's width
@@ -4686,6 +4688,10 @@ Tuning.Tornado = {
 	-- from the funnel's middle than the car, and at least Clear studs outside
 	-- the funnel, Lift up, looking at it.
 	Camera = { Back = 45, Clear = 25, Lift = 15, Follow = 8 },
+	-- A riding driver's arms flail over their head (TornadoRiders), in radians:
+	-- shoulders raised Raise, swinging Swing forward and back and Side out and
+	-- in, elbows bent Bend give or take BendSwing, each at its own Rates.
+	Flail = { Raise = 2.8, Swing = 0.6, Side = 0.5, Out = 0.35, Bend = 0.7, BendSwing = 0.6, Rates = { 7, 11 } },
 }
 
 return Tuning

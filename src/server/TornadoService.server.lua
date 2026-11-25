@@ -9,9 +9,14 @@
 --
 -- Each Heartbeat it steps every tornado with every car in workspace.Cars as
 -- the server sees it. A car something else holds (anchored, as the T-Rex,
--- pterodactyl, crane and missile hold one) is never caught. A caught car is
--- anchored and moved round the funnel each Heartbeat, tumbling, driver
--- seated in the open. ScoreService is told on ServerStorage.CarCarried:
+-- pterodactyl, crane and missile hold one) is never caught; a moving car is
+-- judged by where it will be a moment on (Tornado.catch). A caught car is
+-- anchored where it was, and its Tornado (the tornado's name), RideAt (the
+-- server's time then), RideAngle and RideUp attributes say where its ride
+-- started. The server does not move it while it rides: every client places it
+-- round the funnel each frame from those (TornadoRiders, Tornado.rideAfter),
+-- so it whirls smoothly on every screen, tumbling, driver seated in the open
+-- with arms flailing. ScoreService is told on ServerStorage.CarCarried:
 -- "grabbed", then "dropped" with the ground's height and PayScale when it
 -- is thrown out, which starts a run from there.
 -- A thrown car is turned level facing the way it flies, then falls at the
@@ -27,8 +32,7 @@
 -- Height, Phase and PhaseAt (when the phase began, on
 -- workspace:GetServerTimeNow()'s clock). Each throw adds one to its Throws
 -- attribute and sets ThrowAt to where the car left. Each client draws it and
--- plays its sounds from those (TornadoLook). A riding car's Tornado
--- attribute is the name of the tornado it rides, for its driver's camera.
+-- plays its sounds from those (TornadoLook).
 --
 -- ServerStorage.TornadoHere (a BindableEvent, fired by the `:tornado` admin
 -- command) with a player drops an extra tornado at their car, or where they
@@ -52,6 +56,8 @@ local PAY_SCALE: number = Tuning.Tornado.PayScale
 local FLOOR: number = Tuning.Map.FloorTop
 local AREAS: { MapLayout.Area } = Tuning.Map.Areas :: any
 local RETRY = 3 -- seconds before trying again when no spot was free
+-- The attributes that say where a riding car's ride started.
+local RIDE_ATTRIBUTES = { "Tornado", "RideAt", "RideAngle", "RideUp" }
 
 type Live = {
 	state: Tornado.State,
@@ -164,7 +170,9 @@ local function throwOut(model: Model, car: Model, throw: Tornado.Throw)
 			part:SetNetworkOwner(driver)
 		end
 	end
-	car:SetAttribute("Tornado", nil)
+	for _, attribute in RIDE_ATTRIBUTES do
+		car:SetAttribute(attribute, nil)
+	end
 	model:SetAttribute("ThrowAt", at)
 	model:SetAttribute("Throws", (model:GetAttribute("Throws") or 0) + 1)
 	tell(car, "dropped", FLOOR, PAY_SCALE)
@@ -177,8 +185,8 @@ local function freeCars(): { Tornado.Car }
 	for _, car in carsFolder:GetChildren() do
 		local hull = if car:IsA("Model") then car.PrimaryPart else nil
 		if hull and not hull.Anchored and not car:GetAttribute("Crushing") then
-			local p = hull.Position
-			table.insert(cars, { id = car, x = p.X, up = p.Y - FLOOR, z = p.Z })
+			local p, v = hull.Position, hull.AssemblyLinearVelocity
+			table.insert(cars, { id = car, x = p.X, up = p.Y - FLOOR, z = p.Z, vx = v.X, vz = v.Z })
 		end
 	end
 	return cars
@@ -203,19 +211,18 @@ local function step(t: Live, dt: number)
 		throwOut(t.model, throw.id, throw)
 	end
 
-	for _, car in Tornado.catch(s, freeCars(), T) do
-		setAnchored(car, true)
-		car:SetAttribute("Tornado", t.model.Name)
-		tell(car, "grabbed")
-		print(`Tornado caught {car.Name}`)
-	end
-
+	local caught = Tornado.catch(s, freeCars(), T)
 	for _, r in s.riders do
-		local place = Tornado.riderAt(s, r, T)
-		local frame = CFrame.new(place.x, FLOOR + place.up, place.z)
-			* CFrame.Angles(0, place.yaw, 0)
-			* CFrame.Angles(0, 0, place.tumble)
-		r.id:PivotTo(frame)
+		if table.find(caught, r.id) then
+			local car: Model = r.id
+			setAnchored(car, true)
+			car:SetAttribute("RideAt", workspace:GetServerTimeNow())
+			car:SetAttribute("RideAngle", r.angle0)
+			car:SetAttribute("RideUp", r.up0)
+			car:SetAttribute("Tornado", t.model.Name)
+			tell(car, "grabbed")
+			print(`Tornado caught {car.Name}`)
+		end
 	end
 
 	publish(t)

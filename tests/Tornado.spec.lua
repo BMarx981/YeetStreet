@@ -18,6 +18,8 @@ local TUNING: Tornado.Tuning = {
 	BaseRadius = 20,
 	TopSpread = 0.3,
 	CatchBelow = 10,
+	CatchScale = 1.25,
+	Lead = 0.2,
 	Climb = 60,
 	Spin = 2.5,
 	RideRadius = 0.6,
@@ -160,6 +162,60 @@ Check.test("catch: never the same car twice", function()
 	Tornado.catch(s, { { id = "a", x = 0, up = 2, z = 0 } }, TUNING)
 	Check.eq(#Tornado.catch(s, { { id = "a", x = 0, up = 2, z = 0 } }, TUNING), 0, "again")
 	Check.eq(#s.riders, 1, "one rider")
+end)
+
+Check.test("catch: reaches CatchScale of the funnel's width, as wide as it is drawn", function()
+	local s = roaming(0, 0, 300)
+	-- At 2 up the funnel is 20.6 wide, so it reaches 25.75.
+	local caught = Tornado.catch(s, {
+		{ id = "edge", x = 25, up = 2, z = 0 },
+		{ id = "past", x = 27, up = 2, z = 0 },
+	}, TUNING)
+	Check.eq(#caught, 1, "one")
+	Check.eq(caught[1], "edge", "the one at the edge")
+end)
+
+Check.test("catch: aims Lead seconds ahead of a moving car", function()
+	local s = roaming(0, 0, 300)
+	-- 40 out, driving in at 100: 20 out by the time the server's view
+	-- catches up. The same car driving away is left alone.
+	local caught = Tornado.catch(s, {
+		{ id = "in", x = 40, up = 2, z = 0, vx = -100, vz = 0 },
+		{ id = "away", x = 0, up = 2, z = 40, vx = 0, vz = 100 },
+	}, TUNING)
+	Check.eq(#caught, 1, "one")
+	Check.eq(caught[1], "in", "the one driving in")
+end)
+
+Check.test("ride: rideAfter gives the same ride as stepping", function()
+	local s = roaming(0, 0, 300)
+	Tornado.catch(s, { { id = "a", x = 10, up = 5, z = 0 } }, TUNING)
+	local r = s.riders[1]
+	local angle0, up0 = r.angle, r.up
+	local rng = Rng.new(1)
+	for _ = 1, 37 do
+		Tornado.step(s, 0.05, rng, {}, TUNING)
+	end
+	local angle, up, tumble = Tornado.rideAfter(angle0, up0, 300, 37 * 0.05, TUNING)
+	Check.near(math.abs(Tornado.angleGap(angle, r.angle)), 0, "angle", 1e-6)
+	Check.near(up, r.up, "up", 1e-6)
+	Check.near(math.abs(Tornado.angleGap(tumble, r.tumble)), 0, "tumble", 1e-6)
+end)
+
+Check.test("ride: rideAfter stops climbing at the top", function()
+	local _, up = Tornado.rideAfter(0, 250, 300, 10, TUNING)
+	Check.eq(up, 300, "at the top")
+end)
+
+Check.test("ride: a rider remembers where it started", function()
+	local s = roaming(0, 0, 300)
+	Tornado.catch(s, { { id = "a", x = 10, up = 5, z = 0 } }, TUNING)
+	local r = s.riders[1]
+	Check.near(r.angle0, 0, "angle0")
+	Check.near(r.up0, 5, "up0")
+	Tornado.step(s, 1, Rng.new(1), {}, TUNING)
+	Check.near(r.angle0, 0, "angle0 kept")
+	Check.near(r.age, 1, "age")
 end)
 
 Check.test("ride: a rider climbs and spins round the middle", function()
