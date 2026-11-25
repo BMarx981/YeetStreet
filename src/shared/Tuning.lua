@@ -4617,6 +4617,7 @@ Tuning.Tornado = {
 	RiderGap = 0.8, -- closest two riders sit round the middle
 	EscapeJets = 0.6, -- seconds of jets that break a rider free
 	Recatch = 4, -- seconds before a tornado can catch a car it threw out
+	WalkerRest = 15, -- seconds after a throw before any tornado can catch that player on foot again
 	FlingSpeed = 110,
 	FlingUp = 70,
 	FlingOut = 0.5, -- how much the throw turns outward from along the spin

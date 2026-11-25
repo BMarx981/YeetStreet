@@ -7,18 +7,22 @@
 -- any tornado's top), and Respawn seconds after one goes a new one touches
 -- down somewhere else.
 --
--- Each Heartbeat it steps every tornado with every car in workspace.Cars as
--- the server sees it. A car something else holds (anchored, as the T-Rex,
--- pterodactyl, crane and missile hold one) is never caught; a moving car is
--- judged by where it will be a moment on (Tornado.catch). A caught car is
--- anchored where it was, and its Tornado (the tornado's name), RideAt (the
--- server's time then), RideAngle and RideUp attributes say where its ride
--- started. The server does not move it while it rides: every client places it
--- round the funnel each frame from those (TornadoRiders, Tornado.rideAfter),
--- so it whirls smoothly on every screen, tumbling, driver seated in the open
--- with arms flailing. ScoreService is told on ServerStorage.CarCarried:
--- "grabbed", then "dropped" with the ground's height and PayScale when it
--- is thrown out, which starts a run from there.
+-- Each Heartbeat it steps every tornado with every car in workspace.Cars and
+-- every player on foot as the server sees them. A car or player something
+-- else holds (anchored, as the T-Rex, pterodactyl, crane and missile hold
+-- one) is never caught; a moving one is judged by where it will be a moment
+-- on (Tornado.catch). A caught car is anchored where it was, and its Tornado
+-- (the tornado's name), RideAt (the server's time then), RideAngle and
+-- RideUp attributes say where its ride started. The server does not move it
+-- while it rides: every client places it round the funnel each frame from
+-- those (TornadoRiders, Tornado.rideAfter), so it whirls smoothly on every
+-- screen, tumbling, driver seated in the open with arms flailing. A player
+-- on foot is held the same way by their root part, attributes on their
+-- character, and thrown out upright to land on foot, with no run and no pay;
+-- no tornado catches them again for WalkerRest, since they can't outrun one.
+-- For a car, ScoreService is told on ServerStorage.CarCarried: "grabbed",
+-- then "dropped" with the ground's height and PayScale when it is thrown
+-- out, which starts a run from there.
 -- A thrown car is turned level facing the way it flies, then falls at the
 -- throw's speed, back in its driver's hands.
 --
@@ -53,6 +57,7 @@ local COUNT: number = Tuning.Tornado.Count
 local RESPAWN: number = Tuning.Tornado.Respawn
 local ADMIN_AREA: number = Tuning.Tornado.AdminArea
 local PAY_SCALE: number = Tuning.Tornado.PayScale
+local WALKER_REST: number = Tuning.Tornado.WalkerRest
 local FLOOR: number = Tuning.Map.FloorTop
 local AREAS: { MapLayout.Area } = Tuning.Map.Areas :: any
 local RETRY = 3 -- seconds before trying again when no spot was free
@@ -76,6 +81,9 @@ local rolls = Random.new()
 local live: { Live } = {}
 local made = 0
 local jetting: { [Player]: boolean } = {}
+-- When each player last thrown out on foot may be caught again: on foot
+-- they can't outrun a tornado, so none takes them for WalkerRest.
+local restUntil: { [Player]: number } = {}
 
 local function driverOf(car: Model): Player?
 	local userId = car:GetAttribute("OwnerUserId")
@@ -152,44 +160,97 @@ local function touchDownSomewhere()
 	end
 end
 
--- Lets `car` go at `throw`: level, facing the way it flies, falling at the
--- throw's speed, and back in its driver's game to drive, as CarService does
--- when they sit in it.
-local function throwOut(model: Model, car: Model, throw: Tornado.Throw)
+local function rootOf(character: Model): BasePart?
+	local part = character:FindFirstChild("HumanoidRootPart")
+	return if part and part:IsA("BasePart") then part else nil
+end
+
+-- Whether `rider`, a car or a player's character, is still in the game.
+local function stillThere(rider: Model): boolean
+	local walker = Players:GetPlayerFromCharacter(rider)
+	if walker then
+		return walker.Character == rider and rider:IsDescendantOf(workspace)
+	end
+	return rider.Parent == carsFolder
+end
+
+-- Lets `rider` go at `throw`, facing the way it flies, falling at the
+-- throw's speed, back in its player's game: a car level, to drive, as
+-- CarService does when they sit in it, its run starting there; a player on
+-- foot upright, to land on foot, with no run.
+local function throwOut(model: Model, rider: Model, throw: Tornado.Throw)
 	local at = Vector3.new(throw.x, FLOOR + throw.up, throw.z)
-	car:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.atan2(-throw.vx, -throw.vz), 0))
-	setAnchored(car, false)
-	local hull = car.PrimaryPart
+	local velocity = Vector3.new(throw.vx, throw.vy, throw.vz)
+	rider:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.atan2(-throw.vx, -throw.vz), 0))
+	for _, attribute in RIDE_ATTRIBUTES do
+		rider:SetAttribute(attribute, nil)
+	end
+	model:SetAttribute("ThrowAt", at)
+	model:SetAttribute("Throws", (model:GetAttribute("Throws") or 0) + 1)
+
+	local walker = Players:GetPlayerFromCharacter(rider)
+	if walker then
+		local root = rootOf(rider)
+		if root then
+			root.Anchored = false
+			root.AssemblyLinearVelocity = velocity
+			root.AssemblyAngularVelocity = Vector3.zero
+			if root:CanSetNetworkOwnership() then
+				root:SetNetworkOwner(walker)
+			end
+		end
+		restUntil[walker] = os.clock() + WALKER_REST
+		print(`Tornado threw {walker.Name} on foot out at {math.floor(throw.up)} up`)
+		return
+	end
+
+	setAnchored(rider, false)
+	local hull = rider.PrimaryPart
 	if hull then
-		hull.AssemblyLinearVelocity = Vector3.new(throw.vx, throw.vy, throw.vz)
+		hull.AssemblyLinearVelocity = velocity
 		hull.AssemblyAngularVelocity = Vector3.zero
 	end
-	local driver = driverOf(car)
-	for _, part in car:GetDescendants() do
+	local driver = driverOf(rider)
+	for _, part in rider:GetDescendants() do
 		if part:IsA("BasePart") and part:CanSetNetworkOwnership() then
 			part:SetNetworkOwner(driver)
 		end
 	end
-	for _, attribute in RIDE_ATTRIBUTES do
-		car:SetAttribute(attribute, nil)
-	end
-	model:SetAttribute("ThrowAt", at)
-	model:SetAttribute("Throws", (model:GetAttribute("Throws") or 0) + 1)
-	tell(car, "dropped", FLOOR, PAY_SCALE)
-	print(`Tornado threw {car.Name} out at {math.floor(throw.up)} up ({throw.why})`)
+	tell(rider, "dropped", FLOOR, PAY_SCALE)
+	print(`Tornado threw {rider.Name} out at {math.floor(throw.up)} up ({throw.why})`)
 end
 
--- Every car free to catch, as the server sees it.
-local function freeCars(): { Tornado.Car }
-	local cars: { Tornado.Car } = {}
+-- Every car and player on foot free to catch, as the server sees them.
+local function freeRiders(): { Tornado.Car }
+	local riders: { Tornado.Car } = {}
 	for _, car in carsFolder:GetChildren() do
 		local hull = if car:IsA("Model") then car.PrimaryPart else nil
 		if hull and not hull.Anchored and not car:GetAttribute("Crushing") then
 			local p, v = hull.Position, hull.AssemblyLinearVelocity
-			table.insert(cars, { id = car, x = p.X, up = p.Y - FLOOR, z = p.Z, vx = v.X, vz = v.Z })
+			table.insert(riders, { id = car, x = p.X, up = p.Y - FLOOR, z = p.Z, vx = v.X, vz = v.Z })
 		end
 	end
-	return cars
+	local now = os.clock()
+	for _, player in Players:GetPlayers() do
+		if now < (restUntil[player] or 0) then
+			continue
+		end
+		local character = player.Character
+		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+		local root = if character then rootOf(character) else nil
+		if
+			character
+			and humanoid
+			and humanoid.Health > 0
+			and humanoid.SeatPart == nil
+			and root
+			and not root.Anchored
+		then
+			local p, v = root.Position, root.AssemblyLinearVelocity
+			table.insert(riders, { id = character, x = p.X, up = p.Y - FLOOR, z = p.Z, vx = v.X, vz = v.Z })
+		end
+	end
+	return riders
 end
 
 local function step(t: Live, dt: number)
@@ -197,7 +258,7 @@ local function step(t: Live, dt: number)
 	local jets: { [any]: boolean } = {}
 	for i = #s.riders, 1, -1 do
 		local car = s.riders[i].id
-		if car.Parent ~= carsFolder then
+		if not stillThere(car) then
 			Tornado.drop(s, car)
 			continue
 		end
@@ -211,17 +272,27 @@ local function step(t: Live, dt: number)
 		throwOut(t.model, throw.id, throw)
 	end
 
-	local caught = Tornado.catch(s, freeCars(), T)
+	local caught = Tornado.catch(s, freeRiders(), T)
 	for _, r in s.riders do
 		if table.find(caught, r.id) then
-			local car: Model = r.id
-			setAnchored(car, true)
-			car:SetAttribute("RideAt", workspace:GetServerTimeNow())
-			car:SetAttribute("RideAngle", r.angle0)
-			car:SetAttribute("RideUp", r.up0)
-			car:SetAttribute("Tornado", t.model.Name)
-			tell(car, "grabbed")
-			print(`Tornado caught {car.Name}`)
+			local rider: Model = r.id
+			local walker = Players:GetPlayerFromCharacter(rider)
+			local root = if walker then rootOf(rider) else nil
+			if root then
+				root.Anchored = true
+			else
+				setAnchored(rider, true)
+			end
+			rider:SetAttribute("RideAt", workspace:GetServerTimeNow())
+			rider:SetAttribute("RideAngle", r.angle0)
+			rider:SetAttribute("RideUp", r.up0)
+			rider:SetAttribute("Tornado", t.model.Name)
+			if walker then
+				print(`Tornado caught {walker.Name} on foot`)
+			else
+				tell(rider, "grabbed")
+				print(`Tornado caught {rider.Name}`)
+			end
 		end
 	end
 
@@ -242,6 +313,7 @@ task.spawn(function()
 end)
 Players.PlayerRemoving:Connect(function(player: Player)
 	jetting[player] = nil
+	restUntil[player] = nil
 end)
 
 local tornadoHere = Instance.new("BindableEvent")

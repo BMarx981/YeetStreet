@@ -278,7 +278,15 @@ function DinoRex.start(model: Model, territory: Rex.Territory, x: number, z: num
 			local character = player.Character
 			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 			local rootPart = character and rootOf(character)
-			if character ~= held and humanoid and humanoid.Health > 0 and humanoid.SeatPart == nil and rootPart then
+			-- A player something else holds (a tornado anchors their root) is left alone.
+			if
+				character ~= held
+				and humanoid
+				and humanoid.Health > 0
+				and humanoid.SeatPart == nil
+				and rootPart
+				and not rootPart.Anchored
+			then
 				local p, v = rootPart.Position, rootPart.AssemblyLinearVelocity
 				table.insert(cars, { id = character, x = p.X, y = p.Y, z = p.Z, vx = v.X, vy = v.Y, vz = v.Z })
 			end

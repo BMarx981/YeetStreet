@@ -1,15 +1,17 @@
 --!strict
 -- TornadoRiders (LocalScript) -> StarterPlayerScripts.TornadoRiders
--- Every car riding a tornado, on this client. The server anchors a caught
--- car and leaves it there, setting its Tornado (which tornado), RideAt (the
--- server's time it was caught), RideAngle and RideUp attributes
--- (TornadoService). Each frame, before the camera, this places the car round
--- that tornado's funnel from those (Tornado.rideAfter, Tornado.riderAt), so
--- it whirls smoothly on every screen rather than jumping as server updates
--- arrive. The change is this client's own; the server moves the car again
--- only when it throws it out.
+-- Every car and player on foot riding a tornado, on this client. The server
+-- anchors a caught car (or a player's root part) and leaves it there,
+-- setting its Tornado (which tornado), RideAt (the server's time it was
+-- caught), RideAngle and RideUp attributes on the car or character
+-- (TornadoService). Each frame, before the camera, this places it round that
+-- tornado's funnel from those (Tornado.rideAfter, Tornado.riderAt), so it
+-- whirls smoothly on every screen rather than jumping as server updates
+-- arrive. The change is this client's own; the server moves it again only
+-- when it throws it out. A player riding on foot sees their ride through
+-- TornadoCamera, as a driver does, and gets the normal camera back after.
 --
--- The driver's arms flail over their head while they ride: each physics
+-- The rider's arms (a car's driver's) flail over their head: each physics
 -- step, after their animations, the shoulders and elbows are turned (Flail).
 -- Works on R15 characters, whose arm joints are named RightShoulder,
 -- LeftShoulder, RightElbow and LeftElbow.
@@ -21,6 +23,7 @@ local RunService = game:GetService("RunService")
 local Tornado = require(ReplicatedStorage.Tornado)
 local Tuning = require(ReplicatedStorage.Tuning)
 local Flail = require(script.Parent.Flail)
+local TornadoCamera = require(script.Parent.TornadoCamera)
 
 local T: Tornado.Tuning = Tuning.Tornado :: any
 local FLOOR: number = Tuning.Map.FloorTop
@@ -36,8 +39,9 @@ player:SetAttribute("TornadoRiders", true)
 local carsFolder = workspace:WaitForChild("Cars")
 local tornados = workspace:WaitForChild("Tornados")
 
--- Where `car` is in its ride now, or nil if it rides nothing.
-local function placeOf(car: Instance, now: number): CFrame?
+-- Where `car` is in its ride now, and its tornado's Base and height, or nil
+-- if it rides nothing.
+local function placeOf(car: Instance, now: number): (CFrame?, BasePart?, number?)
 	local name = car:GetAttribute("Tornado")
 	local rideAt = car:GetAttribute("RideAt")
 	local angle0 = car:GetAttribute("RideAngle")
@@ -69,9 +73,13 @@ local function placeOf(car: Instance, now: number): CFrame?
 		tumble = tumble,
 		jetsFor = 0,
 	}, T)
-	return CFrame.new(place.x, FLOOR + place.up, place.z)
-		* CFrame.Angles(0, place.yaw, 0)
-		* CFrame.Angles(0, 0, place.tumble)
+	return CFrame.new(place.x, FLOOR + place.up, place.z) * CFrame.Angles(0, place.yaw, 0) * CFrame.Angles(
+		0,
+		0,
+		place.tumble
+	),
+		base,
+		height
 end
 
 -- The driver sitting in `car`, if any.
@@ -82,17 +90,51 @@ local function driverOf(car: Instance): Model?
 	return if character and character:IsA("Model") then character else nil
 end
 
-RunService:BindToRenderStep("TornadoRiders", Enum.RenderPriority.Camera.Value - 1, function()
-	local now = workspace:GetServerTimeNow()
+-- Everything riding a tornado now: each car or character with the part
+-- the server anchored, and whose arms flail (a car's driver, if any).
+local function riders(): { { model: Model, held: BasePart, flailer: Model? } }
+	local found = {}
 	for _, car in carsFolder:GetChildren() do
 		local hull = if car:IsA("Model") then car.PrimaryPart else nil
-		if hull and hull.Anchored then
-			local frame = placeOf(car, now)
+		if hull and car:GetAttribute("Tornado") ~= nil then
+			table.insert(found, { model = car :: Model, held = hull, flailer = driverOf(car) })
+		end
+	end
+	for _, other in Players:GetPlayers() do
+		local character = other.Character
+		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+		if character and root and root:IsA("BasePart") and character:GetAttribute("Tornado") ~= nil then
+			table.insert(found, { model = character, held = root, flailer = character })
+		end
+	end
+	return found
+end
+
+-- Whether this player's own camera is following their ride on foot.
+local watchingOwn = false
+
+RunService:BindToRenderStep("TornadoRiders", Enum.RenderPriority.Camera.Value - 1, function(dt: number)
+	local now = workspace:GetServerTimeNow()
+	local ownRide = false
+	for _, rider in riders() do
+		if rider.held.Anchored then
+			local frame, base, height = placeOf(rider.model, now)
 			if frame then
-				(car :: Model):PivotTo(frame)
+				rider.model:PivotTo(frame)
+				-- On foot, CarController leaves the camera alone, so the
+				-- player's own ride is followed here as a car's is.
+				if rider.model == player.Character and base and height then
+					ownRide = true
+					TornadoCamera.update(rider.held, base.Position, height, dt)
+				end
 			end
 		end
 	end
+	if watchingOwn and not ownRide then
+		TornadoCamera.release()
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end
+	watchingOwn = ownRide
 end)
 
 -- Each character's own flail timing, so two riders never flail in step.
@@ -110,18 +152,16 @@ end
 -- after them, here.
 RunService.PreSimulation:Connect(function()
 	local clock = os.clock()
-	for _, car in carsFolder:GetChildren() do
-		if car:GetAttribute("Tornado") ~= nil then
-			local character = driverOf(car)
-			if character then
-				local offset = offsets[character]
-				if not offset then
-					offset = rolls:NextNumber(0, 100)
-					offsets[character] = offset
-				end
-				for name, angles in Flail.joints(clock + offset) do
-					turn(character, name, angles)
-				end
+	for _, rider in riders() do
+		local character = rider.flailer
+		if character then
+			local offset = offsets[character]
+			if not offset then
+				offset = rolls:NextNumber(0, 100)
+				offsets[character] = offset
+			end
+			for name, angles in Flail.joints(clock + offset) do
+				turn(character, name, angles)
 			end
 		end
 	end
