@@ -21,6 +21,15 @@ export type Tier = {
 	Chance: number, -- out of 1, per run
 }
 
+-- What the server sends beside a run's result and score, for the run card.
+export type Extras = {
+	lucky: Tier?,
+	streak: number, -- clean landings in a row after the run
+	paid: number, -- cash the run paid
+	cash: number, -- the player's cash after it
+	launcher: string?, -- the record launcher it flew from, if it counts for one
+}
+
 -- Same fields as Tuning.Bonus, declared here so this module needs no require.
 export type Tuning = {
 	Cap: number,

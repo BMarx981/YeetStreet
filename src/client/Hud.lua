@@ -18,6 +18,7 @@ local Bonus = require(ReplicatedStorage.Bonus)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
+local CloseCall = require(script.Parent.CloseCall)
 local UiStyle = require(script.Parent.UiStyle)
 
 local H = Tuning.Hud
@@ -128,6 +129,23 @@ local function cardRow(card: Frame, order: number, left: string, right: string, 
 	points.TextXAlignment = Enum.TextXAlignment.Right
 	points.Text = right
 	return row
+end
+
+-- A line across the whole card, wrapping if it must, for "So close!".
+local function cardLine(card: Frame, order: number, text: string)
+	local row = Instance.new("Frame")
+	row.Name = `Row{order}`
+	row.LayoutOrder = order
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.fromScale(1, 0)
+	row.AutomaticSize = Enum.AutomaticSize.Y
+	row.Parent = card
+	local line = label("Line", row, 20)
+	line.Size = UDim2.fromScale(1, 0)
+	line.AutomaticSize = Enum.AutomaticSize.Y
+	line.TextWrapped = true
+	line.TextColor3 = FUEL_COLOR
+	line.Text = text
 end
 
 -- The AGAIN row, last on the card. It stays when the card's rows are cleared.
@@ -467,13 +485,16 @@ end
 -- The breakdown card for a finished run. Repeats of a trick share one line.
 -- `official` is the server's score for the run; it replaces the client's card,
 -- and a client card arriving just after it is dropped. Only the server's card
--- can be `lucky`, which shows in gold with a flash and stays up longer, and
--- has the clean `streak` after the run, shown if this run added to it or lost it.
-function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, lucky: Bonus.Tier?, streak: number?)
+-- has `extras`: a lucky tier, shown in gold with a flash and up longer; the
+-- clean streak after the run, shown if this run added to it or lost it; and
+-- what the "So close!" line at the bottom needs (CloseCall).
+function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, extras: Bonus.Extras?)
 	local p = parts
 	if not p then
 		return
 	end
+	local lucky = if extras then extras.lucky else nil
+	local streak = if extras then extras.streak else nil
 	local now = os.clock()
 	if official then
 		officialAt = now
@@ -591,6 +612,11 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, l
 			popupUntil = now + H.LuckyTime
 			UiStyle.bounce(p.popup)
 		end
+	end
+	local close = if extras then CloseCall.line(run, score, extras) else nil
+	if close then
+		order += 1
+		cardLine(p.card, order, close)
 	end
 	cardUntil = now + if lucky then H.LuckyTime else H.ResultTime
 end

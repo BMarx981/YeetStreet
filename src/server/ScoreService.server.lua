@@ -9,10 +9,11 @@
 -- ReplicatedStorage.RunResult, the total pays out as cash (Garage), scaled by
 -- the PayScale of the launch pad the run started from, by the squad boost
 -- for friends in the server (InviteRewards), and by the player's rebirth
--- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus) that
--- the client gets with the result, and on a clean landing by the player's
--- clean streak (Bonus), capped together at Tuning.Bonus.Cap. A
--- better total becomes their Best in leaderstats and saves through PlayerData.
+-- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus), and
+-- on a clean landing by the player's clean streak (Bonus), capped together at
+-- Tuning.Bonus.Cap. The client gets these with the result (Bonus.Extras). A
+-- better total becomes their Best in leaderstats and saves through PlayerData,
+-- and goes out on ReplicatedStorage.NewBest for the banner (NewBest).
 -- So do their longest airtime and this week's bests, for the leaderboards
 -- (Leaderboard). A run from one of the record launchers (LaunchRecords), the
 -- launcher of the last pad touched, is reported on ServerStorage.LauncherRun
@@ -120,6 +121,7 @@ local Hammers = require(ReplicatedStorage.Hammers)
 local Impact = require(ReplicatedStorage.Impact)
 local Leaderboard = require(ReplicatedStorage.Leaderboard)
 local MapLayout = require(ReplicatedStorage.MapLayout)
+local NewBest = require(ReplicatedStorage.NewBest)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local RunCheck = require(ReplicatedStorage.RunCheck)
 local RunTracker = require(ReplicatedStorage.RunTracker)
@@ -209,6 +211,12 @@ resetCar.Parent = ReplicatedStorage
 local carWrecked = Instance.new("RemoteEvent")
 carWrecked.Name = "CarWrecked"
 carWrecked.Parent = ReplicatedStorage
+
+-- A run beat its player's Best (NewBest): sent to that player, or to every
+-- client when it is big enough to shout, with the player and the new Best.
+local newBest = Instance.new("RemoteEvent")
+newBest.Name = "NewBest"
+newBest.Parent = ReplicatedStorage
 
 local watches: { [Model]: Watch } = {}
 -- The RespawnCFrame of the last launch pad each player touched.
@@ -468,6 +476,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	watch.car:SetAttribute("ToughnessLeft", watch.toughness)
 	local mega = watch.mega
 	watch.mega = false
+	local banner, shout = false, false
 	if mega and not flagged then
 		-- Mega Boosters runs pay, but count only for the Mega board.
 		PlayerData.update(watch.player, function(data)
@@ -477,6 +486,7 @@ local function finish(watch: Watch, result: RunTracker.Result)
 		end)
 	elseif not flagged then
 		local best = Leaderstats.value(watch.player, "Best")
+		banner, shout = NewBest.check(best.Value, score.total, Tuning.NewBest)
 		if score.total > best.Value then
 			best.Value = score.total
 		end
@@ -509,11 +519,25 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local paid = Economy.payout(score.total, rate * daily * bonus)
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
-	if watch.launcher and not flagged and not mega then
-		launcherRun:Fire(watch.player, watch.launcher, result.distance)
+	local recordLauncher = if flagged or mega then nil else watch.launcher
+	if recordLauncher then
+		launcherRun:Fire(watch.player, recordLauncher, result.distance)
 	end
 	watch.launcher = nil
-	runResult:FireClient(watch.player, result, score, lucky, streak)
+	local cash = watch.player:GetAttribute("Cash")
+	local extras: Bonus.Extras = {
+		lucky = lucky,
+		streak = streak,
+		paid = paid,
+		cash = if typeof(cash) == "number" then cash else 0,
+		launcher = recordLauncher,
+	}
+	runResult:FireClient(watch.player, result, score, extras)
+	if shout then
+		newBest:FireAllClients(watch.player, score.total)
+	elseif banner then
+		newBest:FireClient(watch.player, watch.player, score.total)
+	end
 	InviteRewards.ranRun(watch.player)
 	Analytics.ranRun(watch.player, parkOf(watch), score.total, result.ending, paid)
 	if flagged then

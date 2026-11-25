@@ -1408,6 +1408,24 @@ Tuning.Bonus = {
 	},
 }
 
+-- The run card's "So close!" line (SoClose, CloseCall).
+Tuning.SoClose = {
+	BestWithin = 0.15, -- a run this close under the player's Best, out of 1
+	RecordWithin = 0.15, -- a flight this close under a launcher record, out of 1
+}
+
+-- The NEW BEST banner when a run beats the player's Best (NewBest, NewBestFx).
+Tuning.NewBest = {
+	ShoutFrom = 2500, -- a new best this high also shows as a line for everyone else
+	BannerTime = 3, -- seconds the banner stays before it fades
+	LineTime = 4, -- seconds the line for everyone else stays
+	ConfettiCount = 70,
+	ConfettiFall = { 1.6, 2.8 }, -- seconds a piece takes to fall, quickest and slowest
+	ConfettiSize = { 8, 16 }, -- pixels, smallest and biggest
+	-- The obby's finish fanfare, until NEW BEST has a sound of its own.
+	Sound = { Id = "rbxassetid://1839881844", Pitch = 1.1, Volume = 0.7 },
+}
+
 -- Grinding rails (Grind, GrindRide). A rail is a part tagged GrindRail.
 Tuning.Grind = {
 	GrindHeight = 1.6, -- the hull's center above the rail's, sitting on it
