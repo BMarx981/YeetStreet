@@ -1794,6 +1794,11 @@ Tuning.Juice = {
 	RainFrom = 5000, -- a run paying this much rains cash
 	RollRate = 12, -- the live score rolls this fast toward the real one, higher is snappier
 	RollSnap = 1, -- and jumps the last this many points
+	-- Hit-stop on a PERFECT landing, camera only (ChaseCamera).
+	StopHold = 0.08, -- seconds the camera holds still while the car moves on
+	StopCatch = 0.1, -- seconds it takes to catch back up
+	PunchFov = 8, -- degrees the zoom punches in after the hold
+	PunchTime = 0.25, -- seconds in and back out
 }
 
 -- Sounds for the show (Juice), played on the driver's client only. The ding

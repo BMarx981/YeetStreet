@@ -22,6 +22,16 @@ export type Tuning = {
 	RainFrom: number, -- cash paid by one run
 	RollRate: number, -- per second
 	RollSnap: number, -- points
+	StopHold: number, -- seconds
+	StopCatch: number, -- seconds
+	PunchFov: number, -- degrees
+	PunchTime: number, -- seconds
+}
+
+export type HitStop = {
+	blend: number, -- 0 is the held view, 1 the camera's own
+	fov: number, -- degrees to add to the field of view
+	done: boolean,
 }
 
 export type PopupTier = "White" | "Gold" | "Rainbow"
@@ -79,6 +89,22 @@ function Juice.roll(shown: number, target: number, dt: number, tuning: Tuning): 
 		return target
 	end
 	return rolled
+end
+
+-- The camera's hit-stop `elapsed` seconds after it started: it holds its view
+-- for StopHold while the car moves on, then catches up over StopCatch, and
+-- the zoom punches in by PunchFov and back out over PunchTime after the hold.
+-- Camera only: physics never slows.
+function Juice.hitStop(elapsed: number, tuning: Tuning): HitStop
+	local after = elapsed - tuning.StopHold
+	local blend = math.clamp(after / tuning.StopCatch, 0, 1)
+	local punch = after / tuning.PunchTime
+	local fov = if punch > 0 and punch < 1 then -tuning.PunchFov * math.sin(math.pi * punch) else 0
+	return {
+		blend = blend,
+		fov = fov,
+		done = after >= math.max(tuning.StopCatch, tuning.PunchTime),
+	}
 end
 
 local function ramp(t: number, from: number): number

@@ -15,6 +15,10 @@ local T: Juice.Tuning = {
 	RainFrom = 5000,
 	RollRate = 12,
 	RollSnap = 1,
+	StopHold = 0.08,
+	StopCatch = 0.1,
+	PunchFov = 8,
+	PunchTime = 0.25,
 }
 
 Check.test("small tricks pop white", function()
@@ -143,6 +147,32 @@ end)
 Check.test("the live score rolls down too", function()
 	local shown = Juice.roll(500, 100, 0.05, T)
 	Check.eq(shown < 500 and shown > 100, true)
+end)
+
+Check.test("hit-stop holds the camera still at first", function()
+	local stop = Juice.hitStop(0, T)
+	Check.eq(stop.blend, 0)
+	Check.eq(stop.fov, 0)
+	Check.eq(stop.done, false)
+	Check.eq(Juice.hitStop(0.079, T).blend, 0)
+end)
+
+Check.test("hit-stop catches the camera up after the hold", function()
+	Check.near(Juice.hitStop(0.13, T).blend, 0.5)
+	Check.eq(Juice.hitStop(0.181, T).blend, 1)
+	Check.eq(Juice.hitStop(0.3, T).blend, 1)
+end)
+
+Check.test("hit-stop punches the zoom in after the hold and back out", function()
+	Check.eq(Juice.hitStop(0.05, T).fov, 0, "not during the hold")
+	Check.near(Juice.hitStop(0.08 + 0.125, T).fov, -8, "fully in halfway")
+	Check.near(Juice.hitStop(0.08 + 0.0625, T).fov, -8 * math.sin(math.pi / 4))
+	Check.eq(Juice.hitStop(0.08 + 0.25, T).fov, 0, "back out at the end")
+end)
+
+Check.test("hit-stop is done once the catch up and the punch are over", function()
+	Check.eq(Juice.hitStop(0.32, T).done, false)
+	Check.eq(Juice.hitStop(0.33, T).done, true)
 end)
 
 Check.finish("Juice")

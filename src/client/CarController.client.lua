@@ -351,7 +351,11 @@ local function endRun(result: RunTracker.Result)
 	if not TutorialHints.isRunning() then
 		Hud.result(result, Scoring.score(result, Tuning.Score), false)
 		if result.ending == "landed" and result.upY then
-			Hud.landing(Juice.grade(result.clean, result.upY, Tuning.Juice))
+			local grade = Juice.grade(result.clean, result.upY, Tuning.Juice)
+			Hud.landing(grade)
+			if grade == "Perfect" then
+				ChaseCamera.hitStop()
+			end
 		end
 	end
 	Hud.live(nil)
