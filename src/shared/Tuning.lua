@@ -1425,6 +1425,36 @@ Tuning.Golden = {
 	TakenTime = 4, -- seconds "X grabbed the golden booster!" stays up
 }
 
+-- Coins on each launcher's flight path and a gem above it (Coins,
+-- CoinService, CoinLook). Each player has their own: coins come back when
+-- that player's run ends, a gem GemRespawn seconds after they take it.
+Tuning.Coins = {
+	-- LaunchRecords launcher ids. Not the Volcano Vent, whose throw is the
+	-- eruption's, not a flight path players line up.
+	Launchers = { "MainRamp", "SkyRamp", "MegaRamp", "MiddleRamp", "Overpass", "ScrapMountain" },
+	HullLift = 3, -- studs the hull's middle rides above a pad's top
+	FirstAt = 0.35, -- seconds past the lip of the first coin
+	Gap = 0.25, -- seconds of flight between coins
+	Max = 16, -- coins per launcher, at most
+	GroundClear = 15, -- a coin this close above anything ends its launcher's line
+	Radius = 10, -- studs from the hull's middle that grab a coin or gem
+	CoinCash = 25, -- each, times the rebirth pay multiplier
+	GemCash = 1500,
+	GemAbove = 70, -- studs above the top of the flight path
+	GemRespawn = 300, -- seconds
+	CoinSize = 6,
+	GemSize = 6,
+	Spin = 3, -- radians per second
+	CoinColor = Color3.fromRGB(255, 205, 50),
+	GemColor = Color3.fromRGB(60, 230, 255),
+	-- The obby pad chime, a little higher for each coin in a run.
+	CoinSound = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.5 },
+	PitchStep = 0.04,
+	PitchMax = 1.8,
+	-- The shop's cash register ding, until gems have a sound of their own.
+	GemSound = { Id = "rbxassetid://18264787819", Pitch = 1.3, Volume = 0.8 },
+}
+
 -- The run card's "So close!" line (SoClose, CloseCall).
 Tuning.SoClose = {
 	BestWithin = 0.15, -- a run this close under the player's Best, out of 1

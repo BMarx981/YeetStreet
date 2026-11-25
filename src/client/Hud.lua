@@ -629,6 +629,19 @@ function Hud.result(run: Scoring.Run, score: Scoring.Score, official: boolean, e
 			UiStyle.bounce(p.popup)
 		end
 	end
+	if extras and extras.coins > 0 then
+		add(`Coins x{extras.coins}`, `+${withCommas(extras.coinCash)}`, 18)
+	end
+	if extras and extras.gems > 0 then
+		local name = if extras.gems > 1 then `GEMS x{extras.gems}!` else "GEM!"
+		local row = add(name, `+${withCommas(extras.gemCash)}`, 22)
+		for _, text in row:GetChildren() do
+			if text:IsA("TextLabel") then
+				text.TextColor3 = Tuning.Coins.GemColor
+			end
+		end
+		UiStyle.bounce(row)
+	end
 	local close = if extras then CloseCall.line(run, score, extras) else nil
 	if close then
 		order += 1

@@ -29,6 +29,10 @@ export type Extras = {
 	paid: number, -- cash the run paid
 	cash: number, -- the player's cash after it
 	launcher: string?, -- the record launcher it flew from, if it counts for one
+	coins: number, -- coins grabbed on the run, and the cash they paid
+	coinCash: number,
+	gems: number,
+	gemCash: number,
 }
 
 -- Same fields as Tuning.Bonus, declared here so this module needs no require.

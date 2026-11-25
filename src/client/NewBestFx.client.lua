@@ -1,7 +1,7 @@
 --!strict
 -- NewBestFx (LocalScript) -> StarterPlayerScripts.NewBestFx
 -- When a run beats its player's Best (ScoreService fires ReplicatedStorage
--- .NewBest), that player gets a big NEW BEST banner with the score, a
+-- .BestBeaten), that player gets a big NEW BEST banner with the score, a
 -- fanfare, and confetti falling down the screen. Everyone else gets one line
 -- low on the screen, for new bests of Tuning.NewBest.ShoutFrom or more.
 -- Nothing shows while the tutorial is running, so it can't cover the prompts.
@@ -129,9 +129,9 @@ local function confetti()
 	end
 end
 
-local remote = ReplicatedStorage:WaitForChild("NewBest")
+local remote = ReplicatedStorage:WaitForChild("BestBeaten")
 if not remote:IsA("RemoteEvent") then
-	warn("NewBestFx: ReplicatedStorage.NewBest is not a RemoteEvent; new bests show nothing")
+	warn("NewBestFx: ReplicatedStorage.BestBeaten is not a RemoteEvent; new bests show nothing")
 	return
 end
 remote.OnClientEvent:Connect(function(player: Player, best: number)

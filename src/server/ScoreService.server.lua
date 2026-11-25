@@ -12,9 +12,10 @@
 -- multiplier (Rebirth), and, about 1 run in 12, by a lucky tier (Bonus), and
 -- on a clean landing by the player's clean streak (Bonus), and by the golden
 -- booster if the car claimed it (Golden), capped together at
--- Tuning.Bonus.Cap. The client gets these with the result (Bonus.Extras). A
+-- Tuning.Bonus.Cap. Coins and gems grabbed while flying (CoinService) add flat
+-- cash on top. The client gets these with the result (Bonus.Extras). A
 -- better total becomes their Best in leaderstats and saves through PlayerData,
--- and goes out on ReplicatedStorage.NewBest for the banner (NewBest).
+-- and goes out on ReplicatedStorage.BestBeaten for the banner (NewBest).
 -- So do their longest airtime and this week's bests, for the leaderboards
 -- (Leaderboard). A run from one of the record launchers (LaunchRecords), the
 -- launcher of the last pad touched, is reported on ServerStorage.LauncherRun
@@ -136,6 +137,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local WreckingBalls = require(ReplicatedStorage.WreckingBalls)
 local Analytics = require(ServerScriptService.Analytics)
 local CarDamage = require(ServerScriptService.CarDamage)
+local CoinService = require(ServerScriptService.CoinService)
 local DailyRewards = require(ServerScriptService.DailyRewards)
 local Garage = require(ServerScriptService.Garage)
 local InviteRewards = require(ServerScriptService.InviteRewards)
@@ -197,6 +199,9 @@ type Watch = {
 	-- Claimed the golden booster (Golden) since its last run ended, so the
 	-- next run to end pays Tuning.Golden.Multiplier more.
 	golden: boolean,
+	-- Coins and gems grabbed on this run (CoinService).
+	coins: number,
+	gems: number,
 	-- os.clock() when a launch pad, swing seat or rail last moved the car.
 	thrownAt: number,
 }
@@ -220,7 +225,7 @@ carWrecked.Parent = ReplicatedStorage
 -- A run beat its player's Best (NewBest): sent to that player, or to every
 -- client when it is big enough to shout, with the player and the new Best.
 local newBest = Instance.new("RemoteEvent")
-newBest.Name = "NewBest"
+newBest.Name = "BestBeaten"
 newBest.Parent = ReplicatedStorage
 
 local watches: { [Model]: Watch } = {}
@@ -314,6 +319,8 @@ local function watchFor(car: Model): Watch?
 		thrownAt = -math.huge,
 		mega = false,
 		golden = false,
+		coins = 0,
+		gems = 0,
 	}
 	car:SetAttribute("ToughnessLeft", maxToughness)
 	watches[car] = watch
@@ -525,7 +532,13 @@ local function finish(watch: Watch, result: RunTracker.Result)
 	local goldenPay = if watch.golden and not flagged then Tuning.Golden.Multiplier else 1
 	watch.golden = false
 	local bonus = Bonus.combined({ if lucky then lucky.Multiplier else 1, streakPay, goldenPay }, Tuning.Bonus)
-	local paid = Economy.payout(score.total, rate * daily * bonus)
+	-- Coins and gems pay flat cash on top, scaled only by rebirths.
+	local coinCash = math.floor(watch.coins * Tuning.Coins.CoinCash * reborn)
+	local gemCash = math.floor(watch.gems * Tuning.Coins.GemCash * reborn)
+	local coins, gems = watch.coins, watch.gems
+	watch.coins, watch.gems = 0, 0
+	CoinService.runEnded(watch.player)
+	local paid = Economy.payout(score.total, rate * daily * bonus) + coinCash + gemCash
 	Garage.pay(watch.player, paid, "Run")
 	watch.payScale = 1
 	local recordLauncher = if flagged or mega then nil else watch.launcher
@@ -541,6 +554,10 @@ local function finish(watch: Watch, result: RunTracker.Result)
 		paid = paid,
 		cash = if typeof(cash) == "number" then cash else 0,
 		launcher = recordLauncher,
+		coins = coins,
+		coinCash = coinCash,
+		gems = gems,
+		gemCash = gemCash,
 	}
 	runResult:FireClient(watch.player, result, score, extras)
 	if shout then
@@ -1307,6 +1324,8 @@ end
 setPlayerCheckpoint.Parent = ServerStorage
 movePlayerCar.Parent = ServerStorage
 
+CoinService.start()
+
 RunService.Heartbeat:Connect(function(dt: number)
 	for car in watches do
 		if car.Parent ~= carsFolder then
@@ -1350,6 +1369,11 @@ RunService.Heartbeat:Connect(function(dt: number)
 						watch.alleyRun = false
 						watch.armTarget, watch.armUntil = "Hammer Alley", os.clock() + ALLEY_ARM
 					end
+				end
+				if watch.run.phase == "flying" then
+					local coins, gems = CoinService.touch(watch.player, watch.sensor.hull.Position)
+					watch.coins += coins
+					watch.gems += gems
 				end
 				if reading.pad or reading.padBelow or reading.sample.swing or reading.sample.grinding then
 					watch.thrownAt = os.clock()
