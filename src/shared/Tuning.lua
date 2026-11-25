@@ -4587,4 +4587,33 @@ Tuning.TimedEvents = {
 	Mega = { LaunchScale = 1.5 },
 }
 
+-- Tornados (Tornado): they touch down anywhere on the map but the obby,
+-- wander, suck cars up their funnel and throw them out the top. Heights in
+-- studs above the ground, Spin and Tumble in radians a second.
+Tuning.Tornado = {
+	MinHeight = 200,
+	MaxHeight = 600,
+	LifeMin = 50, -- seconds it roams
+	LifeMax = 80,
+	TouchTime = 3, -- coming down, catching nothing
+	LiftTime = 3, -- going back up, catching nothing
+	Edge = 80, -- how far inside an area's sides it touches down and wanders
+	Apart = 600, -- closest two tornados touch down
+	Tries = 20,
+	Speed = 20, -- slower than any car, so you can drive in or get away
+	GoalReach = 30,
+	BaseRadius = 20, -- the funnel at the ground
+	TopSpread = 0.3, -- studs wider for every stud up
+	CatchBelow = 10,
+	Climb = 60, -- a rider's climb, studs a second: 200 tall takes about 3 s, 600 about 10 s
+	Spin = 2.5, -- about 2.5 s a turn
+	RideRadius = 0.6, -- riders circle this far out of the funnel's width
+	Tumble = 4,
+	RiderGap = 0.8, -- closest two riders sit round the middle
+	EscapeJets = 0.6, -- seconds of jets that break a rider free
+	FlingSpeed = 110,
+	FlingUp = 70,
+	FlingOut = 0.5, -- how much the throw turns outward from along the spin
+}
+
 return Tuning

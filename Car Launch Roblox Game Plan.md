@@ -209,7 +209,7 @@ Built so far (Nov 2026), all reached from the Teleport menu:
 | Missile Silo | Sticky walls, spiral ramp with traps, buttons, rideable missile |
 | Nuclear Plant | Two sticky cooling towers with timed eruptions |
 
-Planned: a plane sky park with rings, tornados, and warp boosters.
+Planned: a plane sky park with rings and warp boosters. Tornados roam the whole map instead (see Tornados).
 
 The original list of theme ideas:
 
@@ -454,6 +454,38 @@ Steps, one diff each:
 6. The HUD countdown, the start banner and sound, and the running timer. Written Nov 19 (EventHud, Tuning.TimedEvents.Blurbs and StartSound, the obby fanfare for now). Seen Nov 19 in Play: the countdown, then the banner and "3:00 left" when the scheduled Bone Rain started on its own.
 
 Open: Bone Rain drops about one bone every 0.4 seconds per player, so a 3 minute rain can give a few hundred bones, enough to buy everything at the Bone Trader. Bone value and prices need a look once it runs on the timer.
+
+## Tornados
+
+Tornados touch down at random spots, wander, suck cars up their funnel, spin them to the top, and throw them out for a scoring run, like the pterodactyl's drop.
+
+### Tornado picks (Nov 25, 2026)
+
+Brian's picks:
+
+- **Where:** everywhere but the obby: the hub, every park, and the long jump field.
+- **How often:** always some, about 3 at a time across the map. Each touches down at a random spot, wanders about a minute, then lifts away, and a new one drops somewhere else.
+- **Heights:** each tornado rolls its own height, 200 to 600 studs. 200 is the minimum.
+- **Escape:** holding jets breaks free any time on the way up, as with the pterodactyl. Otherwise the car rides to the top and gets thrown out.
+- **Other players:** several cars can ride one tornado together.
+
+Claude's calls:
+
+- Cars only. Players on foot are never picked up (pillar 3).
+- It catches cars on the ground or in the air, anywhere inside the funnel. The funnel widens with height, so the base is small and you have to drive into it. A car caught mid-flight has its run paid first, as the pterodactyl and crane already do: base points count, the landing combo and clean bonus don't (pillar 4).
+- It moves slower than any car, so you can chase one down or get away.
+- The ride is server driven, like the pterodactyl's carry: the car is anchored and spun round the middle while it climbs and tumbles, driver seated in view. Riders are spread round the funnel so they never stack.
+- The throw goes out along the spin and up, level, with no spin of its own, so trick points come from the player's own flips. The run counts height from the ground under the tornado, with cash scaled like the pterodactyl drop.
+- Tornados pass through buildings and props without moving them. Cars something else holds (T-Rex, pterodactyl, crane, missile) are skipped.
+- Numbers live in Tuning.Tornado.
+
+Steps, one diff each:
+
+1. Pure Tornado module and tests: touchdown spot, height roll, phases, wander, catch, ride, spreading riders, jets escape, throw. Done Nov 25 (25 tests).
+2. TornadoService on the server: keeps 3 going, moves an invisible marker per tornado with its height and phase, catches and spins cars, hands them back on the throw (ServerStorage.CarCarried), jets escape through HeldJets, a grey stand-in column to see it by, and an admin command that drops one at your car.
+3. Scoring: the throw starts a drop run from the tornado's ground with Tuning.Tornado.PayScale.
+4. The look on each client: a twisting translucent funnel to its height, debris circling, a dust ring on the ground, touchdown and lift-off.
+5. Sound and feel: a wind roar that grows as you get close, a whoosh on the throw, the chase camera pulled back during the ride, and the ride shown in replays.
 
 ## Store page art
 
