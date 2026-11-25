@@ -22,10 +22,13 @@
 -- rider's driver counts, so the most a false report does is throw that car
 -- out sooner.
 --
--- Each tornado is a Model in workspace.Tornados with an invisible Base part
--- on the ground at its middle and attributes Height, Phase and PhaseAt (when
--- the phase began, on workspace:GetServerTimeNow()'s clock). Each client
--- draws it from those (TornadoLook).
+-- Each tornado is a Model in workspace.Tornados, named Tornado1, Tornado2 and
+-- on, with an invisible Base part on the ground at its middle and attributes
+-- Height, Phase and PhaseAt (when the phase began, on
+-- workspace:GetServerTimeNow()'s clock). Each throw adds one to its Throws
+-- attribute and sets ThrowAt to where the car left. Each client draws it and
+-- plays its sounds from those (TornadoLook). A riding car's Tornado
+-- attribute is the name of the tornado it rides, for its driver's camera.
 --
 -- ServerStorage.TornadoHere (a BindableEvent, fired by the `:tornado` admin
 -- command) with a player drops an extra tornado at their car, or where they
@@ -65,6 +68,7 @@ local carsFolder = workspace:WaitForChild("Cars")
 local rng = Rng.new(os.time())
 local rolls = Random.new()
 local live: { Live } = {}
+local made = 0
 local jetting: { [Player]: boolean } = {}
 
 local function driverOf(car: Model): Player?
@@ -115,7 +119,8 @@ end
 local function touchDown(x: number, z: number, area: Tornado.Area, extra: boolean)
 	local s = Tornado.new(x, z, Tornado.height(rolls:NextNumber(), T), rolls:NextNumber(T.LifeMin, T.LifeMax), area)
 	local model = Instance.new("Model")
-	model.Name = "Tornado"
+	made += 1
+	model.Name = `Tornado{made}`
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	local base = hidden(model, "Base")
 	model.PrimaryPart = base
@@ -144,7 +149,7 @@ end
 -- Lets `car` go at `throw`: level, facing the way it flies, falling at the
 -- throw's speed, and back in its driver's game to drive, as CarService does
 -- when they sit in it.
-local function throwOut(car: Model, throw: Tornado.Throw)
+local function throwOut(model: Model, car: Model, throw: Tornado.Throw)
 	local at = Vector3.new(throw.x, FLOOR + throw.up, throw.z)
 	car:PivotTo(CFrame.new(at) * CFrame.Angles(0, math.atan2(-throw.vx, -throw.vz), 0))
 	setAnchored(car, false)
@@ -159,6 +164,9 @@ local function throwOut(car: Model, throw: Tornado.Throw)
 			part:SetNetworkOwner(driver)
 		end
 	end
+	car:SetAttribute("Tornado", nil)
+	model:SetAttribute("ThrowAt", at)
+	model:SetAttribute("Throws", (model:GetAttribute("Throws") or 0) + 1)
 	tell(car, "dropped", FLOOR, PAY_SCALE)
 	print(`Tornado threw {car.Name} out at {math.floor(throw.up)} up ({throw.why})`)
 end
@@ -192,11 +200,12 @@ local function step(t: Live, dt: number)
 	end
 
 	for _, throw in Tornado.step(s, dt, rng, jets, T) do
-		throwOut(throw.id, throw)
+		throwOut(t.model, throw.id, throw)
 	end
 
 	for _, car in Tornado.catch(s, freeCars(), T) do
 		setAnchored(car, true)
+		car:SetAttribute("Tornado", t.model.Name)
 		tell(car, "grabbed")
 		print(`Tornado caught {car.Name}`)
 	end

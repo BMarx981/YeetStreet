@@ -4621,38 +4621,70 @@ Tuning.Tornado = {
 	-- A throw's run pays this times normal cash, under the pterodactyl's 0.6
 	-- since tornados are always about.
 	PayScale = 0.5,
-	-- How each client draws one (TornadoLook). Rates are radians a second.
+	-- How each client draws one (TornadoLook), like a cartoon whirlwind: a
+	-- churning cloud with short swoosh lines popping up all over it. Rates
+	-- are radians a second; ranges are { low, high }, rolled each time.
 	Look = {
-		Slices = 12, -- see-through funnel pieces, bottom to top
-		CoreColor = Color3.fromRGB(128, 118, 104),
-		CoreTransparency = 0.4,
-		Streaks = 6, -- dark bands round each piece, spinning
-		StreakColor = Color3.fromRGB(78, 70, 60),
-		StreakTransparency = 0.2,
-		StreakWidth = 0.4, -- of the gap between two bands
-		StreakSpin = 3,
-		Twist = 0.008, -- radians the bands turn for every stud up, so they read as a spiral
+		Levels = 10, -- rings of cloud puffs, bottom to top
+		Puffs = 3, -- puffs in each ring
+		PuffColors = { Color3.fromRGB(150, 138, 120), Color3.fromRGB(122, 112, 98), Color3.fromRGB(170, 160, 145) },
+		PuffTransparency = 0.45,
+		-- With the camera inside the funnel or within PuffInsideReach of its
+		-- width (riding it), the puffs thin to this, so the car shows.
+		PuffInside = 0.85,
+		PuffInsideReach = 1.6,
+		PuffSize = { 0.6, 0.95 }, -- a puff's width over the funnel's there
+		PuffOffset = 0.35, -- how far off the middle a puff whirls, over the funnel's width
+		PuffSpin = { 5, 9 },
+		PuffWobble = 0.15, -- how much a puff's distance off the middle wobbles
+		PuffWobbleRate = { 4, 9 },
+		PuffBob = 0.3, -- how far a puff bobs up and down, over the gap between rings
+		PuffBobRate = { 3, 7 },
+		Swooshes = 44, -- swoosh lines each tornado can show at once
+		SwooshSegments = 4, -- pieces in each line's curve
+		SwooshColors = {
+			Color3.fromRGB(70, 64, 56),
+			Color3.fromRGB(55, 50, 45),
+			Color3.fromRGB(140, 120, 95),
+			Color3.fromRGB(245, 242, 235),
+		},
+		SwooshTransparency = 0.1,
+		SwooshLife = { 0.25, 0.6 }, -- seconds a line shows, fading out over its last half
+		SwooshGap = { 0, 0.4 }, -- seconds before the same line pops up again
+		SwooshArc = { 1.2, 2.6 }, -- how far round the funnel a line reaches
+		SwooshSpin = { 8, 14 },
+		SwooshTilt = 0.3, -- most a line leans off level, either way
+		SwooshOut = { 1, 1.25 }, -- how far out it sweeps, over the funnel's width
+		SwooshThick = 0.07, -- its height over the funnel's width there
+		SwooshThickMin = 1.2,
 		Sway = 0.08, -- the top wanders this much of the height from the base
 		SwayRate = 0.6,
 		CloudColor = Color3.fromRGB(68, 68, 76),
 		CloudTransparency = 0.15,
-		CloudScale = 1.8, -- the cloud cap's width over the funnel's top
-		CloudThick = 30,
-		CloudSpin = 0.3,
-		HazeScale = 1.4, -- a fainter layer round the cloud, this much wider
-		HazeTransparency = 0.5,
+		CloudPuffs = 5, -- flat lumps of storm cloud whirling on top
+		CloudScale = 1.4, -- a lump's width over the funnel's top
+		CloudThick = 26,
+		CloudSpin = { 0.8, 1.6 },
 		Debris = 10, -- bits of junk circling inside
 		DebrisColors = { Color3.fromRGB(120, 85, 55), Color3.fromRGB(110, 110, 115), Color3.fromRGB(90, 120, 70) },
-		DebrisClimb = 40, -- studs a second, then back to the bottom
-		DebrisSpin = 2.5,
+		DebrisClimb = 60, -- studs a second, then back to the bottom
+		DebrisSpin = 5,
 		DebrisOut = 0.85, -- how far out in the funnel they circle
 		DustColor = Color3.fromRGB(165, 145, 115),
 		DustRate = 60,
 		DustSize = 50, -- a puff's width as it fades
 		DustTransparency = 0.15,
 		Smooth = 8, -- how fast the drawing catches up with the server's spot
-		Far = 2500, -- past this from the camera, only the funnel and cloud draw
+		Far = 2500, -- past this from the camera, only the cloud draws, without swooshes or junk
+		-- Pro Sound Effects. The roar plays from the funnel's middle at the
+		-- camera's height; full volume within Near, silent past Reach.
+		Roar = { Id = "rbxassetid://9125443744", Volume = 1.2, Near = 80, Reach = 900 },
+		Whoosh = { Id = "rbxassetid://9126229255", Volume = 1.5, Near = 40, Reach = 500 },
 	},
+	-- While a car rides one, its driver's camera sits Back studs further out
+	-- from the funnel's middle than the car, and at least Clear studs outside
+	-- the funnel, Lift up, looking at it.
+	Camera = { Back = 45, Clear = 25, Lift = 15, Follow = 8 },
 }
 
 return Tuning
