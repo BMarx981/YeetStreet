@@ -24,6 +24,7 @@ local TUNING: Tornado.Tuning = {
 	Tumble = 4,
 	RiderGap = 0.8,
 	EscapeJets = 0.6,
+	Recatch = 4,
 	FlingSpeed = 110,
 	FlingUp = 70,
 	FlingOut = 0.5,
@@ -256,6 +257,29 @@ Check.test("throw: flung out along the spin, up, at FlingSpeed flat", function()
 	-- Outward: moving away from the middle.
 	local ox, oz = t.x - s.x, t.z - s.z
 	Check.eq(ox * t.vx + oz * t.vz > 0, true, "outward")
+end)
+
+Check.test("throw: a thrown car is not caught again for Recatch seconds", function()
+	local s = roaming(0, 0, 300)
+	Tornado.catch(s, { { id = "a", x = 0, up = 0, z = 0 } }, TUNING)
+	local thrown = stepUntilThrown(s, {}, 20)
+	local t = thrown[1]
+	-- Still inside the funnel at the top, where it was let go.
+	local car = { id = "a", x = t.x, up = t.up, z = t.z }
+	Check.eq(#Tornado.catch(s, { car }, TUNING), 0, "not at once")
+	Tornado.step(s, 3.9, Rng.new(1), {}, TUNING)
+	Check.eq(#Tornado.catch(s, { { id = "a", x = s.x, up = 2, z = s.z } }, TUNING), 0, "not before Recatch")
+	Tornado.step(s, 0.2, Rng.new(1), {}, TUNING)
+	Check.eq(#Tornado.catch(s, { { id = "a", x = s.x, up = 2, z = s.z } }, TUNING), 1, "after Recatch")
+end)
+
+Check.test("drop: takes a rider off without throwing it", function()
+	local s = roaming(0, 0, 300)
+	Tornado.catch(s, { { id = "a", x = 0, up = 0, z = 0 }, { id = "b", x = 0, up = 0, z = 0 } }, TUNING)
+	Check.eq(Tornado.drop(s, "a"), true, "dropped a")
+	Check.eq(Tornado.drop(s, "a"), false, "a already gone")
+	Check.eq(#s.riders, 1, "one left")
+	Check.eq(s.riders[1].id, "b", "b still rides")
 end)
 
 Check.test("life: a tornado with riders keeps roaming until they are thrown", function()

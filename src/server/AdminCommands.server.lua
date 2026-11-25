@@ -315,6 +315,7 @@ local COMMAND_INFO = {
 	{ name = "cmd",        desc = "Open this clickable command list GUI",               usage = ":cmd",                          optionsType = "none" },
 	{ name = "dino",       desc = "Toggle Dino Valley on/off",                        usage = ":dino",                         optionsType = "none" },
 	{ name = "event",      desc = "Start a timed event now in this server, or stop it", usage = ":event <mega|bonerain|stop>",   optionsType = "text" },
+	{ name = "tornado",    desc = "Drop a tornado at your car, in this server",          usage = ":tornado",                      optionsType = "none" },
 }
 
 -- Dino Valley's park folder, kept by the :dino command so the park can be
@@ -823,6 +824,16 @@ local COMMANDS = {
 		return "Usage: :event <mega|bonerain|stop>"
 	end,
 
+	-- Drops an extra tornado (TornadoService) at the admin's car.
+	tornado = function(adminPlayer, _args)
+		local tornadoHere = game:GetService("ServerStorage"):FindFirstChild("TornadoHere")
+		if not (tornadoHere and tornadoHere:IsA("BindableEvent")) then
+			return "Tornados aren't running."
+		end
+		tornadoHere:Fire(adminPlayer)
+		return "Tornado touching down on you. Stay put to get caught."
+	end,
+
 	cmd = function(adminPlayer, args)
 		-- Send the live command list to the admin's client
 		commandListEvent:FireClient(adminPlayer, COMMAND_INFO)
@@ -851,6 +862,7 @@ local COMMANDS = {
 :obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :event <mega|bonerain|stop> - Start a timed event now in this server, or stop it
+:tornado - Drop a tornado at your car, in this server
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers
 :cmd - Show the interactive command list

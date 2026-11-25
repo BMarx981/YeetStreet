@@ -4591,6 +4591,10 @@ Tuning.TimedEvents = {
 -- wander, suck cars up their funnel and throw them out the top. Heights in
 -- studs above the ground, Spin and Tumble in radians a second.
 Tuning.Tornado = {
+	Count = 3, -- on the map at once (TornadoService)
+	Respawn = 5, -- seconds after one goes before the next touches down
+	AdminArea = 1000, -- an admin's tornado off the map's areas wanders a square this wide
+	StandInSlices = 6, -- grey stand-in funnel pieces, until clients draw it
 	MinHeight = 200,
 	MaxHeight = 600,
 	LifeMin = 50, -- seconds it roams
@@ -4611,6 +4615,7 @@ Tuning.Tornado = {
 	Tumble = 4,
 	RiderGap = 0.8, -- closest two riders sit round the middle
 	EscapeJets = 0.6, -- seconds of jets that break a rider free
+	Recatch = 4, -- seconds before a tornado can catch a car it threw out
 	FlingSpeed = 110,
 	FlingUp = 70,
 	FlingOut = 0.5, -- how much the throw turns outward from along the spin

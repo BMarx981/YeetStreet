@@ -23,7 +23,8 @@
 --
 -- A rider is thrown out at the top, or once its jets have burned EscapeJets
 -- seconds on the way up. It leaves along its spin, turned FlingOut outward,
--- at FlingSpeed flat and FlingUp up.
+-- at FlingSpeed flat and FlingUp up. It is let go inside the funnel, so this
+-- tornado won't catch it again for Recatch seconds.
 --
 -- Heights ("up") are studs above the ground under the tornado. Angles round
 -- the middle are radians from +X toward +Z. Positions are world studs.
@@ -73,6 +74,8 @@ export type State = {
 	goalX: number?,
 	goalZ: number?,
 	riders: { Rider },
+	-- Cars thrown out lately, with the seconds left before it may catch them.
+	thrown: { [any]: number },
 }
 
 -- A car as the server sees it: `up` is its height above the ground under
@@ -127,6 +130,7 @@ export type Tuning = {
 	Tumble: number,
 	RiderGap: number,
 	EscapeJets: number,
+	Recatch: number,
 	FlingSpeed: number,
 	FlingUp: number,
 	FlingOut: number,
@@ -193,6 +197,7 @@ function Tornado.new(x: number, z: number, height: number, life: number, area: A
 		goalX = nil,
 		goalZ = nil,
 		riders = {},
+		thrown = {},
 	}
 end
 
@@ -254,7 +259,7 @@ function Tornado.catch(s: State, cars: { Car }, t: Tuning): { any }
 				break
 			end
 		end
-		if riding or car.up < -t.CatchBelow or car.up > s.height then
+		if riding or s.thrown[car.id] or car.up < -t.CatchBelow or car.up > s.height then
 			continue
 		end
 		local dx, dz = car.x - s.x, car.z - s.z
@@ -273,6 +278,18 @@ function Tornado.catch(s: State, cars: { Car }, t: Tuning): { any }
 		table.insert(caught, car.id)
 	end
 	return caught
+end
+
+-- Takes rider `id` off without throwing it, for a car that is gone. Returns
+-- whether it was riding.
+function Tornado.drop(s: State, id: any): boolean
+	for i, r in s.riders do
+		if r.id == id then
+			table.remove(s.riders, i)
+			return true
+		end
+	end
+	return false
 end
 
 -- Where rider `r` is now.
@@ -320,6 +337,9 @@ function Tornado.step(s: State, dt: number, rng: Rng, jets: { [any]: boolean }, 
 	if s.phase == "roam" or s.phase == "lift" then
 		wander(s, dt, rng, t)
 	end
+	for id, left in s.thrown do
+		s.thrown[id] = if left > dt then left - dt else nil
+	end
 
 	local thrown: { Throw } = {}
 	for i = #s.riders, 1, -1 do
@@ -351,6 +371,7 @@ function Tornado.step(s: State, dt: number, rng: Rng, jets: { [any]: boolean }, 
 				vy = t.FlingUp,
 				vz = fz / flat * t.FlingSpeed,
 			})
+			s.thrown[r.id] = t.Recatch
 			table.remove(s.riders, i)
 		end
 	end
