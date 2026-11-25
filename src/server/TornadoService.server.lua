@@ -24,8 +24,8 @@
 --
 -- Each tornado is a Model in workspace.Tornados with an invisible Base part
 -- on the ground at its middle and attributes Height, Phase and PhaseAt (when
--- the phase began, on workspace:GetServerTimeNow()'s clock). Until clients
--- draw it, a grey stand-in funnel of StandInSlices pieces shows where it is.
+-- the phase began, on workspace:GetServerTimeNow()'s clock). Each client
+-- draws it from those (TornadoLook).
 --
 -- ServerStorage.TornadoHere (a BindableEvent, fired by the `:tornado` admin
 -- command) with a player drops an extra tornado at their car, or where they
@@ -45,7 +45,6 @@ local T: Tornado.Tuning = Tuning.Tornado :: any
 local COUNT: number = Tuning.Tornado.Count
 local RESPAWN: number = Tuning.Tornado.Respawn
 local ADMIN_AREA: number = Tuning.Tornado.AdminArea
-local SLICES: number = Tuning.Tornado.StandInSlices
 local PAY_SCALE: number = Tuning.Tornado.PayScale
 local FLOOR: number = Tuning.Map.FloorTop
 local AREAS: { MapLayout.Area } = Tuning.Map.Areas :: any
@@ -55,7 +54,6 @@ type Live = {
 	state: Tornado.State,
 	model: Model,
 	base: Part,
-	slices: { Part },
 	extra: boolean, -- an admin's, not replaced when it goes
 }
 
@@ -105,28 +103,6 @@ local function hidden(parent: Instance, name: string): Part
 	return part
 end
 
--- Moves the stand-in funnel's pieces to the tornado, showing only the part
--- of it that is down: growing down from the top while it touches down, and
--- shrinking up into the sky while it lifts.
-local function drawStandIn(t: Live)
-	local s = t.state
-	local downFrom = 0
-	if s.phase == "touchdown" then
-		downFrom = s.height * (1 - math.clamp(s.phaseAge / T.TouchTime, 0, 1))
-	elseif s.phase == "lift" then
-		downFrom = s.height * math.clamp(s.phaseAge / T.LiftTime, 0, 1)
-	end
-	local tall = s.height / SLICES
-	for i, slice in t.slices do
-		local mid = (i - 0.5) * tall
-		local width = 2 * Tornado.radiusAt(s, mid, T)
-		-- A cylinder's length runs along its X, so it is turned to stand up.
-		slice.Size = Vector3.new(tall, width, width)
-		slice.CFrame = CFrame.new(s.x, FLOOR + mid, s.z) * CFrame.Angles(0, 0, math.pi / 2)
-		slice.Transparency = if mid >= downFrom then 0.6 else 1
-	end
-end
-
 local function publish(t: Live)
 	local s = t.state
 	t.base.CFrame = CFrame.new(s.x, FLOOR, s.z)
@@ -134,7 +110,6 @@ local function publish(t: Live)
 		t.model:SetAttribute("Phase", s.phase)
 		t.model:SetAttribute("PhaseAt", workspace:GetServerTimeNow())
 	end
-	drawStandIn(t)
 end
 
 local function touchDown(x: number, z: number, area: Tornado.Area, extra: boolean)
@@ -144,16 +119,8 @@ local function touchDown(x: number, z: number, area: Tornado.Area, extra: boolea
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	local base = hidden(model, "Base")
 	model.PrimaryPart = base
-	local slices = {}
-	for i = 1, SLICES do
-		local slice = hidden(model, `StandIn{i}`)
-		slice.Shape = Enum.PartType.Cylinder
-		slice.Material = Enum.Material.SmoothPlastic
-		slice.Color = Color3.fromRGB(120, 120, 125)
-		table.insert(slices, slice)
-	end
 	model:SetAttribute("Height", s.height)
-	local t: Live = { state = s, model = model, base = base, slices = slices, extra = extra }
+	local t: Live = { state = s, model = model, base = base, extra = extra }
 	publish(t)
 	model.Parent = folder
 	table.insert(live, t)

@@ -4594,7 +4594,6 @@ Tuning.Tornado = {
 	Count = 3, -- on the map at once (TornadoService)
 	Respawn = 5, -- seconds after one goes before the next touches down
 	AdminArea = 1000, -- an admin's tornado off the map's areas wanders a square this wide
-	StandInSlices = 6, -- grey stand-in funnel pieces, until clients draw it
 	MinHeight = 200,
 	MaxHeight = 600,
 	LifeMin = 50, -- seconds it roams
@@ -4622,6 +4621,38 @@ Tuning.Tornado = {
 	-- A throw's run pays this times normal cash, under the pterodactyl's 0.6
 	-- since tornados are always about.
 	PayScale = 0.5,
+	-- How each client draws one (TornadoLook). Rates are radians a second.
+	Look = {
+		Slices = 12, -- see-through funnel pieces, bottom to top
+		CoreColor = Color3.fromRGB(128, 118, 104),
+		CoreTransparency = 0.4,
+		Streaks = 6, -- dark bands round each piece, spinning
+		StreakColor = Color3.fromRGB(78, 70, 60),
+		StreakTransparency = 0.2,
+		StreakWidth = 0.4, -- of the gap between two bands
+		StreakSpin = 3,
+		Twist = 0.008, -- radians the bands turn for every stud up, so they read as a spiral
+		Sway = 0.08, -- the top wanders this much of the height from the base
+		SwayRate = 0.6,
+		CloudColor = Color3.fromRGB(68, 68, 76),
+		CloudTransparency = 0.15,
+		CloudScale = 1.8, -- the cloud cap's width over the funnel's top
+		CloudThick = 30,
+		CloudSpin = 0.3,
+		HazeScale = 1.4, -- a fainter layer round the cloud, this much wider
+		HazeTransparency = 0.5,
+		Debris = 10, -- bits of junk circling inside
+		DebrisColors = { Color3.fromRGB(120, 85, 55), Color3.fromRGB(110, 110, 115), Color3.fromRGB(90, 120, 70) },
+		DebrisClimb = 40, -- studs a second, then back to the bottom
+		DebrisSpin = 2.5,
+		DebrisOut = 0.85, -- how far out in the funnel they circle
+		DustColor = Color3.fromRGB(165, 145, 115),
+		DustRate = 60,
+		DustSize = 50, -- a puff's width as it fades
+		DustTransparency = 0.15,
+		Smooth = 8, -- how fast the drawing catches up with the server's spot
+		Far = 2500, -- past this from the camera, only the funnel and cloud draw
+	},
 }
 
 return Tuning
