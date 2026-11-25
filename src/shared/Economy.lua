@@ -430,6 +430,25 @@ function Economy.upgradeCost(from: number, tuning: CostTuning): number
 	return math.floor(raw / tuning.CostRound + 0.5) * tuning.CostRound
 end
 
+local STAT_ORDER: { StatName } = { "Speed", "Jets", "Toughness", "Grip", "Brakes" }
+
+-- The stat whose next level is cheapest among those `cash` can buy below
+-- `caps`, or nil if none. Ties go to the first in garage order.
+function Economy.cheapestUpgrade(levels: Levels, caps: Levels, cash: number, tuning: CostTuning): StatName?
+	local best: StatName? = nil
+	local bestCost = math.huge
+	for _, stat in STAT_ORDER do
+		local level = Economy.level(levels, stat)
+		if level < Economy.level(caps, stat) then
+			local cost = Economy.upgradeCost(level, tuning)
+			if cost <= cash and cost < bestCost then
+				best, bestCost = stat, cost
+			end
+		end
+	end
+	return best
+end
+
 -- The levels that count on this car: each only up to the car's cap, plus the
 -- car's free levels. They set its stats and which stat parts it shows.
 function Economy.lookLevels(levels: Levels, car: Car): Levels

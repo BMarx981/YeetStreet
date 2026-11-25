@@ -378,6 +378,34 @@ function UiStyle.bounce(obj: GuiObject)
 	TweenService:Create(s, BOUNCE, { Scale = 1 }):Play()
 end
 
+-- A bounce that says "press me", skipped while the thing is hovered, pressed,
+-- or still bouncing, so it never fights those.
+function UiStyle.pulse(obj: GuiObject)
+	if math.abs(scaler(obj).Scale - 1) < 0.01 then
+		UiStyle.bounce(obj)
+	end
+end
+
+-- A red "!" dot on a button's top right corner, hidden to start.
+function UiStyle.alert(button: GuiObject): TextLabel
+	local dot = Instance.new("TextLabel")
+	dot.Name = "Alert"
+	dot.Text = "!"
+	dot.Font = UiStyle.TitleFont
+	dot.TextSize = 18
+	dot.TextColor3 = Color3.new(1, 1, 1)
+	dot.BackgroundColor3 = UiStyle.Red
+	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+	dot.Position = UDim2.new(1, -4, 0, 4)
+	dot.Size = UDim2.fromOffset(22, 22)
+	dot.ZIndex = 2
+	dot.Visible = false
+	dot.Parent = button
+	UiStyle.corner(dot, 11)
+	UiStyle.stroke(dot, 2, Color3.new(1, 1, 1), true)
+	return dot
+end
+
 -- A white flash over a frame that fades away.
 function UiStyle.flash(frame: GuiObject)
 	local f = Instance.new("Frame")

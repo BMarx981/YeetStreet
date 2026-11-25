@@ -19,6 +19,12 @@
 -- the car panel (only the Cars and Event tabs, no REBIRTH row) while the car
 -- is on the ground.
 --
+-- While the player can afford an upgrade level on the equipped car, red "!"
+-- badges show on the GARAGE button and the UPGRADES tab, and the GARAGE
+-- button, or with the Upgrades tab open the cheapest level's price, bounces
+-- every Tuning.Garage.PulseEvery seconds. The tutorial (TutorialHints) puts its
+-- line on the panel's status line with setHint.
+--
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
 -- Purchases go to the server's RemoteFunctions, which decide; the panel only
@@ -127,6 +133,8 @@ local open = false
 local carsOnly = false -- opened away from a garage: only the Cars and Event tabs
 local busy = false
 local tab: Tab = "Upgrades"
+local hint: string? = nil -- the tutorial's line, shown on the status line
+local setStatusHint: ((string?, string?) -> ())? = nil -- set once built
 
 local function withCommas(n: number): string
 	local digits = tostring(math.floor(n + 0.5)):reverse():gsub("(%d%d%d)", "%1,"):reverse()
@@ -248,6 +256,45 @@ local function prizeFriends(id: string): number?
 	return nil
 end
 
+-- The pivot of the Garage-tagged model nearest the player, and how far away
+-- it is.
+local function nearestGarage(): (Vector3?, number)
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	if not (hrp and hrp:IsA("BasePart")) then
+		return nil, math.huge
+	end
+	local best: Vector3? = nil
+	local bestDistance = math.huge
+	for _, garage in CollectionService:GetTagged(GARAGE_TAG) do
+		if garage:IsA("PVInstance") then
+			local at = garage:GetPivot().Position
+			local distance = (at - hrp.Position).Magnitude
+			if distance < bestDistance then
+				best, bestDistance = at, distance
+			end
+		end
+	end
+	return best, bestDistance
+end
+
+local function nearGarage(): boolean
+	local _, distance = nearestGarage()
+	return distance <= Tuning.Garage.Reach
+end
+
+-- The stat whose next level is the cheapest the player can buy now on the
+-- equipped car, or nil.
+local function cheapestUpgrade(): Economy.StatName?
+	if typeof(player:GetAttribute("Cash")) ~= "number" then
+		return nil
+	end
+	local equippedValue = player:GetAttribute("Equipped")
+	local equipped = if typeof(equippedValue) == "string" then equippedValue else Tuning.Ladder[1].Id
+	local car = Economy.findCar(Tuning.Ladder, equipped) or Tuning.Ladder[1]
+	return Economy.cheapestUpgrade(levels(), car.Caps, number("Cash"), Tuning.Upgrades)
+end
+
 local function build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Garage"
@@ -261,6 +308,8 @@ local function build()
 	openButton.Visible = false
 	openButton.Active = false
 	openButton.Selectable = false
+	UiStyle.springy(openButton)
+	local garageAlert = UiStyle.alert(openButton)
 
 	-- Whenever the GARAGE button isn't showing. Top right, in the Roblox top
 	-- bar like the row it ends: left of REPLAY while that shows, otherwise in
@@ -305,6 +354,7 @@ local function build()
 	local firstSpot = upgradesTab.Position
 	local secondSpot = carsTab.Position
 	local eventSpot = eventTab.Position
+	local upgradesAlert = UiStyle.alert(upgradesTab)
 
 	local status = UiStyle.text("Status", panel, 16, false)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -312,6 +362,12 @@ local function build()
 	status.Size = UDim2.new(1, 0, 0, 22)
 	status.TextColor3 = UiStyle.Yellow
 	status.Text = ""
+	-- Swaps the tutorial's line on the status line, leaving any other message.
+	setStatusHint = function(old: string?, new: string?)
+		if status.Text == "" or status.Text == old then
+			status.Text = new or ""
+		end
+	end
 
 	local function tabList(name: Tab): ScrollingFrame
 		local list = Instance.new("ScrollingFrame")
@@ -1011,7 +1067,7 @@ local function build()
 			confirm.close()
 		end
 		if value then
-			status.Text = ""
+			status.Text = hint or ""
 			refresh()
 		end
 		if value and byGamepad then
@@ -1029,7 +1085,7 @@ local function build()
 
 	local function showTab(name: Tab)
 		tab = name
-		status.Text = ""
+		status.Text = hint or ""
 		refresh()
 	end
 	upgradesTab.Activated:Connect(function()
@@ -1047,23 +1103,6 @@ local function build()
 	eventTab.Activated:Connect(function()
 		showTab("Event")
 	end)
-	local function nearGarage(): boolean
-		local character = player.Character
-		local hrp = character and character:FindFirstChild("HumanoidRootPart")
-		if not (hrp and hrp:IsA("BasePart")) then
-			return false
-		end
-		for _, garage in CollectionService:GetTagged(GARAGE_TAG) do
-			if
-				garage:IsA("PVInstance")
-				and (garage:GetPivot().Position - hrp.Position).Magnitude <= Tuning.Garage.Reach
-			then
-				return true
-			end
-		end
-		return false
-	end
-
 	-- E is for flying while the car is in the air (roll) or a HeliCar's rotor is
 	-- out (climb), so only G opens the panel then.
 	local function eIsForFlying(): boolean
@@ -1131,7 +1170,10 @@ local function build()
 	end)
 
 	-- The GARAGE button shows while the player is inside a garage's ring, and
-	-- the CARS button in its place everywhere else.
+	-- the CARS button in its place everywhere else. While a level is
+	-- affordable the badges show and the GARAGE button or cheapest price
+	-- bounces.
+	local lastPulse = 0
 	task.spawn(function()
 		while true do
 			task.wait(Tuning.Garage.Ring.CheckEvery)
@@ -1140,6 +1182,18 @@ local function build()
 			openButton.Active = garage
 			carsButton.Visible = not garage
 			carsButton.Active = not garage
+
+			local stat = cheapestUpgrade()
+			garageAlert.Visible = stat ~= nil
+			upgradesAlert.Visible = stat ~= nil and tab ~= "Upgrades"
+			if stat and os.clock() - lastPulse >= Tuning.Garage.PulseEvery then
+				lastPulse = os.clock()
+				if open and not carsOnly and tab == "Upgrades" and not busy then
+					UiStyle.pulse(statRows[stat].button)
+				elseif not open and garage then
+					UiStyle.pulse(openButton)
+				end
+			end
 		end
 	end)
 
@@ -1204,6 +1258,39 @@ end
 -- True while the panel is open; the car takes no input then.
 function GarageMenu.isOpen(): boolean
 	return open
+end
+
+-- True while the full garage is open, not the car panel.
+function GarageMenu.isGarageOpen(): boolean
+	return open and not carsOnly
+end
+
+-- True while the player is inside a garage's ring.
+function GarageMenu.atGarage(): boolean
+	return nearGarage()
+end
+
+-- The pivot of the garage nearest the player, if any.
+function GarageMenu.nearestGarage(): Vector3?
+	return (nearestGarage())
+end
+
+-- True if the player can buy an upgrade level on the equipped car now.
+function GarageMenu.canAffordUpgrade(): boolean
+	return cheapestUpgrade() ~= nil
+end
+
+-- Shows a line on the panel's status line until replaced, or nil to clear it.
+function GarageMenu.setHint(text: string?)
+	if text == hint then
+		return
+	end
+	local old = hint
+	hint = text
+	local set = setStatusHint
+	if set then
+		set(old, text)
+	end
 end
 
 return GarageMenu

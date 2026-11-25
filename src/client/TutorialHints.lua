@@ -2,7 +2,10 @@
 -- TutorialHints (ModuleScript) -> StarterPlayerScripts.TutorialHints
 -- Shows the tutorial (Tutorial): one prompt at a time in the middle of the
 -- screen, naming the player's own controls, with a SKIP button, and a
--- bobbing arrow over the hub ramp while they should head for it. It starts
+-- bobbing arrow over the hub ramp while they should head for it, or over the
+-- nearest garage while they should drive to one. The Upgrade line shows on
+-- the garage panel's status line instead (GarageMenu.setHint), since the
+-- panel covers the middle of the screen. It starts
 -- by itself once the server says the player hasn't done it (the TutorialDone
 -- attribute, TutorialService), and again from the CONTROLS panel (start).
 -- CarController feeds it each frame (frame) and each run's end (runEnded).
@@ -16,12 +19,14 @@ local UserInputService = game:GetService("UserInputService")
 
 local Tutorial = require(ReplicatedStorage.Tutorial)
 local Tuning = require(ReplicatedStorage.Tuning)
+local GarageMenu = require(script.Parent.GarageMenu)
 local UiStyle = require(script.Parent.UiStyle)
 
 local T: Tutorial.Tuning = Tuning.Tutorial :: any
 local ARROW = Tuning.Tutorial.Arrow
 local BOB_HEIGHT = 4 -- studs the arrow bobs up and down
 local BOB_SPEED = 3 -- radians per second
+local LEVELS = { "Speed", "Jets", "Toughness", "Grip", "Brakes" }
 
 local player = Players.LocalPlayer
 
@@ -116,6 +121,18 @@ local function stop()
 	sentStep = nil
 	gui.Enabled = false
 	board.Enabled = false
+	GarageMenu.setHint(nil)
+end
+
+-- Whether the player owns any upgrade level.
+local function upgraded(): boolean
+	for _, name in LEVELS do
+		local level = player:GetAttribute(name)
+		if typeof(level) == "number" and level > 0 then
+			return true
+		end
+	end
+	return false
 end
 
 local function finish()
@@ -149,14 +166,28 @@ local function show()
 	end
 	local device = Tutorial.device(UserInputService:GetLastInputType().Name)
 	local text = Tutorial.text(prompt, device, T)
+	local onPanel = prompt == "Upgrade"
 	if text ~= shown then
 		shown = text
 		line.Text = text
-		UiStyle.bounce(panel)
+		if not onPanel then
+			UiStyle.bounce(panel)
+		end
 	end
-	gui.Enabled = not hidden
-	board.Enabled = not hidden and Tutorial.showArrow(current)
-	if board.Enabled then
+	GarageMenu.setHint(if onPanel then text else nil)
+	gui.Enabled = not hidden and not onPanel
+	local arrow = Tutorial.arrow(current)
+	local target: Vector3? = nil
+	if arrow == "Ramp" then
+		target = Vector3.new(ARROW.X, ARROW.Height, ARROW.Z)
+	elseif arrow == "Garage" then
+		local garage = GarageMenu.nearestGarage()
+		target = if garage then garage + Vector3.new(0, ARROW.GarageLift, 0) else nil
+	end
+	board.Enabled = not hidden and target ~= nil
+	if target then
+		arrowPart.Position = target
+		rampLabel.Text = if arrow == "Garage" then "GARAGE" else "RAMP"
 		board.StudsOffsetWorldSpace = Vector3.new(0, math.sin(os.clock() * BOB_SPEED) * BOB_HEIGHT, 0)
 	end
 end
@@ -172,6 +203,10 @@ end
 function TutorialHints.frame(frame: Tutorial.Frame)
 	local current = state
 	if current then
+		frame.atGarage = GarageMenu.atGarage()
+		frame.garageOpen = GarageMenu.isGarageOpen()
+		frame.canAfford = GarageMenu.canAffordUpgrade()
+		frame.upgraded = upgraded()
 		Tutorial.step(current, frame, T)
 		show()
 	end

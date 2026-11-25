@@ -169,9 +169,10 @@ Tuning.Analytics = {
 	ObbyFunnel = "Obby", -- one funnel session per obby visit, one step per pad
 	-- One funnel session per new player's tutorial (TutorialService), never
 	-- for a replay from the CONTROLS panel. The steps match Tutorial's, then
-	-- Done once it is finished.
+	-- Done once it is finished. Finish is left out: only a player who already
+	-- owns an upgrade sees it, in place of the garage steps.
 	TutorialFunnel = "Tutorial",
-	TutorialSteps = { "Drive", "Ramp", "Jets", "Tilt", "Land", "Finish", "Done" },
+	TutorialSteps = { "Drive", "Ramp", "Jets", "Tilt", "Land", "Earn", "Garage", "Open", "Upgrade", "Upgraded", "Done" },
 	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },
 	MinuteBuckets = { 2, 5, 10, 20, 40, 80 },
 }
@@ -631,6 +632,9 @@ Tuning.Garage = {
 		LitTransparency = 0,
 		CheckEvery = 0.2, -- seconds between checks of whether the player is inside
 	},
+	-- While an upgrade level is affordable, the GARAGE button, or in the panel
+	-- the cheapest level's price, bounces this often (GarageMenu).
+	PulseEvery = 1.2,
 }
 
 -- The teleport menu (TeleportService). A car sent to a garage arrives this
@@ -4524,14 +4528,15 @@ Tuning.Dino = {
 
 -- The first-session tutorial (Tutorial, TutorialHints). One prompt shows at a
 -- time, naming the player's own controls. The arrow floats Arrow.Height above
--- the start of the hub ramp while the player should head for it.
+-- the start of the hub ramp while the player should head for it, and
+-- Arrow.GarageLift above the nearest garage while they should drive to one.
 Tuning.Tutorial = {
 	DriveSpeed = 20, -- studs per second with the gas held to finish Drive
 	JetHold = 0.5, -- seconds of jets in a run to finish Jets
 	TiltInput = 0.5, -- how far a steer, gas, brake, or stick input counts as tilting
 	TiltHold = 0.5, -- seconds of tilting in a run to finish Tilt
 	FinishTime = 5, -- seconds the last line shows
-	Arrow = { X = 0, Z = Tuning.TestPark.RampStartZ, Height = 30 },
+	Arrow = { X = 0, Z = Tuning.TestPark.RampStartZ, Height = 30, GarageLift = 30 },
 	Text = {
 		Drive = { Keyboard = "Hold W to drive", Gamepad = "Hold RT to drive", Touch = "Hold GAS to drive" },
 		Ramp = {
@@ -4550,6 +4555,33 @@ Tuning.Tutorial = {
 			Keyboard = "Land it or crash it. Both pay!",
 			Gamepad = "Land it or crash it. Both pay!",
 			Touch = "Land it or crash it. Both pay!",
+		},
+		Earn = {
+			Keyboard = "Airtime, tricks, and crashes pay cash. Go again!",
+			Gamepad = "Airtime, tricks, and crashes pay cash. Go again!",
+			Touch = "Airtime, tricks, and crashes pay cash. Go again!",
+		},
+		Garage = {
+			Keyboard = "You can buy an upgrade! Drive into the GARAGE ring.",
+			Gamepad = "You can buy an upgrade! Drive into the GARAGE ring.",
+			Touch = "You can buy an upgrade! Drive into the GARAGE ring.",
+		},
+		Open = {
+			Keyboard = "Press G to open the garage!",
+			Gamepad = "Press X to open the garage!",
+			Touch = "Tap GARAGE to open it!",
+		},
+		-- Shows on the garage panel's status line, since the panel covers the
+		-- middle of the screen.
+		Upgrade = {
+			Keyboard = "Buy an upgrade: click a yellow price under UPGRADES!",
+			Gamepad = "Buy an upgrade: pick a yellow price under UPGRADES!",
+			Touch = "Buy an upgrade: tap a yellow price under UPGRADES!",
+		},
+		Upgraded = {
+			Keyboard = "Upgraded! Go launch it and see the difference!",
+			Gamepad = "Upgraded! Go launch it and see the difference!",
+			Touch = "Upgraded! Go launch it and see the difference!",
 		},
 		Finish = {
 			Keyboard = "Airtime, tricks, and crashes pay cash. Go again!",

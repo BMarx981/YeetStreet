@@ -97,6 +97,35 @@ Check.test("each level costs CostGrowth times the last, rounded", function()
 	Check.eq(Economy.upgradeCost(9, COSTS), 1860, "level 10 (1862.6)")
 end)
 
+local CAPS: Economy.Levels = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5, Brakes = 5 }
+
+Check.test("cheapestUpgrade is nil when no level is affordable", function()
+	local have = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
+	Check.eq(Economy.cheapestUpgrade(have, CAPS, 249, COSTS), nil)
+end)
+
+Check.test("cheapestUpgrade picks the lowest price the cash covers", function()
+	local have = { Speed = 3, Jets = 1, Toughness = 4, Grip = 2, Brakes = 3 }
+	Check.eq(Economy.cheapestUpgrade(have, CAPS, 10000, COSTS), "Jets")
+	Check.eq(Economy.cheapestUpgrade(have, CAPS, 310, COSTS), "Jets", "just enough")
+	Check.eq(Economy.cheapestUpgrade(have, CAPS, 309, COSTS), nil, "just short")
+end)
+
+Check.test("cheapestUpgrade breaks ties in stat order", function()
+	local have = { Speed = 2, Jets = 1, Toughness = 1, Grip = 1, Brakes = 1 }
+	Check.eq(Economy.cheapestUpgrade(have, CAPS, 10000, COSTS), "Jets")
+	local fresh = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
+	Check.eq(Economy.cheapestUpgrade(fresh, CAPS, 250, COSTS), "Speed")
+end)
+
+Check.test("cheapestUpgrade skips stats at the car's cap", function()
+	local have = { Speed = 0, Jets = 5, Toughness = 5, Grip = 5, Brakes = 5 }
+	local caps = { Speed = 0, Jets = 5, Toughness = 5, Grip = 5, Brakes = 6 }
+	Check.eq(Economy.cheapestUpgrade(have, caps, 1e9, COSTS), "Brakes")
+	local maxed = { Speed = 5, Jets = 5, Toughness = 5, Grip = 5, Brakes = 5 }
+	Check.eq(Economy.cheapestUpgrade(maxed, CAPS, 1e9, COSTS), nil, "all at cap")
+end)
+
 Check.test("level 0 stats are the base car", function()
 	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[1], STEPS)
 	Check.eq(stats.TopSpeed, 110)
