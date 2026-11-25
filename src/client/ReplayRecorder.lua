@@ -15,7 +15,8 @@
 -- of its clip, so the replay can build the same car. Broken<Slot> counts are
 -- those from before the clip; the clip's marks say when the rest broke off.
 -- The clip's flips say when the jets burned (JetsBurning), the brake lights
--- glowed (Braking), lava set the car on fire (Burning), and the car wrecked
+-- glowed (Braking), lava set the car on fire (Burning), a tornado carried
+-- it (Riding, while its Tornado attribute is set), and the car wrecked
 -- (Wrecked, from ReplicatedStorage.CarWrecked naming this car).
 -- The attributes are copied as they change rather than read at the cut, since
 -- by then a wrecked car is gone. It also carries the server's time at the
@@ -88,12 +89,17 @@ function ReplayRecorder.start(model: Model)
 			ReplayTape.flip(tape, os.clock(), switch, true)
 		end
 	end
+	if look.Tornado ~= nil then
+		ReplayTape.flip(tape, os.clock(), "Riding", true)
+	end
 	table.insert(
 		connections,
 		model.AttributeChanged:Connect(function(attribute: string)
 			local value = model:GetAttribute(attribute)
 			if table.find(SWITCHES, attribute) then
 				ReplayTape.flip(tape, os.clock(), attribute, value == true)
+			elseif attribute == "Tornado" then
+				ReplayTape.flip(tape, os.clock(), "Riding", value ~= nil)
 			end
 			for _, slot in CarParts.Slots do
 				if attribute == CarParts.brokenAttribute(slot) then

@@ -32,7 +32,10 @@
 -- The driver rides in the ghost: a look-only copy of the player's character,
 -- sitting in it the way they sit in the real car as the replay starts, since
 -- nobody leaves their seat in a flight. When the car is wrecked (its wheels
--- come off), the driver goes, as the real one goes to the new car.
+-- come off), the driver goes, as the real one goes to the new car. While the
+-- replay shows the car riding a tornado (the clip's Riding flips), the
+-- driver's arms flail over their head as they did (Flail), on the replay's
+-- clock.
 --
 -- While it plays, the real car and its driver are hidden on this screen,
 -- Controls gives the car no input, and CarController leaves the camera and
@@ -82,6 +85,7 @@ local Tuning = require(ReplicatedStorage.Tuning)
 local BrakeLights = require(script.Parent.BrakeLights)
 local CarPreview = require(script.Parent.CarPreview)
 local CarTrail = require(script.Parent.CarTrail)
+local Flail = require(script.Parent.Flail)
 local CarSounds = require(script.Parent.CarSounds)
 local JetFlames = require(script.Parent.JetFlames)
 local LimitedLooks = require(script.Parent.LimitedLooks)
@@ -157,6 +161,23 @@ type Lights = {
 	time: number, -- the clip time last shown, to tell a seek
 }
 
+-- One arm of the ghost's driver, kept so it can flail while the replay shows
+-- the car riding a tornado. Frames are in the car's space; each part's rest
+-- offset is put back when the ride ends.
+type DriverArm = {
+	upper: Piece,
+	lower: Piece,
+	hand: Piece?,
+	shoulderName: string,
+	elbowName: string,
+	shoulder: CFrame, -- the shoulder joint, on the torso
+	upperOut: CFrame, -- from the shoulder joint to the upper arm
+	elbowIn: CFrame, -- the elbow joint, on the upper arm
+	lowerOut: CFrame, -- from the elbow joint to the lower arm
+	handRel: CFrame, -- the hand, from the lower arm
+	rest: { CFrame }, -- upper, lower and hand offsets at rest
+}
+
 type Playing = {
 	replay: ReplayRecorder.Replay,
 	ghost: Model,
@@ -173,6 +194,7 @@ type Playing = {
 	hidden: { BasePart },
 	dimmed: { Light }, -- the real car's lights that were on, like its underglow
 	clock: ReplayClock.Clock,
+	arms: { DriverArm }, -- the driver's, if it has arms to flail
 }
 
 local playing: Playing? = nil
@@ -484,24 +506,56 @@ end
 -- character with every part anchored at its offset from the car now, and no
 -- joints, scripts, sounds, or nameplate. The voice chat emitter goes too, or
 -- the player's voice would come out of the ghost. Its Humanoid stays, for the
--- clothes.
-local function addDriver(ghost: Model, pieces: { Piece }, car: Model?, character: Model?)
+-- clothes. Its arm joints are read first, so its arms can flail while the
+-- car rides a tornado (Flail); returns those arms.
+-- The arm joints the driver's arms flail by.
+local ARM_JOINTS = { RightShoulder = true, LeftShoulder = true, RightElbow = true, LeftElbow = true }
+
+-- A joint's two parts and its frame on each: C0 and C1 for a Motor6D, the
+-- attachments' frames for an AnimationConstraint (newer avatars).
+type Joint = { part0: BasePart, part1: BasePart, c0: CFrame, c1: CFrame }
+
+local function jointOf(joint: Instance): Joint?
+	if joint:IsA("Motor6D") then
+		local part0, part1 = joint.Part0, joint.Part1
+		if part0 and part1 then
+			return { part0 = part0, part1 = part1, c0 = joint.C0, c1 = joint.C1 }
+		end
+	elseif joint:IsA("AnimationConstraint") then
+		local a0, a1 = joint.Attachment0, joint.Attachment1
+		local part0 = if a0 then a0.Parent else nil
+		local part1 = if a1 then a1.Parent else nil
+		if a0 and a1 and part0 and part1 and part0:IsA("BasePart") and part1:IsA("BasePart") then
+			return { part0 = part0, part1 = part1, c0 = a0.CFrame, c1 = a1.CFrame }
+		end
+	end
+	return nil
+end
+
+local function addDriver(ghost: Model, pieces: { Piece }, car: Model?, character: Model?): { DriverArm }
 	if not (car and character) then
-		return
+		return {}
 	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local seat = humanoid and humanoid.SeatPart
 	if not (seat and seat:IsDescendantOf(car)) then
-		return
+		return {}
 	end
 	local archivable = character.Archivable
 	character.Archivable = true
 	local copy = character:Clone()
 	character.Archivable = archivable
 	if not copy then
-		return
+		return {}
 	end
 	copy.Name = "Driver"
+	local carPose = car:GetPivot()
+	local joints: { [string]: Joint } = {}
+	for _, item in copy:GetDescendants() do
+		if ARM_JOINTS[item.Name] then
+			joints[item.Name] = jointOf(item)
+		end
+	end
 	for _, item in copy:GetDescendants() do
 		if
 			item:IsA("BaseScript")
@@ -533,15 +587,69 @@ local function addDriver(ghost: Model, pieces: { Piece }, car: Model?, character
 			break
 		end
 	end
-	local carPose = car:GetPivot()
+	local pieceOf: { [BasePart]: Piece } = {}
 	for _, part in copy:GetDescendants() do
 		if part:IsA("BasePart") then
 			noPhysics(part)
 			part.Anchored = true
-			table.insert(pieces, { part = part, offset = carPose:ToObjectSpace(part.CFrame), goneAt = wrecked })
+			local piece = { part = part, offset = carPose:ToObjectSpace(part.CFrame), goneAt = wrecked }
+			pieceOf[part] = piece
+			table.insert(pieces, piece)
 		end
 	end
 	copy.Parent = ghost
+
+	local arms: { DriverArm } = {}
+	for _, side in { "Right", "Left" } do
+		local shoulder, elbow = joints[side .. "Shoulder"], joints[side .. "Elbow"]
+		if not (shoulder and elbow) then
+			continue
+		end
+		local upper, lower = pieceOf[shoulder.part1], pieceOf[elbow.part1]
+		local handPart = copy:FindFirstChild(side .. "Hand")
+		local hand = if handPart and handPart:IsA("BasePart") then pieceOf[handPart] else nil
+		if not (upper and lower and elbow.part0 == shoulder.part1) then
+			continue
+		end
+		table.insert(arms, {
+			upper = upper,
+			lower = lower,
+			hand = hand,
+			shoulderName = side .. "Shoulder",
+			elbowName = side .. "Elbow",
+			shoulder = carPose:ToObjectSpace(shoulder.part0.CFrame * shoulder.c0),
+			upperOut = shoulder.c1:Inverse(),
+			elbowIn = elbow.c0,
+			lowerOut = elbow.c1:Inverse(),
+			handRel = if hand then lower.offset:ToObjectSpace(hand.offset) else CFrame.identity,
+			rest = { upper.offset, lower.offset, if hand then hand.offset else CFrame.identity },
+		})
+	end
+	return arms
+end
+
+-- Flails the driver's arms over their head while the replay shows the car
+-- riding a tornado, and puts them back as they were otherwise.
+local function moveArms(arms: { DriverArm }, clip: ReplayTape.Clip<CFrame>, time: number)
+	local turns = if ReplayTape.lit(clip, "Riding", time) then Flail.joints(time) else nil
+	for _, arm in arms do
+		local hand = arm.hand
+		if turns then
+			local upper = arm.shoulder * turns[arm.shoulderName] * arm.upperOut
+			local lower = upper * arm.elbowIn * turns[arm.elbowName] * arm.lowerOut
+			arm.upper.offset = upper
+			arm.lower.offset = lower
+			if hand then
+				hand.offset = lower * arm.handRel
+			end
+		else
+			arm.upper.offset = arm.rest[1]
+			arm.lower.offset = arm.rest[2]
+			if hand then
+				hand.offset = arm.rest[3]
+			end
+		end
+	end
 end
 
 local function poseAt(clip: ReplayTape.Clip<CFrame>, t: number): CFrame
@@ -699,6 +807,7 @@ local function show(now: Playing, dt: number)
 	if legs then
 		moveLegs(legs, now.replay.clip, time, pose)
 	end
+	moveArms(now.arms, now.replay.clip, time)
 	ReplayWorld.watch({
 		world = now.replay.world,
 		time = time,
@@ -802,7 +911,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		end
 	end
 	local looks = dressUp(ghost, pieces, wheels)
-	addDriver(ghost, pieces, car, character)
+	local arms = addDriver(ghost, pieces, car, character)
 	local ground = RaycastParams.new()
 	ground.FilterType = Enum.RaycastFilterType.Exclude
 	ground.FilterDescendantsInstances = { ghost, workspace:FindFirstChild("Cars") :: Instance, character :: Instance }
@@ -851,6 +960,7 @@ function ReplayPlayer.play(replay: ReplayRecorder.Replay, car: Model?, character
 		hidden = hidden,
 		dimmed = dimmed,
 		clock = ReplayClock.new(replay.clip.duration),
+		arms = arms,
 	}
 	playing = now
 	CarSounds.hideOwn(true)

@@ -10,9 +10,9 @@
 -- only when it throws it out.
 --
 -- The driver's arms flail over their head while they ride: each physics
--- step, after their animations, the shoulders and elbows are turned
--- (Tuning.Tornado.Flail). Works on R15 characters, whose arm joints are
--- named RightShoulder, LeftShoulder, RightElbow and LeftElbow.
+-- step, after their animations, the shoulders and elbows are turned (Flail).
+-- Works on R15 characters, whose arm joints are named RightShoulder,
+-- LeftShoulder, RightElbow and LeftElbow.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,9 +20,9 @@ local RunService = game:GetService("RunService")
 
 local Tornado = require(ReplicatedStorage.Tornado)
 local Tuning = require(ReplicatedStorage.Tuning)
+local Flail = require(script.Parent.Flail)
 
 local T: Tornado.Tuning = Tuning.Tornado :: any
-local F = Tuning.Tornado.Flail
 local FLOOR: number = Tuning.Map.FloorTop
 local NO_AREA: Tornado.Area = { X = 0, Z = 0, Width = 0, Depth = 0 }
 
@@ -119,20 +119,9 @@ RunService.PreSimulation:Connect(function()
 					offset = rolls:NextNumber(0, 100)
 					offsets[character] = offset
 				end
-				local t = clock + offset
-				local a, b = F.Rates[1], F.Rates[2]
-				turn(
-					character,
-					"RightShoulder",
-					CFrame.Angles(F.Raise + F.Swing * math.sin(t * a), 0, -F.Out + F.Side * math.sin(t * b + 1))
-				)
-				turn(
-					character,
-					"LeftShoulder",
-					CFrame.Angles(F.Raise + F.Swing * math.sin(t * b + 2), 0, F.Out + F.Side * math.sin(t * a + 3))
-				)
-				turn(character, "RightElbow", CFrame.Angles(F.Bend + F.BendSwing * math.sin(t * b * 1.3), 0, 0))
-				turn(character, "LeftElbow", CFrame.Angles(F.Bend + F.BendSwing * math.sin(t * a * 1.3 + 1), 0, 0))
+				for name, angles in Flail.joints(clock + offset) do
+					turn(character, name, angles)
+				end
 			end
 		end
 	end
