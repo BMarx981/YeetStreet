@@ -1532,6 +1532,10 @@ Tuning.Swing = {
 
 Tuning.Hud = {
 	TrickPopupTime = 1.2, -- seconds a trick name stays on screen
+	TrickPopScale = 1.8, -- a trick popup pops in this big and shrinks back
+	TrickPopTime = 0.25, -- seconds to shrink back
+	TrickFlyTime = 0.3, -- seconds to fly into the live score
+	TrickFlyScale = 0.4, -- its size when it gets there
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
@@ -1763,6 +1767,13 @@ Tuning.Juice = {
 	CashPerCoin = 250, -- coins flying into the cash counter, one per this much paid
 	MaxCoins = 12,
 	RainFrom = 5000, -- a run paying this much rains cash
+}
+
+-- Sounds for the show (Juice), played on the driver's client only. The ding
+-- reuses the obby pad chime; Ding's Pitch is at no combo, and each combo step
+-- raises it (Juice.DingSemitones).
+Tuning.JuiceSounds = {
+	Ding = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.4 },
 }
 
 Tuning.Camera = {

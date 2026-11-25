@@ -5,7 +5,9 @@
 -- tuning feel, the hardest
 -- recent hit the server measured (for picking toughness thresholds), and the run
 -- score: live while flying, a popup per trick, and a breakdown card when the
--- run ends. The card first shows the client's own score, then the server's
+-- run ends. A trick popup pops in big, colored by its points (Juice), dings
+-- higher with each combo step, and flies into the live score. The card first
+-- shows the client's own score, then the server's
 -- when it arrives, since that is the one that counts. After a rebirth, the
 -- card also shows the multiplier on the run's cash (the Rebirths attribute
 -- Garage sets on the player). The card ends with an AGAIN button that does
@@ -13,8 +15,11 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
 
 local Bonus = require(ReplicatedStorage.Bonus)
+local Juice = require(ReplicatedStorage.Juice)
 local Rebirth = require(ReplicatedStorage.Rebirth)
 local Scoring = require(ReplicatedStorage.Scoring)
 local Tuning = require(ReplicatedStorage.Tuning)
@@ -46,12 +51,29 @@ local cardUntil = 0
 local officialAt = -math.huge
 local impactUntil = 0
 local impactShown = 0
+-- The trick popup still up before it flies into the live score.
+local trickShown: TextLabel? = nil
 
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
 local PANEL_COLOR = Color3.fromRGB(20, 20, 28)
 local CASH_COLOR = Color3.fromRGB(120, 230, 120)
 local BONE_COLOR = Color3.fromRGB(230, 210, 160)
+local RAINBOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
+	ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 170, 40)),
+	ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 240, 60)),
+	ColorSequenceKeypoint.new(0.6, Color3.fromRGB(80, 230, 100)),
+	ColorSequenceKeypoint.new(0.8, Color3.fromRGB(70, 170, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 90, 255)),
+})
+
+-- Made up front so it has loaded by the first trick. Stays on this client.
+local ding = Instance.new("Sound")
+ding.Name = "TrickDing"
+ding.SoundId = Tuning.JuiceSounds.Ding.Id
+ding.Volume = Tuning.JuiceSounds.Ding.Volume
+ding.Parent = SoundService
 
 local function round(x: number): number
 	return math.floor(x + 0.5)
@@ -465,13 +487,80 @@ function Hud.live(score: Scoring.Score?)
 	p.live.Visible = score ~= nil
 end
 
-function Hud.trick(name: string, points: number)
+-- Sends a trick popup into the live score, shrinking and fading as it goes,
+-- and bounces the score when it gets there. With no live score up, it fades
+-- where it is.
+local function flyToScore(popup: TextLabel)
+	if popup:GetAttribute("Flying") then
+		return
+	end
+	popup:SetAttribute("Flying", true)
+	if trickShown == popup then
+		trickShown = nil
+	end
+	local p = parts
+	local info = TweenInfo.new(H.TrickFlyTime, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	local goal: { [string]: any } = { TextTransparency = 1, TextStrokeTransparency = 1 }
+	local toScore = p ~= nil and p.live.Visible
+	if p and toScore then
+		goal.Position = p.live.Position + UDim2.fromOffset(0, p.live.Size.Y.Offset / 2)
+	end
+	local scale = popup:FindFirstChildOfClass("UIScale")
+	if scale then
+		TweenService:Create(scale, info, { Scale = H.TrickFlyScale }):Play()
+	end
+	local fly = TweenService:Create(popup, info, goal)
+	fly.Completed:Connect(function()
+		popup:Destroy()
+		if p and toScore and p.live.Visible then
+			UiStyle.bounce(p.live)
+		end
+	end)
+	fly:Play()
+end
+
+-- A trick as it lands: `combo` is the run's combo with it, for the ding.
+-- A newer trick sends the one before it into the score at once.
+function Hud.trick(name: string, points: number, combo: number)
 	local p = parts
 	if not p then
 		return
 	end
-	p.popup.Text = `{name}  +{withCommas(points)}`
-	popupUntil = os.clock() + H.TrickPopupTime
+	popupUntil = 0
+	if trickShown then
+		flyToScore(trickShown)
+	end
+
+	local popup = label("Trick", p.gui, p.popup.TextSize)
+	popup.AnchorPoint = p.popup.AnchorPoint
+	popup.Position = p.popup.Position
+	popup.Size = p.popup.Size
+	popup.Text = `{name}  +{withCommas(points)}`
+	local tier = Juice.popupTier(points, Tuning.Juice)
+	if tier == "Gold" then
+		popup.TextColor3 = UiStyle.Yellow
+	elseif tier == "Rainbow" then
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = RAINBOW
+		gradient.Parent = popup
+		local spin = TweenInfo.new(H.TrickPopupTime + H.TrickFlyTime, Enum.EasingStyle.Linear)
+		TweenService:Create(gradient, spin, { Rotation = 360 }):Play()
+	end
+	local scale = Instance.new("UIScale")
+	scale.Scale = H.TrickPopScale
+	scale.Parent = popup
+	local pop = TweenInfo.new(H.TrickPopTime, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	TweenService:Create(scale, pop, { Scale = 1 }):Play()
+	trickShown = popup
+	task.delay(H.TrickPopupTime, function()
+		if popup.Parent then
+			flyToScore(popup)
+		end
+	end)
+
+	local spec = Tuning.JuiceSounds.Ding
+	ding.PlaybackSpeed = spec.Pitch * Juice.dingPitch(combo, Tuning.Score.ComboStep, Tuning.Juice)
+	ding:Play()
 end
 
 -- Cash paid at once, outside any run, such as for shaking off the raptors.
@@ -479,6 +568,9 @@ function Hud.bonus(name: string, cash: number)
 	local p = parts
 	if not p then
 		return
+	end
+	if trickShown then
+		flyToScore(trickShown)
 	end
 	p.popup.Text = `{name}  +${withCommas(cash)}`
 	popupUntil = os.clock() + H.TrickPopupTime

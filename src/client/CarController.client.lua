@@ -372,7 +372,7 @@ local function trackRun(sample: RunTracker.Sample)
 	local score = Scoring.score(snapshot, Tuning.Score)
 	Hud.live(score)
 	for i = tricksShown + 1, #snapshot.tricks do
-		Hud.trick(Scoring.trickName(snapshot.tricks[i]), score.trickPoints[i])
+		Hud.trick(Scoring.trickName(snapshot.tricks[i]), score.trickPoints[i], score.combo)
 	end
 	tricksShown = #snapshot.tricks
 end
