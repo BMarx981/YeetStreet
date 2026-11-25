@@ -4686,8 +4686,9 @@ Tuning.Tornado = {
 	},
 	-- While a car rides one, its driver's camera sits Back studs further out
 	-- from the funnel's middle than the car, and at least Clear studs outside
-	-- the funnel, Lift up, looking at it.
-	Camera = { Back = 45, Clear = 25, Lift = 15, Follow = 8 },
+	-- the funnel, Lift up, then comes Zoom of the way back in toward the car
+	-- (0.5 is half as far), looking at it.
+	Camera = { Back = 45, Clear = 25, Lift = 15, Zoom = 0.5, Follow = 8 },
 	-- A riding driver's arms flail over their head (TornadoRiders), in radians:
 	-- shoulders raised Raise, swinging Swing forward and back and Side out and
 	-- in, elbows bent Bend give or take BendSwing, each at its own Rates.
