@@ -36,6 +36,7 @@ type Parts = {
 	readout: TextLabel,
 	impact: TextLabel,
 	live: TextLabel,
+	liveGlow: UIStroke,
 	popup: TextLabel,
 	card: Frame,
 	again: Frame,
@@ -53,6 +54,13 @@ local impactUntil = 0
 local impactShown = 0
 -- The trick popup still up before it flies into the live score.
 local trickShown: TextLabel? = nil
+-- The live score as it rolls toward the real one (nil while hidden), when it
+-- last rolled, its combo tier (Juice.scoreTier), and its max combo glow.
+local liveShown: number? = nil
+local liveAt = 0
+local liveTier = 0
+local liveGlowPulse: Tween? = nil
+local stampShown: TextLabel? = nil
 
 local FUEL_COLOR = Color3.fromRGB(255, 170, 40)
 local BURN_COLOR = Color3.fromRGB(255, 90, 30)
@@ -74,6 +82,20 @@ ding.Name = "TrickDing"
 ding.SoundId = Tuning.JuiceSounds.Ding.Id
 ding.Volume = Tuning.JuiceSounds.Ding.Volume
 ding.Parent = SoundService
+local thump: Sound? = nil
+if Tuning.JuiceSounds.Thump.Id ~= "" then
+	local s = Instance.new("Sound")
+	s.Name = "LandingThump"
+	s.SoundId = Tuning.JuiceSounds.Thump.Id
+	s.PlaybackSpeed = Tuning.JuiceSounds.Thump.Pitch
+	s.Volume = Tuning.JuiceSounds.Thump.Volume
+	s.Parent = SoundService
+	thump = s
+end
+
+type StampLook = { Text: string, Size: number, Color: Color3 }
+local STAMPS = H.Stamps :: { [string]: StampLook }
+local STAMP_EDGE = Color3.fromRGB(30, 22, 14)
 
 local function round(x: number): number
 	return math.floor(x + 0.5)
@@ -263,6 +285,12 @@ local function build(): Parts
 	live.Position = UDim2.new(0.5, 0, 0, 68)
 	live.Size = UDim2.fromOffset(300, 40)
 	live.Visible = false
+	local liveGlow = Instance.new("UIStroke")
+	liveGlow.Name = "Glow"
+	liveGlow.Thickness = 3
+	liveGlow.Color = Color3.fromRGB(255, 230, 255)
+	liveGlow.Enabled = false
+	liveGlow.Parent = live
 
 	local popup = label("TrickPopup", gui, 32)
 	popup.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -413,6 +441,7 @@ local function build(): Parts
 		readout = readout,
 		impact = impact,
 		live = live,
+		liveGlow = liveGlow,
 		popup = popup,
 		card = card,
 		again = again,
@@ -474,17 +503,68 @@ function Hud.impact(strength: number, slot: string, inRun: boolean, damage: numb
 	p.impact.Text = `Hit {round(strength)} {slot}{if inRun then "" else " (no run)"}{cost}`
 end
 
--- The score so far while flying; nil hides it.
+-- Grows and recolors the live score for a combo tier, with a bounce on the
+-- way up. The last tier is the max combo, which glows.
+local function setLiveTier(p: Parts, tier: number, instant: boolean)
+	local up = tier > liveTier
+	liveTier = tier
+	local size = H.LiveSizes[tier + 1]
+	local goal = {
+		TextSize = size,
+		TextColor3 = H.LiveColors[tier + 1],
+		Size = UDim2.fromOffset(p.live.Size.X.Offset, size + 6),
+	}
+	TweenService:Create(p.live, TweenInfo.new(if instant then 0 else H.LiveGrowTime), goal):Play()
+	if up and not instant then
+		UiStyle.bounce(p.live)
+	end
+
+	local glowing = tier == #Tuning.Juice.ScoreTiers
+	p.liveGlow.Enabled = glowing
+	if glowing and not liveGlowPulse then
+		p.liveGlow.Transparency = 0.7
+		local info = TweenInfo.new(H.LiveGlowPulse, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+		liveGlowPulse = TweenService:Create(p.liveGlow, info, { Transparency = 0 })
+		liveGlowPulse:Play()
+	elseif not glowing and liveGlowPulse then
+		liveGlowPulse:Cancel()
+		liveGlowPulse = nil
+	end
+end
+
+-- The score so far while flying; nil hides it. It rolls up to each new score
+-- instead of jumping, and grows, recolors, and at the max combo glows and
+-- wobbles as the combo climbs.
 function Hud.live(score: Scoring.Score?)
 	local p = parts
 	if not p then
 		return
 	end
-	if score then
-		local total = withCommas(score.total)
-		p.live.Text = if score.combo > 1 then `{total}  {multiplier(score.combo)}` else total
+	if not score then
+		if liveShown then
+			liveShown = nil
+			setLiveTier(p, 0, true)
+			p.live.Rotation = 0
+		end
+		p.live.Visible = false
+		return
 	end
-	p.live.Visible = score ~= nil
+
+	local now = os.clock()
+	local shown = if liveShown then Juice.roll(liveShown, score.total, now - liveAt, Tuning.Juice) else score.total
+	liveShown = shown
+	liveAt = now
+	local total = withCommas(shown)
+	p.live.Text = if score.combo > 1 then `{total}  {multiplier(score.combo)}` else total
+
+	local tier = Juice.scoreTier(score.combo, Tuning.Juice)
+	if tier ~= liveTier then
+		setLiveTier(p, tier, false)
+	end
+	p.live.Rotation = if tier == #Tuning.Juice.ScoreTiers
+		then math.sin(now * 2 * math.pi * H.LiveWobbleRate) * H.LiveWobbleAngle
+		else 0
+	p.live.Visible = true
 end
 
 -- Sends a trick popup into the live score, shrinking and fading as it goes,
@@ -561,6 +641,57 @@ function Hud.trick(name: string, points: number, combo: number)
 	local spec = Tuning.JuiceSounds.Ding
 	ding.PlaybackSpeed = spec.Pitch * Juice.dingPitch(combo, Tuning.Score.ComboStep, Tuning.Juice)
 	ding:Play()
+end
+
+-- A landing's grade, slammed onto the screen at a tilt with a thump, then
+-- faded away. A newer stamp replaces one still up.
+function Hud.landing(grade: Juice.Grade)
+	local p = parts
+	if not p then
+		return
+	end
+	if stampShown then
+		stampShown:Destroy()
+	end
+	local look = STAMPS[grade]
+	local stamp = label("LandingStamp", p.gui, look.Size)
+	stamp.AnchorPoint = Vector2.new(0.5, 0.5)
+	stamp.Position = UDim2.fromScale(0.5, H.StampY)
+	stamp.Size = UDim2.fromOffset(400, look.Size + 10)
+	stamp.Rotation = H.StampTilt
+	stamp.Text = look.Text
+	stamp.TextColor3 = look.Color
+	stamp.TextTransparency = 1
+	stamp.TextStrokeTransparency = 1
+	local edge = Instance.new("UIStroke")
+	edge.Thickness = 3
+	edge.Color = STAMP_EDGE
+	edge.Transparency = 1
+	edge.Parent = stamp
+	local scale = Instance.new("UIScale")
+	scale.Scale = H.StampFrom
+	scale.Parent = stamp
+	stampShown = stamp
+
+	local slam = TweenInfo.new(H.StampSlam, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	TweenService:Create(scale, slam, { Scale = 1 }):Play()
+	TweenService:Create(stamp, slam, { TextTransparency = 0 }):Play()
+	TweenService:Create(edge, slam, { Transparency = 0 }):Play()
+	task.delay(H.StampSlam + H.StampTime, function()
+		if stamp.Parent == nil then
+			return
+		end
+		local fade = TweenInfo.new(H.StampFade)
+		TweenService:Create(edge, fade, { Transparency = 1 }):Play()
+		local out = TweenService:Create(stamp, fade, { TextTransparency = 1 })
+		out.Completed:Connect(function()
+			stamp:Destroy()
+		end)
+		out:Play()
+	end)
+	if thump then
+		thump:Play()
+	end
 end
 
 -- Cash paid at once, outside any run, such as for shaking off the raptors.

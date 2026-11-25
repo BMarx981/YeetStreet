@@ -1536,6 +1536,31 @@ Tuning.Hud = {
 	TrickPopTime = 0.25, -- seconds to shrink back
 	TrickFlyTime = 0.3, -- seconds to fly into the live score
 	TrickFlyScale = 0.4, -- its size when it gets there
+	-- The live score's text size and color at no combo tier, then at each of
+	-- Juice.ScoreTiers (x2, x3, x4). At the last it also glows and wobbles.
+	LiveSizes = { 34, 40, 46, 54 },
+	LiveColors = {
+		Color3.fromRGB(255, 255, 255),
+		Color3.fromRGB(255, 196, 0),
+		Color3.fromRGB(255, 120, 40),
+		Color3.fromRGB(255, 80, 200),
+	},
+	LiveGrowTime = 0.2, -- seconds to grow to a new tier
+	LiveGlowPulse = 0.35, -- seconds per glow pulse at the max combo
+	LiveWobbleAngle = 3, -- degrees either way at the max combo
+	LiveWobbleRate = 6, -- wobbles per second
+	-- The grade stamped on screen when a run touches down (Juice.grade).
+	Stamps = {
+		Sloppy = { Text = "SLOPPY", Size = 40, Color = Color3.fromRGB(190, 165, 140) },
+		Clean = { Text = "CLEAN", Size = 48, Color = Color3.fromRGB(120, 230, 120) },
+		Perfect = { Text = "PERFECT!", Size = 64, Color = Color3.fromRGB(255, 196, 0) },
+	},
+	StampY = 0.62, -- out of the screen's height, over the car and clear of the run card
+	StampFrom = 2.5, -- a stamp starts this big and slams down
+	StampSlam = 0.12, -- seconds to slam down
+	StampTilt = -8, -- degrees
+	StampTime = 0.9, -- seconds it stays after the slam
+	StampFade = 0.25,
 	ResultTime = 4, -- seconds the run card stays up after a run ends
 	AgainWidth = 180, -- the AGAIN button at the bottom of the run card
 	AgainHeight = 44,
@@ -1767,13 +1792,16 @@ Tuning.Juice = {
 	CashPerCoin = 250, -- coins flying into the cash counter, one per this much paid
 	MaxCoins = 12,
 	RainFrom = 5000, -- a run paying this much rains cash
+	RollRate = 12, -- the live score rolls this fast toward the real one, higher is snappier
+	RollSnap = 1, -- and jumps the last this many points
 }
 
 -- Sounds for the show (Juice), played on the driver's client only. The ding
 -- reuses the obby pad chime; Ding's Pitch is at no combo, and each combo step
--- raises it (Juice.DingSemitones).
+-- raises it (Juice.DingSemitones). An empty Id stays silent.
 Tuning.JuiceSounds = {
 	Ding = { Id = "rbxassetid://112485797063762", Pitch = 1, Volume = 0.4 },
+	Thump = { Id = "", Pitch = 1, Volume = 0.8 }, -- bass thump under a landing stamp
 }
 
 Tuning.Camera = {

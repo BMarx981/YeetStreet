@@ -164,6 +164,30 @@ Check.test("an upright landing is clean, a sideways one is not", function()
 	Check.eq(messy.clean, false)
 end)
 
+Check.test("a landing on the ground keeps its up vector at touchdown", function()
+	local result = step(launched(), { upY = 0.96 }) :: RunTracker.Result
+	Check.eq(result.upY, 0.96)
+	local messy = step(launched(), { upY = 0.5 }) :: RunTracker.Result
+	Check.eq(messy.upY, 0.5)
+end)
+
+Check.test("a landing on a swing seat keeps its up vector at touchdown", function()
+	local state = launched()
+	step(state, { airborne = true, z = -50 })
+	local result = step(state, { swing = "A", airborne = true, z = -100, upY = 0.8 }) :: RunTracker.Result
+	Check.eq(result.upY, 0.8)
+end)
+
+Check.test("runs that end without touching down have no up vector", function()
+	local crashed = step(launched(), { airborne = true, lying = true }) :: RunTracker.Result
+	Check.eq(crashed.ending, "crashed")
+	Check.eq(crashed.upY, nil, "crashed")
+	Check.eq((RunTracker.abort(launched(), "landed") :: RunTracker.Result).upY, nil, "lava")
+	Check.eq((RunTracker.abort(launched(), "wrecked") :: RunTracker.Result).upY, nil, "wrecked")
+	Check.eq((RunTracker.snapshot(launched()) :: RunTracker.Result).upY, nil, "snapshot")
+	Check.eq((step(launched(), { wingsOut = true }) :: RunTracker.Result).upY, nil, "wings out")
+end)
+
 Check.test("stopping off its wheels ends the run after the stop time", function()
 	local state = launched()
 	for _ = 1, 9 do

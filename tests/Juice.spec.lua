@@ -13,6 +13,8 @@ local T: Juice.Tuning = {
 	CashPerCoin = 250,
 	MaxCoins = 12,
 	RainFrom = 5000,
+	RollRate = 12,
+	RollSnap = 1,
 }
 
 Check.test("small tricks pop white", function()
@@ -120,6 +122,27 @@ end)
 Check.test("cash rains from RainFrom", function()
 	Check.eq(Juice.rains(4999, T), false)
 	Check.eq(Juice.rains(5000, T), true)
+end)
+
+Check.test("the live score doesn't move with no time passed", function()
+	Check.eq(Juice.roll(100, 500, 0, T), 100)
+end)
+
+Check.test("the live score closes part of the gap each step", function()
+	Check.near(Juice.roll(100, 500, 0.05, T), 100 + 400 * (1 - math.exp(-12 * 0.05)))
+end)
+
+Check.test("the live score never passes its target", function()
+	Check.eq(Juice.roll(100, 500, 10, T), 500)
+end)
+
+Check.test("the live score snaps the last RollSnap", function()
+	Check.eq(Juice.roll(499.2, 500, 0.001, T), 500)
+end)
+
+Check.test("the live score rolls down too", function()
+	local shown = Juice.roll(500, 100, 0.05, T)
+	Check.eq(shown < 500 and shown > 100, true)
 end)
 
 Check.finish("Juice")

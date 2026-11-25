@@ -20,6 +20,8 @@ export type Tuning = {
 	CashPerCoin: number,
 	MaxCoins: number,
 	RainFrom: number, -- cash paid by one run
+	RollRate: number, -- per second
+	RollSnap: number, -- points
 }
 
 export type PopupTier = "White" | "Gold" | "Rainbow"
@@ -62,6 +64,21 @@ function Juice.scoreTier(combo: number, tuning: Tuning): number
 		end
 	end
 	return tier
+end
+
+-- The live score shown after `dt` seconds more of rolling from `shown`
+-- toward `target`: it closes the same share of the gap each second
+-- (RollRate), so a big jump rolls fast and slows as it lands, and it snaps
+-- the last RollSnap points.
+function Juice.roll(shown: number, target: number, dt: number, tuning: Tuning): number
+	if math.abs(target - shown) <= tuning.RollSnap then
+		return target
+	end
+	local rolled = shown + (target - shown) * (1 - math.exp(-tuning.RollRate * dt))
+	if math.abs(target - rolled) <= tuning.RollSnap then
+		return target
+	end
+	return rolled
 end
 
 local function ramp(t: number, from: number): number

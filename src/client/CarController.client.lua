@@ -66,6 +66,7 @@ local CoolingTower = require(ReplicatedStorage.CoolingTower)
 local Drive = require(ReplicatedStorage.Drive)
 local InputAxes = require(ReplicatedStorage.InputAxes)
 local Jets = require(ReplicatedStorage.Jets)
+local Juice = require(ReplicatedStorage.Juice)
 local MapLayout = require(ReplicatedStorage.MapLayout)
 local PadPush = require(ReplicatedStorage.PadPush)
 local PipeCatch = require(ReplicatedStorage.PipeCatch)
@@ -346,9 +347,12 @@ end
 
 local function endRun(result: RunTracker.Result)
 	result.gaps = GapZones.find(result)
-	-- The run card would cover the tutorial's prompt.
+	-- The run card and landing stamp would cover the tutorial's prompt.
 	if not TutorialHints.isRunning() then
 		Hud.result(result, Scoring.score(result, Tuning.Score), false)
+		if result.ending == "landed" and result.upY then
+			Hud.landing(Juice.grade(result.clean, result.upY, Tuning.Juice))
+		end
 	end
 	Hud.live(nil)
 	tricksShown = 0

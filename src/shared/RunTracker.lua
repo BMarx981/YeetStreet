@@ -58,6 +58,7 @@ export type Result = {
 	height: number, -- peak studs above the launch point
 	tricks: { Trick },
 	clean: boolean, -- landed upright
+	upY: number?, -- up vector Y at touchdown, only for landings that touched down
 	swing: boolean, -- landed on a swing seat other than the one it launched from
 	-- Where the run took off and ended, seen from above, for gaps (Gap).
 	launchX: number,
@@ -169,6 +170,14 @@ local function finish(state: State, ending: Ending, clean: boolean, swing: boole
 	return result
 end
 
+-- A landing that touched down, with its up vector then for the grade stamp
+-- (Juice).
+local function touchdown(state: State, sample: Sample, tuning: Tuning, swing: boolean?): Result
+	local result = finish(state, "landed", sample.upY >= tuning.CleanUpY, swing)
+	result.upY = sample.upY
+	return result
+end
+
 -- Adds this step's turn to an axis and returns the new total, logging a trick
 -- each time the total passes a full turn.
 local function turn(state: State, kind: TrickKind, total: number, delta: number): number
@@ -198,10 +207,10 @@ local function fly(state: State, sample: Sample, tuning: Tuning): Result?
 		return nil
 	end
 	if sample.swing then
-		return finish(state, "landed", sample.upY >= tuning.CleanUpY, sample.swing ~= state.launchSwing)
+		return touchdown(state, sample, tuning, sample.swing ~= state.launchSwing)
 	end
 	if not sample.airborne then
-		return finish(state, "landed", sample.upY >= tuning.CleanUpY)
+		return touchdown(state, sample, tuning)
 	end
 	if sample.lying then
 		return finish(state, "crashed", false)
