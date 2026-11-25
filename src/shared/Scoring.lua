@@ -32,7 +32,7 @@ export type Trick = {
 }
 
 export type Run = {
-	ending: "landed" | "crashed" | "stopped" | "aborted" | "wrecked",
+	ending: "landed" | "crashed" | "stopped" | "aborted" | "wrecked" | "carried",
 	airtime: number,
 	grind: number?, -- seconds on rails; nil is none
 	distance: number,

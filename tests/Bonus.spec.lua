@@ -75,6 +75,11 @@ Check.test("a wreck keeps the streak as it was", function()
 	Check.eq(Bonus.streakAfter(0, "wrecked", false), 0)
 end)
 
+Check.test("being carried off mid-run (a tornado) keeps the streak as it was", function()
+	Check.eq(Bonus.streakAfter(3, "carried", false), 3)
+	Check.eq(Bonus.streakAfter(0, "carried", false), 0)
+end)
+
 Check.test("the streak pays StreakStep per clean landing up to StreakMax", function()
 	Check.near(Bonus.streakMultiplier(0, T), 1)
 	Check.near(Bonus.streakMultiplier(1, T), 1.1)

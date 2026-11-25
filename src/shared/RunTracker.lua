@@ -48,7 +48,7 @@ export type Trick = {
 	airtime: number, -- seconds into the flight when the turn completed
 }
 
-export type Ending = "landed" | "crashed" | "stopped" | "aborted" | "wrecked"
+export type Ending = "landed" | "crashed" | "stopped" | "aborted" | "wrecked" | "carried"
 
 export type Result = {
 	ending: Ending,
@@ -301,7 +301,8 @@ function RunTracker.snapshot(state: State): Result?
 end
 
 -- Ends any run in progress where the car last was, for resets, or with
--- `ending` "wrecked" for wrecks. Returns nil and disarms if no run was flying.
+-- `ending` "wrecked" for wrecks, or "carried" for a car something picked up
+-- mid-run (a tornado). Returns nil and disarms if no run was flying.
 function RunTracker.abort(state: State, ending: Ending?): Result?
 	if state.phase ~= "flying" then
 		reset(state)

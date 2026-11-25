@@ -993,7 +993,8 @@ carEaten.Parent = ServerStorage
 -- height counted from the ground below (`groundY`) and its cash scaled by
 -- `payScale`, or Tuning.Dino.Ptero.PayScale, and the driver's client is told
 -- on ReplicatedStorage.DropRun so its live score starts too. The Scrapyard's
--- magnet crane (Parks.ScrapyardCrane) carries and drops cars the same way.
+-- magnet crane (Parks.ScrapyardCrane) and the tornados (TornadoService) carry
+-- and drop cars the same way.
 local dropRun = Instance.new("RemoteEvent")
 dropRun.Name = "DropRun"
 dropRun.Parent = ReplicatedStorage
@@ -1023,7 +1024,7 @@ carCarried.Event:Connect(function(car: Model, moment: "grabbed" | "dropped", gro
 		return
 	end
 	watch.held = true
-	local result = RunTracker.abort(watch.run)
+	local result = RunTracker.abort(watch.run, "carried")
 	if result then
 		finish(watch, result)
 	end

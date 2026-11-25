@@ -4619,6 +4619,9 @@ Tuning.Tornado = {
 	FlingSpeed = 110,
 	FlingUp = 70,
 	FlingOut = 0.5, -- how much the throw turns outward from along the spin
+	-- A throw's run pays this times normal cash, under the pterodactyl's 0.6
+	-- since tornados are always about.
+	PayScale = 0.5,
 }
 
 return Tuning

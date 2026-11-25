@@ -236,6 +236,8 @@ local function cardTitle(run: Scoring.Run, score: Scoring.Score): string
 		return "RESET"
 	elseif run.ending == "wrecked" then
 		return "WRECKED"
+	elseif run.ending == "carried" then
+		return "CAUGHT"
 	end
 	return if score.clean > 1 then "CLEAN LANDING" else "LANDED"
 end

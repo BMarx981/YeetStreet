@@ -12,7 +12,8 @@
 -- pterodactyl, crane and missile hold one) is never caught. A caught car is
 -- anchored and moved round the funnel each Heartbeat, tumbling, driver
 -- seated in the open. ScoreService is told on ServerStorage.CarCarried:
--- "grabbed", then "dropped" with the ground's height when it is thrown out.
+-- "grabbed", then "dropped" with the ground's height and PayScale when it
+-- is thrown out, which starts a run from there.
 -- A thrown car is turned level facing the way it flies, then falls at the
 -- throw's speed, back in its driver's hands.
 --
@@ -45,6 +46,7 @@ local COUNT: number = Tuning.Tornado.Count
 local RESPAWN: number = Tuning.Tornado.Respawn
 local ADMIN_AREA: number = Tuning.Tornado.AdminArea
 local SLICES: number = Tuning.Tornado.StandInSlices
+local PAY_SCALE: number = Tuning.Tornado.PayScale
 local FLOOR: number = Tuning.Map.FloorTop
 local AREAS: { MapLayout.Area } = Tuning.Map.Areas :: any
 local RETRY = 3 -- seconds before trying again when no spot was free
@@ -80,11 +82,12 @@ local function setAnchored(car: Model, anchored: boolean)
 	end
 end
 
--- `groundY` is the height of the ground under a thrown car.
-local function tell(car: Model, moment: string, groundY: number?)
+-- `groundY` is the height of the ground under a thrown car, and `payScale`
+-- what its run pays.
+local function tell(car: Model, moment: string, groundY: number?, payScale: number?)
 	local carCarried = ServerStorage:FindFirstChild("CarCarried")
 	if carCarried and carCarried:IsA("BindableEvent") then
-		carCarried:Fire(car, moment, groundY)
+		carCarried:Fire(car, moment, groundY, payScale)
 	end
 end
 
@@ -189,7 +192,7 @@ local function throwOut(car: Model, throw: Tornado.Throw)
 			part:SetNetworkOwner(driver)
 		end
 	end
-	tell(car, "dropped", FLOOR)
+	tell(car, "dropped", FLOOR, PAY_SCALE)
 	print(`Tornado threw {car.Name} out at {math.floor(throw.up)} up ({throw.why})`)
 end
 
