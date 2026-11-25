@@ -1751,6 +1751,20 @@ Tuning.Input = {
 	TriggerDeadzone = 0.05,
 }
 
+-- The show around moments that already happen (Juice). Feel only.
+Tuning.Juice = {
+	GoldFrom = 300, -- a trick paying this many points pops gold
+	RainbowFrom = 500, -- and this many, rainbow
+	PerfectUpY = 0.95, -- a clean landing this upright is stamped PERFECT (clean is Run.CleanUpY)
+	DingSemitones = 2, -- the combo ding rises this much per combo step, an octave by x4
+	ScoreTiers = { 2, 3, 4 }, -- the live score grows and changes color at these combos
+	LinesFrom = 0.6, -- speed lines fade in from this much of Camera.FovFullSpeed
+	ShakeFrom = 0.9, -- and the camera shakes a little from this much
+	CashPerCoin = 250, -- coins flying into the cash counter, one per this much paid
+	MaxCoins = 12,
+	RainFrom = 5000, -- a run paying this much rains cash
+}
+
 Tuning.Camera = {
 	Distance = 22,
 	Height = 6,
