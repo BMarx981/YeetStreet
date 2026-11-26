@@ -305,8 +305,8 @@ function ReplayControls.setDriving(on: boolean)
 	driving = on
 end
 
--- Whether the REPLAY button is showing, so the CARS button (GarageMenu) can
--- sit left of it.
+-- Whether the REPLAY button is showing, so the away GARAGE button
+-- (GarageMenu) can sit left of it.
 function ReplayControls.buttonShown(): boolean
 	return buttonShown
 end

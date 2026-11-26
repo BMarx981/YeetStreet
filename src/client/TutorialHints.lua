@@ -2,10 +2,9 @@
 -- TutorialHints (ModuleScript) -> StarterPlayerScripts.TutorialHints
 -- Shows the tutorial (Tutorial): one prompt at a time in the middle of the
 -- screen, naming the player's own controls, with a SKIP button, and a
--- bobbing arrow over the hub ramp while they should head for it, or over the
--- nearest garage while they should drive to one. The Upgrade line shows on
--- the garage panel's status line instead (GarageMenu.setHint), since the
--- panel covers the middle of the screen. It starts
+-- bobbing arrow over the hub ramp while they should head for it. The Upgrade
+-- line shows on the garage panel's status line instead (GarageMenu.setHint),
+-- since the panel covers the middle of the screen. It starts
 -- by itself once the server says the player hasn't done it (the TutorialDone
 -- attribute, TutorialService), and again from the CONTROLS panel (start).
 -- CarController feeds it each frame (frame) and each run's end (runEnded).
@@ -176,18 +175,8 @@ local function show()
 	end
 	GarageMenu.setHint(if onPanel then text else nil)
 	gui.Enabled = not hidden and not onPanel
-	local arrow = Tutorial.arrow(current)
-	local target: Vector3? = nil
-	if arrow == "Ramp" then
-		target = Vector3.new(ARROW.X, ARROW.Height, ARROW.Z)
-	elseif arrow == "Garage" then
-		local garage = GarageMenu.nearestGarage()
-		target = if garage then garage + Vector3.new(0, ARROW.GarageLift, 0) else nil
-	end
-	board.Enabled = not hidden and target ~= nil
-	if target then
-		arrowPart.Position = target
-		rampLabel.Text = if arrow == "Garage" then "GARAGE" else "RAMP"
+	board.Enabled = not hidden and Tutorial.showArrow(current)
+	if board.Enabled then
 		board.StudsOffsetWorldSpace = Vector3.new(0, math.sin(os.clock() * BOB_SPEED) * BOB_HEIGHT, 0)
 	end
 end
@@ -203,8 +192,7 @@ end
 function TutorialHints.frame(frame: Tutorial.Frame)
 	local current = state
 	if current then
-		frame.atGarage = GarageMenu.atGarage()
-		frame.garageOpen = GarageMenu.isGarageOpen()
+		frame.garageOpen = GarageMenu.isOpen()
 		frame.canAfford = GarageMenu.canAffordUpgrade()
 		frame.upgraded = upgraded()
 		Tutorial.step(current, frame, T)

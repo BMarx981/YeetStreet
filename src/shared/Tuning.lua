@@ -172,7 +172,7 @@ Tuning.Analytics = {
 	-- Done once it is finished. Finish is left out: only a player who already
 	-- owns an upgrade sees it, in place of the garage steps.
 	TutorialFunnel = "Tutorial",
-	TutorialSteps = { "Drive", "Ramp", "Jets", "Tilt", "Land", "Earn", "Garage", "Open", "Upgrade", "Upgraded", "Done" },
+	TutorialSteps = { "Drive", "Ramp", "Jets", "Tilt", "Land", "Earn", "Open", "Upgrade", "Upgraded", "Done" },
 	ScoreBuckets = { 250, 1000, 2500, 5000, 10000, 25000 },
 	MinuteBuckets = { 2, 5, 10, 20, 40, 80 },
 }
@@ -632,8 +632,8 @@ Tuning.Garage = {
 		LitTransparency = 0,
 		CheckEvery = 0.2, -- seconds between checks of whether the player is inside
 	},
-	-- While an upgrade level is affordable, the GARAGE button, or in the panel
-	-- the cheapest level's price, bounces this often (GarageMenu).
+	-- While an upgrade level is affordable, the GARAGE buttons, or in the panel
+	-- the cheapest level's price, bounce this often (GarageMenu).
 	PulseEvery = 1.2,
 }
 
@@ -4528,15 +4528,14 @@ Tuning.Dino = {
 
 -- The first-session tutorial (Tutorial, TutorialHints). One prompt shows at a
 -- time, naming the player's own controls. The arrow floats Arrow.Height above
--- the start of the hub ramp while the player should head for it, and
--- Arrow.GarageLift above the nearest garage while they should drive to one.
+-- the start of the hub ramp while the player should head for it.
 Tuning.Tutorial = {
 	DriveSpeed = 20, -- studs per second with the gas held to finish Drive
 	JetHold = 0.5, -- seconds of jets in a run to finish Jets
 	TiltInput = 0.5, -- how far a steer, gas, brake, or stick input counts as tilting
 	TiltHold = 0.5, -- seconds of tilting in a run to finish Tilt
 	FinishTime = 5, -- seconds the last line shows
-	Arrow = { X = 0, Z = Tuning.TestPark.RampStartZ, Height = 30, GarageLift = 30 },
+	Arrow = { X = 0, Z = Tuning.TestPark.RampStartZ, Height = 30 },
 	Text = {
 		Drive = { Keyboard = "Hold W to drive", Gamepad = "Hold RT to drive", Touch = "Hold GAS to drive" },
 		Ramp = {
@@ -4561,15 +4560,10 @@ Tuning.Tutorial = {
 			Gamepad = "Airtime, tricks, and crashes pay cash. Go again!",
 			Touch = "Airtime, tricks, and crashes pay cash. Go again!",
 		},
-		Garage = {
-			Keyboard = "You can buy an upgrade! Drive into the GARAGE ring.",
-			Gamepad = "You can buy an upgrade! Drive into the GARAGE ring.",
-			Touch = "You can buy an upgrade! Drive into the GARAGE ring.",
-		},
 		Open = {
-			Keyboard = "Press G to open the garage!",
-			Gamepad = "Press X to open the garage!",
-			Touch = "Tap GARAGE to open it!",
+			Keyboard = "You can buy an upgrade! Press C to open the GARAGE.",
+			Gamepad = "You can buy an upgrade! Press X to open the GARAGE.",
+			Touch = "You can buy an upgrade! Tap GARAGE to open it.",
 		},
 		-- Shows on the garage panel's status line, since the panel covers the
 		-- middle of the screen.
@@ -4597,7 +4591,7 @@ Tuning.UpgradeNudge = {
 	MaxShows = 3, -- times a session
 	ShowTime = 8, -- seconds on screen, unless the garage opens first
 	TutorialWait = 15, -- seconds it waits for the tutorial's last line to go
-	Text = "You have {cash}! Buy an upgrade at the GARAGE. TELEPORT gets you there.",
+	Text = "You have {cash}! Open the GARAGE to buy an upgrade.",
 }
 
 -- Server-wide timed events (TimedEvents, EventService). Every server runs the

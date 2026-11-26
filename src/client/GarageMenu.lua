@@ -10,19 +10,20 @@
 -- Cars tab starts with a REBIRTH row, which asks on RebirthConfirm first.
 -- The Limiteds tab lists the player's limiteds and the ones on sale now,
 -- with the time left and a Robux button (RobuxShop).
--- It opens only within Tuning.Garage.Reach of a model tagged Garage, the ring
--- painted on the ground (GarageRing), with G or E (E shows the Cars tab) on a
--- keyboard, X on a gamepad, or the GARAGE button, which shows only inside the
--- ring (the only way in on a phone or tablet). The same keys, the panel's X
--- button, and gamepad B close it. Anywhere else, the CARS button at the left
--- end of the top right row (left of REPLAY while it shows), or C, opens it as
--- the car panel (only the Cars and Event tabs, no REBIRTH row) while the car
--- is on the ground.
+-- Within Tuning.Garage.Reach of a model tagged Garage, the ring painted on
+-- the ground (GarageRing), it opens in full with G or E (E shows the Cars tab)
+-- on a keyboard, or the GARAGE button that shows inside the ring. Anywhere
+-- else, the GARAGE button at the left end of the top right row (left of
+-- REPLAY while it shows) opens it away from a garage while the car is on the
+-- ground: only the Upgrades, Cars and Event tabs, no REBIRTH row. C on a
+-- keyboard and X on a gamepad open it either way, on the Upgrades tab while
+-- a level is affordable, otherwise the Cars tab. The same keys, the panel's
+-- X button, and gamepad B close it.
 --
 -- While the player can afford an upgrade level on the equipped car, red "!"
--- badges show on the GARAGE button and the UPGRADES tab, and the GARAGE
--- button, or with the Upgrades tab open the cheapest level's price, bounces
--- every Tuning.Garage.PulseEvery seconds. The tutorial (TutorialHints) puts its
+-- badges show on the GARAGE buttons and the UPGRADES tab, and the GARAGE
+-- button showing, or with the Upgrades tab open the cheapest level's price,
+-- bounces every Tuning.Garage.PulseEvery seconds. The tutorial (TutorialHints) puts its
 -- line on the panel's status line with setHint.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
@@ -58,10 +59,11 @@ local UiStyle = require(script.Parent.UiStyle)
 local GarageMenu = {}
 
 local GARAGE_TAG = "Garage"
--- The CARS button's spots in the top right row of 120 wide stickers, 128
--- apart: where REPLAY sits (ReplayControls), and one further left.
-local CARS_BY_DAILY = UDim2.new(1, -524, 0, -4)
-local CARS_BY_REPLAY = UDim2.new(1, -652, 0, -4)
+-- The centers of the away GARAGE button's spots in the top right row of 120
+-- by 32 stickers, 128 apart: where REPLAY sits (ReplayControls), and one
+-- further left.
+local AWAY_BY_DAILY = UDim2.new(1, -584, 0, -20)
+local AWAY_BY_REPLAY = UDim2.new(1, -712, 0, -20)
 
 type Tab = "Upgrades" | "Cars" | "Limiteds" | "Bones" | "Event"
 
@@ -130,7 +132,7 @@ local REASONS: { [string]: string } = {
 local player = Players.LocalPlayer :: Player
 local started = false
 local open = false
-local carsOnly = false -- opened away from a garage: only the Cars and Event tabs
+local away = false -- opened away from a garage: only the Upgrades, Cars and Event tabs
 local busy = false
 local tab: Tab = "Upgrades"
 local hint: string? = nil -- the tutorial's line, shown on the status line
@@ -256,31 +258,21 @@ local function prizeFriends(id: string): number?
 	return nil
 end
 
--- The pivot of the Garage-tagged model nearest the player, and how far away
--- it is.
-local function nearestGarage(): (Vector3?, number)
+local function nearGarage(): boolean
 	local character = player.Character
 	local hrp = character and character:FindFirstChild("HumanoidRootPart")
 	if not (hrp and hrp:IsA("BasePart")) then
-		return nil, math.huge
+		return false
 	end
-	local best: Vector3? = nil
-	local bestDistance = math.huge
 	for _, garage in CollectionService:GetTagged(GARAGE_TAG) do
-		if garage:IsA("PVInstance") then
-			local at = garage:GetPivot().Position
-			local distance = (at - hrp.Position).Magnitude
-			if distance < bestDistance then
-				best, bestDistance = at, distance
-			end
+		if
+			garage:IsA("PVInstance")
+			and (garage:GetPivot().Position - hrp.Position).Magnitude <= Tuning.Garage.Reach
+		then
+			return true
 		end
 	end
-	return best, bestDistance
-end
-
-local function nearGarage(): boolean
-	local _, distance = nearestGarage()
-	return distance <= Tuning.Garage.Reach
+	return false
 end
 
 -- The stat whose next level is the cheapest the player can buy now on the
@@ -311,19 +303,20 @@ local function build()
 	UiStyle.springy(openButton)
 	local garageAlert = UiStyle.alert(openButton)
 
-	-- Whenever the GARAGE button isn't showing. Top right, in the Roblox top
-	-- bar like the row it ends: left of REPLAY while that shows, otherwise in
-	-- its place left of DAILY.
-	local carsButton = UiStyle.sticker("Cars", gui, "CARS")
-	carsButton.AnchorPoint = Vector2.new(1, 1)
-	carsButton.Position = CARS_BY_DAILY
-	carsButton.Size = UDim2.fromOffset(120, 32)
-	carsButton.Visible = false
-	carsButton.Active = false
-	carsButton.Selectable = false
+	-- Whenever the ring's GARAGE button isn't showing. Top right, in the
+	-- Roblox top bar like the row it ends: left of REPLAY while that shows,
+	-- otherwise in its place left of DAILY.
+	local awayButton = UiStyle.sticker("Away", gui, "GARAGE")
+	awayButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	awayButton.Position = AWAY_BY_DAILY
+	awayButton.Size = UDim2.fromOffset(120, 32)
+	awayButton.Visible = false
+	awayButton.Active = false
+	awayButton.Selectable = false
+	UiStyle.springy(awayButton)
+	local awayAlert = UiStyle.alert(awayButton)
 
 	local panel, close = UiStyle.panel(gui, "GARAGE", Vector2.new(600, 460))
-	local title = panel:FindFirstChild("Title") :: TextLabel
 	local top = UiStyle.HeaderHeight
 
 	local cash = UiStyle.text("Cash", panel, 28, true)
@@ -349,10 +342,9 @@ local function build()
 	local limitedsTab = tabButton("Limiteds", 228)
 	local eventTab = tabButton("Event", 342)
 	local bonesTab = tabButton("Bones", 456)
-	-- Where the tabs sit once springy has centered their anchors. The car
-	-- panel moves CARS and EVENT into the first two spots.
-	local firstSpot = upgradesTab.Position
-	local secondSpot = carsTab.Position
+	-- Where the tabs sit once springy has centered their anchors. Away from a
+	-- garage EVENT moves into LIMITEDS' spot.
+	local limitedsSpot = limitedsTab.Position
 	local eventSpot = eventTab.Position
 	local upgradesAlert = UiStyle.alert(upgradesTab)
 
@@ -831,16 +823,13 @@ local function build()
 		if tab == "Bones" and not atBoneTrader then
 			tab = "Upgrades"
 		end
-		if carsOnly and tab ~= "Cars" and tab ~= "Event" then
-			tab = "Cars"
+		if away and (tab == "Limiteds" or tab == "Bones") then
+			tab = "Upgrades"
 		end
-		bonesTab.Visible = atBoneTrader and not carsOnly
-		upgradesTab.Visible = not carsOnly
-		limitedsTab.Visible = not carsOnly
-		carsTab.Position = if carsOnly then firstSpot else secondSpot
-		eventTab.Position = if carsOnly then secondSpot else eventSpot
-		rebirthRow.frame.Visible = not carsOnly
-		title.Text = if carsOnly then "CARS" else "GARAGE"
+		bonesTab.Visible = atBoneTrader and not away
+		limitedsTab.Visible = not away
+		eventTab.Position = if away then limitedsSpot else eventSpot
+		rebirthRow.frame.Visible = not away
 		upgradesList.Visible = tab == "Upgrades"
 		carsList.Visible = tab == "Cars"
 		limitedsList.Visible = tab == "Limiteds"
@@ -1062,7 +1051,7 @@ local function build()
 		open = value
 		UiStyle.show(panel, value)
 		if not value then
-			carsOnly = false
+			away = false
 			spin.close()
 			confirm.close()
 		end
@@ -1129,21 +1118,26 @@ local function build()
 		end
 	end)
 
-	-- The car panel opens anywhere, but only with the car on the ground: the
-	-- server refuses to rebuild a car in the air. Away from a garage it shows
-	-- only the Cars and Event tabs.
-	local function toggleCars()
+	-- Opens in full at a garage. Anywhere else it opens away from a garage, but
+	-- only with the car on the ground: the server refuses to rebuild a car in
+	-- the air. Either way it starts on Upgrades while a level is affordable.
+	local function toggleAnywhere(byGamepad: boolean)
 		if open then
-			setOpen(false, false)
-		elseif eIsForFlying() then
-			UiStyle.play("Denied")
-		else
-			carsOnly = not nearGarage()
-			showTab("Cars")
-			setOpen(true, false)
+			setOpen(false, byGamepad)
+			return
 		end
+		local atGarage = nearGarage()
+		if not atGarage and eIsForFlying() then
+			UiStyle.play("Denied")
+			return
+		end
+		away = not atGarage
+		showTab(if cheapestUpgrade() then "Upgrades" else "Cars")
+		setOpen(true, byGamepad)
 	end
-	carsButton.Activated:Connect(toggleCars)
+	awayButton.Activated:Connect(function()
+		toggleAnywhere(false)
+	end)
 	close.Activated:Connect(function()
 		setOpen(false, false)
 	end)
@@ -1159,39 +1153,38 @@ local function build()
 				setOpen(not open, false)
 			end
 		elseif input.KeyCode == Enum.KeyCode.C and not processed then
-			toggleCars()
+			toggleAnywhere(false)
 		elseif input.KeyCode == Enum.KeyCode.ButtonX then
-			if open or nearGarage() then
-				setOpen(not open, true)
-			end
+			toggleAnywhere(true)
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then
 			setOpen(false, true)
 		end
 	end)
 
-	-- The GARAGE button shows while the player is inside a garage's ring, and
-	-- the CARS button in its place everywhere else. While a level is
-	-- affordable the badges show and the GARAGE button or cheapest price
-	-- bounces.
+	-- The ring's GARAGE button shows while the player is inside a garage's
+	-- ring, and the away GARAGE button everywhere else. While a level is
+	-- affordable the badges show and the GARAGE button showing or the
+	-- cheapest price bounces.
 	local lastPulse = 0
 	task.spawn(function()
 		while true do
 			task.wait(Tuning.Garage.Ring.CheckEvery)
-			local garage = if open then not carsOnly else nearGarage()
+			local garage = if open then not away else nearGarage()
 			openButton.Visible = garage
 			openButton.Active = garage
-			carsButton.Visible = not garage
-			carsButton.Active = not garage
+			awayButton.Visible = not garage
+			awayButton.Active = not garage
 
 			local stat = cheapestUpgrade()
 			garageAlert.Visible = stat ~= nil
+			awayAlert.Visible = stat ~= nil
 			upgradesAlert.Visible = stat ~= nil and tab ~= "Upgrades"
 			if stat and os.clock() - lastPulse >= Tuning.Garage.PulseEvery then
 				lastPulse = os.clock()
-				if open and not carsOnly and tab == "Upgrades" and not busy then
+				if open and tab == "Upgrades" and not busy then
 					UiStyle.pulse(statRows[stat].button)
-				elseif not open and garage then
-					UiStyle.pulse(openButton)
+				elseif not open then
+					UiStyle.pulse(if garage then openButton else awayButton)
 				end
 			end
 		end
@@ -1199,7 +1192,7 @@ local function build()
 
 	-- The car previews only spin while someone can see them.
 	RunService.RenderStepped:Connect(function(dt: number)
-		carsButton.Position = if ReplayControls.buttonShown() then CARS_BY_REPLAY else CARS_BY_DAILY
+		awayButton.Position = if ReplayControls.buttonShown() then AWAY_BY_REPLAY else AWAY_BY_DAILY
 		if open and tab == "Cars" then
 			for _, r in carRows do
 				r.preview.spin(dt)
@@ -1258,21 +1251,6 @@ end
 -- True while the panel is open; the car takes no input then.
 function GarageMenu.isOpen(): boolean
 	return open
-end
-
--- True while the full garage is open, not the car panel.
-function GarageMenu.isGarageOpen(): boolean
-	return open and not carsOnly
-end
-
--- True while the player is inside a garage's ring.
-function GarageMenu.atGarage(): boolean
-	return nearGarage()
-end
-
--- The pivot of the garage nearest the player, if any.
-function GarageMenu.nearestGarage(): Vector3?
-	return (nearestGarage())
 end
 
 -- True if the player can buy an upgrade level on the equipped car now.

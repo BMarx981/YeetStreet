@@ -6,8 +6,8 @@
 -- at least TiltInput in a run), Land (until the run ends). A player who owns
 -- an upgrade level then sees Finish for FinishTime seconds. Anyone else is
 -- walked to their first upgrade: Earn (more runs until one is affordable),
--- Garage (drive into a garage ring), Open (open the garage), Upgrade (buy
--- one), then Upgraded for FinishTime seconds. A run that ends during Jets or
+-- Open (open the garage, which opens anywhere), Upgrade (buy one), then
+-- Upgraded for FinishTime seconds. A run that ends during Jets or
 -- Tilt keeps the step and asks for another launch (Again). The client feeds
 -- it a Frame each step and calls runEnded when a run ends; prompt names the
 -- line to show, and text picks it for the player's device. reconcile reads
@@ -24,12 +24,10 @@ export type Prompt =
 	| "Tilt"
 	| "Land"
 	| "Earn"
-	| "Garage"
 	| "Open"
 	| "Upgrade"
 	| "Upgraded"
 	| "Finish"
-export type Arrow = "Ramp" | "Garage"
 export type Text = { Keyboard: string, Gamepad: string, Touch: string }
 
 export type Tuning = {
@@ -51,13 +49,12 @@ export type Frame = {
 	roll: number,
 	burning: boolean,
 	-- For the garage steps; missing counts as false.
-	atGarage: boolean?, -- inside a garage's ring
-	garageOpen: boolean?, -- the garage panel is open at a garage, not the car panel
+	garageOpen: boolean?, -- the garage panel is open
 	canAfford: boolean?, -- some upgrade level on this car is affordable
 	upgraded: boolean?, -- the player owns an upgrade level
 }
 
-type Step = "Drive" | "Ramp" | "Jets" | "Tilt" | "Land" | "Earn" | "Garage" | "Open" | "Upgrade" | "Upgraded" | "Finish"
+type Step = "Drive" | "Ramp" | "Jets" | "Tilt" | "Land" | "Earn" | "Open" | "Upgrade" | "Upgraded" | "Finish"
 
 export type State = {
 	step: Step,
@@ -82,10 +79,8 @@ local function shopStep(frame: Frame): Step
 		return "Earn"
 	elseif frame.garageOpen then
 		return "Upgrade"
-	elseif frame.atGarage then
-		return "Open"
 	end
-	return "Garage"
+	return "Open"
 end
 
 -- Moves the tutorial on by one frame.
@@ -120,7 +115,7 @@ function Tutorial.step(state: State, frame: Frame, tuning: Tuning)
 			state.step = "Land"
 			state.held = 0
 		end
-	elseif step == "Earn" or step == "Garage" or step == "Open" or step == "Upgrade" then
+	elseif step == "Earn" or step == "Open" or step == "Upgrade" then
 		if frame.upgraded then
 			state.step = "Upgraded"
 			state.held = tuning.FinishTime
@@ -162,16 +157,10 @@ function Tutorial.prompt(state: State): Prompt?
 	return step
 end
 
--- What the arrow should point at: the hub ramp, the nearest garage, or
--- nothing.
-function Tutorial.arrow(state: State): Arrow?
+-- Whether the arrow over the hub ramp should show.
+function Tutorial.showArrow(state: State): boolean
 	local prompt = Tutorial.prompt(state)
-	if prompt == "Ramp" or prompt == "Again" then
-		return "Ramp"
-	elseif prompt == "Garage" then
-		return "Garage"
-	end
-	return nil
+	return prompt == "Ramp" or prompt == "Again"
 end
 
 function Tutorial.text(prompt: Prompt, device: Device, tuning: Tuning): string

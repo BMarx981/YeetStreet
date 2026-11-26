@@ -20,7 +20,6 @@ local T: Tutorial.Tuning = {
 		Tilt = text("Tilt"),
 		Land = text("Land"),
 		Earn = text("Earn"),
-		Garage = text("Garage"),
 		Open = text("Open"),
 		Upgrade = text("Upgrade"),
 		Upgraded = text("Upgraded"),
@@ -214,39 +213,31 @@ Check.test("a landed run with no upgrade asks for more runs while one isn't affo
 	Check.eq(state.done, false)
 end)
 
-Check.test("an affordable upgrade sends the player to a garage", function()
+Check.test("an affordable upgrade asks to open the garage", function()
 	local state = landed()
 	Tutorial.step(state, frame({ canAfford = true }), T)
-	Check.eq(Tutorial.prompt(state), "Garage")
-end)
-
-Check.test("inside a garage ring it asks to open the garage, and back out of it", function()
-	local state = landed()
-	Tutorial.step(state, frame({ canAfford = true, atGarage = true }), T)
 	Check.eq(Tutorial.prompt(state), "Open")
-	Tutorial.step(state, frame({ canAfford = true }), T)
-	Check.eq(Tutorial.prompt(state), "Garage", "drove off")
 end)
 
 Check.test("an open garage asks for an upgrade, and closing it goes back", function()
 	local state = landed()
-	Tutorial.step(state, frame({ canAfford = true, atGarage = true, garageOpen = true }), T)
+	Tutorial.step(state, frame({ canAfford = true, garageOpen = true }), T)
 	Check.eq(Tutorial.prompt(state), "Upgrade")
-	Tutorial.step(state, frame({ canAfford = true, atGarage = true }), T)
+	Tutorial.step(state, frame({ canAfford = true }), T)
 	Check.eq(Tutorial.prompt(state), "Open", "closed")
 end)
 
 Check.test("spending the cash elsewhere goes back to Earn", function()
 	local state = landed()
-	Tutorial.step(state, frame({ canAfford = true, atGarage = true, garageOpen = true }), T)
-	Tutorial.step(state, frame({ atGarage = true, garageOpen = true }), T)
+	Tutorial.step(state, frame({ canAfford = true, garageOpen = true }), T)
+	Tutorial.step(state, frame({ garageOpen = true }), T)
 	Check.eq(Tutorial.prompt(state), "Earn")
 end)
 
 Check.test("buying an upgrade shows Upgraded for FinishTime, then the tutorial is done", function()
 	local state = landed()
-	Tutorial.step(state, frame({ canAfford = true, atGarage = true, garageOpen = true }), T)
-	Tutorial.step(state, frame({ atGarage = true, garageOpen = true, upgraded = true }), T)
+	Tutorial.step(state, frame({ canAfford = true, garageOpen = true }), T)
+	Tutorial.step(state, frame({ garageOpen = true, upgraded = true }), T)
 	Check.eq(Tutorial.prompt(state), "Upgraded")
 	hold(state, frame({ upgraded = true }), 3.9)
 	Check.eq(Tutorial.prompt(state), "Upgraded", "before FinishTime")
@@ -262,21 +253,18 @@ Check.test("an upgrade bought on any garage step counts", function()
 	end
 end)
 
-Check.test("the arrow points at the ramp on Ramp and Again, and at a garage on Garage", function()
+Check.test("the arrow shows on Ramp and Again only", function()
 	local state = Tutorial.new()
-	Check.eq(Tutorial.arrow(state), nil, "Drive")
+	Check.eq(Tutorial.showArrow(state), false, "Drive")
 	Tutorial.step(state, frame({ speed = 30, throttle = 1 }), T)
-	Check.eq(Tutorial.arrow(state), "Ramp", "Ramp")
+	Check.eq(Tutorial.showArrow(state), true, "Ramp")
 	Tutorial.step(state, frame({ inRun = true }), T)
-	Check.eq(Tutorial.arrow(state), nil, "Jets")
+	Check.eq(Tutorial.showArrow(state), false, "Jets")
 	Tutorial.runEnded(state, T)
-	Check.eq(Tutorial.arrow(state), "Ramp", "Again")
+	Check.eq(Tutorial.showArrow(state), true, "Again")
 	local shop = landed()
-	Check.eq(Tutorial.arrow(shop), nil, "Earn")
 	Tutorial.step(shop, frame({ canAfford = true }), T)
-	Check.eq(Tutorial.arrow(shop), "Garage", "Garage")
-	Tutorial.step(shop, frame({ canAfford = true, atGarage = true }), T)
-	Check.eq(Tutorial.arrow(shop), nil, "Open")
+	Check.eq(Tutorial.showArrow(shop), false, "Open")
 end)
 
 Check.test("text picks the line for the device", function()
