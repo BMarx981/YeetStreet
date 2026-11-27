@@ -17,13 +17,15 @@
 -- REPLAY while it shows) opens it away from a garage while the car is on the
 -- ground: only the Upgrades, Cars and Event tabs, no REBIRTH row. C on a
 -- keyboard and X on a gamepad open it either way, on the Upgrades tab while
--- a level is affordable, otherwise the Cars tab. The same keys, the panel's
--- X button, and gamepad B close it.
+-- a level is affordable and no new car is, otherwise the Cars tab. The same
+-- keys, the panel's X button, and gamepad B close it.
 --
 -- While the player can afford an upgrade level on the equipped car, red "!"
--- badges show on the GARAGE buttons and the UPGRADES tab, and the GARAGE
--- button showing, or with the Upgrades tab open the cheapest level's price,
--- bounces every Tuning.Garage.PulseEvery seconds. The tutorial (TutorialHints) puts its
+-- badges show on the GARAGE buttons and the UPGRADES tab. While they can
+-- afford a new car, the GARAGE buttons' badges show a car instead, and so
+-- does one on the CARS tab. Either way the GARAGE button showing, or the
+-- cheapest such price on the open tab, bounces every Tuning.Garage.PulseEvery
+-- seconds. The tutorial (TutorialHints) puts its
 -- line on the panel's status line with setHint.
 --
 -- Everything shown comes from the attributes Garage sets on the player, with
@@ -59,6 +61,7 @@ local UiStyle = require(script.Parent.UiStyle)
 local GarageMenu = {}
 
 local GARAGE_TAG = "Garage"
+local CAR_ICON = "🚗" -- the badges' look while a new car is affordable
 -- The centers of the away GARAGE button's spots in the top right row of 120
 -- by 32 stickers, 128 apart: where REPLAY sits (ReplayControls), and one
 -- further left.
@@ -287,6 +290,15 @@ local function cheapestUpgrade(): Economy.StatName?
 	return Economy.cheapestUpgrade(levels(), car.Caps, number("Cash"), Tuning.Upgrades)
 end
 
+-- The cheapest new car the player can buy now, or nil.
+local function cheapestCar(): Economy.Car?
+	if typeof(player:GetAttribute("Cash")) ~= "number" then
+		return nil
+	end
+	local rebirths = Rebirth.count(player:GetAttribute("Rebirths"))
+	return Economy.cheapestCar(Tuning.Ladder, owned(), number("Cash"), rebirths)
+end
+
 local function build()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "Garage"
@@ -347,6 +359,8 @@ local function build()
 	local limitedsSpot = limitedsTab.Position
 	local eventSpot = eventTab.Position
 	local upgradesAlert = UiStyle.alert(upgradesTab)
+	local carsAlert = UiStyle.alert(carsTab)
+	carsAlert.Text = CAR_ICON
 
 	local status = UiStyle.text("Status", panel, 16, false)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -1132,7 +1146,7 @@ local function build()
 			return
 		end
 		away = not atGarage
-		showTab(if cheapestUpgrade() then "Upgrades" else "Cars")
+		showTab(if cheapestUpgrade() and not cheapestCar() then "Upgrades" else "Cars")
 		setOpen(true, byGamepad)
 	end
 	awayButton.Activated:Connect(function()
@@ -1162,9 +1176,9 @@ local function build()
 	end)
 
 	-- The ring's GARAGE button shows while the player is inside a garage's
-	-- ring, and the away GARAGE button everywhere else. While a level is
-	-- affordable the badges show and the GARAGE button showing or the
-	-- cheapest price bounces.
+	-- ring, and the away GARAGE button everywhere else. While a level or a new
+	-- car is affordable the badges show and the GARAGE button showing or the
+	-- cheapest price on the open tab bounces.
 	local lastPulse = 0
 	task.spawn(function()
 		while true do
@@ -1176,13 +1190,20 @@ local function build()
 			awayButton.Active = not garage
 
 			local stat = cheapestUpgrade()
-			garageAlert.Visible = stat ~= nil
-			awayAlert.Visible = stat ~= nil
+			local newCar = cheapestCar()
+			for _, dot in { garageAlert, awayAlert } do
+				dot.Visible = stat ~= nil or newCar ~= nil
+				dot.Text = if newCar then CAR_ICON else "!"
+			end
 			upgradesAlert.Visible = stat ~= nil and tab ~= "Upgrades"
-			if stat and os.clock() - lastPulse >= Tuning.Garage.PulseEvery then
+			carsAlert.Visible = newCar ~= nil and tab ~= "Cars"
+			if (stat or newCar) and os.clock() - lastPulse >= Tuning.Garage.PulseEvery then
 				lastPulse = os.clock()
-				if open and tab == "Upgrades" and not busy then
+				local newCarRow = if newCar then carRows[newCar.Id] else nil
+				if open and tab == "Upgrades" and stat and not busy then
 					UiStyle.pulse(statRows[stat].button)
+				elseif open and tab == "Cars" and newCarRow and not busy then
+					UiStyle.pulse(newCarRow.button)
 				elseif not open then
 					UiStyle.pulse(if garage then openButton else awayButton)
 				end

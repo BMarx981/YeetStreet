@@ -529,6 +529,22 @@ function Economy.buyCar(state: State, id: string, ladder: { Car }, rebirths: num
 	return after, nil
 end
 
+-- The cheapest car a player owning `owned`, with `cash` and `rebirths`,
+-- could buy now under buyCar's rules, or nil.
+function Economy.cheapestCar(ladder: { Car }, owned: { string }, cash: number, rebirths: number): Car?
+	local best: Car? = nil
+	for _, car in ladder do
+		local buyable = not table.find(owned, car.Id)
+			and car.ForSale ~= false
+			and rebirths >= (car.Rebirths or 0)
+			and cash >= car.Price
+		if buyable and (best == nil or car.Price < best.Price) then
+			best = car
+		end
+	end
+	return best
+end
+
 -- Equips an owned car. Fails with "NotOwned".
 function Economy.equip(state: State, id: string): (State?, string?)
 	if not table.find(state.Cars, id) then

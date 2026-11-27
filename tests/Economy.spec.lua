@@ -126,6 +126,32 @@ Check.test("cheapestUpgrade skips stats at the car's cap", function()
 	Check.eq(Economy.cheapestUpgrade(maxed, CAPS, 1e9, COSTS), nil, "all at cap")
 end)
 
+local function extraCar(id: string, price: number, forSale: boolean?, rebirths: number?): Economy.Car
+	local car = table.clone(LADDER[2])
+	car.Id = id
+	car.Price = price
+	car.ForSale = forSale
+	car.Rebirths = rebirths
+	return car
+end
+
+Check.test("cheapestCar is the cheapest unowned car the cash covers", function()
+	Check.eq(Economy.cheapestCar(LADDER, { "Junker" }, 4999, 0), nil, "short of the Hatchback")
+	local car = Economy.cheapestCar(LADDER, { "Junker" }, 1e9, 0)
+	Check.eq(car and car.Id, "Hatchback")
+	local second = Economy.cheapestCar(LADDER, { "Junker", "Hatchback" }, 25000, 0)
+	Check.eq(second and second.Id, "Muscle", "owned ones skipped")
+	Check.eq(Economy.cheapestCar(LADDER, { "Junker", "Hatchback", "Muscle" }, 1e9, 0), nil, "all owned")
+end)
+
+Check.test("cheapestCar skips cars not for sale and cars locked behind rebirths", function()
+	local ladder = { LADDER[1], extraCar("Prize", 10, false), extraCar("Reborn", 20, nil, 1), extraCar("Shop", 30) }
+	local car = Economy.cheapestCar(ladder, { "Junker" }, 1e9, 0)
+	Check.eq(car and car.Id, "Shop")
+	local unlocked = Economy.cheapestCar(ladder, { "Junker" }, 1e9, 1)
+	Check.eq(unlocked and unlocked.Id, "Reborn", "after a rebirth")
+end)
+
 Check.test("level 0 stats are the base car", function()
 	local stats = Economy.stats(BASE, levels(0, 0, 0, 0), LADDER[1], STEPS)
 	Check.eq(stats.TopSpeed, 110)
