@@ -1,17 +1,23 @@
 --!strict
 -- DinoWeather (Script) -> ServerScriptService.DinoWeather
 -- Rains dino bones from the sky when triggered by an admin via the
--- `:weather bonerain` command. Players pick them up by touching them
--- to earn BoneCoins (Garage.addBones), saved with their data and shown in
--- the leaderstats.
+-- `:weather bonerain` command. Players pick them up by driving into them,
+-- or touching them on foot, to earn BoneCoins (Garage.addBones), saved with
+-- their data and shown in the leaderstats. A car picks up any bone inside its
+-- hull grown by Tuning.BonePickup.Reach, checked every frame, so a fast car
+-- can't skip past one between physics steps. The picker's client hears and
+-- sees it (BonePickupEvent, BonePickup).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Garage = require(ServerScriptService.Garage)
+local Tuning = require(ReplicatedStorage.Tuning)
 
 local boneRainEvent = ReplicatedStorage:FindFirstChild("BoneRainEvent")
+local bonePickupEvent = ReplicatedStorage:FindFirstChild("BonePickupEvent")
 local toggleEvent = ServerScriptService:FindFirstChild("BoneRainToggle")
 
 -- ── Config ──────────────────────────────────────────────────────────────
@@ -33,6 +39,8 @@ local BONE_KNOB_GAP = 0.45 -- studs from the shaft's middle to each knob's
 
 local raining = false
 local boneFolder = nil
+local taken: { [BasePart]: boolean } = {} -- bones already picked up
+local carCheck: RBXScriptConnection? = nil
 
 -- ── Trader NPC ──────────────────────────────────────────────────────────
 
@@ -207,6 +215,46 @@ local function addBoneShape(box: BasePart)
 	end
 end
 
+-- Pays `player` for `bone`, once, and tells their client.
+local function collect(bone: BasePart, player: Player)
+	if taken[bone] then
+		return
+	end
+	taken[bone] = true
+	-- Saved with the player's data, and shown in leaderstats and the
+	-- BoneCoins attribute for the GarageMenu.
+	Garage.addBones(player, 1, BONE_VALUE, "BoneRain")
+	if bonePickupEvent and bonePickupEvent:IsA("RemoteEvent") then
+		bonePickupEvent:FireClient(player)
+	end
+	bone:Destroy()
+end
+
+-- Picks up every bone inside a car's hull, grown by Reach, for the car's
+-- owner.
+local function pickUpWithCars()
+	local cars = workspace:FindFirstChild("Cars")
+	if not (cars and boneFolder) then
+		return
+	end
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Include
+	overlap.FilterDescendantsInstances = { boneFolder }
+	local grow = Tuning.BonePickup.Reach * 2
+	for _, car in cars:GetChildren() do
+		local userId = car:GetAttribute("OwnerUserId")
+		local hull = car:FindFirstChild("Hull")
+		local player = if typeof(userId) == "number" then Players:GetPlayerByUserId(userId) else nil
+		if player and hull and hull:IsA("BasePart") then
+			for _, part in workspace:GetPartBoundsInBox(hull.CFrame, hull.Size + grow, overlap) do
+				if part.Name == "DinoBone" then
+					collect(part, player)
+				end
+			end
+		end
+	end
+end
+
 local function spawnBone(center: Vector3)
 	local angle = math.random() * math.pi * 2
 	local dist = math.random() * SPAWN_RADIUS
@@ -228,10 +276,12 @@ local function spawnBone(center: Vector3)
 
 	-- Track lifetime and cleanup
 	local spawnedAt = os.clock()
-	local collected = false
+	bone.Destroying:Connect(function()
+		taken[bone] = nil
+	end)
 
+	-- On foot: any part of a living character.
 	bone.Touched:Connect(function(other: BasePart)
-		if collected then return end
 		local character = other.Parent
 		if not character then return end
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -240,16 +290,12 @@ local function spawnBone(center: Vector3)
 		local player = Players:GetPlayerFromCharacter(character)
 		if not player then return end
 
-		collected = true
-		-- Saved with the player's data, and shown in leaderstats and the
-		-- BoneCoins attribute for the GarageMenu.
-		Garage.addBones(player, 1, BONE_VALUE, "BoneRain")
-		bone:Destroy()
+		collect(bone, player)
 	end)
 
 	-- Cleanup timer for uncollected bones
 	task.spawn(function()
-		while bone.Parent and not collected do
+		while bone.Parent and not taken[bone] do
 			task.wait(0.5)
 			if os.clock() - spawnedAt > BONE_LIFETIME or bone.Position.Y < DESPAWN_Y then
 				bone:Destroy()
@@ -277,6 +323,7 @@ local function startBoneRain()
 	boneFolder.Parent = workspace
 
 	fireBoneRain(true)
+	carCheck = RunService.Heartbeat:Connect(pickUpWithCars)
 
 	-- Spawn the wandering Bone Trader NPC
 	spawnTrader()
@@ -299,6 +346,10 @@ end
 
 local function stopBoneRain()
 	raining = false
+	if carCheck then
+		carCheck:Disconnect()
+		carCheck = nil
+	end
 	if boneFolder then
 		boneFolder:Destroy()
 		boneFolder = nil

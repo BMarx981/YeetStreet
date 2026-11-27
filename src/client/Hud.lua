@@ -514,6 +514,7 @@ local function build(): Parts
 		if boneShown and value > boneShown then
 			boneEarned.Text = `+{withCommas(value - boneShown)}`
 			boneEarned.Visible = true
+			UiStyle.bounce(bone)
 			boneEarnedShows += 1
 			local show = boneEarnedShows
 			task.delay(H.CashEarnedTime, function()

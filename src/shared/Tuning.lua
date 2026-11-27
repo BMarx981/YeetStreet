@@ -4595,6 +4595,22 @@ Tuning.UpgradeNudge = {
 	Text = "You have {cash}! Open the GARAGE to buy an upgrade.",
 }
 
+-- Picking up bones in bone rain (DinoWeather, BonePickup). A car picks up a
+-- bone whose box is inside its hull grown by Reach on every side; on foot,
+-- touching one does. The picker hears a chime a little lower than a coin's,
+-- a step higher for each bone grabbed within StreakGap seconds of the last,
+-- and their car glows bone white for a moment.
+Tuning.BonePickup = {
+	Reach = Vector3.new(1, 2.5, 1), -- studs; Y reaches down to bones on the ground under the hull
+	Sound = { Id = Tuning.Coins.CoinSound.Id, Pitch = 0.8, Volume = 0.45 },
+	PitchStep = 0.05,
+	PitchMax = 1.4,
+	StreakGap = 2, -- seconds
+	Color = Color3.fromRGB(230, 210, 160),
+	FlashTransparency = 0.5, -- the glow's strongest, 1 is none
+	FlashTime = 0.3, -- seconds to fade out
+}
+
 -- Server-wide timed events (TimedEvents, EventService). Every server runs the
 -- same schedule from the clock: an event starts every Every seconds and lasts
 -- Duration, taking turns down Rotation. Titles name them on the HUD.
