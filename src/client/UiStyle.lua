@@ -406,6 +406,25 @@ function UiStyle.alert(button: GuiObject): TextLabel
 	return dot
 end
 
+-- Turns an alert dot into a bigger dark badge with a yellow rim holding an
+-- emoji `icon`, which a red dot would swallow, or back to the red "!" with
+-- nil.
+function UiStyle.setAlertIcon(dot: TextLabel, icon: string?)
+	local edge = dot:FindFirstChildWhichIsA("UIStroke")
+	local corner = dot:FindFirstChildWhichIsA("UICorner")
+	local size = if icon then 34 else 22
+	dot.Text = icon or "!"
+	dot.TextSize = if icon then 28 else 18
+	dot.BackgroundColor3 = if icon then UiStyle.Ink else UiStyle.Red
+	dot.Size = UDim2.fromOffset(size, size)
+	if corner then
+		corner.CornerRadius = UDim.new(0, size / 2)
+	end
+	if edge then
+		edge.Color = if icon then UiStyle.Yellow else Color3.new(1, 1, 1)
+	end
+end
+
 -- A white flash over a frame that fades away.
 function UiStyle.flash(frame: GuiObject)
 	local f = Instance.new("Frame")

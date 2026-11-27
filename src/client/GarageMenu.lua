@@ -364,7 +364,7 @@ local function build()
 	local bonesSpot = bonesTab.Position
 	local upgradesAlert = UiStyle.alert(upgradesTab)
 	local carsAlert = UiStyle.alert(carsTab)
-	carsAlert.Text = CAR_ICON
+	UiStyle.setAlertIcon(carsAlert, CAR_ICON)
 
 	local status = UiStyle.text("Status", panel, 16, false)
 	status.AnchorPoint = Vector2.new(0, 1)
@@ -1229,7 +1229,7 @@ local function build()
 			local newCar = cheapestCar()
 			for _, dot in { garageAlert, awayAlert } do
 				dot.Visible = stat ~= nil or newCar ~= nil
-				dot.Text = if newCar then CAR_ICON else "!"
+				UiStyle.setAlertIcon(dot, if newCar then CAR_ICON else nil)
 			end
 			upgradesAlert.Visible = stat ~= nil and tab ~= "Upgrades"
 			carsAlert.Visible = newCar ~= nil and tab ~= "Cars"
