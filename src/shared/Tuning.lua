@@ -142,27 +142,29 @@ Tuning.Analytics = {
 	Batched = { "BoneRain", "NearMiss", "HammerHit" },
 	BatchGap = 15,
 	-- The onboarding funnel's steps, in order. Each counts once per session,
-	-- and Roblox keeps only a player's first.
+	-- and Roblox keeps only a player's first. A step is logged only once every
+	-- step before it has been, so each must be one every player passes on the
+	-- way to the next: an optional one would hide all the steps after it.
 	Onboarding = {
 		"Joined", -- their data loaded
 		"CarSpawned",
 		"FirstDrive", -- moving at DriveSpeed on the ground
 		"FirstLaunch", -- a run starts
 		"FirstPaidRun",
-		"ReachedGarage", -- their car within Tuning.Garage.Reach of a garage
+		"OpenedGarage", -- the garage panel opened, anywhere; their client says so (GarageOpenedEvent)
 		"FirstUpgrade",
 		"FifthRun",
-		"FirstTeleport",
 		"FirstNewCar", -- bought or won
 	},
 	FifthRun = 5, -- runs in a session for the FifthRun step
 	DriveSpeed = 15, -- studs per second
-	WatchGap = 1, -- seconds between checks for FirstDrive and ReachedGarage
+	WatchGap = 1, -- seconds between checks for CarSpawned and FirstDrive
 	-- Custom event names.
 	Events = {
 		Run = "Run", -- each run that ends: park, score range, ending
 		FirstUpgrade = "FirstUpgrade", -- a player's first ever upgrade: minutes into the session, first session or not
 		FirstNewCar = "FirstNewCar",
+		FirstTeleport = "FirstTeleport", -- a player's first teleport this session: minutes into the session, first session or not
 		FlaggedRun = "FlaggedRun", -- a run that failed RunCheck: reason, park, car
 		Rebirth = "Rebirth", -- each rebirth: its number, minutes into the session, first session or not
 		TutorialSkip = "TutorialSkip", -- a new player skipped the tutorial: the step they were on

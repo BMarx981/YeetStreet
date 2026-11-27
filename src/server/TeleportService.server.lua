@@ -130,7 +130,7 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	if not movePlayerCar:Invoke(player, arrival, home) then
 		character:PivotTo(arrival + Vector3.new(0, 3, 0))
 	end
-	Analytics.reach(player, "FirstTeleport")
+	Analytics.teleported(player)
 	return true, nil
 end
 

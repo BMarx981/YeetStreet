@@ -33,8 +33,10 @@
 -- Everything shown comes from the attributes Garage sets on the player, with
 -- prices and caps worked out by the same Economy and Tuning the server uses.
 -- Purchases go to the server's RemoteFunctions, which decide; the panel only
--- reports why one failed. While the panel is open the car gets no input
--- (Controls), so a gamepad A press on a button doesn't also fire the jets.
+-- reports why one failed. The first time it opens each session it tells the
+-- server, for the onboarding funnel (GarageOpenedEvent, AnalyticsWatch).
+-- While the panel is open the car gets no input (Controls), so a gamepad A
+-- press on a button doesn't also fire the jets.
 
 local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
@@ -142,6 +144,7 @@ local away = false -- opened away from a garage: only the Upgrades, Cars and Eve
 local busy = false
 local tab: Tab = "Upgrades"
 local hint: string? = nil -- the tutorial's line, shown on the status line
+local toldOpened = false -- whether the server has heard the panel opened
 local setStatusHint: ((string?, string?) -> ())? = nil -- set once built
 
 local function withCommas(n: number): string
@@ -1073,6 +1076,13 @@ local function build()
 			away = false
 			spin.close()
 			confirm.close()
+		end
+		if value and not toldOpened then
+			toldOpened = true
+			local remote = ReplicatedStorage:FindFirstChild("GarageOpenedEvent")
+			if remote and remote:IsA("RemoteEvent") then
+				remote:FireServer()
+			end
 		end
 		if value then
 			status.Text = hint or ""

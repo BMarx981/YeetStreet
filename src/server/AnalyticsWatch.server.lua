@@ -3,10 +3,11 @@
 -- Reaches the onboarding steps (Analytics) that no other script sees:
 -- Joined once a player's data loads, then every WatchGap seconds, from the
 -- car the server sees in workspace.Cars, CarSpawned, FirstDrive once it
--- moves at DriveSpeed with a wheel on the ground, and ReachedGarage once it
--- is within Tuning.Garage.Reach of a Garage-tagged model.
+-- moves at DriveSpeed with a wheel on the ground, and OpenedGarage when the
+-- player's client says the garage panel opened (GarageOpenedEvent, sent by
+-- GarageMenu). The panel opens anywhere, only on the player's screen, and a
+-- false report can't touch cash or stats.
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -17,15 +18,6 @@ local PlayerData = require(ServerScriptService.PlayerData)
 
 local T = Tuning.Analytics
 local carsFolder = workspace:WaitForChild("Cars")
-
-local function nearGarage(position: Vector3): boolean
-	for _, garage in CollectionService:GetTagged("Garage") do
-		if garage:IsA("PVInstance") and (garage:GetPivot().Position - position).Magnitude <= Tuning.Garage.Reach then
-			return true
-		end
-	end
-	return false
-end
 
 -- Whether the hull has ground just under it, so a fall or a flight is not a drive.
 local function grounded(hull: BasePart): boolean
@@ -46,6 +38,11 @@ for _, player in Players:GetPlayers() do
 	task.spawn(onPlayerAdded, player)
 end
 
+local garageOpened = ReplicatedStorage:WaitForChild("GarageOpenedEvent") :: RemoteEvent
+garageOpened.OnServerEvent:Connect(function(player: Player)
+	Analytics.reach(player, "OpenedGarage")
+end)
+
 while true do
 	task.wait(T.WatchGap)
 	for _, car in carsFolder:GetChildren() do
@@ -56,9 +53,6 @@ while true do
 			Analytics.reach(player, "CarSpawned")
 			if hull.AssemblyLinearVelocity.Magnitude >= T.DriveSpeed and grounded(hull) then
 				Analytics.reach(player, "FirstDrive")
-			end
-			if nearGarage(hull.Position) then
-				Analytics.reach(player, "ReachedGarage")
 			end
 		end
 	end

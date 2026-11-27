@@ -9,18 +9,22 @@
 -- budget for the minute (AnalyticsEvents.spend), events are dropped, with
 -- one warning a minute.
 --
--- Callers log facts the server saw itself, never what a client reports:
+-- Callers log facts the server saw itself, never what a client reports,
+-- except for steps that happen only on a player's screen and can't touch
+-- cash or stats: the tutorial's steps (TutorialService) and the garage
+-- opening (AnalyticsWatch).
 --   gained / spent    every cash or bones change, at the line that makes it
 --   reach             an onboarding funnel step (AnalyticsEvents.reach)
 --   funnel            a step of a recurring funnel, such as an obby visit
 --   custom            a custom event, with up to three string fields
 --   ranRun, upgraded, gotCar   onboarding steps plus their custom events
+--   teleported        a player's first teleport each session
 --   flaggedRun        a run that failed RunCheck
 --   reborn            a rebirth
 -- Onboarding steps, run counts, and the session clock live in memory for
 -- this session only. Nothing here is saved. AnalyticsWatch reaches the
 -- steps no other script sees: joining, the car spawning, the first drive,
--- and reaching a garage.
+-- and opening the garage.
 
 local AnalyticsService = game:GetService("AnalyticsService")
 local Players = game:GetService("Players")
@@ -48,6 +52,7 @@ local onboarding: { [Player]: AnalyticsEvents.Onboarding } = {}
 local joinedAt: { [Player]: number } = {}
 local batches: { [Player]: AnalyticsEvents.Batch } = {}
 local runs: { [Player]: number } = {}
+local teleportedOnce: { [Player]: boolean } = {}
 
 local function warnOnce(key: string, message: string)
 	if not warned[key] then
@@ -220,6 +225,14 @@ function Analytics.gotCar(player: Player, firstEver: boolean)
 	end
 end
 
+-- The player teleported; only the first time this session is logged.
+function Analytics.teleported(player: Player)
+	if not teleportedOnce[player] then
+		teleportedOnce[player] = true
+		Analytics.custom(player, T.Events.FirstTeleport, when(player))
+	end
+end
+
 -- The player was reborn; `rebirths` is their count after it.
 function Analytics.reborn(player: Player, rebirths: number)
 	local values = when(player)
@@ -239,6 +252,7 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	flush(player)
 	batches[player] = nil
 	runs[player] = nil
+	teleportedOnce[player] = nil
 	onboarding[player] = nil
 	joinedAt[player] = nil
 end)
