@@ -118,6 +118,12 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	end
 
 	lastTeleportAt[player] = now
+	local at = character:GetPivot().Position
+	local fromArea = MapLayout.at(areas, at.X, at.Z)
+	local from = if player:GetAttribute("ObbyCheckpoint") ~= nil
+		then "Obby"
+		elseif fromArea then fromArea.Id
+		else "Roads"
 	if destination ~= OBBY then
 		ObbyService.leave(player)
 	end
@@ -130,7 +136,7 @@ local function teleport(player: Player, destination: any): (boolean, string?)
 	if not movePlayerCar:Invoke(player, arrival, home) then
 		character:PivotTo(arrival + Vector3.new(0, 3, 0))
 	end
-	Analytics.teleported(player)
+	Analytics.teleported(player, tostring(destination), from)
 	return true, nil
 end
 

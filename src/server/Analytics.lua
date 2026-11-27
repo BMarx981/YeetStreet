@@ -18,7 +18,8 @@
 --   funnel            a step of a recurring funnel, such as an obby visit
 --   custom            a custom event, with up to three string fields
 --   ranRun, upgraded, gotCar   onboarding steps plus their custom events
---   teleported        a player's first teleport each session
+--   teleported        each teleport, plus a player's first each session
+--   parkTime          a visit to a park ending, valued in minutes
 --   flaggedRun        a run that failed RunCheck
 --   reborn            a rebirth
 -- Onboarding steps, run counts, and the session clock live in memory for
@@ -225,12 +226,25 @@ function Analytics.gotCar(player: Player, firstEver: boolean)
 	end
 end
 
--- The player teleported; only the first time this session is logged.
-function Analytics.teleported(player: Player)
+-- The player teleported to `destination` from `from`. The first time this
+-- session also logs FirstTeleport.
+function Analytics.teleported(player: Player, destination: string, from: string)
+	Analytics.custom(player, T.Events.Teleport, { destination, from })
 	if not teleportedOnce[player] then
 		teleportedOnce[player] = true
 		Analytics.custom(player, T.Events.FirstTeleport, when(player))
 	end
+end
+
+-- The player's visit to `park` (an area Id, or "Obby") ended after `seconds`;
+-- `ending` is "Moved" or "Quit". Its value is the minutes, so the dashboard's
+-- sum per park is the time players spent there.
+function Analytics.parkTime(player: Player, park: string, seconds: number, ending: string)
+	local minutes = math.round(seconds / 6) / 10
+	local fields = AnalyticsEvents.fields({ park, ending })
+	send("Custom", `{T.Events.ParkTime} {park}, {ending}: {minutes} min`, function()
+		AnalyticsService:LogCustomEvent(player, T.Events.ParkTime, minutes, fields)
+	end)
 end
 
 -- The player was reborn; `rebirths` is their count after it.

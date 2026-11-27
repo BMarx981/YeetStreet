@@ -158,13 +158,19 @@ Tuning.Analytics = {
 	},
 	FifthRun = 5, -- runs in a session for the FifthRun step
 	DriveSpeed = 15, -- studs per second
-	WatchGap = 1, -- seconds between checks for CarSpawned and FirstDrive
+	WatchGap = 1, -- seconds between checks for CarSpawned, FirstDrive, and park visits
+	-- Park visits for the ParkTime event (ParkVisits, AnalyticsWatch): one
+	-- ends Grace seconds after the car was last on the ground in the park, or
+	-- when it is on the ground in another; ones under MinSeconds go unlogged.
+	ParkVisits = { MinSeconds = 20, Grace = 10 },
 	-- Custom event names.
 	Events = {
 		Run = "Run", -- each run that ends: park, score range, ending
 		FirstUpgrade = "FirstUpgrade", -- a player's first ever upgrade: minutes into the session, first session or not
 		FirstNewCar = "FirstNewCar",
 		FirstTeleport = "FirstTeleport", -- a player's first teleport this session: minutes into the session, first session or not
+		Teleport = "Teleport", -- each teleport: where to (Garage, Obby, or a park), where from (a park, Obby, or Roads)
+		ParkTime = "ParkTime", -- a park visit ending, valued in minutes so the sum is time per park: park, Moved or Quit
 		FlaggedRun = "FlaggedRun", -- a run that failed RunCheck: reason, park, car
 		Rebirth = "Rebirth", -- each rebirth: its number, minutes into the session, first session or not
 		TutorialSkip = "TutorialSkip", -- a new player skipped the tutorial: the step they were on

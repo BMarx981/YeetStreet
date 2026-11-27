@@ -108,4 +108,13 @@ Check.test("an area hanging off its lot is a problem", function()
 	Check.eq(has(problems, "Yard"), true)
 end)
 
+Check.test("at names the area a point is in, or nil between areas", function()
+	local areas = { area("A", 0, 0, 100, 100), area("B", 300, 0, 100, 100) }
+	local inA = MapLayout.at(areas, 10, -20)
+	Check.eq(inA and inA.Id, "A")
+	local inB = MapLayout.at(areas, 340, 50)
+	Check.eq(inB and inB.Id, "B", "on the edge")
+	Check.eq(MapLayout.at(areas, 150, 0), nil, "between")
+end)
+
 Check.finish("MapLayout")
