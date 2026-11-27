@@ -41,7 +41,6 @@ local function state(cars: { string }, equipped: string): Rebirth.State
 		LimitedsWorn = {},
 		Bodies = { Speed = { 7, 8 } },
 		Worn = { Speed = 7 },
-		BoneCoins = 300,
 		Bones = 60,
 	}
 end
@@ -100,9 +99,8 @@ Check.test("reset clears cash and every upgrade level", function()
 	Check.eq(after.Levels.Brakes, 0, "Brakes")
 end)
 
-Check.test("reset clears both bone counts", function()
+Check.test("reset clears the bones", function()
 	local after = Rebirth.reset(state({ "Junker", "Axolotl" }, "Axolotl"), LADDER)
-	Check.eq(after.BoneCoins, 0, "BoneCoins")
 	Check.eq(after.Bones, 0, "Bones")
 end)
 

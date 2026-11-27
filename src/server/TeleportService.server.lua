@@ -26,8 +26,8 @@ local Analytics = require(ServerScriptService.Analytics)
 local ObbyService = require(ServerScriptService.ObbyService)
 
 local GARAGE = "Garage"
--- The Bone Rain trader is also tagged Garage so the shop key opens near it,
--- but it wanders, so a "Garage" teleport never goes to it.
+-- The Bone Rain trader wanders, so a "Garage" teleport never goes to it, even
+-- if it is ever tagged Garage again.
 local BONE_TRADER = "BoneTrader"
 local OBBY = "Obby"
 -- The hull's center above the floor, the same as a car in a spawn lane.

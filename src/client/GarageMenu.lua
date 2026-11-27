@@ -18,7 +18,9 @@
 -- ground: only the Upgrades, Cars and Event tabs, no REBIRTH row. C on a
 -- keyboard and X on a gamepad open it either way, on the Upgrades tab while
 -- a level is affordable and no new car is, otherwise the Cars tab. The same
--- keys, the panel's X button, and gamepad B close it.
+-- keys, the panel's X button, and gamepad B close it. During bone rain the
+-- Bone Trader's "Trade bones" prompt (E, gamepad X, or a tap) opens it on the
+-- Bones tab, which shows anywhere near the trader.
 --
 -- While the player can afford an upgrade level on the equipped car, red "!"
 -- badges show on the GARAGE buttons and the UPGRADES tab. While they can
@@ -38,6 +40,7 @@ local CollectionService = game:GetService("CollectionService")
 local GuiService = game:GetService("GuiService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -358,6 +361,7 @@ local function build()
 	-- garage EVENT moves into LIMITEDS' spot.
 	local limitedsSpot = limitedsTab.Position
 	local eventSpot = eventTab.Position
+	local bonesSpot = bonesTab.Position
 	local upgradesAlert = UiStyle.alert(upgradesTab)
 	local carsAlert = UiStyle.alert(carsTab)
 	carsAlert.Text = CAR_ICON
@@ -798,8 +802,8 @@ local function build()
 		noLimitedsRow.frame.Visible = limitedsShown == 0
 
 		-- Bone shop tab
-		local boneCoinsVal = player:GetAttribute("BoneCoins")
-		local boneBalance = if typeof(boneCoinsVal) == "number" then boneCoinsVal else 0
+		local bonesVal = player:GetAttribute("Bones")
+		local boneBalance = if typeof(bonesVal) == "number" then bonesVal else 0
 		for _, item in Tuning.BoneShop do
 			local r = boneRows[item.Id]
 			r.detail.Text = `{item.Description} You have {boneBalance} bones.`
@@ -837,12 +841,13 @@ local function build()
 		if tab == "Bones" and not atBoneTrader then
 			tab = "Upgrades"
 		end
-		if away and (tab == "Limiteds" or tab == "Bones") then
+		if away and tab == "Limiteds" then
 			tab = "Upgrades"
 		end
-		bonesTab.Visible = atBoneTrader and not away
+		bonesTab.Visible = atBoneTrader
 		limitedsTab.Visible = not away
 		eventTab.Position = if away then limitedsSpot else eventSpot
+		bonesTab.Position = if away then eventSpot else bonesSpot
 		rebirthRow.frame.Visible = not away
 		upgradesList.Visible = tab == "Upgrades"
 		carsList.Visible = tab == "Cars"
@@ -997,7 +1002,7 @@ local function build()
 			cars = owned(),
 			rebirths = rebirths,
 			limiteds = #limitedsOwned(),
-			boneCoins = number("BoneCoins"),
+			bones = number("Bones"),
 		}
 		confirm.ask(summary, function()
 			local pay = Rebirth.payMultiplier(rebirths + 1, Tuning.Rebirth)
@@ -1152,6 +1157,37 @@ local function build()
 	awayButton.Activated:Connect(function()
 		toggleAnywhere(false)
 	end)
+
+	-- The Bone Trader's "Trade bones" prompt (DinoWeather) opens the panel on
+	-- the Bones tab, or closes it. While the prompt shows, E and gamepad X are
+	-- its keys, so they don't also open the garage. In the air E is a roll.
+	local tradePromptShown = false
+	local function isTradePrompt(prompt: ProximityPrompt): boolean
+		return prompt.Name == "TradePrompt"
+	end
+	ProximityPromptService.PromptShown:Connect(function(prompt: ProximityPrompt)
+		if isTradePrompt(prompt) then
+			tradePromptShown = true
+		end
+	end)
+	ProximityPromptService.PromptHidden:Connect(function(prompt: ProximityPrompt)
+		if isTradePrompt(prompt) then
+			tradePromptShown = false
+		end
+	end)
+	ProximityPromptService.PromptTriggered:Connect(function(prompt: ProximityPrompt)
+		if not isTradePrompt(prompt) then
+			return
+		end
+		local byGamepad = string.sub(UserInputService:GetLastInputType().Name, 1, 7) == "Gamepad"
+		if open then
+			setOpen(false, byGamepad)
+		elseif not eIsForFlying() then
+			away = not nearGarage()
+			showTab("Bones")
+			setOpen(true, byGamepad)
+		end
+	end)
 	close.Activated:Connect(function()
 		setOpen(false, false)
 	end)
@@ -1161,14 +1197,14 @@ local function build()
 			if open or nearGarage() then
 				setOpen(not open, false)
 			end
-		elseif input.KeyCode == Enum.KeyCode.E and not processed then
+		elseif input.KeyCode == Enum.KeyCode.E and not processed and not tradePromptShown then
 			if open or (nearGarage() and not eIsForFlying()) then
 				showTab("Cars")
 				setOpen(not open, false)
 			end
 		elseif input.KeyCode == Enum.KeyCode.C and not processed then
 			toggleAnywhere(false)
-		elseif input.KeyCode == Enum.KeyCode.ButtonX then
+		elseif input.KeyCode == Enum.KeyCode.ButtonX and not tradePromptShown then
 			toggleAnywhere(true)
 		elseif input.KeyCode == Enum.KeyCode.ButtonB and open then
 			setOpen(false, true)
@@ -1238,7 +1274,7 @@ local function build()
 		end
 	end)
 
-	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "BoneCoins", "Rebirths" }
+	local refreshAttrs = { "Cash", "Speed", "Jets", "Toughness", "Grip", "Brakes", "Equipped", "CarsOwned", "LimitedsOwned", "FrogCarEquipped", "HeliCarEquipped", "PlaneCarEquipped", "AxolotlEquipped", "VelociraptorEquipped", "Bones", "Rebirths" }
 	for id in bodyLists do
 		table.insert(refreshAttrs, `BodiesOwned_{id}`)
 		table.insert(refreshAttrs, `BodyWorn_{id}`)

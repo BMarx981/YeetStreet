@@ -1,18 +1,21 @@
 --!strict
 -- DinoWeather (Script) -> ServerScriptService.DinoWeather
 -- Rains dino bones from the sky when triggered by an admin via the
--- `:weather bonerain` command. Players pick them up by driving into them,
--- or touching them on foot, to earn BoneCoins (Garage.addBones), saved with
--- their data and shown in the leaderstats. A car picks up any bone inside its
+-- `:weather bonerain` command. Cars pass right through bones (CollisionGroups).
+-- Players pick them up by driving into them, or touching them on foot, one
+-- bone each (Garage.addBones), saved with their data and shown on the HUD and
+-- in the leaderstats. A car picks up any bone inside its
 -- hull grown by Tuning.BonePickup.Reach, checked every frame, so a fast car
 -- can't skip past one between physics steps. The picker's client hears and
--- sees it (BonePickupEvent, BonePickup).
+-- sees it (BonePickupEvent, BonePickup). The wandering Bone Trader has a
+-- "Trade bones" prompt that opens the garage on its Bones tab (GarageMenu).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local CollisionGroups = require(ServerScriptService.CollisionGroups)
 local Garage = require(ServerScriptService.Garage)
 local Tuning = require(ReplicatedStorage.Tuning)
 
@@ -25,7 +28,6 @@ local toggleEvent = ServerScriptService:FindFirstChild("BoneRainToggle")
 local SPAWN_INTERVAL = 0.4     -- seconds between each bone spawn
 local BONE_LIFETIME = 20       -- seconds before an uncollected bone disappears
 local BONES_PER_PLAYER = 1    -- bones spawned per interval per player
-local BONE_VALUE = 5          -- BoneCoins per bone
 local FALL_HEIGHT = 120       -- studs above the ground to spawn
 local SPAWN_RADIUS = 80       -- studs around the player to scatter bones
 local DESPAWN_Y = -50         -- bones below this Y are removed
@@ -100,10 +102,18 @@ local function spawnTrader()
 	traderNPC:PivotTo(CFrame.new(spawnPos))
 	traderNPC.Parent = workspace
 
-	-- Tag as Garage (so the shop key opens) and BoneTrader (so the shop shows
-	-- bone items instead of the regular garage)
-	CollectionService:AddTag(traderNPC, "Garage")
+	-- Tag as BoneTrader so the garage panel shows its Bones tab nearby.
 	CollectionService:AddTag(traderNPC, "BoneTrader")
+	local promptAt = traderNPC:FindFirstChild("HumanoidRootPart") or traderNPC.PrimaryPart
+	if promptAt then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "TradePrompt"
+		prompt.ActionText = "Trade bones"
+		prompt.ObjectText = "Bone Trader"
+		prompt.MaxActivationDistance = Tuning.BoneTrader.PromptRange
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = promptAt
+	end
 
 	-- Add a glow so players can spot the trader easily
 	local humanoid = traderNPC:FindFirstChildOfClass("Humanoid")
@@ -221,9 +231,9 @@ local function collect(bone: BasePart, player: Player)
 		return
 	end
 	taken[bone] = true
-	-- Saved with the player's data, and shown in leaderstats and the
-	-- BoneCoins attribute for the GarageMenu.
-	Garage.addBones(player, 1, BONE_VALUE, "BoneRain")
+	-- Saved with the player's data, and shown in leaderstats and the Bones
+	-- attribute for the GarageMenu.
+	Garage.addBones(player, 1, "BoneRain")
 	if bonePickupEvent and bonePickupEvent:IsA("RemoteEvent") then
 		bonePickupEvent:FireClient(player)
 	end
@@ -270,6 +280,7 @@ local function spawnBone(center: Vector3)
 	bone.CFrame = CFrame.new(x, y, z) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
 	bone.Anchored = false
 	bone.CanCollide = true
+	bone.CollisionGroup = CollisionGroups.Bones
 	addBoneShape(bone)
 
 	bone.Parent = boneFolder

@@ -1087,38 +1087,38 @@ Tuning.LimitedLooks = {
 	},
 }
 
--- Items sold by the Bone Trader NPC during bone rain, priced in BoneCoins
--- (the leaderstat that goes up when players collect falling bones). Each item
--- exchanges bones for cash; Stock of -1 means unlimited.
+-- Items sold by the Bone Trader NPC during bone rain, priced in bones, one
+-- for each falling bone picked up. Each item exchanges bones for cash;
+-- Stock of -1 means unlimited.
 Tuning.BoneShop = {
 	{
 		Id = "BoneCashSmall",
 		Name = "Pocket Change",
-		BonePrice = 25,
+		BonePrice = 5,
 		CashReward = 5000,
-		Description = "Swap 25 bones for $5,000 cash.",
+		Description = "Swap 5 bones for $5,000 cash.",
 		Stock = -1,
 	},
 	{
 		Id = "BoneCashMedium",
 		Name = "Bone Bundle",
-		BonePrice = 75,
+		BonePrice = 15,
 		CashReward = 20000,
-		Description = "Swap 75 bones for $20,000 cash.",
+		Description = "Swap 15 bones for $20,000 cash.",
 		Stock = -1,
 	},
 	{
 		Id = "BoneCashLarge",
 		Name = "Bone Fortune",
-		BonePrice = 150,
+		BonePrice = 30,
 		CashReward = 50000,
-		Description = "Swap 150 bones for $50,000 cash.",
+		Description = "Swap 30 bones for $50,000 cash.",
 		Stock = -1,
 	},
 	{
 		Id = "DinoMysteryBox",
 		Name = "Dino Mystery Box",
-		BonePrice = 50,
+		BonePrice = 10,
 		Mystery = true,
 		Description = "A mysterious dino egg. It hatches into a dino car you don't own yet, maybe even the mighty T-Rex!",
 		Stock = -1,
@@ -4597,7 +4597,10 @@ Tuning.UpgradeNudge = {
 
 -- Picking up bones in bone rain (DinoWeather, BonePickup). A car picks up a
 -- bone whose box is inside its hull grown by Reach on every side; on foot,
--- touching one does. The picker hears a chime a little lower than a coin's,
+-- touching one does. The picker's own client spots its car reaching a bone,
+-- hides it and plays the pickup at once, then skips the server's word for that
+-- bone if it comes within PredictWindow seconds. The picker hears a chime a
+-- little lower than a coin's,
 -- a step higher for each bone grabbed within StreakGap seconds of the last,
 -- and their car glows bone white for a moment.
 Tuning.BonePickup = {
@@ -4609,6 +4612,14 @@ Tuning.BonePickup = {
 	Color = Color3.fromRGB(230, 210, 160),
 	FlashTransparency = 0.5, -- the glow's strongest, 1 is none
 	FlashTime = 0.3, -- seconds to fade out
+	PredictWindow = 1, -- seconds
+}
+
+-- The Bone Trader that wanders during bone rain (DinoWeather): its "Trade
+-- bones" prompt shows within PromptRange studs and opens the garage on its
+-- Bones tab (GarageMenu).
+Tuning.BoneTrader = {
+	PromptRange = 25,
 }
 
 -- Server-wide timed events (TimedEvents, EventService). Every server runs the

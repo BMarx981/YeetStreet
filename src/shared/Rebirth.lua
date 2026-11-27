@@ -59,7 +59,6 @@ export type State = {
 	LimitedsWorn: { string },
 	Bodies: { [string]: { number } },
 	Worn: { [string]: number },
-	BoneCoins: number,
 	Bones: number,
 }
 
@@ -126,7 +125,6 @@ function Rebirth.reset(state: State, ladder: { Car }): State
 	table.move(kept, 1, #kept, 2, cars)
 	local after = table.clone(state)
 	after.Cash = 0
-	after.BoneCoins = 0
 	after.Bones = 0
 	after.Levels = { Speed = 0, Jets = 0, Toughness = 0, Grip = 0, Brakes = 0 }
 	after.Cars = cars

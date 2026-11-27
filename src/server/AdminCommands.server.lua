@@ -297,7 +297,7 @@ end
 local COMMAND_INFO = {
 	{ name = "kick",      desc = "Kick a player from all servers",                    usage = ":kick <player> [reason]", optionsType = "player" },
 	{ name = "money",      desc = "Give cash (or take it with a negative amount)",       usage = ":money <username|all> <amount>", optionsType = "player_amount" },
-	{ name = "bones",      desc = "Give BoneCoins to yourself, a player, or everyone",     usage = ":bones [amount] or :bones <username|all> <amount>", optionsType = "player_amount" },
+	{ name = "bones",      desc = "Give bones to yourself, a player, or everyone",         usage = ":bones [amount] or :bones <username|all> <amount>", optionsType = "player_amount" },
 	{ name = "weather",    desc = "Toggle weather on/off (multiple can stack)",         usage = ":weather <type>",               optionsType = "weather" },
 	{ name = "time",       desc = "Set the time of day everywhere",                      usage = ":time <0-24>",                  optionsType = "time" },
 	{ name = "global",     desc = "Send a global message to all servers",               usage = ":global <text>",                optionsType = "text" },
@@ -429,7 +429,7 @@ local COMMANDS = {
 			for _, p in Players:GetPlayers() do
 				Garage.giveBones(p, amount, "Admin")
 			end
-			return "Gave " .. amount .. " BoneCoins to all players."
+			return "Gave " .. amount .. " bones to all players."
 		end
 
 		local target = findPlayer(targetName)
@@ -438,7 +438,7 @@ local COMMANDS = {
 		end
 
 		Garage.giveBones(target, amount, "Admin")
-		return "Gave " .. amount .. " BoneCoins to " .. target.Name .. "."
+		return "Gave " .. amount .. " bones to " .. target.Name .. "."
 	end,
 
 	weather = function(adminPlayer, args)
@@ -888,11 +888,11 @@ local COMMANDS = {
   storm - Rain + physical lightning bolts strike the world! Very slippery (40% grip)
   snow - Snow particles, icy roads (30% grip)
   coinrain - Coins fall from the sky! Walk over them to collect $100 each (admin-only)
-  bonerain - Dino bones fall from the sky! Collect them for BoneCoins (admin-only)
+  bonerain - Dino bones fall from the sky! Collect them to trade at the Bone Trader (admin-only)
 :time <0-24> - Set the time of day everywhere
 :money <username|all> <amount> - Give cash to a specific player or everyone; a negative amount takes it away
-:bones [amount] - Give yourself BoneCoins (default 100)
-:bones <username|all> <amount> - Give BoneCoins to a specific player or everyone
+:bones [amount] - Give yourself bones (default 100)
+:bones <username|all> <amount> - Give bones to a specific player or everyone
 :frog <playerName> - Give a player the Frog Car (it can jump!)
 :givelimited <item|all> [playerName] - Give a limited (crown, goldrims, neonglow, galaxytrail, frogcar) or all of them, saved
 :obby <pad|start> [playerName] - Go to any obby pad from anywhere, as if reached (pays nothing)

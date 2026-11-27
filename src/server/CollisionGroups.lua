@@ -12,6 +12,8 @@
 --            driver, so they can never change where a car goes
 --   Trunks   tree trunks: solid to cars, but props pass through them, so
 --            coconuts shaken down fall clear of their tree
+--   Bones    bone rain bones: land on the ground, but cars and drivers pass
+--            right through them (DinoWeather picks them up)
 
 local PhysicsService = game:GetService("PhysicsService")
 
@@ -22,6 +24,7 @@ local CollisionGroups = {
 	Drivers = "Drivers",
 	Props = "Props",
 	Trunks = "Trunks",
+	Bones = "Bones",
 }
 
 PhysicsService:RegisterCollisionGroup(CollisionGroups.Cars)
@@ -30,6 +33,7 @@ PhysicsService:RegisterCollisionGroup(CollisionGroups.Shoulders)
 PhysicsService:RegisterCollisionGroup(CollisionGroups.Drivers)
 PhysicsService:RegisterCollisionGroup(CollisionGroups.Props)
 PhysicsService:RegisterCollisionGroup(CollisionGroups.Trunks)
+PhysicsService:RegisterCollisionGroup(CollisionGroups.Bones)
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Drivers, "Default", false)
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Drivers, CollisionGroups.Cars, false)
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Drivers, CollisionGroups.Wheels, false)
@@ -38,6 +42,9 @@ PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Props, CollisionGroup
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Props, CollisionGroups.Wheels, false)
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Props, CollisionGroups.Drivers, false)
 PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Trunks, CollisionGroups.Props, false)
+PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Bones, CollisionGroups.Cars, false)
+PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Bones, CollisionGroups.Wheels, false)
+PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Bones, CollisionGroups.Drivers, false)
 local G = CollisionGroups
 for _, other in { "Default", G.Cars, G.Shoulders, G.Drivers, G.Props, G.Trunks } do
 	PhysicsService:CollisionGroupSetCollidable(CollisionGroups.Shoulders, other, false)

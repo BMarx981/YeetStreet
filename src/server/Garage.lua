@@ -91,10 +91,9 @@ local function publish(player: Player, state: Economy.State)
 		end
 	end
 	player:SetAttribute("BodiesOwned_Any", table.concat(Economy.anyBodiesOwned(state), ","))
-	player:SetAttribute("BoneCoins", state.BoneCoins)
+	player:SetAttribute("Bones", state.Bones)
 	Leaderstats.value(player, "Cash").Value = state.Cash
 	Leaderstats.value(player, "Bones").Value = state.Bones
-	Leaderstats.value(player, "BoneCoins").Value = state.BoneCoins
 end
 
 -- The equipped ladder car, its stats from the player's levels, and the levels
@@ -410,7 +409,7 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 		local won = DinoBox.pick(Tuning.DinoMystery.Rewards, data.Economy.Cars, math.random()) :: DinoBox.Reward
 		table.insert(data.Economy.Cars, won.CarId)
 		publish(player, data.Economy)
-		Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.BoneCoins)
+		Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.Bones)
 		Analytics.gotCar(player, #data.Economy.Cars == 2)
 		return true, won.CarId
 	end
@@ -420,7 +419,7 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 		data.Economy.Cash += item.CashReward
 	end
 	publish(player, data.Economy)
-	Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.BoneCoins)
+	Analytics.spent(player, "Bones", "BoneShop", item.Id, item.BonePrice, data.Economy.Bones)
 	if item.CarId then
 		Analytics.gotCar(player, #data.Economy.Cars == 2)
 	else
@@ -429,27 +428,23 @@ remote("BuyBoneShop", function(player: Player, id: any): (boolean, string?)
 	return true, nil
 end)
 
--- Adds `bones` to the "Bones" count (shown on the HUD) and `coins` to the
--- "BoneCoins" currency (spent at the Bone Trader), saved with the player's
--- economy state. Bone rain pickups (DinoWeather) come through here. `reason`
--- is a source in Tuning.Analytics.
-function Garage.addBones(player: Player, bones: number, coins: number, reason: string)
+-- Adds `bones` to the player's bones (shown on the HUD, spent at the Bone
+-- Trader), saved with their economy state. Bone rain pickups (DinoWeather)
+-- come through here. `reason` is a source in Tuning.Analytics.
+function Garage.addBones(player: Player, bones: number, reason: string)
 	local data = PlayerData.get(player)
-	if not data or bones < 0 or coins <= 0 then
+	if not data or bones <= 0 then
 		return
 	end
-	data.Economy = Economy.addBones(data.Economy, bones, coins)
+	data.Economy = Economy.addBones(data.Economy, bones)
 	publish(player, data.Economy)
-	Analytics.gained(player, "Bones", reason, coins, data.Economy.BoneCoins)
+	Analytics.gained(player, "Bones", reason, bones, data.Economy.Bones)
 end
 
--- Adds `amount` bones, the same as collecting that many from bone rain:
--- both the "Bones" counter and the "BoneCoins" currency go up. Used by admin
--- commands (e.g. :bones).
+-- Adds `amount` bones, the same as collecting that many from bone rain. Used
+-- by admin commands (e.g. :bones).
 function Garage.giveBones(player: Player, amount: number, reason: string)
-	if amount > 0 then
-		Garage.addBones(player, amount, amount, reason)
-	end
+	Garage.addBones(player, amount, reason)
 end
 
 -- Grants the limited `id` without charge (Economy.giveLimited): admin

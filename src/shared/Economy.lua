@@ -78,8 +78,7 @@ export type State = {
 	LimitedsWorn: { string }, -- ids of owned limiteds with a Look that are worn
 	Bodies: { [string]: { number } }, -- by car id, the seeds bought for that car
 	Worn: { [string]: number }, -- by car id, the seed it wears; none means its own
-	BoneCoins: number, -- spent at the Bone Trader
-	Bones: number, -- bones collected, the count on the HUD
+	Bones: number, -- bones to spend at the Bone Trader, one per bone picked up
 }
 
 export type CostTuning = {
@@ -155,7 +154,6 @@ function Economy.newState(ladder: { Car }): State
 		LimitedsWorn = {},
 		Bodies = {},
 		Worn = {},
-		BoneCoins = 0,
 		Bones = 0,
 	}
 end
@@ -167,6 +165,12 @@ local function count(value: any): number
 	return 0
 end
 
+-- Saves from before 2026-11-27 kept BoneCoins, 5 for each bone picked up and
+-- what the Bone Trader spent, plus Bones, a picked-up count. Their bones to
+-- spend are now BoneCoins / OLD_BONE_COINS, rounded down. A save written
+-- since has no BoneCoins, so it is never divided again.
+local OLD_BONE_COINS = 5
+
 -- A valid state from whatever was saved. Missing or bad fields start fresh,
 -- the first car is always owned, and cars no longer on the ladder are kept
 -- but never equipped.
@@ -176,8 +180,9 @@ function Economy.reconcile(saved: any, ladder: { Car }): State
 		return state
 	end
 	state.Cash = count(saved.Cash)
-	state.BoneCoins = math.floor(count(saved.BoneCoins))
-	state.Bones = math.floor(count(saved.Bones))
+	state.Bones = if saved.BoneCoins ~= nil
+		then math.floor(count(saved.BoneCoins) / OLD_BONE_COINS)
+		else math.floor(count(saved.Bones))
 	local levels = if typeof(saved.Levels) == "table" then saved.Levels else {}
 	state.Levels = {
 		Speed = math.floor(count(levels.Speed)),
@@ -688,22 +693,20 @@ function Economy.wearBody(
 	return after, nil
 end
 
--- The state after collecting `bones` bones worth `coins` BoneCoins.
-function Economy.addBones(state: State, bones: number, coins: number): State
+-- The state after picking up `bones` bones.
+function Economy.addBones(state: State, bones: number): State
 	local after = table.clone(state)
 	after.Bones += bones
-	after.BoneCoins += coins
 	return after
 end
 
--- The state after spending `price` BoneCoins. Fails with "NotEnoughBones".
--- The Bones count stays: it counts bones collected.
+-- The state after spending `price` bones. Fails with "NotEnoughBones".
 function Economy.spendBones(state: State, price: number): (State?, string?)
-	if state.BoneCoins < price then
+	if state.Bones < price then
 		return nil, "NotEnoughBones"
 	end
 	local after = table.clone(state)
-	after.BoneCoins -= price
+	after.Bones -= price
 	return after, nil
 end
 
