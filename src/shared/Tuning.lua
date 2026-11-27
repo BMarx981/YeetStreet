@@ -36,6 +36,7 @@ Tuning.Cash = {
 	PerPoint = 1,
 	-- For development: in Studio only, each player's cash is topped up to this
 	-- when they join. 0 turns it off. Studio saves to the same store as the game.
+	-- Skipped while a :fresh start is on, so it plays like a new player.
 	StudioCash = 1_000_000,
 }
 

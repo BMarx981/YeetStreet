@@ -316,6 +316,16 @@ local COMMAND_INFO = {
 	{ name = "dino",       desc = "Toggle Dino Valley on/off",                        usage = ":dino",                         optionsType = "none" },
 	{ name = "event",      desc = "Start a timed event now in this server, or stop it", usage = ":event <mega|bonerain|stop>",   optionsType = "text" },
 	{ name = "tornado",    desc = "Drop a tornado at your car, in this server",          usage = ":tornado",                      optionsType = "none" },
+	{ name = "fresh",      desc = "Studio only: play as a brand new player, or put your old save back", usage = ":fresh [back]", optionsType = "text" },
+}
+
+-- What :fresh says when PlayerData.studioFresh refuses.
+local FRESH_PROBLEMS = {
+	NotStudio = ":fresh only works in Studio.",
+	NotLoaded = "Your data hasn't loaded yet.",
+	NotSaving = "Studio can't reach the DataStore (turn on API access), so there's no save to swap.",
+	NoBackup = "There's no old save to put back.",
+	SaveFailed = "Couldn't save. Nothing was changed for good; try again.",
 }
 
 -- Dino Valley's park folder, kept by the :dino command so the park can be
@@ -834,6 +844,32 @@ local COMMANDS = {
 		return "Tornado touching down on you. Stay put to get caught."
 	end,
 
+	-- Studio only: sets the admin's own Studio save aside and starts them over
+	-- as a brand new player, for testing the tutorial and first upgrades, or
+	-- puts the old save back with :fresh back. Studio saves never touch live
+	-- ones. The admin is kicked so the next Play loads it everywhere.
+	fresh = function(adminPlayer, args)
+		local word = string.lower(string.match(args, "%S+") or "")
+		if word ~= "" and word ~= "back" then
+			return "Usage: :fresh [back]"
+		end
+		local back = word == "back"
+		local PlayerData = require(game:GetService("ServerScriptService").PlayerData)
+		local ok, reason = PlayerData.studioFresh(adminPlayer, back)
+		if not ok then
+			return FRESH_PROBLEMS[reason] or ("Couldn't do that: " .. tostring(reason))
+		end
+		local done = if back
+			then "Your old Studio save is back."
+			else "You're a brand new player. Your old Studio save is kept; :fresh back restores it."
+		task.delay(2, function()
+			if adminPlayer.Parent then
+				adminPlayer:Kick(done .. " Stop and press Play again.")
+			end
+		end)
+		return done .. " Stop and press Play again to load it."
+	end,
+
 	cmd = function(adminPlayer, args)
 		-- Send the live command list to the admin's client
 		commandListEvent:FireClient(adminPlayer, COMMAND_INFO)
@@ -863,6 +899,7 @@ local COMMANDS = {
 :dino - Toggle Dino Valley on/off (removes and restores the whole park)
 :event <mega|bonerain|stop> - Start a timed event now in this server, or stop it
 :tornado - Drop a tornado at your car, in this server
+:fresh [back] - Studio only: play as a brand new player, or put your old save back
 :promote <playerName> - Make a player an admin (gives them the admin command bar)
 :global <text> - Send a global message to all servers
 :cmd - Show the interactive command list

@@ -74,6 +74,7 @@ type Session = {
 	data: Data,
 	saves: boolean, -- false when the load failed: this data is never written
 	new: boolean, -- true when the player had no saved record
+	studioFresh: boolean, -- in Studio, a :fresh backup is set aside (studioFresh)
 }
 
 local PlayerData = {}
@@ -105,6 +106,19 @@ local creditStore = if storeOk then DataStoreService:GetDataStore(CREDIT_STORE_N
 
 local function key(player: Player): string
 	return `Player_{player.UserId}`
+end
+
+local function backupKey(player: Player): string
+	return `Backup_{player.UserId}`
+end
+
+-- Whether a :fresh backup is set aside for the player. Studio only.
+local function hasBackup(player: Player): boolean
+	if not (storeOk and RunService:IsStudio()) then
+		return false
+	end
+	local ok, saved = pcall(store.GetAsync, store, backupKey(player))
+	return ok and saved ~= nil
 end
 
 local function reconcile(saved: any): Data
@@ -203,6 +217,7 @@ local function onPlayerAdded(player: Player)
 		data = reconcile(saved),
 		saves = claimed,
 		new = claimed and saved == nil,
+		studioFresh = claimed and hasBackup(player),
 	}
 	if not player.Parent or leaving[player] then
 		save(player, session, true)
@@ -247,6 +262,66 @@ end
 function PlayerData.isNew(player: Player): boolean
 	local session = sessions[player]
 	return session ~= nil and session.new
+end
+
+-- For testing in Studio only (the :fresh admin command). Sets the player's
+-- save aside under Backup_<UserId> and starts them over as a brand new
+-- player, or with `back`, puts that backup back and deletes it. A second
+-- fresh start keeps the first backup, so the real save is never lost. Saves
+-- at once; the rest of the game only sees it after the player rejoins.
+-- Returns whether it worked and, if not, why: "NotStudio", "NotLoaded",
+-- "NotSaving" (no DataStore), "NoBackup", "SaveFailed", or a DataStore error.
+-- Yields.
+function PlayerData.studioFresh(player: Player, back: boolean): (boolean, string?)
+	if not RunService:IsStudio() then
+		return false, "NotStudio"
+	end
+	local session = sessions[player]
+	if not session then
+		return false, "NotLoaded"
+	end
+	if not session.saves then
+		return false, "NotSaving"
+	end
+	if back then
+		local ok, saved = pcall(store.GetAsync, store, backupKey(player))
+		if not ok then
+			return false, tostring(saved)
+		end
+		if saved == nil then
+			return false, "NoBackup"
+		end
+		session.data = reconcile(saved)
+		if not save(player, session, false) then
+			return false, "SaveFailed"
+		end
+		local removed, err = pcall(store.RemoveAsync, store, backupKey(player))
+		if not removed then
+			warn(`PlayerData: restored {player.Name}'s backup but couldn't delete it ({err})`)
+		end
+		return true, nil
+	end
+	local current = session.data
+	local ok, err = pcall(function()
+		store:UpdateAsync(backupKey(player), function(old: any): any
+			-- Returning nil leaves an earlier backup as it is.
+			return if old == nil then current else nil
+		end)
+	end)
+	if not ok then
+		return false, tostring(err)
+	end
+	session.data = reconcile(nil)
+	if not save(player, session, false) then
+		return false, "SaveFailed"
+	end
+	return true, nil
+end
+
+-- Whether the player joined on a :fresh start (studioFresh) in Studio.
+function PlayerData.isStudioFresh(player: Player): boolean
+	local session = sessions[player]
+	return session ~= nil and session.studioFresh
 end
 
 -- Adds `friendId` to `inviterId`'s invite credits. Returns whether it saved.

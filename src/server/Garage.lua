@@ -503,7 +503,7 @@ local function onPlayerAdded(player: Player)
 	Leaderstats.value(player, "Cash")
 	local data = PlayerData.waitFor(player)
 	if data then
-		if RunService:IsStudio() then
+		if RunService:IsStudio() and not PlayerData.isStudioFresh(player) then
 			data.Economy.Cash = math.max(data.Economy.Cash, Tuning.Cash.StudioCash)
 		end
 		publish(player, data.Economy)
